@@ -27,7 +27,6 @@ import {
 } from "lucide-react";
 import { CtaSection } from "@/components/marketing/cta-section";
 import featuresContent from "@/app/(marketing)/content/features.json";
-import landingContent from "@/app/(marketing)/content/landing.json";
 
 interface Feature {
   id: string;
@@ -165,7 +164,7 @@ export function FeaturesPageClient() {
         </section>
       ))}
 
-      <CtaSection content={landingContent.cta} />
+      <CtaSection />
     </div>
   );
 }

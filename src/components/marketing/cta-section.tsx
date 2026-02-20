@@ -2,51 +2,34 @@
 
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { ArrowRight } from "lucide-react";
-import { Button } from "@/components/ui/button";
 
-interface CtaContent {
-  headline: string;
-  subheadline: string;
-  buttonText: string;
-  footnote: string;
-}
-
-export function CtaSection({ content }: { content: CtaContent }) {
+export function CtaSection() {
   return (
-    <section className="py-24 lg:py-32">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+    <section className="py-32 lg:py-40 border-t border-white/[0.04]">
+      <div className="mx-auto max-w-5xl px-6">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-100px" }}
           transition={{ duration: 0.5 }}
-          className="relative rounded-2xl border border-orbit-accent/20 bg-gradient-to-br from-orbit-accent/[0.06] via-card to-card p-12 lg:p-16 text-center overflow-hidden"
+          className="text-center"
         >
-          {/* Background glow */}
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-orbit-accent/10 rounded-full blur-3xl" />
-
-          <div className="relative z-10">
-            <h2 className="text-3xl sm:text-4xl font-bold tracking-tight">
-              {content.headline}
-            </h2>
-            <p className="mt-4 text-lg text-muted-foreground max-w-xl mx-auto">
-              {content.subheadline}
+          <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight">
+            Ready to ship with confidence?
+          </h2>
+          <p className="mt-6 text-lg text-muted-foreground max-w-md mx-auto">
+            Get started in under 2 minutes. Connect your repo and let Orbit handle the rest.
+          </p>
+          <div className="mt-10 flex flex-col items-center gap-3">
+            <Link
+              href="/login"
+              className="inline-flex items-center justify-center font-medium bg-primary text-primary-foreground px-8 py-4 rounded-full text-base hover:bg-primary/90 transition-all duration-300 hover:shadow-glow"
+            >
+              Start Testing Free
+            </Link>
+            <p className="text-xs text-muted-foreground/50">
+              No credit card required. 100 free test runs/month.
             </p>
-            <div className="mt-8 flex flex-col items-center gap-3">
-              <Link href="/login">
-                <Button
-                  size="lg"
-                  className="bg-orbit-accent hover:bg-orbit-accent/90 text-white h-12 px-10 text-base"
-                >
-                  {content.buttonText}
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              </Link>
-              <p className="text-sm text-muted-foreground">
-                {content.footnote}
-              </p>
-            </div>
           </div>
         </motion.div>
       </div>

@@ -4,7 +4,6 @@ import { motion } from "framer-motion";
 import { PricingSection } from "@/components/marketing/pricing-section";
 import { CtaSection } from "@/components/marketing/cta-section";
 import pricingContent from "@/app/(marketing)/content/pricing.json";
-import landingContent from "@/app/(marketing)/content/landing.json";
 
 export function PricingPageClient() {
   return (
@@ -89,7 +88,7 @@ export function PricingPageClient() {
         </div>
       </section>
 
-      <CtaSection content={landingContent.cta} />
+      <CtaSection />
     </div>
   );
 }

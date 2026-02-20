@@ -5,96 +5,96 @@
 @layer base {
   :root {
     --background: 0 0% 100%;
-    --foreground: 240 10% 3.9%;
+    --foreground: 236 22% 10%;
     --card: 0 0% 100%;
-    --card-foreground: 240 10% 3.9%;
+    --card-foreground: 236 22% 10%;
     --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 3.9%;
-    --primary: 240 5.9% 10%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 240 4.8% 95.9%;
-    --secondary-foreground: 240 5.9% 10%;
-    --muted: 240 4.8% 95.9%;
-    --muted-foreground: 240 3.8% 46.1%;
-    --accent: 240 4.8% 95.9%;
-    --accent-foreground: 240 5.9% 10%;
-    --destructive: 0 84.2% 60.2%;
+    --popover-foreground: 236 22% 10%;
+    --primary: 353 87% 54%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 219 16% 95%;
+    --secondary-foreground: 236 22% 10%;
+    --muted: 219 16% 95%;
+    --muted-foreground: 219 16% 46%;
+    --accent: 219 16% 95%;
+    --accent-foreground: 236 22% 10%;
+    --destructive: 346 100% 42%;
     --destructive-foreground: 0 0% 98%;
-    --border: 240 5.9% 90%;
-    --input: 240 5.9% 90%;
-    --ring: 240 5.9% 10%;
+    --border: 219 16% 90%;
+    --input: 219 16% 90%;
+    --ring: 353 87% 54%;
     --radius: 0.5rem;
 
     --orbit-surface-0: 0 0% 100%;
-    --orbit-surface-1: 240 4.8% 97%;
-    --orbit-surface-2: 240 4.8% 95.9%;
-    --orbit-surface-3: 240 4.8% 92%;
-    --orbit-surface-4: 240 4.8% 88%;
-    --orbit-glow: 239 84% 67%;
+    --orbit-surface-1: 219 16% 97%;
+    --orbit-surface-2: 219 16% 95%;
+    --orbit-surface-3: 219 16% 92%;
+    --orbit-surface-4: 219 16% 88%;
+    --orbit-glow: 353 87% 54%;
     --orbit-success: 160 84% 39%;
     --orbit-warning: 38 92% 50%;
-    --orbit-error: 0 84% 60%;
+    --orbit-error: 346 100% 42%;
     --orbit-info: 199 89% 48%;
     --orbit-pass: 160 84% 39%;
-    --orbit-fail: 0 84% 60%;
+    --orbit-fail: 0 72% 51%;
     --orbit-flaky: 38 92% 50%;
-    --orbit-untested: 240 4% 46%;
-    --orbit-accent: 239 84% 67%;
+    --orbit-untested: 219 16% 46%;
+    --orbit-accent: 353 87% 54%;
     --orbit-amber: 36 96% 53%;
   }
 
   /* ═══════════════════════════════════════════════════
      ORBIT MISSION CONTROL — Dark Theme
-     Deep indigo-tinted surfaces with electric primary
+     Deep Space Indigo surfaces with Punch Red primary
      and solar amber accents. Data-dense but calm.
      ═══════════════════════════════════════════════════ */
   .dark {
     /* Core semantic tokens */
-    --background: 234 47% 3.5%;
-    --foreground: 226 20% 94%;
-    --card: 234 35% 6.5%;
-    --card-foreground: 226 20% 94%;
-    --popover: 234 38% 8%;
-    --popover-foreground: 226 20% 94%;
-    --primary: 239 84% 67%;
+    --background: 236 32% 4%;
+    --foreground: 200 27% 94%;
+    --card: 236 26% 7%;
+    --card-foreground: 200 27% 94%;
+    --popover: 236 28% 8.5%;
+    --popover-foreground: 200 27% 94%;
+    --primary: 353 87% 54%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 234 25% 11%;
-    --secondary-foreground: 226 20% 88%;
-    --muted: 234 20% 13%;
-    --muted-foreground: 226 12% 50%;
-    --accent: 234 22% 15%;
-    --accent-foreground: 226 20% 94%;
-    --destructive: 0 72% 51%;
+    --secondary: 236 22% 12%;
+    --secondary-foreground: 200 27% 88%;
+    --muted: 236 18% 14%;
+    --muted-foreground: 219 16% 50%;
+    --accent: 236 18% 16%;
+    --accent-foreground: 200 27% 94%;
+    --destructive: 346 100% 42%;
     --destructive-foreground: 0 0% 98%;
-    --border: 234 18% 12%;
-    --input: 234 18% 14%;
-    --ring: 239 84% 67%;
+    --border: 236 16% 13%;
+    --input: 236 16% 15%;
+    --ring: 353 87% 54%;
 
-    /* 5-level surface system — indigo-tinted, not gray */
-    --orbit-surface-0: 234 47% 3.5%;
-    --orbit-surface-1: 234 35% 6.5%;
-    --orbit-surface-2: 234 30% 9%;
-    --orbit-surface-3: 234 25% 12%;
-    --orbit-surface-4: 234 22% 15%;
-    --surface: 234 30% 9%;
+    /* 5-level surface system — Space Indigo tinted, not gray */
+    --orbit-surface-0: 236 32% 4%;
+    --orbit-surface-1: 236 26% 7%;
+    --orbit-surface-2: 236 22% 10%;
+    --orbit-surface-3: 236 20% 13.5%;
+    --orbit-surface-4: 236 18% 17%;
+    --surface: 236 22% 10%;
 
     /* Primary glow for interactive focus states */
-    --orbit-glow: 239 84% 67%;
+    --orbit-glow: 353 87% 54%;
 
-    /* Semantic status colors — harmonized with indigo base */
+    /* Semantic status colors — harmonized with Space Indigo base */
     --orbit-success: 160 84% 39%;
     --orbit-warning: 36 96% 53%;
-    --orbit-error: 0 72% 51%;
+    --orbit-error: 346 100% 42%;
     --orbit-info: 199 89% 48%;
 
     /* Test status colors */
     --orbit-pass: 160 84% 39%;
     --orbit-fail: 0 72% 51%;
     --orbit-flaky: 36 96% 53%;
-    --orbit-untested: 226 12% 36%;
+    --orbit-untested: 219 16% 36%;
 
-    /* Brand accent — electric indigo (same as primary) */
-    --orbit-accent: 239 84% 67%;
+    /* Brand accent — Punch Red (same as primary) */
+    --orbit-accent: 353 87% 54%;
 
     /* Solar amber — warm CTA / highlight color */
     --orbit-amber: 36 96% 53%;
@@ -111,26 +111,26 @@
 
   /* Text hierarchy on dark backgrounds */
   .dark .text-primary-95 {
-    color: hsl(226 20% 94% / 0.95);
+    color: hsl(200 27% 94% / 0.95);
   }
   .dark .text-secondary-70 {
-    color: hsl(226 20% 94% / 0.70);
+    color: hsl(200 27% 94% / 0.70);
   }
   .dark .text-tertiary-50 {
-    color: hsl(226 20% 94% / 0.50);
+    color: hsl(200 27% 94% / 0.50);
   }
   .dark .text-disabled-30 {
-    color: hsl(226 20% 94% / 0.30);
+    color: hsl(200 27% 94% / 0.30);
   }
 
   /* Selection styling */
   .dark ::selection {
-    background: hsl(239 84% 67% / 0.3);
+    background: hsl(353 87% 54% / 0.25);
   }
 }
 
 /* ═══════════════════════════════════════════════════
-   SURFACE LAYERS — Borderless hierarchy via tint
+   SURFACE LAYERS -- Borderless hierarchy via tint
    ═══════════════════════════════════════════════════ */
 @layer utilities {
   .surface-0 {
@@ -162,11 +162,11 @@
     background: transparent;
   }
   .dark ::-webkit-scrollbar-thumb {
-    background: hsl(234 18% 18%);
+    background: hsl(236 18% 20%);
     border-radius: 3px;
   }
   .dark ::-webkit-scrollbar-thumb:hover {
-    background: hsl(234 18% 26%);
+    background: hsl(236 18% 28%);
   }
 }
 

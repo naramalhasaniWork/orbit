@@ -41,6 +41,13 @@ let tsLanguage: import("web-tree-sitter").Language | null = null;
 let jsLanguage: import("web-tree-sitter").Language | null = null;
 let treeSitterAvailable: boolean | null = null;
 
+async function resolveWasmPath(packagePath: string): Promise<string> {
+  // Use createRequire to resolve paths at runtime, avoiding webpack static analysis
+  const { createRequire } = await import("node:module");
+  const nodeRequire = createRequire(import.meta.url);
+  return nodeRequire.resolve(packagePath);
+}
+
 async function getParser(
   isTypeScript: boolean
 ): Promise<import("web-tree-sitter").Parser | null> {
@@ -55,16 +62,12 @@ async function getParser(
     }
 
     if (isTypeScript && !tsLanguage) {
-      const wasmPath = require.resolve(
-        "tree-sitter-wasms/out/tree-sitter-typescript.wasm"
-      );
+      const wasmPath = await resolveWasmPath("tree-sitter-wasms/out/tree-sitter-typescript.wasm");
       tsLanguage = await Language.load(wasmPath);
     }
 
     if (!isTypeScript && !jsLanguage) {
-      const wasmPath = require.resolve(
-        "tree-sitter-wasms/out/tree-sitter-javascript.wasm"
-      );
+      const wasmPath = await resolveWasmPath("tree-sitter-wasms/out/tree-sitter-javascript.wasm");
       jsLanguage = await Language.load(wasmPath);
     }
 

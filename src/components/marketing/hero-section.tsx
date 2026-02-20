@@ -2,113 +2,174 @@
 
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { ArrowRight, Play } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { AnimatedSystemMap } from "./animated-system-map";
 
-interface HeroContent {
-  headline: string;
-  subheadline: string;
-  cta: string;
-  cta_secondary: string;
-  social_proof_bar: {
-    text: string;
-    stats: Array<{ value: string; label: string }>;
-  };
+const ease = [0.21, 0.47, 0.32, 0.98];
+
+function SystemMapMockup() {
+  const nodes = [
+    { x: 50, y: 30, r: 6, color: "var(--orbit-pass)", label: "/dashboard" },
+    { x: 25, y: 55, r: 5, color: "var(--orbit-pass)", label: "/api/auth" },
+    { x: 75, y: 55, r: 5, color: "var(--orbit-fail)", label: "/checkout" },
+    { x: 15, y: 80, r: 4, color: "var(--orbit-pass)", label: "UserModel" },
+    { x: 45, y: 80, r: 4, color: "var(--orbit-flaky)", label: "/settings" },
+    { x: 85, y: 80, r: 4, color: "var(--orbit-pass)", label: "PaymentAPI" },
+    { x: 60, y: 15, r: 3, color: "var(--orbit-untested)", label: "Navbar" },
+    { x: 35, y: 15, r: 3, color: "var(--orbit-pass)", label: "Sidebar" },
+  ];
+
+  const edges = [
+    [0, 1], [0, 2], [1, 3], [1, 4], [2, 5], [0, 6], [0, 7],
+  ];
+
+  return (
+    <div className="relative w-full aspect-[4/3] rounded-xl surface-1 border border-white/[0.06] overflow-hidden">
+      {/* Header bar */}
+      <div className="flex items-center gap-2 px-4 py-3 border-b border-white/[0.06]">
+        <div className="flex gap-1.5">
+          <span className="w-2.5 h-2.5 rounded-full bg-white/10" />
+          <span className="w-2.5 h-2.5 rounded-full bg-white/10" />
+          <span className="w-2.5 h-2.5 rounded-full bg-white/10" />
+        </div>
+        <span className="text-[10px] text-muted-foreground ml-2 font-mono">System Map</span>
+        <div className="ml-auto flex items-center gap-3">
+          <span className="text-[9px] text-muted-foreground/60">12 routes</span>
+          <span className="text-[9px] text-muted-foreground/60">8 components</span>
+          <span className="text-[9px] text-muted-foreground/60">4 APIs</span>
+        </div>
+      </div>
+
+      {/* Graph area */}
+      <svg viewBox="0 0 100 100" className="w-full h-full p-4" preserveAspectRatio="xMidYMid meet">
+        {/* Edges */}
+        {edges.map(([from, to], i) => (
+          <motion.line
+            key={`e-${i}`}
+            x1={nodes[from].x} y1={nodes[from].y}
+            x2={nodes[to].x} y2={nodes[to].y}
+            stroke="hsl(var(--muted-foreground) / 0.15)"
+            strokeWidth="0.3"
+            initial={{ pathLength: 0, opacity: 0 }}
+            animate={{ pathLength: 1, opacity: 1 }}
+            transition={{ duration: 0.8, delay: 0.8 + i * 0.08, ease }}
+          />
+        ))}
+
+        {/* Nodes */}
+        {nodes.map((node, i) => (
+          <motion.g key={`n-${i}`}>
+            <motion.circle
+              cx={node.x} cy={node.y} r={node.r}
+              fill={`hsl(${node.color})`}
+              opacity={0.85}
+              initial={{ scale: 0, opacity: 0 }}
+              animate={{ scale: 1, opacity: 0.85 }}
+              transition={{ duration: 0.4, delay: 0.5 + i * 0.1, ease }}
+            />
+            <motion.circle
+              cx={node.x} cy={node.y} r={node.r + 2}
+              fill="none"
+              stroke={`hsl(${node.color} / 0.3)`}
+              strokeWidth="0.3"
+              initial={{ scale: 0, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ duration: 0.4, delay: 0.6 + i * 0.1, ease }}
+            />
+          </motion.g>
+        ))}
+      </svg>
+
+      {/* Legend */}
+      <div className="absolute bottom-3 left-4 flex items-center gap-3">
+        {[
+          { color: "var(--orbit-pass)", label: "Pass" },
+          { color: "var(--orbit-fail)", label: "Fail" },
+          { color: "var(--orbit-flaky)", label: "Flaky" },
+        ].map((item) => (
+          <span key={item.label} className="flex items-center gap-1">
+            <span className="w-1.5 h-1.5 rounded-full" style={{ background: `hsl(${item.color})` }} />
+            <span className="text-[9px] text-muted-foreground/60">{item.label}</span>
+          </span>
+        ))}
+      </div>
+    </div>
+  );
 }
 
-export function HeroSection({ content }: { content: HeroContent }) {
+export function HeroSection() {
   return (
-    <section className="relative min-h-[90vh] flex items-center overflow-hidden">
-      {/* Animated System Map background */}
-      <AnimatedSystemMap className="absolute inset-0 opacity-40" />
+    <section className="relative min-h-screen flex items-center overflow-hidden pt-16">
+      <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] bg-primary/[0.03] rounded-full blur-[100px] pointer-events-none" />
 
-      {/* Gradient overlays */}
-      <div className="absolute inset-0 bg-gradient-to-b from-background/80 via-background/40 to-background" />
-      <div className="absolute inset-0 bg-gradient-to-r from-background/60 via-transparent to-background/60" />
-
-      <div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-24 lg:py-32">
-        <div className="max-w-3xl">
-          {/* Badge */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5 }}
-          >
-            <span className="inline-flex items-center gap-2 rounded-full border border-orbit-accent/30 bg-orbit-accent/10 px-4 py-1.5 text-xs font-medium text-orbit-accent">
-              <span className="h-1.5 w-1.5 rounded-full bg-orbit-accent animate-pulse-glow" />
-              AI-Native Testing Platform
-            </span>
-          </motion.div>
-
-          {/* Headline */}
-          <motion.h1
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.1 }}
-            className="mt-6 text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight leading-[1.1]"
-          >
-            {content.headline}
-          </motion.h1>
-
-          {/* Subheadline */}
-          <motion.p
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.2 }}
-            className="mt-6 text-lg sm:text-xl text-muted-foreground leading-relaxed max-w-2xl"
-          >
-            {content.subheadline}
-          </motion.p>
-
-          {/* CTAs */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.3 }}
-            className="mt-8 flex flex-col sm:flex-row gap-3"
-          >
-            <Link href="/login">
-              <Button
-                size="lg"
-                className="bg-orbit-accent hover:bg-orbit-accent/90 text-white h-12 px-8 text-base"
-              >
-                {content.cta}
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
-            </Link>
-            <Button
-              variant="outline"
-              size="lg"
-              className="h-12 px-8 text-base border-border/60"
+      <div className="relative z-10 mx-auto max-w-6xl px-6 py-24 lg:py-32 w-full">
+        <div className="grid lg:grid-cols-2 gap-16 lg:gap-20 items-center">
+          <div>
+            <motion.p
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.6, ease }}
+              className="text-[13px] font-medium text-primary tracking-widest uppercase mb-6"
             >
-              <Play className="mr-2 h-4 w-4" />
-              {content.cta_secondary}
-            </Button>
-          </motion.div>
+              AI-Native Testing Platform
+            </motion.p>
 
-          {/* Social proof stats */}
+            <motion.h1
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.05, ease }}
+              className="text-4xl sm:text-5xl lg:text-[3.5rem] font-bold tracking-tight leading-[1.08]"
+            >
+              Ship faster.
+              <br />
+              <span className="text-muted-foreground">Break nothing.</span>
+            </motion.h1>
+
+            <motion.p
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.12, ease }}
+              className="mt-6 text-lg text-muted-foreground leading-relaxed max-w-lg"
+            >
+              Orbit connects to your repo, understands your code, and runs tests
+              autonomously. No test scripts. No maintenance. Just coverage.
+            </motion.p>
+
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.8, delay: 0.2, ease }}
+              className="mt-10 flex flex-wrap items-center gap-4"
+            >
+              <Link
+                href="/login"
+                className="inline-flex items-center justify-center font-medium bg-primary text-primary-foreground px-7 py-3.5 rounded-full text-[15px] hover:bg-primary/90 transition-all duration-300 hover:shadow-glow"
+              >
+                Get Started Free
+              </Link>
+              <Link
+                href="/features"
+                className="inline-flex items-center justify-center font-medium text-muted-foreground hover:text-foreground px-7 py-3.5 rounded-full text-[15px] border border-white/[0.08] hover:border-white/[0.15] transition-all duration-300"
+              >
+                See How It Works
+              </Link>
+            </motion.div>
+
+            <motion.p
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.6, delay: 0.4, ease }}
+              className="mt-6 text-xs text-muted-foreground/50"
+            >
+              Free for up to 100 test runs/month. No credit card required.
+            </motion.p>
+          </div>
+
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.5 }}
-            className="mt-16 flex flex-col sm:flex-row items-start sm:items-center gap-6 sm:gap-10"
+            initial={{ opacity: 0, scale: 0.96 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 1, delay: 0.3, ease }}
+            className="relative hidden lg:block"
           >
-            <p className="text-sm text-muted-foreground">
-              {content.social_proof_bar.text}
-            </p>
-            <div className="flex gap-8">
-              {content.social_proof_bar.stats.map((stat) => (
-                <div key={stat.label}>
-                  <div className="text-2xl font-bold text-orbit-accent">
-                    {stat.value}
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    {stat.label}
-                  </div>
-                </div>
-              ))}
-            </div>
+            <SystemMapMockup />
           </motion.div>
         </div>
       </div>

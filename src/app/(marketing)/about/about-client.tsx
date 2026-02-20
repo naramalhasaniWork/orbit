@@ -10,7 +10,7 @@ import {
 } from "lucide-react";
 import { CtaSection } from "@/components/marketing/cta-section";
 import aboutContent from "@/app/(marketing)/content/about.json";
-import landingContent from "@/app/(marketing)/content/landing.json";
+
 
 const ICON_MAP: Record<string, LucideIcon> = {
   Plug,
@@ -130,7 +130,7 @@ export function AboutPageClient() {
         </div>
       </section>
 
-      <CtaSection content={landingContent.cta} />
+      <CtaSection />
     </div>
   );
 }
