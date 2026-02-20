@@ -7,7 +7,7 @@ RUN corepack enable && corepack prepare pnpm@9.15.4 --activate
 FROM base AS deps
 WORKDIR /app
 
-COPY package.json pnpm-lock.yaml ./
+COPY package.json pnpm-lock.yaml .npmrc ./
 RUN pnpm install --frozen-lockfile
 
 # --- Builder ---
@@ -41,18 +41,21 @@ COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# Copy Prisma schema and generated client (custom output path needs explicit copy)
+# Copy Prisma schema, migrations, config, and generated client
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
 COPY --from=builder /app/src/generated/prisma ./src/generated/prisma
 
-# Create storage directories for local artifact storage
+# Copy Prisma CLI for runtime migrations
+COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
+COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
+
+# Create storage directories
 RUN mkdir -p /data/storage /tmp/orbit-storage && chown -R nextjs:nodejs /data/storage /tmp/orbit-storage
 
 USER nextjs
 
 EXPOSE 3000
 
-# Note: For non-Railway deploys, run `prisma migrate deploy` before starting
-# Railway uses nixpacks (railway.toml) which handles migrations in the build step
-CMD ["node", "server.js"]
+# Run migrations at startup (has DATABASE_URL), then start the server
+CMD ["sh", "-c", "npx prisma migrate deploy && node server.js"]

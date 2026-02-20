@@ -1,8 +1,0 @@
-[phases.setup]
-nixPkgs = ["nodejs_20"]
-
-[phases.install]
-cmds = ["corepack enable && corepack prepare pnpm@9.15.4 --activate && pnpm install --frozen-lockfile"]
-
-[phases.build]
-cmds = ["pnpm prisma generate", "pnpm prisma migrate deploy", "pnpm build"]
