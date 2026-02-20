@@ -49,7 +49,7 @@ Orbit is an AI-native testing platform that combines deep code-awareness (like C
 - **Auth:** NextAuth v4 with GitHub OAuth, JWT strategy, auto workspace provisioning
 - **UI:** shadcn/ui (New York style), react-force-graph-2d for System Map, Geist font
 - **Testing:** Vitest (162 tests, 14 files)
-- **Deployment:** Railway (Dockerfile or nixpacks)
+- **Deployment:** Railway (nixpacks via `railway.toml`, Dockerfile as alternative)
 
 ## Infrastructure Details
 
@@ -74,13 +74,32 @@ All env vars documented in `.env.local.example`. Critical ones:
 - `PLAYWRIGHT_WS_ENDPOINT` — Remote browser CDP URL
 - `ENCRYPTION_KEY` — AES-256 key for vault (`openssl rand -hex 32`)
 
-### Database Commands
+### Database Migrations
+
+Prisma migrations are the single source of truth for the database schema. Never use raw SQL scripts or `prisma db push` in production.
 
 ```bash
-pnpm prisma generate    # Generate Prisma client after schema changes
-pnpm prisma db push     # Push schema to database (dev)
-pnpm db:seed            # Seed demo data (workspace, projects, system map, test data)
+pnpm db:generate        # Regenerate Prisma client after schema changes
+pnpm db:migrate         # Create a new migration (dev) — interactive, names the migration
+pnpm db:migrate:deploy  # Apply pending migrations (production) — non-interactive
+pnpm db:migrate:status  # Check which migrations have been applied
+pnpm db:push            # Sync schema without migration file (prototyping only)
+pnpm db:seed            # Seed demo data
 ```
+
+**Workflow for schema changes:**
+1. Edit `prisma/schema.prisma`
+2. Run `pnpm db:migrate` — creates a migration file in `prisma/migrations/`
+3. Review the generated SQL
+4. Commit the migration file with your code changes
+5. On deploy, `prisma migrate deploy` runs automatically (configured in `railway.toml` and `Dockerfile`)
+
+**Rules:**
+- Never modify the database directly with raw SQL — always go through migrations
+- Never use `prisma db push` on the production database
+- Never create manual SQL sync scripts — they cause column name drift
+- The `prisma/migrations/` directory must be committed to git
+- Baseline migration `0_init` captures the full schema as of 2026-02-20
 
 ## File Structure
 
@@ -122,6 +141,8 @@ src/
   workers/                # BullMQ worker entry point
 prisma/
   schema.prisma           # 19 models, 10 enums
+  migrations/             # Prisma migration files (committed to git, auto-applied on deploy)
+    0_init/               # Baseline migration — full schema snapshot
   seed.ts                 # Seed orchestrator
   seed-data.ts            # Demo data (45 nodes, 52 edges, 15 test cases, 5 runs)
   seed-helpers.ts         # Idempotent DB operations
@@ -173,11 +194,13 @@ Uses `react-force-graph-2d` with Canvas rendering for 500+ node performance:
 - **Interfaces over types** — Maps over enums
 - **Named exports** — For components and utilities
 - **Server components by default** — `'use client'` only when needed
-- **Prisma for all DB access** — Never raw SQL except for pgvector operations
+- **Prisma for all DB access** — Never raw SQL except for pgvector operations in `src/lib/db/vector.ts`
+- **Prisma migrations for all schema changes** — Never modify the DB directly (see Database Migrations section)
 - **Zod validation** — All API inputs validated, all agent outputs parsed with Zod schemas
 - **Never mock in production** — Mocks only in `src/__tests__/` files
 - **No orphan files** — Delete old versions when refactoring
 - **Atomic commits** — Clear messages, no temp files
+- **No hardcoded credentials** — Never commit database URLs, API keys, or secrets to code or scripts
 
 ## Security
 
@@ -223,6 +246,22 @@ Full product spec at `Orbit System Brief/orbit-spec.md` (868 lines). Sections:
 6. Credits & Billing
 7. Deployment & Infrastructure
 8. Dashboard & Onboarding
+
+## Deployment
+
+Railway deploys via `railway.toml` (nixpacks builder). The build pipeline:
+1. `pnpm install` — Install dependencies
+2. `pnpm prisma generate` — Generate Prisma client
+3. `pnpm prisma migrate deploy` — Apply any pending migrations
+4. `pnpm build` — Build Next.js (standalone output)
+
+The `Dockerfile` mirrors this pipeline for alternative deployment targets.
+
+**Key deploy practices:**
+- Migrations run automatically on every deploy — no manual DB work needed
+- Schema changes must include a migration file (created via `pnpm db:migrate`)
+- The healthcheck endpoint is `/api/auth/session`
+- Storage path is `/data/storage` on Railway (volume mount at `/data`)
 
 ## Common Tasks
 
