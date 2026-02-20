@@ -65,7 +65,7 @@ const modeBadgeClass: Record<string, string> = {
 
 export function RunsTimeline({ runs }: { runs: Run[] }) {
   return (
-    <div className="rounded-xl surface-1 h-full">
+    <div className="rounded-xl surface-1 border border-white/[0.04] h-full">
       <div className="flex items-center justify-between px-4 py-3">
         <h2 className="text-[13px] font-medium text-foreground">Recent Runs</h2>
         <span className="text-[11px] text-muted-foreground">{runs.length} runs</span>

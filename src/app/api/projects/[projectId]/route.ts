@@ -1,5 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
+import { getIndexingQueue } from "@/lib/queue/queues";
+import { requirePermission } from "@/lib/auth/rbac";
 import {
   requireWorkspace,
   apiSuccess,
@@ -23,10 +25,57 @@ export async function GET(
       return apiError("Project not found", "NOT_FOUND", 404);
     }
 
-    return apiSuccess(project);
+    // Enrich with indexing status data
+    const [nodeCount, edgeCount, indexingStatus] = await Promise.all([
+      prisma.systemMapNode.count({ where: { projectId } }),
+      prisma.systemMapEdge.count({ where: { projectId } }),
+      getIndexingStatus(projectId, project.lastIndexedAt),
+    ]);
+
+    return apiSuccess({
+      ...project,
+      indexingStatus,
+      nodeCount,
+      edgeCount,
+    });
   } catch (error) {
     return handleApiError(error);
   }
+}
+
+async function getIndexingStatus(
+  projectId: string,
+  lastIndexedAt: Date | null
+): Promise<"not_started" | "in_progress" | "completed" | "failed"> {
+  try {
+    const queue = getIndexingQueue();
+    const [activeJobs, waitingJobs] = await Promise.all([
+      queue.getActive(),
+      queue.getWaiting(),
+    ]);
+
+    const isIndexing = [...activeJobs, ...waitingJobs].some(
+      (job) => job.data.projectId === projectId
+    );
+
+    if (isIndexing) return "in_progress";
+
+    // Check if the most recent job failed
+    const failedJobs = await queue.getFailed(0, 10);
+    const recentFailure = failedJobs.find(
+      (job) => job.data.projectId === projectId
+    );
+
+    if (recentFailure && !lastIndexedAt) return "failed";
+    if (recentFailure && lastIndexedAt && recentFailure.timestamp > lastIndexedAt.getTime()) {
+      return "failed";
+    }
+  } catch {
+    // Queue unavailable -- fall back to DB state
+  }
+
+  if (lastIndexedAt) return "completed";
+  return "not_started";
 }
 
 interface UpdateProjectBody {
@@ -43,6 +92,9 @@ export async function PATCH(
   try {
     const { workspaceId } = await requireWorkspace();
     const { projectId } = await params;
+
+    // RBAC: require projects.update permission
+    await requirePermission(workspaceId, "projects.update");
 
     const project = await prisma.project.findFirst({
       where: { id: projectId, workspaceId },

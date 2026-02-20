@@ -1,0 +1,85 @@
+{
+  "section_title": "Teams That Ship Faster With Orbit",
+  "section_subtitle": "From solo founders to growing engineering teams.",
+  "testimonials": [
+    {
+      "id": "cto-startup",
+      "quote": "",
+      "placeholder_quote": "We went from zero automated tests to full coverage in one afternoon. Orbit found three bugs in our checkout flow that we'd been shipping to production for weeks.",
+      "persona": {
+        "name": "",
+        "role": "CTO",
+        "company_type": "Series A SaaS startup (5 engineers)",
+        "avatar_placeholder": "initials",
+        "context": "Team uses Cursor and Claude Code for development. Shipping 3-5 PRs per day. No dedicated QA."
+      },
+      "use_case": "Replaced manual pre-deploy smoke testing with autonomous PR checks"
+    },
+    {
+      "id": "solo-developer",
+      "quote": "",
+      "placeholder_quote": "I build with AI tools and push fast. Orbit is the safety net I never had time to build myself. It caught a regression from a Cursor-generated refactor before it hit staging.",
+      "persona": {
+        "name": "",
+        "role": "Solo Founder & Developer",
+        "company_type": "Bootstrapped B2B SaaS",
+        "avatar_placeholder": "initials",
+        "context": "Ships features daily using AI coding tools. Orbit is their entire QA process."
+      },
+      "use_case": "Automated regression testing for a fast-moving solo codebase"
+    },
+    {
+      "id": "agency-lead",
+      "quote": "",
+      "placeholder_quote": "We deliver 4-5 client projects at any given time. Orbit lets us include QA in every engagement without hiring per-project testers. The managed QA service is a game-changer for our margins.",
+      "persona": {
+        "name": "",
+        "role": "Managing Director",
+        "company_type": "Development agency (12 people)",
+        "avatar_placeholder": "initials",
+        "context": "Delivers web applications to SMB clients. Needs QA coverage across multiple concurrent projects."
+      },
+      "use_case": "Scalable QA across multiple client projects via Managed QA"
+    },
+    {
+      "id": "engineering-lead",
+      "quote": "",
+      "placeholder_quote": "The System Map alone was worth the price. Orbit understood our Next.js monorepo better than our own documentation. Then it generated 120 test cases we'd never have written ourselves.",
+      "persona": {
+        "name": "",
+        "role": "Engineering Lead",
+        "company_type": "Growth-stage marketplace startup (8 engineers)",
+        "avatar_placeholder": "initials",
+        "context": "Complex Next.js + tRPC monorepo. Previously relied on Cypress for a handful of critical path tests."
+      },
+      "use_case": "Comprehensive test coverage for a complex monorepo architecture"
+    },
+    {
+      "id": "devops-engineer",
+      "quote": "",
+      "placeholder_quote": "We plugged Orbit into our CI pipeline in 15 minutes. Now every PR gets a regression check that finishes before the code review does. Our deploy confidence went from 'probably fine' to 'verified.'",
+      "persona": {
+        "name": "",
+        "role": "DevOps / Platform Engineer",
+        "company_type": "Fintech startup (10 engineers)",
+        "avatar_placeholder": "initials",
+        "context": "High compliance requirements. Needs audit trails and verifiable test runs for every deployment."
+      },
+      "use_case": "CI/CD integration with verifiable test evidence for compliance"
+    },
+    {
+      "id": "product-manager",
+      "quote": "",
+      "placeholder_quote": "I used to spend half my sprint planning worrying about what might break. Now Orbit's dashboard shows me exactly what's covered, what's flaky, and what changed since last week. I can focus on shipping.",
+      "persona": {
+        "name": "",
+        "role": "Head of Product",
+        "company_type": "B2B SaaS platform (6 engineers)",
+        "avatar_placeholder": "initials",
+        "context": "Non-technical stakeholder who needs visibility into application quality without reading test scripts."
+      },
+      "use_case": "Quality visibility and release confidence for product leadership"
+    }
+  ],
+  "note": "These are placeholder testimonials structured for real customer stories. Replace quote and persona.name fields with actual customer data during beta/launch."
+}

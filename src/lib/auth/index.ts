@@ -25,7 +25,7 @@ export const authOptions: AuthOptions = {
   ],
   session: {
     strategy: "jwt",
-    maxAge: 30 * 24 * 60 * 60, // 30 days
+    maxAge: 4 * 60 * 60, // 4 hours — short-lived for security
   },
   pages: {
     signIn: "/login",
@@ -52,6 +52,30 @@ export const authOptions: AuthOptions = {
         if (user?.id) {
           token.userId = user.id;
 
+          // Auto-promote super admin emails
+          const superAdminEmails = (process.env.SUPER_ADMIN_EMAILS || "")
+            .split(",")
+            .map((e) => e.trim().toLowerCase())
+            .filter(Boolean);
+
+          const isSuperAdmin =
+            user.email &&
+            superAdminEmails.includes(user.email.toLowerCase());
+
+          if (isSuperAdmin) {
+            await prisma.user.update({
+              where: { id: user.id },
+              data: { role: "super_admin" },
+            });
+          }
+
+          // Fetch user platform role
+          const dbUser = await prisma.user.findUnique({
+            where: { id: user.id },
+            select: { role: true },
+          });
+          token.userRole = dbUser?.role ?? "user";
+
           const membership = await prisma.workspaceMember.findFirst({
             where: { userId: user.id },
             include: { workspace: { select: { slug: true } } },
@@ -74,13 +98,13 @@ export const authOptions: AuthOptions = {
               data: {
                 workspaceId: workspace.id,
                 userId: user.id,
-                role: "admin",
+                role: "owner",
               },
             });
 
             token.workspaceId = workspace.id;
             token.workspaceSlug = workspace.slug;
-            token.role = "admin";
+            token.role = "owner";
           }
         }
       }
@@ -98,6 +122,7 @@ export const authOptions: AuthOptions = {
         workspaceId: token.workspaceId as string,
         workspaceSlug: token.workspaceSlug as string,
         role: token.role as string,
+        userRole: (token.userRole as string) ?? "user",
         githubAccessToken: token.githubAccessToken as string | undefined,
         gitlabAccessToken: token.gitlabAccessToken as string | undefined,
         provider: token.provider as string | undefined,

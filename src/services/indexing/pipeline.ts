@@ -1,5 +1,11 @@
 import { prisma } from "@/lib/db";
-import { emitIndexingProgress } from "@/lib/websocket";
+import {
+  emitIndexingProgress,
+  emitIndexingPhase,
+  emitIndexingStarted,
+  emitIndexingNodeDiscovered,
+  emitIndexingCompleted,
+} from "@/lib/websocket";
 import { cloneRepository } from "@/services/indexing/clone";
 import { fingerprint } from "@/services/indexing/fingerprint";
 import { detectFramework } from "@/services/indexing/framework-detector";
@@ -10,6 +16,7 @@ import { generateAndStoreEmbeddings } from "@/services/indexing/embedding-genera
 import { buildSystemMap } from "@/services/indexing/system-map-builder";
 import { getStorage } from "@/lib/storage";
 import type { SystemMapStats } from "@/services/indexing/system-map-builder";
+import type { IndexingPhase } from "@/lib/websocket/channels";
 
 interface PipelineResult {
   projectId: string;
@@ -38,6 +45,15 @@ async function emitProgress(
     nodesFound: update.nodesFound,
     progress: update.progress,
   });
+}
+
+async function emitPhase(
+  projectId: string,
+  phase: IndexingPhase,
+  message: string,
+  progress: number
+): Promise<void> {
+  await emitIndexingPhase(projectId, { projectId, phase, message, progress });
 }
 
 async function loadFileContents(
@@ -72,7 +88,15 @@ export async function runIndexingPipeline(
     where: { id: projectId },
   });
 
+  // Emit started event
+  await emitIndexingStarted(projectId, {
+    projectId,
+    branch,
+    isIncremental: false,
+  });
+
   // Phase 1: Clone & Fingerprint
+  await emitPhase(projectId, "clone", "Cloning repository...", 0);
   await emitProgress(projectId, {
     phase: "clone",
     message: "Cloning repository...",
@@ -97,6 +121,7 @@ export async function runIndexingPipeline(
   const fp = fingerprint(cloneResult.fileTree);
 
   // Phase 2: Framework Detection
+  await emitPhase(projectId, "framework", "Detecting framework...", 20);
   await emitProgress(projectId, {
     phase: "framework",
     message: "Detecting framework...",
@@ -129,6 +154,7 @@ export async function runIndexingPipeline(
   });
 
   // Phase 3: AST Parsing
+  await emitPhase(projectId, "ast", "Parsing source files...", 35);
   await emitProgress(projectId, {
     phase: "parse",
     message: "Parsing source files...",
@@ -146,6 +172,7 @@ export async function runIndexingPipeline(
   });
 
   // Phase 4: Route & Endpoint Extraction
+  await emitPhase(projectId, "routes", "Extracting routes and endpoints...", 55);
   await emitProgress(projectId, {
     phase: "extract",
     message: "Extracting routes and endpoints...",
@@ -171,6 +198,7 @@ export async function runIndexingPipeline(
   });
 
   // Phase 5: Component Mapping
+  await emitPhase(projectId, "components", "Mapping component relationships...", 70);
   await emitProgress(projectId, {
     phase: "components",
     message: "Mapping component relationships...",
@@ -218,6 +246,7 @@ export async function runIndexingPipeline(
   });
 
   // Phase 6b: Generate Embeddings
+  await emitPhase(projectId, "embeddings", "Generating embeddings...", 90);
   await emitProgress(projectId, {
     phase: "embed",
     message: "Generating embeddings...",
@@ -227,14 +256,21 @@ export async function runIndexingPipeline(
 
   const embeddingsGenerated = await generateAndStoreEmbeddings(projectId);
 
+  const durationMs = Date.now() - startTime;
+
+  await emitPhase(projectId, "complete", "Indexing complete", 100);
   await emitProgress(projectId, {
     phase: "complete",
     message: `Indexing complete. ${stats.totalNodes} nodes, ${stats.totalEdges} edges, ${embeddingsGenerated} embeddings`,
     nodesFound: stats.totalNodes,
     progress: 100,
   });
-
-  const durationMs = Date.now() - startTime;
+  await emitIndexingCompleted(projectId, {
+    projectId,
+    nodesFound: stats.totalNodes,
+    edgesFound: stats.totalEdges,
+    durationMs,
+  });
 
   return {
     projectId,

@@ -49,12 +49,55 @@ export default async function SettingsPage() {
     });
   }
 
+  const settings = workspace?.settings as Record<string, unknown> | undefined;
+  const ghConfig = settings?.github as { connected: boolean; installationId?: string; repos?: string[] } | undefined;
+  const lnConfig = settings?.linear as { connected: boolean; teamId?: string; teamName?: string; autoCreateIssues?: boolean } | undefined;
+  const slConfig = settings?.slack as {
+    connected: boolean;
+    teamName?: string;
+    defaultChannel?: string;
+    notifications?: { runCompleted: boolean; testFailed: boolean; bugDiscovered: boolean; planUpdated: boolean };
+  } | undefined;
+
+  // Load Railway integration config from DB
+  const railwayIntegration = workspaceId
+    ? await prisma.integrationConfig.findUnique({
+        where: {
+          integration_config_unique: {
+            workspaceId,
+            provider: "railway",
+          },
+        },
+        select: { isEnabled: true, config: true },
+      })
+    : null;
+  const rwConfig = railwayIntegration?.isEnabled
+    ? {
+        connected: true,
+        ...(railwayIntegration.config as Record<string, unknown>),
+      }
+    : { connected: false };
+
+  const integrations = {
+    github: ghConfig ?? { connected: false },
+    linear: lnConfig ?? { connected: false },
+    slack: slConfig ?? { connected: false },
+    railway: rwConfig as {
+      connected: boolean;
+      userName?: string;
+      railwayProjectId?: string;
+      railwayProjectName?: string;
+      serviceCount?: number;
+    },
+  };
+
   return (
     <SettingsClient
       workspace={workspace ? { id: workspace.id, name: workspace.name, slug: workspace.slug } : null}
       project={project ? { id: project.id, name: project.name, slug: project.slug, repoUrl: project.repoUrl } : null}
       environments={environments}
       secrets={secrets}
+      integrations={integrations}
     />
   );
 }

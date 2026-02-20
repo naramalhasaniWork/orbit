@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { z } from "zod";
 import { prisma } from "@/lib/db";
 import {
   requireWorkspace,
@@ -35,16 +36,19 @@ export async function GET(
   }
 }
 
-interface CreateEnvironmentBody {
-  name?: string;
-  type?: string;
-  url?: string;
-  baseUrl?: string;
-  teardownHookUrl?: string;
-  isDefault?: boolean;
-}
+const ENVIRONMENT_TYPES = ["staging", "preview", "qa", "production"] as const;
 
-const VALID_TYPES = new Set(["staging", "preview", "qa", "production"]);
+const CreateEnvironmentSchema = z.object({
+  name: z.string().min(1, "Environment name is required").max(100),
+  type: z.enum(ENVIRONMENT_TYPES).optional().default("staging"),
+  url: z.string().url("Must be a valid URL").optional(),
+  baseUrl: z.string().url("Must be a valid URL").optional(),
+  teardownHookUrl: z.string().url().optional(),
+  isDefault: z.boolean().optional().default(false),
+}).refine(
+  (data) => data.url || data.baseUrl,
+  { message: "Environment URL is required (url or baseUrl)", path: ["url"] }
+);
 
 export async function POST(
   request: NextRequest,
@@ -63,34 +67,25 @@ export async function POST(
       return apiError("Project not found", "NOT_FOUND", 404);
     }
 
-    const body = (await request.json()) as CreateEnvironmentBody;
-    const { name, type, teardownHookUrl, isDefault } = body;
-    const url = body.url ?? body.baseUrl;
+    const body = await request.json();
+    const parsed = CreateEnvironmentSchema.safeParse(body);
 
-    if (!name || typeof name !== "string" || name.trim().length === 0) {
-      return apiError("Environment name is required", "VALIDATION_ERROR", 400);
+    if (!parsed.success) {
+      const firstError = parsed.error.errors[0]?.message ?? "Validation failed";
+      return apiError(firstError, "VALIDATION_ERROR", 400);
     }
 
-    if (!url || typeof url !== "string") {
-      return apiError("Environment URL is required", "VALIDATION_ERROR", 400);
-    }
-
-    if (type && !VALID_TYPES.has(type)) {
-      return apiError(
-        "Invalid type. Must be: staging, preview, qa, or production",
-        "VALIDATION_ERROR",
-        400
-      );
-    }
+    const { name, type, url, baseUrl, teardownHookUrl, isDefault } = parsed.data;
+    const resolvedUrl = url ?? baseUrl!;
 
     const environment = await prisma.environment.create({
       data: {
         projectId,
         name: name.trim(),
-        type: (type as "staging" | "preview" | "qa" | "production") ?? "staging",
-        url,
+        type,
+        url: resolvedUrl,
         teardownHookUrl,
-        isDefault: isDefault ?? false,
+        isDefault,
       },
     });
 

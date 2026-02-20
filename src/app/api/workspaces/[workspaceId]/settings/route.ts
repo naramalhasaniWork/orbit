@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
+import { requirePermission } from "@/lib/auth/rbac";
 import {
-  requireWorkspace,
   apiSuccess,
   apiError,
   handleApiError,
@@ -12,12 +12,8 @@ export async function GET(
   { params }: { params: Promise<{ workspaceId: string }> }
 ) {
   try {
-    const { workspaceId: sessionWorkspaceId } = await requireWorkspace();
     const { workspaceId } = await params;
-
-    if (workspaceId !== sessionWorkspaceId) {
-      return apiError("Forbidden", "FORBIDDEN", 403);
-    }
+    await requirePermission(workspaceId, "settings.view");
 
     const workspace = await prisma.workspace.findUnique({
       where: { id: workspaceId },
@@ -39,17 +35,8 @@ export async function PATCH(
   { params }: { params: Promise<{ workspaceId: string }> }
 ) {
   try {
-    const { workspaceId: sessionWorkspaceId, session } = await requireWorkspace();
     const { workspaceId } = await params;
-
-    if (workspaceId !== sessionWorkspaceId) {
-      return apiError("Forbidden", "FORBIDDEN", 403);
-    }
-
-    // Only admins can update workspace settings
-    if (session.role !== "admin") {
-      return apiError("Only workspace admins can update settings", "FORBIDDEN", 403);
-    }
+    await requirePermission(workspaceId, "settings.manage");
 
     const body = await request.json();
     const { customPrompt } = body as { customPrompt?: string };

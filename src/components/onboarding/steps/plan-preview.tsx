@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { ChevronRight, AlertTriangle, ArrowUp, Minus, ArrowDown, Loader2, AlertCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -39,7 +39,9 @@ export function PlanPreview({ projectId, onContinue, onBack }: PlanPreviewProps)
   const [tests, setTests] = useState<PlanTestCase[]>([]);
   const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const toggledIds = useRef(new Set<string>());
 
   const fetchOrGenerate = useCallback(async () => {
     setLoading(true);
@@ -90,9 +92,31 @@ export function PlanPreview({ projectId, onContinue, onBack }: PlanPreviewProps)
   }, [fetchOrGenerate]);
 
   const toggleTest = (id: string) => {
+    toggledIds.current.add(id);
     setTests((prev) =>
       prev.map((t) => (t.id === id ? { ...t, isEnabled: !t.isEnabled } : t))
     );
+  };
+
+  const persistToggledTests = async (): Promise<boolean> => {
+    if (toggledIds.current.size === 0) return true;
+
+    const toUpdate = tests.filter((t) => toggledIds.current.has(t.id));
+    const results = await Promise.allSettled(
+      toUpdate.map((t) =>
+        fetch(`/api/projects/${projectId}/test-cases/${t.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ isEnabled: t.isEnabled }),
+        })
+      )
+    );
+
+    const allOk = results.every(
+      (r) => r.status === "fulfilled" && r.value.ok
+    );
+    if (allOk) toggledIds.current.clear();
+    return allOk;
   };
 
   const enabledCount = tests.filter((t) => t.isEnabled).length;
@@ -237,11 +261,30 @@ export function PlanPreview({ projectId, onContinue, onBack }: PlanPreviewProps)
         <Button
           className="bg-orbit-accent hover:bg-orbit-accent/90 text-white gap-2"
           size="lg"
-          disabled={enabledCount === 0}
-          onClick={() => onContinue(enabledCount)}
+          disabled={enabledCount === 0 || saving}
+          onClick={async () => {
+            setSaving(true);
+            setError(null);
+            const ok = await persistToggledTests();
+            setSaving(false);
+            if (!ok) {
+              setError("Failed to save test selections. Please try again.");
+              return;
+            }
+            onContinue(enabledCount);
+          }}
         >
-          Continue
-          <ChevronRight className="h-4 w-4" />
+          {saving ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Saving...
+            </>
+          ) : (
+            <>
+              Continue
+              <ChevronRight className="h-4 w-4" />
+            </>
+          )}
         </Button>
       </div>
     </div>

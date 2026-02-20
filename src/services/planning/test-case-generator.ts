@@ -1,6 +1,7 @@
 import { createCompletion } from "@/lib/ai";
 import { getModelForTask } from "@/lib/ai/model-router";
 import { buildPlannerPrompt, type PlannerContext } from "@/agents/prompts/planner-prompt";
+import { loadUserLayerForProject, getWorkspaceName } from "@/agents/prompts/context-loader";
 import { TestPlanSchema, type TestCase } from "@/agents/schemas/test-plan";
 import { prisma } from "@/lib/db";
 import type { CoverageReport } from "@/services/planning/coverage-analyzer";
@@ -86,9 +87,11 @@ export async function generateTestCases(input: GenerationInput): Promise<Generat
     maxTestCases,
   } = input;
 
-  const [systemMap, existingTestNames] = await Promise.all([
+  const [systemMap, existingTestNames, userLayer, workspaceName] = await Promise.all([
     loadSystemMapForPrompt(projectId),
     loadExistingTestNames(projectId),
+    loadUserLayerForProject(projectId),
+    getWorkspaceName(projectId),
   ]);
 
   const context: PlannerContext = {
@@ -103,9 +106,10 @@ export async function generateTestCases(input: GenerationInput): Promise<Generat
     existingTestNames,
     gitHistory: [], // Git history integration deferred to indexing service
     projectId,
+    workspaceName,
   };
 
-  const prompt = buildPlannerPrompt(context);
+  const prompt = buildPlannerPrompt(context, userLayer);
   const model = getModelForTask("test_generation");
 
   const completion = await createCompletion({

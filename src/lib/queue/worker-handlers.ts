@@ -11,6 +11,7 @@ import {
   emitRunCompleted,
   emitTestCompleted,
   emitIndexingProgress,
+  emitIndexingFailed,
 } from "@/lib/websocket";
 
 export async function handleIndexingJob(job: Job<IndexingJobData>): Promise<void> {
@@ -55,6 +56,12 @@ export async function handleIndexingJob(job: Job<IndexingJobData>): Promise<void
       message: `Indexing failed: ${errorMsg}`,
       nodesFound: 0,
       progress: -1,
+    });
+
+    await emitIndexingFailed(data.projectId, {
+      projectId: data.projectId,
+      error: errorMsg,
+      phase: data.phase ?? "unknown",
     });
 
     throw err;

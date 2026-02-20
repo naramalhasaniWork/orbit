@@ -59,7 +59,7 @@ export async function executeTestCase(
     });
 
     const evidenceCollector = createEvidenceCollector(
-      page, runId, testCase.id, context
+      page, runId, testCase.id, context, testCase.projectId
     );
     evidenceCollector.startCapture();
 
@@ -68,6 +68,7 @@ export async function executeTestCase(
       projectId: testCase.projectId,
       testCaseId: testCase.id,
       testCaseName: testCase.name,
+      runId,
       steps: testCase.steps.map((s) => ({
         action: s.action,
         expected: s.expected,
@@ -110,12 +111,12 @@ export async function executeTestCase(
     }
     if (evidence.networkLog.length > 0) {
       artifacts.networkLog = await saveNetworkLog(
-        runId, testCase.id, evidence.networkLog
+        runId, testCase.id, evidence.networkLog, testCase.projectId
       );
     }
     if (evidence.consoleLog.length > 0) {
       artifacts.consoleLog = await saveConsoleLog(
-        runId, testCase.id, evidence.consoleLog
+        runId, testCase.id, evidence.consoleLog, testCase.projectId
       );
     }
     if (evidence.domSnapshot) {

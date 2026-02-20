@@ -1,0 +1,149 @@
+{
+  "hero": {
+    "headline": "Your Codebase, Fully Tested. Automatically.",
+    "subheadline": "Orbit reads your repo, understands your app, generates test plans, and executes them — all autonomously. No test engineers. No hand-written scripts. Just coverage that evolves with your code.",
+    "cta": "Start Testing Free",
+    "secondaryCta": "Watch Demo",
+    "badge": "AI-Native Testing Platform"
+  },
+  "socialProof": {
+    "headline": "Trusted by fast-shipping engineering teams",
+    "logos": [
+      { "name": "Acme Corp", "width": 100 },
+      { "name": "TechStart", "width": 90 },
+      { "name": "BuildFast", "width": 110 },
+      { "name": "ShipIt", "width": 80 },
+      { "name": "CodeFlow", "width": 100 },
+      { "name": "LaunchPad", "width": 95 }
+    ],
+    "stat": "500+ teams testing smarter"
+  },
+  "howItWorks": {
+    "headline": "From zero to full coverage in four steps",
+    "subheadline": "Connect once. Test forever.",
+    "steps": [
+      {
+        "number": 1,
+        "title": "Connect Your Repo",
+        "description": "One-click GitHub, GitLab, or Bitbucket OAuth. Orbit gets read access to your code structure — never stores your source.",
+        "icon": "GitBranch"
+      },
+      {
+        "number": 2,
+        "title": "AI Indexes Everything",
+        "description": "Tree-sitter AST parsing maps every route, component, endpoint, and auth flow into a living System Map in under 90 seconds.",
+        "icon": "Scan"
+      },
+      {
+        "number": 3,
+        "title": "Generate Test Plans",
+        "description": "The planning agent creates prioritized test cases covering user journeys, API contracts, edge cases, and security flows.",
+        "icon": "FileCheck"
+      },
+      {
+        "number": 4,
+        "title": "Execute & Report",
+        "description": "Real browsers run your tests via Playwright + Stagehand. Get pass/fail results, screenshots, videos, and AI failure analysis.",
+        "icon": "Play"
+      }
+    ]
+  },
+  "features": {
+    "headline": "Everything you need. Nothing you don't.",
+    "subheadline": "Built for teams that ship fast and need test coverage that keeps up.",
+    "items": [
+      {
+        "title": "System Map",
+        "description": "A living, interactive graph of your entire application — routes, components, APIs, auth flows. Orbit sees what you built.",
+        "icon": "Map"
+      },
+      {
+        "title": "Self-Healing Tests",
+        "description": "When selectors break, Stagehand + LLM find the right element automatically. No more flaky selector maintenance.",
+        "icon": "RefreshCw"
+      },
+      {
+        "title": "Code-Aware Planning",
+        "description": "Tests generated from AST analysis, not URL crawling. Orbit understands your auth guards, validation schemas, and business logic.",
+        "icon": "Code"
+      },
+      {
+        "title": "Live Execution",
+        "description": "Watch tests run in real time. See the browser navigate, fill forms, click buttons — with video replay and screenshots.",
+        "icon": "Eye"
+      },
+      {
+        "title": "AI Failure Analysis",
+        "description": "When a test fails, Orbit explains why in plain English, suggests a fix, and can open a Linear issue or GitHub issue automatically.",
+        "icon": "Zap"
+      },
+      {
+        "title": "PR-Triggered Runs",
+        "description": "Every pull request gets diff-aware regression tests. Only test what changed. Results in under 3 minutes, blocking merge on failure.",
+        "icon": "GitPullRequest"
+      },
+      {
+        "title": "Continuous Updates",
+        "description": "Push code, Orbit re-indexes and updates test plans automatically. Your test suite is always in sync with your app.",
+        "icon": "RotateCw"
+      },
+      {
+        "title": "Integrations",
+        "description": "Linear, Slack, GitHub Checks, VS Code extension, CLI, webhooks. Orbit fits into your existing workflow.",
+        "icon": "Puzzle"
+      }
+    ]
+  },
+  "comparison": {
+    "headline": "How Orbit compares",
+    "subheadline": "The only platform that combines all four: code-aware, app-aware, fully autonomous, and continuously updated.",
+    "features": [
+      "Code-aware (AST analysis)",
+      "App-aware (browser agent)",
+      "Fully autonomous",
+      "Self-healing selectors",
+      "Continuous test updates",
+      "AI failure analysis",
+      "PR-triggered regression",
+      "System Map visualization"
+    ],
+    "competitors": [
+      {
+        "name": "Orbit",
+        "highlight": true,
+        "scores": [true, true, true, true, true, true, true, true]
+      },
+      {
+        "name": "Momentic",
+        "highlight": false,
+        "scores": [false, true, false, true, false, false, true, false]
+      },
+      {
+        "name": "Octomind",
+        "highlight": false,
+        "scores": [false, true, true, true, false, false, true, false]
+      },
+      {
+        "name": "QA.tech",
+        "highlight": false,
+        "scores": [false, true, true, false, false, false, false, false]
+      },
+      {
+        "name": "Meticulous",
+        "highlight": false,
+        "scores": [false, false, false, false, false, false, true, false]
+      },
+      {
+        "name": "Copilot",
+        "highlight": false,
+        "scores": [true, false, false, false, false, false, false, false]
+      }
+    ]
+  },
+  "cta": {
+    "headline": "Ready to test smarter?",
+    "subheadline": "Connect your repo and get your first test run in under 5 minutes. Free tier included.",
+    "buttonText": "Get Started Free",
+    "footnote": "No credit card required"
+  }
+}

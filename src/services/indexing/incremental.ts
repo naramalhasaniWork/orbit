@@ -1,5 +1,4 @@
 import { prisma } from "@/lib/db";
-import { Prisma } from "@/generated/prisma/client";
 import { getStorage } from "@/lib/storage";
 import { parseFile } from "@/services/indexing/ast-parser";
 import { generateEmbeddingForNode } from "@/services/indexing/embedding-generator";
@@ -62,10 +61,15 @@ async function updateNodeFromAST(
         envVars: ast.envVars,
         lastIncrementalUpdate: new Date().toISOString(),
       },
-      embedding: Prisma.DbNull, // Clear embedding so it gets regenerated
       lastIndexedAt: new Date(),
     },
   });
+
+  // Clear the pgvector embedding so it gets regenerated
+  await prisma.$executeRawUnsafe(
+    `UPDATE system_map_nodes SET embedding = NULL WHERE id = $1::uuid`,
+    nodeId
+  );
 
   // Regenerate embedding
   await generateEmbeddingForNode(nodeId);

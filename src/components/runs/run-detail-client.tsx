@@ -2,11 +2,13 @@
 
 import { useState, useMemo } from "react";
 import Link from "next/link";
+import { motion } from "framer-motion";
 import { ArrowLeft, GitBranch, Clock, Hash } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { StatCard } from "@/components/shared/stat-card";
 import { cn } from "@/lib/utils";
 import { TestResultCard } from "@/components/runs/test-result-card";
+import { FailurePatternsPanel } from "@/components/runs/failure-patterns-panel";
 import {
   type RunDetailData,
   RUN_STATUS_CONFIG,
@@ -18,6 +20,7 @@ import { formatDistanceToNow } from "date-fns";
 
 interface RunDetailClientProps {
   run: RunDetailData;
+  projectId?: string;
 }
 
 function RunMeta({ run }: { run: RunDetailData }) {
@@ -60,7 +63,7 @@ function ResultsBar({ run }: { run: RunDetailData }) {
 
   return (
     <div className="space-y-2">
-      <div className="flex h-2 rounded-full overflow-hidden bg-white/[0.04]">
+      <div className="flex h-2 rounded-full overflow-hidden bg-muted">
         {segments.map(
           (seg) =>
             seg.count > 0 && (
@@ -144,7 +147,7 @@ function VerdictFilterBar({
   );
 }
 
-export function RunDetailClient({ run }: RunDetailClientProps) {
+export function RunDetailClient({ run, projectId }: RunDetailClientProps) {
   const [verdictFilter, setVerdictFilter] = useState<string | null>(null);
 
   const filteredResults = useMemo(() => {
@@ -155,7 +158,12 @@ export function RunDetailClient({ run }: RunDetailClientProps) {
   const statusConfig = RUN_STATUS_CONFIG[run.status];
 
   return (
-    <div className="space-y-6">
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.35, ease: "easeOut" }}
+      className="space-y-6"
+    >
       <div className="flex items-center gap-3">
         <Link
           href="/dashboard/runs"
@@ -205,9 +213,13 @@ export function RunDetailClient({ run }: RunDetailClientProps) {
 
       <div className="space-y-2">
         {filteredResults.map((result) => (
-          <TestResultCard key={result.id} result={result} />
+          <TestResultCard key={result.id} result={result} projectId={projectId} runId={run.id} />
         ))}
       </div>
-    </div>
+
+      {projectId && run.failed > 0 && (
+        <FailurePatternsPanel projectId={projectId} />
+      )}
+    </motion.div>
   );
 }

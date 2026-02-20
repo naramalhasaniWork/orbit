@@ -1,19 +1,55 @@
 "use client";
 
-import { AlertTriangle, Lightbulb, ExternalLink, Copy, Check } from "lucide-react";
+import { AlertTriangle, Lightbulb, ExternalLink, Copy, Check, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState, useCallback } from "react";
 
 interface FailureAnalysisProps {
   failureExplanation: string | null;
   suggestedFix: string | null;
+  projectId?: string;
+  testResultId?: string;
+  testCaseName?: string;
+  runId?: string;
 }
 
 export function FailureAnalysis({
   failureExplanation,
   suggestedFix,
+  projectId,
+  testResultId,
+  testCaseName,
+  runId,
 }: FailureAnalysisProps) {
+  const [creating, setCreating] = useState(false);
+  const [issueUrl, setIssueUrl] = useState<string | null>(null);
+
   if (!failureExplanation && !suggestedFix) return null;
+
+  async function handleCreateLinearIssue() {
+    if (!projectId || !testResultId || !testCaseName) return;
+    setCreating(true);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/linear-issue`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          testResultId,
+          testCaseName,
+          failureExplanation,
+          suggestedFix,
+          runId,
+        }),
+      });
+
+      if (res.ok) {
+        const json = await res.json();
+        setIssueUrl(json.data?.url ?? null);
+      }
+    } finally {
+      setCreating(false);
+    }
+  }
 
   return (
     <div className="space-y-3">
@@ -49,17 +85,32 @@ export function FailureAnalysis({
       )}
 
       <div className="flex items-center gap-2">
-        <Button
-          variant="ghost"
-          size="sm"
-          className="text-xs h-7 px-2 text-muted-foreground hover:text-foreground gap-1.5"
-          onClick={() => {
-            // Placeholder: Create Linear issue
-          }}
-        >
-          <ExternalLink className="h-3 w-3" />
-          Create Linear Issue
-        </Button>
+        {issueUrl ? (
+          <a
+            href={issueUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-1.5 text-xs h-7 px-2 text-orbit-accent hover:underline"
+          >
+            <Check className="h-3 w-3" />
+            Issue created — view in Linear
+          </a>
+        ) : projectId && testResultId && testCaseName ? (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-xs h-7 px-2 text-muted-foreground hover:text-foreground gap-1.5"
+            onClick={handleCreateLinearIssue}
+            disabled={creating}
+          >
+            {creating ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              <ExternalLink className="h-3 w-3" />
+            )}
+            {creating ? "Creating..." : "Create Linear Issue"}
+          </Button>
+        ) : null}
       </div>
     </div>
   );

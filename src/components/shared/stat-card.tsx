@@ -8,7 +8,7 @@ interface StatCardProps {
   label: string;
   value: string | number;
   trend?: number;
-  trendInverted?: boolean; // true when lower is better (e.g. flaky count)
+  trendInverted?: boolean;
   sparklineData?: number[];
   sparklineColor?: string;
   suffix?: string;
@@ -31,7 +31,8 @@ export function StatCard({
   return (
     <div
       className={cn(
-        "flex flex-col gap-1 p-4 rounded-xl surface-1",
+        "flex flex-col gap-1 p-4 rounded-xl surface-1 border border-white/[0.04]",
+        "hover:border-white/[0.08] transition-all duration-200",
         className
       )}
     >

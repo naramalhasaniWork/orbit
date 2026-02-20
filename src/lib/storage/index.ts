@@ -2,7 +2,7 @@ import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { readFile, writeFile, mkdir } from "fs/promises";
 import { join, dirname } from "path";
-import { existsSync } from "fs";
+import { existsSync, mkdirSync } from "fs";
 
 // ============================================================
 // Storage Provider Interface
@@ -94,7 +94,6 @@ export function getStorage(): StorageProvider {
     const basePath = process.env.STORAGE_PATH || "./storage";
     const resolved = basePath.startsWith("/") ? basePath : join(process.cwd(), basePath);
     if (!existsSync(resolved)) {
-      const { mkdirSync } = require("fs");
       mkdirSync(resolved, { recursive: true });
     }
     instance = createLocalStorage(resolved);

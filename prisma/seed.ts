@@ -14,6 +14,17 @@ import {
   seedTestResults,
   seedFlakyTests,
   seedAuditLog,
+  seedCreditTransactions,
+  seedWebhookEvents,
+  seedIntegrationConfigs,
+  seedRunArtifacts,
+  seedSelectorHistory,
+  seedTestCaseVersions,
+  seedFailurePatterns,
+  seedBaselineSnapshots,
+  seedPluginInstallations,
+  seedDomainKnowledgeFiles,
+  seedWebhookSubscriptions,
 } from "./seed-helpers";
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL, max: 5 });
@@ -64,6 +75,40 @@ async function main() {
 
   await seedAuditLog(prisma, workspace.id, users[0].id);
   console.log(`  Audit log: ${AUDIT_ENTRIES.length} entries`);
+
+  await seedCreditTransactions(prisma, workspace.id);
+  console.log("  Credit transactions: 7 entries");
+
+  await seedWebhookEvents(prisma, project.id);
+  console.log("  Webhook events: 5 inbound events");
+
+  await seedIntegrationConfigs(prisma, workspace.id);
+  console.log("  Integration configs: 3 providers");
+
+  const artifactCount = await seedRunArtifacts(prisma, project.id, runs, testCases);
+  console.log(`  Run artifacts: ${artifactCount} files`);
+
+  await seedSelectorHistory(prisma, project.id);
+  console.log("  Selector history: 2 entries");
+
+  await seedTestCaseVersions(prisma, testCases);
+  console.log("  Test case versions: 7 entries");
+
+  await seedFailurePatterns(prisma, project.id, testCases);
+  console.log("  Failure patterns: 4 entries");
+
+  const lastRun = runs[runs.length - 1];
+  await seedBaselineSnapshots(prisma, project.id, lastRun.id);
+  console.log("  Baseline snapshots: 6 entries");
+
+  await seedPluginInstallations(prisma, workspace.id);
+  console.log("  Plugin installations: 3 entries");
+
+  await seedDomainKnowledgeFiles(prisma, workspace.id);
+  console.log("  Domain knowledge files: 3 entries");
+
+  await seedWebhookSubscriptions(prisma, workspace.id);
+  console.log("  Webhook subscriptions: 2 entries");
 
   console.log("\nSeed complete.");
 }

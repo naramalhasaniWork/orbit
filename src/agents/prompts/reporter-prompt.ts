@@ -1,4 +1,4 @@
-import { getOperatorPrompt } from "@/agents/prompts/operator-layer";
+import { buildPrompt, type UserLayerInput } from "@/agents/prompts/prompt-builder";
 
 interface TestResultInput {
   testId: string;
@@ -29,55 +29,19 @@ interface HistoricalData {
 export interface ReporterContext {
   runId: string;
   projectId: string;
-  trigger: "push" | "pr" | "scheduled" | "manual" | "linear" | "api";
+  trigger: "push" | "pr" | "scheduled" | "manual" | "linear" | "api" | "deploy";
   mode: "full" | "smoke" | "regression" | "targeted";
   durationMs: number;
   creditsConsumed: number;
   testResults: TestResultInput[];
   historicalData: HistoricalData;
   outputFormat: "run_summary" | "bug_report";
+  workspaceName?: string;
 }
-
-const RUN_SUMMARY_SCHEMA = `{
-  "runId": "string",
-  "projectId": "string",
-  "trigger": "push | pr | scheduled | manual | linear | api",
-  "mode": "full | smoke | regression | targeted",
-  "durationMs": "number",
-  "totalTests": "number",
-  "passed": "number",
-  "failed": "number",
-  "flaky": "number",
-  "skipped": "number",
-  "creditsConsumed": "number",
-  "summary": "string (2-3 sentence high-level summary)",
-  "failures": [
-    {
-      "testId": "string",
-      "testName": "string",
-      "explanation": "string (human-readable failure explanation)",
-      "suggestedFix": "string (actionable suggestion)",
-      "screenshotUrl": "string (optional)",
-      "severity": "critical | high | medium | low | info"
-    }
-  ]
-}`;
-
-const BUG_REPORT_SCHEMA = `{
-  "title": "string (concise bug title)",
-  "description": "string (detailed description)",
-  "stepsToReproduce": ["string"],
-  "expectedBehavior": "string",
-  "actualBehavior": "string",
-  "severity": "critical | high | medium | low | info",
-  "screenshotUrls": ["string"],
-  "affectedRoute": "string (optional)",
-  "suggestedFix": "string (optional)"
-}`;
 
 export function buildReporterPrompt(
   context: ReporterContext,
-  userContext?: string
+  userLayer?: UserLayerInput
 ): string {
   const {
     runId,
@@ -91,12 +55,11 @@ export function buildReporterPrompt(
     outputFormat,
   } = context;
 
-  const operatorPrompt = getOperatorPrompt();
-
   const passed = testResults.filter((r) => r.verdict === "pass").length;
   const failed = testResults.filter((r) => r.verdict === "fail").length;
   const flaky = testResults.filter((r) => r.verdict === "flaky").length;
   const skipped = testResults.filter((r) => r.verdict === "skipped").length;
+  const healed = testResults.filter((r) => r.verdict === "healed").length;
 
   const failedTests = testResults.filter((r) => r.verdict === "fail");
 
@@ -129,18 +92,48 @@ export function buildReporterPrompt(
     .filter(Boolean)
     .join("\n");
 
-  const schema =
-    outputFormat === "bug_report" ? BUG_REPORT_SCHEMA : RUN_SUMMARY_SCHEMA;
+  const isRunSummary = outputFormat === "run_summary";
+  const formatInstruction = isRunSummary
+    ? "Generate a comprehensive run summary covering all test results."
+    : "Generate a detailed bug report for the FIRST failed test case.";
 
-  const formatInstruction =
-    outputFormat === "bug_report"
-      ? "Generate a bug report for the FIRST failed test case."
-      : "Generate a run summary covering all test results.";
+  const schema = isRunSummary
+    ? `{
+  "runId": "${runId}",
+  "projectId": "${projectId}",
+  "trigger": "${trigger}",
+  "mode": "${mode}",
+  "durationMs": ${durationMs},
+  "totalTests": ${testResults.length},
+  "passed": ${passed},
+  "failed": ${failed},
+  "flaky": ${flaky},
+  "skipped": ${skipped},
+  "creditsConsumed": ${creditsConsumed},
+  "summary": "2-3 sentence high-level summary of this run",
+  "failures": [{
+    "testId": "string",
+    "testName": "string",
+    "explanation": "Human-readable failure explanation",
+    "suggestedFix": "Actionable fix suggestion with file paths",
+    "screenshotUrl": "string (optional)",
+    "severity": "critical | high | medium | low | info"
+  }]
+}`
+    : `{
+  "title": "Concise bug title (under 80 chars)",
+  "description": "Detailed description of the bug",
+  "stepsToReproduce": ["Step 1", "Step 2", "..."],
+  "expectedBehavior": "What should happen",
+  "actualBehavior": "What actually happened",
+  "severity": "critical | high | medium | low | info",
+  "screenshotUrls": ["url1", "url2"],
+  "affectedRoute": "/path (optional)",
+  "suggestedFix": "Actionable fix suggestion (optional)"
+}`;
 
-  return `${operatorPrompt}
-
-## Agent Role: Reporter
-You are the Reporter agent. You analyze test execution results and produce clear, actionable reports.
+  const agentInstructions = `## Agent Role: Reporter
+You are the Reporter agent. You analyze test execution results and produce clear, actionable reports that developers can act on immediately.
 
 ## Your Task
 ${formatInstruction}
@@ -159,6 +152,7 @@ ${formatInstruction}
 - Failed: ${failed}
 - Flaky: ${flaky}
 - Skipped: ${skipped}
+- Healed: ${healed}
 
 ## Failed Test Details
 ${failedStr}
@@ -167,21 +161,29 @@ ${failedStr}
 ${historyStr}
 
 ## Output Schema
-Your response MUST be valid JSON matching this exact schema:
+Your response MUST be valid JSON matching this exact structure:
 ${schema}
 
 ## Reporting Guidelines
-1. **Failure explanations must be human-readable.** Avoid jargon. A junior developer should understand the explanation.
-2. **Suggested fixes must be actionable.** Not "fix the bug" but "The login form's email validation rejects valid emails containing '+'. Update the regex in src/utils/validators.ts to allow '+' characters."
-3. **Severity assessment:**
-   - **critical**: Auth bypass, data loss, security vulnerability, payment processing failure.
-   - **high**: Core user journey broken (login, signup, main feature).
-   - **medium**: Secondary feature broken, degraded UX.
-   - **low**: Minor visual issue, non-blocking behavior.
-   - **info**: Informational finding, potential improvement.
-4. **Compare with historical data.** Note if a failure is new vs. recurring. Flag regressions.
-5. **For flaky tests,** note the flakiness and suggest investigation rather than immediate fixes.${userContext ? `
+1. **Failure explanations must be human-readable.** A junior developer should understand them. Bad: "Element matching selector '#btn-submit' not found in DOM." Good: "The Submit button on the checkout page was not found. This likely means the button is conditionally rendered and the preconditions (e.g. selecting a shipping method) were not met."
+2. **Suggested fixes must reference specific files and code.** Bad: "Fix the bug." Good: "The email validation regex in \`src/utils/validators.ts:23\` rejects valid emails with '+' characters. Update the regex to allow '+' in the local part."
+3. **Severity classification:**
+   - **critical**: Auth bypass, data loss, security vulnerability, payment failure, data corruption.
+   - **high**: Core journey broken (login, signup, primary feature), API returning 500s.
+   - **medium**: Secondary feature broken, degraded UX, missing validation.
+   - **low**: Minor visual issue, non-blocking behavior, cosmetic regression.
+   - **info**: Informational finding, performance observation, improvement opportunity.
+4. **Regression detection:** Compare with historical data. If a previously passing test now fails, flag it as a regression with "This test was previously passing. The failure is new as of this run."
+5. **Flaky test handling:** If a test is in the known flaky list, note it: "This test is known to be flaky (X% pass rate over last 10 runs). Consider quarantining or investigating the root cause."
+6. **Pattern recognition:** If multiple tests fail with similar root causes, group them in the summary: "3 tests failed due to the same authentication timeout issue."`;
 
-## User-Provided Context
-${userContext}` : ""}`;
+  const { systemPrompt } = buildPrompt({
+    agentRole: "reporter",
+    agentInstructions,
+    userLayer,
+    workspaceName: context.workspaceName,
+    maxOutputTokens: 2000,
+  });
+
+  return systemPrompt;
 }

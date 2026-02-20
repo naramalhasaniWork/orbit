@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
-import type { RunStatus } from "../onboarding-types";
+import { useState, useCallback, useEffect } from "react";
+import { useRunEvents } from "@/hooks/use-run-events";
+import { LiveViewport } from "@/components/execution/live-viewport";
 import {
   ReadyView,
   RunningView,
@@ -15,21 +16,55 @@ interface LaunchRunProps {
   enabledTestCount: number;
   repoName: string;
   onBack: () => void;
+  onConfigureEnv?: () => void;
 }
 
 type RunState = "ready" | "running" | "complete" | "error";
 
-export function LaunchRun({ projectId, enabledTestCount, repoName, onBack }: LaunchRunProps) {
+export function LaunchRun({ projectId, enabledTestCount, repoName, onBack, onConfigureEnv }: LaunchRunProps) {
   const [runState, setRunState] = useState<RunState>("ready");
+  const [runId, setRunId] = useState<string | null>(null);
   const [runningTests, setRunningTests] = useState<TestProgress[]>([]);
-  const [progress, setProgress] = useState(0);
   const [error, setError] = useState<string | null>(null);
-  const cancelledRef = useRef(false);
+
+  const handleRunComplete = useCallback(() => {
+    setRunState("complete");
+  }, []);
+
+  const { progress } = useRunEvents({
+    projectId,
+    runId: runId ?? "",
+    enabled: runState === "running" && !!runId,
+    onComplete: handleRunComplete,
+    onTestStarted: (data) => {
+      setRunningTests((prev) => {
+        const existing = prev.findIndex((t) => t.name === data.testCaseName);
+        if (existing >= 0) {
+          const next = [...prev];
+          next[existing] = { ...next[existing], status: "running" };
+          return next;
+        }
+        return [...prev, { name: data.testCaseName, status: "running" }];
+      });
+    },
+    onTestCompleted: (data) => {
+      setRunningTests((prev) => {
+        const existing = prev.findIndex((t) => t.name === data.testCaseName);
+        const status = data.verdict === "pass" || data.verdict === "healed" ? "pass" : "fail";
+        if (existing >= 0) {
+          const next = [...prev];
+          next[existing] = { ...next[existing], status };
+          return next;
+        }
+        return [...prev, { name: data.testCaseName, status }];
+      });
+    },
+  });
 
   const launch = useCallback(async () => {
     setRunState("running");
     setError(null);
-    cancelledRef.current = false;
+    setRunningTests([]);
 
     try {
       const res = await fetch(`/api/projects/${projectId}/runs`, {
@@ -45,64 +80,12 @@ export function LaunchRun({ projectId, enabledTestCount, repoName, onBack }: Lau
         return;
       }
 
-      const runId = json.data.id as string;
-
-      // Poll for run status
-      for (let i = 0; i < 120; i++) {
-        if (cancelledRef.current) return;
-        await new Promise((r) => setTimeout(r, 3000));
-
-        try {
-          const statusRes = await fetch(`/api/projects/${projectId}/runs/${runId}`);
-          const statusJson = await statusRes.json();
-          if (!statusRes.ok || !statusJson.success) continue;
-
-          const data = statusJson.data as RunStatus;
-          const total = data.totalTests || enabledTestCount;
-          const completed = data.passed + data.failed + data.flaky + data.skipped;
-
-          setProgress(total > 0 ? Math.round((completed / total) * 100) : 0);
-
-          // Build test progress from results
-          if (data.results && data.results.length > 0) {
-            const testItems: TestProgress[] = data.results.map((r) => ({
-              name: r.testCase?.name ?? `Test ${r.testCaseId.slice(0, 8)}`,
-              status: r.verdict === "pass" || r.verdict === "healed"
-                ? "pass"
-                : r.verdict === "fail" || r.verdict === "flaky"
-                  ? "fail"
-                  : "pending",
-            }));
-
-            // Add remaining tests as pending
-            const remaining = total - testItems.length;
-            for (let j = 0; j < remaining; j++) {
-              testItems.push({
-                name: `Test case ${testItems.length + j + 1}`,
-                status: j === 0 ? "running" : "pending",
-              });
-            }
-
-            setRunningTests(testItems);
-          }
-
-          if (data.status === "completed" || data.status === "failed") {
-            setProgress(100);
-            setRunState("complete");
-            return;
-          }
-        } catch {
-          // Continue polling
-        }
-      }
-
-      // Timed out — still show as complete
-      setRunState("complete");
+      setRunId(json.data.id as string);
     } catch {
       setError("Failed to connect to server");
       setRunState("error");
     }
-  }, [projectId, enabledTestCount]);
+  }, [projectId]);
 
   // Mark onboarding as completed when run finishes
   useEffect(() => {
@@ -112,15 +95,20 @@ export function LaunchRun({ projectId, enabledTestCount, repoName, onBack }: Lau
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ onboardingCompleted: true }),
     }).catch(() => {
-      // Non-critical — don't block the UI
+      // Non-critical
     });
   }, [runState, projectId]);
 
   const passCount = runningTests.filter((t) => t.status === "pass").length;
   const failCount = runningTests.filter((t) => t.status === "fail").length;
+  const totalTests = progress?.totalTests ?? enabledTestCount;
+  const completed = progress?.completed ?? (passCount + failCount);
+  const pct = totalTests > 0 ? Math.round((completed / totalTests) * 100) : 0;
+
+  const showViewport = (runState === "running" || runState === "complete") && !!runId;
 
   return (
-    <div className="flex flex-col items-center w-full max-w-lg mx-auto">
+    <div className={showViewport ? "w-full max-w-4xl mx-auto" : "flex flex-col items-center w-full max-w-lg mx-auto"}>
       {runState === "ready" && (
         <ReadyView
           enabledTestCount={enabledTestCount}
@@ -130,25 +118,47 @@ export function LaunchRun({ projectId, enabledTestCount, repoName, onBack }: Lau
         />
       )}
 
-      {runState === "running" && (
-        <RunningView
-          tests={runningTests}
-          progress={progress}
-          passCount={passCount}
-          failCount={failCount}
-        />
-      )}
+      {showViewport && (
+        <div className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+          {/* Live browser viewport — the "wow moment" */}
+          <div className="lg:col-span-3">
+            <LiveViewport
+              projectId={projectId}
+              runId={runId}
+              enabled={runState === "running"}
+            />
+          </div>
 
-      {runState === "complete" && (
-        <CompleteView
-          total={runningTests.length || enabledTestCount}
-          passCount={passCount}
-          failCount={failCount}
-        />
+          {/* Test progress sidebar */}
+          <div className="lg:col-span-2 flex flex-col items-center">
+            {runState === "running" && (
+              <RunningView
+                tests={runningTests}
+                progress={pct}
+                passCount={passCount}
+                failCount={failCount}
+              />
+            )}
+
+            {runState === "complete" && (
+              <CompleteView
+                total={runningTests.length || enabledTestCount}
+                passCount={passCount}
+                failCount={failCount}
+                projectId={projectId}
+              />
+            )}
+          </div>
+        </div>
       )}
 
       {runState === "error" && error && (
-        <ErrorView error={error} onRetry={launch} onBack={onBack} />
+        <ErrorView
+          error={error}
+          onRetry={launch}
+          onBack={onBack}
+          onConfigureEnv={error.includes("environment") ? onConfigureEnv : undefined}
+        />
       )}
     </div>
   );

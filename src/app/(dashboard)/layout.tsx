@@ -41,7 +41,7 @@ export default async function DashboardLayout({
       <Sidebar />
       <div className="flex flex-col flex-1 min-w-0">
         <DashboardHeader projects={projects} />
-        <main className="flex-1 overflow-auto p-6 animate-fade-in">
+        <main className="flex-1 overflow-auto p-6 animate-fade-in border-t border-white/[0.04]">
           {children}
         </main>
       </div>

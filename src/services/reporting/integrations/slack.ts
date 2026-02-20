@@ -24,10 +24,23 @@ interface SlackBlock {
     type: string;
     text: string;
   }>;
-  elements?: Array<{
-    type: string;
-    text: string;
-  }>;
+  elements?: Array<
+    | { type: string; text: string }
+    | {
+        type: "button";
+        text: { type: "plain_text"; text: string; emoji?: boolean };
+        action_id: string;
+        value: string;
+        style?: "primary" | "danger";
+      }
+  >;
+  accessory?: {
+    type: "button";
+    text: { type: "plain_text"; text: string; emoji?: boolean };
+    action_id: string;
+    value: string;
+    style?: "primary" | "danger";
+  };
 }
 
 function formatRunSummaryAsBlocks(summary: RunSummary): SlackBlock[] {
@@ -83,6 +96,20 @@ function formatRunSummaryAsBlocks(summary: RunSummary): SlackBlock[] {
     });
   }
 
+  // Action buttons
+  blocks.push({
+    type: "actions" as const,
+    elements: [
+      {
+        type: "button" as const,
+        text: { type: "plain_text" as const, text: "Rerun", emoji: true },
+        action_id: "orbit_rerun",
+        value: summary.runId,
+        style: "primary" as const,
+      },
+    ],
+  });
+
   blocks.push({
     type: "context",
     elements: [
@@ -97,9 +124,10 @@ function formatRunSummaryAsBlocks(summary: RunSummary): SlackBlock[] {
 }
 
 function formatFailureAlertAsBlocks(
-  failure: FailureSummary
+  failure: FailureSummary,
+  projectId?: string
 ): SlackBlock[] {
-  return [
+  const blocks: SlackBlock[] = [
     {
       type: "header",
       text: {
@@ -130,6 +158,30 @@ function formatFailureAlertAsBlocks(
       },
     },
   ];
+
+  // Interactive buttons for failure actions
+  if (projectId) {
+    blocks.push({
+      type: "actions" as const,
+      elements: [
+        {
+          type: "button" as const,
+          text: { type: "plain_text" as const, text: "Mark as Flaky", emoji: true },
+          action_id: "orbit_mark_flaky",
+          value: `${failure.testId}|${projectId}`,
+        },
+        {
+          type: "button" as const,
+          text: { type: "plain_text" as const, text: "Create Issue", emoji: true },
+          action_id: "orbit_create_issue",
+          value: `${failure.testId}|${projectId}`,
+          style: "danger" as const,
+        },
+      ],
+    });
+  }
+
+  return blocks;
 }
 
 async function postSlackWebhook(
@@ -181,9 +233,10 @@ export async function sendRunNotification(
 
 export async function sendFailureAlert(
   webhookUrl: string,
-  failure: FailureSummary
+  failure: FailureSummary,
+  projectId?: string
 ): Promise<SlackAlertResult> {
-  const blocks = formatFailureAlertAsBlocks(failure);
+  const blocks = formatFailureAlertAsBlocks(failure, projectId);
 
   if (!webhookUrl) {
     console.warn("[slack] No webhook URL provided, skipping failure alert");

@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { encrypt } from "@/lib/vault";
 import {
@@ -38,11 +39,11 @@ export async function GET(
   }
 }
 
-interface CreateSecretBody {
-  key?: string;
-  value?: string;
-  environmentId?: string;
-}
+const CreateSecretSchema = z.object({
+  key: z.string().min(1, "Secret key is required").max(255),
+  value: z.string().min(1, "Secret value is required"),
+  environmentId: z.string().uuid().optional(),
+});
 
 export async function POST(
   request: NextRequest,
@@ -61,17 +62,15 @@ export async function POST(
       return apiError("Project not found", "NOT_FOUND", 404);
     }
 
-    const body = (await request.json()) as CreateSecretBody;
-    const { key, value, environmentId } = body;
+    const body = await request.json();
+    const parsed = CreateSecretSchema.safeParse(body);
 
-    if (!key || typeof key !== "string" || key.trim().length === 0) {
-      return apiError("Secret key is required", "VALIDATION_ERROR", 400);
+    if (!parsed.success) {
+      const firstError = parsed.error.errors[0]?.message ?? "Validation failed";
+      return apiError(firstError, "VALIDATION_ERROR", 400);
     }
 
-    if (!value || typeof value !== "string") {
-      return apiError("Secret value is required", "VALIDATION_ERROR", 400);
-    }
-
+    const { key, value, environmentId } = parsed.data;
     const { encrypted, iv } = encrypt(value);
 
     const existing = await prisma.secret.findFirst({

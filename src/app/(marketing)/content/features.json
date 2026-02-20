@@ -1,0 +1,62 @@
+{
+  "section_title": "Everything a QA Engineer Does, Automated",
+  "section_subtitle": "Orbit doesn't just record clicks. It reads your codebase, understands your architecture, and builds tests that cover what matters.",
+  "features": [
+    {
+      "id": "system-map",
+      "title": "System Map Intelligence",
+      "description": "Orbit parses your entire codebase with tree-sitter AST analysis, detects your framework, and builds an interactive graph of every route, component, endpoint, and auth flow. It understands your app the way a senior engineer would — in under 2 minutes.",
+      "icon": "network",
+      "category": "understanding"
+    },
+    {
+      "id": "ai-test-generation",
+      "title": "AI Test Plan Generation",
+      "description": "From the System Map, Orbit generates prioritized test cases covering user journeys, API contracts, auth flows, form validation, and edge cases. Each test is scored by criticality, risk, and coverage gap — so the most important paths get tested first.",
+      "icon": "brain",
+      "category": "planning"
+    },
+    {
+      "id": "browser-execution",
+      "title": "Real Browser Execution",
+      "description": "Tests run in actual Chromium browsers via Playwright and Stagehand. Orbit navigates your app, fills forms, clicks buttons, and verifies outcomes — capturing screenshots, video, network logs, and console errors at every step.",
+      "icon": "monitor",
+      "category": "execution"
+    },
+    {
+      "id": "self-healing",
+      "title": "Self-Healing Selectors",
+      "description": "When your UI changes, Orbit doesn't break. AI-powered selector healing identifies the intended element even when IDs, classes, or DOM structure shift. Persistent changes are surfaced for review — not silently ignored.",
+      "icon": "refresh",
+      "category": "maintenance"
+    },
+    {
+      "id": "continuous-testing",
+      "title": "Continuous on Every Push",
+      "description": "Orbit watches your repo and runs regression tests on every PR, targeting only code paths affected by the diff. Full suites run nightly. Your test plan evolves automatically as your codebase changes — no manual updates needed.",
+      "icon": "repeat",
+      "category": "automation"
+    },
+    {
+      "id": "failure-analysis",
+      "title": "AI Failure Explanations",
+      "description": "When a test fails, Orbit tells you why in plain English. It pinpoints the likely root cause, shows the relevant code, and suggests a fix — complete with screenshots and video evidence. Create a Linear issue with one click.",
+      "icon": "search",
+      "category": "reporting"
+    },
+    {
+      "id": "integrations",
+      "title": "Fits Your Workflow",
+      "description": "GitHub PR checks that block broken merges. Linear integration that auto-creates bug tickets. Slack notifications for your team. A VS Code extension for inline test results. Orbit works where you already work.",
+      "icon": "plug",
+      "category": "integrations"
+    },
+    {
+      "id": "security",
+      "title": "Enterprise-Grade Security",
+      "description": "Credentials encrypted with AES-256 at rest. Ephemeral browser containers destroyed after each run. Row-level tenant isolation. Zero plaintext secret storage. Full audit logs. Your staging environment, your data, fully protected.",
+      "icon": "shield",
+      "category": "security"
+    }
+  ]
+}

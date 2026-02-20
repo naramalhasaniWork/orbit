@@ -1,4 +1,4 @@
-import { getOperatorPrompt } from "@/agents/prompts/operator-layer";
+import { buildPrompt, type UserLayerInput } from "@/agents/prompts/prompt-builder";
 
 interface ASTResult {
   filePath: string;
@@ -25,59 +25,14 @@ export interface AnalystContext {
   astResults: ASTResult[];
   frameworkMetadata: FrameworkMetadata;
   projectId: string;
+  workspaceName?: string;
 }
-
-const OUTPUT_SCHEMA = `{
-  "projectId": "string",
-  "framework": "string (e.g. 'next', 'react', 'express')",
-  "language": "string (e.g. 'typescript', 'javascript')",
-  "nodes": [
-    {
-      "id": "string (unique, e.g. 'route:/dashboard')",
-      "type": "route | component | endpoint | model | auth_strategy | middleware",
-      "name": "string (human-readable name)",
-      "filePath": "string (relative file path)",
-      "metadata": {
-        "httpMethod": "string (optional, for endpoints)",
-        "params": ["string (optional, route/query params)"],
-        "authRequired": "boolean (optional)",
-        "framework": "string (optional)",
-        "exports": ["string (optional)"],
-        "dependencies": ["string (optional)"],
-        "description": "string (optional, brief purpose)"
-      },
-      "edges": [
-        {
-          "target": "string (target node id)",
-          "relationship": "imports | renders | calls | protects | uses_model | redirects_to | middleware_for"
-        }
-      ]
-    }
-  ],
-  "edges": [
-    {
-      "source": "string (source node id)",
-      "target": "string (target node id)",
-      "relationship": "string"
-    }
-  ],
-  "summary": {
-    "totalRoutes": "number",
-    "totalComponents": "number",
-    "totalEndpoints": "number",
-    "totalModels": "number",
-    "authStrategies": ["string"],
-    "frameworks": ["string"]
-  }
-}`;
 
 export function buildAnalystPrompt(
   context: AnalystContext,
-  userContext?: string
+  userLayer?: UserLayerInput
 ): string {
   const { codeFiles, astResults, frameworkMetadata, projectId } = context;
-
-  const operatorPrompt = getOperatorPrompt();
 
   const filesSummary = codeFiles
     .map((f) => `### ${f.path}\n\`\`\`\n${f.content}\n\`\`\``)
@@ -90,18 +45,17 @@ export function buildAnalystPrompt(
     )
     .join("\n");
 
-  return `${operatorPrompt}
-
-## Agent Role: Analyst
+  const agentInstructions = `## Agent Role: Analyst
 You are the Analyst agent. Your job is to analyze source code, AST parse results, and framework metadata to produce a **System Map** — a directed graph representing the application's structure.
 
 ## Your Task
 1. Identify all routes, components, API endpoints, data models, auth strategies, and middleware.
 2. Determine the relationships between them (imports, renders, calls, protects, etc.).
 3. Classify each node with the correct type.
-4. Assign meaningful IDs (e.g. "route:/login", "endpoint:POST:/api/users", "component:LoginForm").
-5. Note which routes require authentication.
-6. Capture key metadata for each node.
+4. Assign meaningful IDs using the pattern: "{type}:{identifier}" (e.g. "route:/login", "endpoint:POST:/api/users", "component:LoginForm", "model:User", "auth:jwt", "middleware:rateLimiter").
+5. Note which routes require authentication and what auth strategy they use.
+6. Capture key metadata for each node — especially HTTP methods, params, and dependencies.
+7. Build edges that trace the full request lifecycle: middleware -> route -> component -> API call -> model.
 
 ## Framework Detected
 - **Name:** ${frameworkMetadata.name}
@@ -117,19 +71,62 @@ ${astSummary}
 ${filesSummary}
 
 ## Output Schema
-Your response MUST be valid JSON matching this exact schema:
-${OUTPUT_SCHEMA}
-
-Use projectId: "${projectId}"
+Your response MUST be valid JSON matching this exact structure:
+{
+  "projectId": "${projectId}",
+  "framework": "string",
+  "language": "string",
+  "nodes": [{
+    "id": "string (unique, pattern: {type}:{identifier})",
+    "type": "route | component | endpoint | model | auth_strategy | middleware",
+    "name": "string (human-readable)",
+    "filePath": "string (relative path)",
+    "metadata": {
+      "httpMethod": "string (GET/POST/PUT/DELETE/PATCH, for endpoints)",
+      "params": ["string (route params like [id], query params)"],
+      "authRequired": "boolean",
+      "framework": "string",
+      "exports": ["string"],
+      "dependencies": ["string"],
+      "description": "string (one-line purpose)"
+    },
+    "edges": [{
+      "target": "string (target node id)",
+      "relationship": "imports | renders | calls | protects | uses_model | redirects_to | middleware_for"
+    }]
+  }],
+  "edges": [{
+    "source": "string",
+    "target": "string",
+    "relationship": "string"
+  }],
+  "summary": {
+    "totalRoutes": "number",
+    "totalComponents": "number",
+    "totalEndpoints": "number",
+    "totalModels": "number",
+    "authStrategies": ["string"],
+    "frameworks": ["string"]
+  }
+}
 
 ## Rules
-- Every node must have a unique ID.
+- Every node must have a unique ID following the "{type}:{identifier}" pattern.
 - Every edge must reference valid source and target node IDs.
 - Do not invent routes or endpoints that don't exist in the code.
 - If uncertain about a node's type, prefer the more specific type.
 - Include ALL routes and endpoints, even if they seem trivial.
-- For Next.js App Router, derive routes from the file path structure.${userContext ? `
+- For Next.js App Router, derive routes from the file path structure (app/dashboard/page.tsx -> route:/dashboard).
+- For API routes, include the HTTP method in the endpoint ID (endpoint:POST:/api/users).
+- Detect and classify auth strategies: JWT, session, OAuth, API key, etc.
+- Mark middleware that protects routes with authRequired: true on the route node.`;
 
-## User-Provided Context
-${userContext}` : ""}`;
+  const { systemPrompt } = buildPrompt({
+    agentRole: "analyst",
+    agentInstructions,
+    userLayer,
+    workspaceName: context.workspaceName,
+  });
+
+  return systemPrompt;
 }

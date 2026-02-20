@@ -84,7 +84,7 @@ export function RunsClient({ projectId, projectName, runs }: RunsClientProps) {
           }
         />
       ) : (
-        <div className="rounded-xl surface-1 overflow-hidden divide-y divide-white/[0.04]">
+        <div className="rounded-xl surface-1 border border-white/[0.04] overflow-hidden divide-y divide-white/[0.04]">
           {filteredRuns.map((run) => (
             <RunRow key={run.id} run={run} />
           ))}

@@ -1,5 +1,11 @@
 import { PrismaClient, Prisma } from "../src/generated/prisma/client";
-import { IDS, NODES, EDGES, AUDIT_ENTRIES, TEST_CASES, RUNS, RESULTS } from "./seed-data";
+import {
+  IDS, NODES, EDGES, AUDIT_ENTRIES, TEST_CASES, RUNS, RESULTS,
+  CREDIT_TRANSACTIONS, WEBHOOK_EVENTS, INTEGRATION_CONFIGS,
+  RUN_ARTIFACTS, SELECTOR_HISTORY, TEST_CASE_VERSIONS,
+  FAILURE_PATTERNS, BASELINE_SNAPSHOTS, PLUGIN_INSTALLATIONS,
+  DOMAIN_KNOWLEDGE_FILES, WEBHOOK_SUBSCRIPTIONS,
+} from "./seed-data";
 
 export async function seedUsers(prisma: PrismaClient) {
   const defs = [
@@ -186,6 +192,186 @@ export async function seedAuditLog(prisma: PrismaClient, workspaceId: string, us
       resourceType: a.resourceType, resourceId: a.resourceId,
       metadata: a.metadata as Prisma.InputJsonValue,
       ipAddress: "127.0.0.1", createdAt: a.createdAt,
+    })),
+  });
+}
+
+export async function seedCreditTransactions(prisma: PrismaClient, workspaceId: string) {
+  await prisma.creditTransaction.deleteMany({ where: { workspaceId } });
+  await prisma.creditTransaction.createMany({
+    data: CREDIT_TRANSACTIONS.map((ct) => ({
+      workspaceId, type: ct.type, amount: ct.amount, balance: ct.balance,
+      description: ct.description, testRunId: ct.testRunId,
+      createdAt: ct.createdAt,
+    })),
+  });
+}
+
+export async function seedWebhookEvents(prisma: PrismaClient, projectId: string) {
+  await prisma.webhookEvent.deleteMany({ where: { projectId } });
+  await prisma.webhookEvent.createMany({
+    data: WEBHOOK_EVENTS.map((we) => ({
+      projectId, provider: we.provider, event: we.event,
+      externalId: we.externalId, payload: {} as Prisma.InputJsonValue,
+      status: we.status, error: we.error, createdAt: we.createdAt,
+      processedAt: we.status === "processed" ? we.createdAt : null,
+    })),
+  });
+}
+
+export async function seedIntegrationConfigs(prisma: PrismaClient, workspaceId: string) {
+  for (const ic of INTEGRATION_CONFIGS) {
+    await prisma.integrationConfig.upsert({
+      where: { integration_config_unique: { workspaceId, provider: ic.provider } },
+      update: { isEnabled: ic.isEnabled, config: ic.config as Prisma.InputJsonValue },
+      create: {
+        workspaceId, provider: ic.provider, isEnabled: ic.isEnabled,
+        config: ic.config as Prisma.InputJsonValue,
+      },
+    });
+  }
+}
+
+export async function seedRunArtifacts(
+  prisma: PrismaClient, projectId: string,
+  runs: { id: string }[], testCases: { id: string }[]
+) {
+  await prisma.runArtifact.deleteMany({ where: { projectId } });
+
+  const resultMap = new Map<string, string>();
+  for (const run of runs) {
+    const results = await prisma.testResult.findMany({ where: { testRunId: run.id } });
+    for (const r of results) {
+      resultMap.set(`${run.id}:${r.testCaseId}`, r.id);
+    }
+  }
+
+  const data = RUN_ARTIFACTS.map((a) => {
+    const testRunId = runs[a.runIndex].id;
+    const testResultId = a.resultCaseIndex !== null
+      ? resultMap.get(`${testRunId}:${testCases[a.resultCaseIndex].id}`) ?? null
+      : null;
+    return {
+      projectId, testRunId, testResultId,
+      type: a.type, storageKey: a.storageKey, fileName: a.fileName,
+      contentType: a.contentType, sizeBytes: a.sizeBytes, stepIndex: a.stepIndex,
+    };
+  });
+
+  await prisma.runArtifact.createMany({ data });
+  return data.length;
+}
+
+export async function seedSelectorHistory(prisma: PrismaClient, projectId: string) {
+  await prisma.selectorHistory.deleteMany({ where: { projectId } });
+  const mappings = await prisma.selectorMapping.findMany({ where: { projectId } });
+  if (mappings.length === 0) return;
+
+  const data = SELECTOR_HISTORY.map((sh, i) => ({
+    projectId,
+    selectorMappingId: mappings[i % mappings.length].id,
+    previousSelector: sh.previousSelector,
+    newSelector: sh.newSelector,
+    confidence: sh.confidence,
+    testRunId: sh.testRunId,
+    pageUrl: sh.pageUrl,
+    createdAt: sh.createdAt,
+  }));
+
+  await prisma.selectorHistory.createMany({ data });
+}
+
+export async function seedTestCaseVersions(prisma: PrismaClient, testCases: { id: string }[]) {
+  const caseIds = testCases.map((tc) => tc.id);
+  await prisma.testCaseVersion.deleteMany({ where: { testCaseId: { in: caseIds } } });
+
+  const data = TEST_CASE_VERSIONS.map((v) => {
+    const tc = TEST_CASES[v.caseIndex];
+    return {
+      testCaseId: testCases[v.caseIndex].id,
+      version: v.version,
+      name: tc.name,
+      type: tc.type,
+      steps: tc.steps as Prisma.InputJsonValue,
+      rationale: tc.rationale,
+      changedBy: v.changedBy,
+      changeNote: v.changeNote,
+      createdAt: v.createdAt,
+    };
+  });
+
+  await prisma.testCaseVersion.createMany({ data });
+}
+
+export async function seedFailurePatterns(
+  prisma: PrismaClient, projectId: string, testCases: { id: string }[]
+) {
+  await prisma.failurePattern.deleteMany({ where: { projectId } });
+  await prisma.failurePattern.createMany({
+    data: FAILURE_PATTERNS.map((fp) => ({
+      projectId,
+      pattern: fp.pattern,
+      category: fp.category,
+      occurrences: fp.occurrences,
+      testCaseIds: fp.testCaseIndices.map((i) => testCases[i].id) as Prisma.InputJsonValue,
+      firstSeenAt: fp.firstSeenAt,
+      lastSeenAt: fp.lastSeenAt,
+    })),
+  });
+}
+
+export async function seedBaselineSnapshots(
+  prisma: PrismaClient, projectId: string, lastRunId: string
+) {
+  await prisma.baselineSnapshot.deleteMany({ where: { projectId } });
+  await prisma.baselineSnapshot.createMany({
+    data: BASELINE_SNAPSHOTS.map((bs) => ({
+      projectId,
+      testRunId: lastRunId,
+      type: bs.type,
+      routePath: bs.routePath,
+      endpoint: bs.endpoint,
+      storageKey: bs.storageKey,
+    })),
+  });
+}
+
+export async function seedPluginInstallations(prisma: PrismaClient, workspaceId: string) {
+  for (const pi of PLUGIN_INSTALLATIONS) {
+    await prisma.pluginInstallation.upsert({
+      where: { plugin_installation_unique: { workspaceId, pluginName: pi.pluginName } },
+      update: { version: pi.version, isEnabled: pi.isEnabled, config: pi.config as Prisma.InputJsonValue },
+      create: {
+        workspaceId, pluginName: pi.pluginName, version: pi.version,
+        isEnabled: pi.isEnabled, config: pi.config as Prisma.InputJsonValue,
+      },
+    });
+  }
+}
+
+export async function seedDomainKnowledgeFiles(prisma: PrismaClient, workspaceId: string) {
+  await prisma.domainKnowledgeFile.deleteMany({ where: { workspaceId } });
+  await prisma.domainKnowledgeFile.createMany({
+    data: DOMAIN_KNOWLEDGE_FILES.map((dk) => ({
+      workspaceId,
+      name: dk.name,
+      type: dk.type,
+      storageKey: dk.storageKey,
+      sizeBytes: dk.sizeBytes,
+      chunkCount: dk.chunkCount,
+    })),
+  });
+}
+
+export async function seedWebhookSubscriptions(prisma: PrismaClient, workspaceId: string) {
+  await prisma.webhookSubscription.deleteMany({ where: { workspaceId } });
+  await prisma.webhookSubscription.createMany({
+    data: WEBHOOK_SUBSCRIPTIONS.map((ws) => ({
+      workspaceId,
+      url: ws.url,
+      events: ws.events as Prisma.InputJsonValue,
+      isEnabled: ws.isEnabled,
+      description: ws.description,
     })),
   });
 }

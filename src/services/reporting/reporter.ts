@@ -10,6 +10,11 @@ import {
   sendRunNotification,
   sendFailureAlert,
 } from "@/services/reporting/integrations/slack";
+import {
+  dispatchRunCompleted,
+  dispatchTestFailed,
+  dispatchBugDiscovered,
+} from "@/services/reporting/integrations/outbound-webhooks";
 import { BugReportSchema, type BugReport } from "@/agents/schemas/run-summary";
 import { createCompletion } from "@/lib/ai";
 import { getModelForTask } from "@/lib/ai/model-router";
@@ -196,6 +201,12 @@ async function triggerIntegrations(
       const issueResult = await createBugIssue(bugReport, run.projectId);
       if (issueResult.success) {
         results.linear.issuesCreated++;
+        await dispatchBugDiscovered(run.projectId, {
+          issueId: issueResult.issueId,
+          issueUrl: issueResult.issueUrl,
+          title: issueResult.title,
+          severity: bugReport.severity,
+        });
       }
     }
   }
@@ -213,11 +224,18 @@ async function triggerIntegrations(
 
     // Send individual alerts for critical failures
     for (const failure of criticalFailures) {
-      const alertResult = await sendFailureAlert(slackWebhookUrl, failure);
+      const alertResult = await sendFailureAlert(slackWebhookUrl, failure, run.projectId);
       if (alertResult.success) {
         results.slack.alerts++;
       }
     }
+  }
+
+  // Outbound webhooks: dispatch run.completed and test.failed events
+  await dispatchRunCompleted(run.projectId, report.summary);
+
+  for (const failure of report.summary.failures) {
+    await dispatchTestFailed(run.projectId, failure);
   }
 
   return results;

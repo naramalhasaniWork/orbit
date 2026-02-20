@@ -1,4 +1,4 @@
-import { getOperatorPrompt } from "@/agents/prompts/operator-layer";
+import { buildPrompt, type UserLayerInput } from "@/agents/prompts/prompt-builder";
 
 interface SystemMapExcerpt {
   framework: string;
@@ -36,44 +36,12 @@ export interface PlannerContext {
   existingTestNames: string[];
   gitHistory: GitChange[];
   projectId: string;
+  workspaceName?: string;
 }
-
-const OUTPUT_SCHEMA = `{
-  "projectId": "string",
-  "version": "number (integer, start at 1)",
-  "generatedAt": "string (ISO 8601 timestamp)",
-  "testCases": [
-    {
-      "id": "string (unique, e.g. 'tc-auth-login-happy')",
-      "name": "string (short descriptive name)",
-      "type": "journey | api_contract | auth | form_validation | edge_case | regression",
-      "journey": "string (user journey name, e.g. 'authentication')",
-      "priorityScore": "number (0-100)",
-      "criticality": "number (0-100, business impact)",
-      "risk": "number (0-100, likelihood of breakage)",
-      "coverageGap": "number (0-100, coverage this adds)",
-      "steps": [
-        {
-          "action": "string (specific action to perform)",
-          "expected": "string (expected outcome)",
-          "selectorHint": "string (optional CSS/a11y selector hint)"
-        }
-      ],
-      "rationale": "string (why this test exists)",
-      "edgeCases": ["string (edge cases to consider)"]
-    }
-  ],
-  "metadata": {
-    "totalTests": "number",
-    "coverageByJourney": { "journey_name": "number (count)" },
-    "coverageByType": { "type_name": "number (count)" },
-    "estimatedCredits": "number"
-  }
-}`;
 
 export function buildPlannerPrompt(
   context: PlannerContext,
-  userContext?: string
+  userLayer?: UserLayerInput
 ): string {
   const {
     systemMap,
@@ -83,12 +51,10 @@ export function buildPlannerPrompt(
     projectId,
   } = context;
 
-  const operatorPrompt = getOperatorPrompt();
-
   const nodesStr = systemMap.nodes
     .map(
       (n) =>
-        `  - [${n.type}] ${n.id}: ${n.name} (${n.filePath})${n.metadata?.authRequired ? " [AUTH]" : ""}`
+        `  - [${n.type}] ${n.id}: ${n.name} (${n.filePath})${n.metadata?.authRequired ? " [AUTH]" : ""}${n.metadata?.httpMethod ? ` [${n.metadata.httpMethod}]` : ""}`
     )
     .join("\n");
 
@@ -104,7 +70,7 @@ export function buildPlannerPrompt(
   const gitStr =
     gitHistory.length > 0
       ? gitHistory
-          .map((g) => `  - [${g.changeType}] ${g.filePath}`)
+          .map((g) => `  - [${g.changeType}] ${g.filePath}${g.diff ? `\n    ${g.diff.slice(0, 200)}` : ""}`)
           .join("\n")
       : "  (no recent changes)";
 
@@ -126,18 +92,25 @@ export function buildPlannerPrompt(
     .filter(Boolean)
     .join("\n");
 
-  return `${operatorPrompt}
-
-## Agent Role: Planner
+  const agentInstructions = `## Agent Role: Planner
 You are the Planner agent. Your job is to generate a comprehensive, prioritized test plan based on the application's System Map.
 
-## Chain of Thought — Follow This Process
-1. **Identify critical user journeys.** Map the routes and components to real user flows (login, signup, dashboard, settings, etc.).
-2. **Consider breakpoints.** For each journey, think about where things can go wrong: auth failures, form validation errors, API timeouts, empty states, permission issues.
-3. **Prioritize by risk.** Tests that cover auth, payment, and data integrity should score highest. Tests for cosmetic or low-traffic features score lower.
-4. **Avoid duplication.** Check existing test names and do not regenerate tests that already exist.
-5. **Generate test cases.** For each case, define clear steps with specific actions and expected outcomes.
-6. **Consider regression.** If git history shows recent changes, generate tests targeting those areas.
+## Chain of Thought — Follow This Process Exactly
+1. **Identify critical user journeys.** Map the routes and components to real user flows: signup -> onboard -> core action -> success; login -> dashboard -> perform action -> logout; form fill -> validate -> submit -> confirm.
+2. **Consider what can break at each step.** For each journey: auth failures, form validation errors, API timeouts, empty states, permission issues, missing data, concurrent access, expired sessions.
+3. **Think adversarially.** Ask "What would a malicious or confused user do on this screen?" — XSS payloads in inputs, extremely long strings, special characters, rapid double-clicks on submit, navigating back mid-flow.
+4. **Prioritize by risk.** Auth, payment, and data integrity tests score highest. Cosmetic or low-traffic features score lower.
+5. **Avoid duplication.** Check existing test names below and do not regenerate tests that already exist.
+6. **Generate test cases.** For each case, define clear, specific steps with concrete actions and verifiable expected outcomes.
+7. **Consider regression.** If git history shows recent changes, generate tests targeting those areas with higher risk scores.
+
+## Test Types to Generate
+- **User Journey Tests**: Multi-step browser flows simulating real user behavior
+- **API Contract Tests**: Valid payload, invalid payload, and unauthenticated request per endpoint
+- **Authentication Flow Tests**: Login, logout, token refresh, protected route access, session expiry
+- **Form Validation Tests**: Required fields, format validation, length limits, valid submission
+- **Edge Case Tests**: XSS, long strings, special chars, double-submit, empty states, boundary values
+- **Regression Tests**: Tests specifically targeting recently changed code paths
 
 ## System Map
 **Framework:** ${systemMap.framework}
@@ -158,21 +131,59 @@ ${existingStr}
 ${gitStr}
 
 ## Output Schema
-Your response MUST be valid JSON matching this exact schema:
-${OUTPUT_SCHEMA}
+Your response MUST be valid JSON matching this exact structure:
+{
+  "projectId": "${projectId}",
+  "version": 1,
+  "generatedAt": "ISO 8601 timestamp",
+  "testCases": [{
+    "id": "tc-{journey}-{description}",
+    "name": "Short descriptive name",
+    "type": "journey | api_contract | auth | form_validation | edge_case | regression",
+    "journey": "Journey name (e.g. 'authentication', 'checkout')",
+    "priorityScore": 0-100,
+    "criticality": 0-100,
+    "risk": 0-100,
+    "coverageGap": 0-100,
+    "steps": [{
+      "action": "Specific action (e.g. 'Click the Sign Up button in the top nav')",
+      "expected": "Specific expected outcome (e.g. 'Registration form appears with email, password, and name fields')",
+      "selectorHint": "Optional CSS/aria selector (e.g. 'button[data-testid=signup]')"
+    }],
+    "rationale": "Why this test exists and what risk it mitigates",
+    "edgeCases": ["Specific edge cases to consider"]
+  }],
+  "metadata": {
+    "totalTests": "number",
+    "coverageByJourney": { "journey_name": "count" },
+    "coverageByType": { "type_name": "count" },
+    "estimatedCredits": "number"
+  }
+}
 
-Use projectId: "${projectId}"
+## Scoring Formula
+priorityScore = (criticality * 0.4) + (risk * 0.35) + (coverageGap * 0.25)
 
-## Rules
-- Each test case must have a unique ID following the pattern "tc-{journey}-{description}".
-- Steps must be specific and actionable — not vague instructions.
-- Include selector hints when the System Map provides enough info.
-- priorityScore = (criticality * 0.4) + (risk * 0.35) + (coverageGap * 0.25).
-- Estimate ~1 credit per test case for the estimatedCredits field.
-- For "smoke" mode, limit to the top 10 highest-priority tests.
-- For "regression" mode, focus on tests covering recently changed files.
-- For "targeted" mode, focus on the specified focus areas only.${userContext ? `
+## Mode-Specific Rules
+- **full**: Generate comprehensive coverage across all journeys and endpoints.
+- **smoke**: Limit to top 10 highest-priority tests covering critical paths only.
+- **regression**: Focus exclusively on tests covering recently changed files. Mark all as type "regression".
+- **targeted**: Generate tests only for the specified focus areas.
 
-## User-Provided Context
-${userContext}` : ""}`;
+## Quality Checks
+- Each test case MUST have a unique ID following "tc-{journey}-{description}".
+- Steps must be specific: NOT "fill the form" but "Enter 'test@orbit.run' in the email field".
+- Include selector hints when the System Map provides component info.
+- Every test must have at least one assertion step.
+- Estimate ~1 credit per test case for estimatedCredits.`;
+
+  const { systemPrompt } = buildPrompt({
+    agentRole: "planner",
+    agentInstructions,
+    userLayer,
+    workspaceName: context.workspaceName,
+    maxOutputTokens: 8192,
+  });
+
+  return systemPrompt;
 }

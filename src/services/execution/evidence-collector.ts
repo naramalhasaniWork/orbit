@@ -5,6 +5,7 @@ import type {
   Response as PlaywrightResponse,
 } from "playwright";
 import { getStorage } from "@/lib/storage";
+import { prisma } from "@/lib/db";
 
 // ============================================================
 // Types
@@ -36,8 +37,8 @@ export interface EvidenceCollectorInstance {
   evidence: Evidence;
   startCapture(): void;
   stopCapture(): void;
-  captureScreenshot(label: string): Promise<string>;
-  captureDomSnapshot(): Promise<string>;
+  captureScreenshot(label: string, stepIndex?: number): Promise<string>;
+  captureDomSnapshot(stepIndex?: number): Promise<string>;
   finalizeVideo(): Promise<string | undefined>;
   getEvidence(): Evidence;
 }
@@ -50,7 +51,8 @@ export function createEvidenceCollector(
   page: Page,
   runId: string,
   testCaseId: string,
-  context?: BrowserContext
+  context?: BrowserContext,
+  projectId?: string
 ): EvidenceCollectorInstance {
   const evidence: Evidence = {
     screenshots: [],
@@ -99,25 +101,46 @@ export function createEvidenceCollector(
     page.removeListener("console", onConsole);
   }
 
-  async function captureScreenshot(label: string): Promise<string> {
+  async function captureScreenshot(label: string, stepIndex?: number): Promise<string> {
     const storage = getStorage();
     const timestamp = Date.now();
-    const key = `runs/${runId}/${testCaseId}/${label}-${timestamp}.png`;
+    const fileName = `${label}-${timestamp}.png`;
+    const key = `runs/${runId}/${testCaseId}/${fileName}`;
 
     const buffer = await page.screenshot({ fullPage: true });
     await storage.upload(key, buffer, "image/png");
+
+    if (projectId) {
+      await prisma.runArtifact.create({
+        data: {
+          projectId, testRunId: runId, type: "screenshot", storageKey: key,
+          fileName, contentType: "image/png", sizeBytes: buffer.length, stepIndex,
+        },
+      });
+    }
 
     const url = await storage.getUrl(key);
     evidence.screenshots.push(url);
     return url;
   }
 
-  async function captureDomSnapshot(): Promise<string> {
+  async function captureDomSnapshot(stepIndex?: number): Promise<string> {
     const storage = getStorage();
-    const key = `runs/${runId}/${testCaseId}/dom-snapshot-${Date.now()}.html`;
+    const fileName = `dom-snapshot-${Date.now()}.html`;
+    const key = `runs/${runId}/${testCaseId}/${fileName}`;
 
     const html = await page.content();
-    await storage.upload(key, Buffer.from(html), "text/html");
+    const buffer = Buffer.from(html);
+    await storage.upload(key, buffer, "text/html");
+
+    if (projectId) {
+      await prisma.runArtifact.create({
+        data: {
+          projectId, testRunId: runId, type: "dom_snapshot", storageKey: key,
+          fileName, contentType: "text/html", sizeBytes: buffer.length, stepIndex,
+        },
+      });
+    }
 
     const url = await storage.getUrl(key);
     evidence.domSnapshot = url;
@@ -128,7 +151,6 @@ export function createEvidenceCollector(
     if (!context) return undefined;
 
     try {
-      // Close the page to finalize video recording
       const video = page.video();
       if (!video) return undefined;
 
@@ -139,14 +161,23 @@ export function createEvidenceCollector(
       const videoBuffer = await readFile(videoPath);
 
       const storage = getStorage();
-      const key = `runs/${runId}/${testCaseId}/video-${Date.now()}.webm`;
+      const fileName = `video-${Date.now()}.webm`;
+      const key = `runs/${runId}/${testCaseId}/${fileName}`;
       await storage.upload(key, videoBuffer, "video/webm");
+
+      if (projectId) {
+        await prisma.runArtifact.create({
+          data: {
+            projectId, testRunId: runId, type: "video", storageKey: key,
+            fileName, contentType: "video/webm", sizeBytes: videoBuffer.length,
+          },
+        });
+      }
 
       const url = await storage.getUrl(key);
       evidence.videoUrl = url;
       return url;
     } catch {
-      // Video recording may not be available (e.g., remote browsers)
       return undefined;
     }
   }
@@ -186,23 +217,45 @@ export async function saveArtifact(
 export async function saveNetworkLog(
   runId: string,
   testCaseId: string,
-  entries: NetworkEntry[]
+  entries: NetworkEntry[],
+  projectId?: string
 ): Promise<string> {
   const storage = getStorage();
   const key = `runs/${runId}/${testCaseId}/network-log.json`;
   const data = Buffer.from(JSON.stringify(entries, null, 2));
   await storage.upload(key, data, "application/json");
+
+  if (projectId) {
+    await prisma.runArtifact.create({
+      data: {
+        projectId, testRunId: runId, type: "network_log", storageKey: key,
+        fileName: "network-log.json", contentType: "application/json", sizeBytes: data.length,
+      },
+    });
+  }
+
   return storage.getUrl(key);
 }
 
 export async function saveConsoleLog(
   runId: string,
   testCaseId: string,
-  entries: ConsoleEntry[]
+  entries: ConsoleEntry[],
+  projectId?: string
 ): Promise<string> {
   const storage = getStorage();
   const key = `runs/${runId}/${testCaseId}/console-log.json`;
   const data = Buffer.from(JSON.stringify(entries, null, 2));
   await storage.upload(key, data, "application/json");
+
+  if (projectId) {
+    await prisma.runArtifact.create({
+      data: {
+        projectId, testRunId: runId, type: "console_log", storageKey: key,
+        fileName: "console-log.json", contentType: "application/json", sizeBytes: data.length,
+      },
+    });
+  }
+
   return storage.getUrl(key);
 }

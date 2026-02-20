@@ -13,6 +13,8 @@ import { TEST_TYPE_CONFIG } from "@/components/plans/plan-types";
 
 interface TestResultCardProps {
   result: TestResultData;
+  projectId?: string;
+  runId?: string;
 }
 
 const verdictDot: Record<string, "pass" | "fail" | "flaky" | "untested"> = {
@@ -40,7 +42,7 @@ function parseArtifacts(artifacts: unknown): { screenshots: string[] } {
   return { screenshots: [] };
 }
 
-export function TestResultCard({ result }: TestResultCardProps) {
+export function TestResultCard({ result, projectId, runId }: TestResultCardProps) {
   const [expanded, setExpanded] = useState(result.verdict === "fail");
   const dot = verdictDot[result.verdict] ?? "untested";
   const typeConfig = TEST_TYPE_CONFIG[result.testCase.type];
@@ -50,8 +52,8 @@ export function TestResultCard({ result }: TestResultCardProps) {
 
   return (
     <div className={cn(
-      "rounded-xl surface-1 overflow-hidden transition-colors",
-      result.verdict === "fail" && "ring-1 ring-orbit-fail/20"
+      "rounded-xl surface-1 border border-white/[0.04] overflow-hidden transition-colors",
+      result.verdict === "fail" && "border-orbit-fail/20"
     )}>
       <button
         onClick={() => setExpanded(!expanded)}
@@ -136,6 +138,10 @@ export function TestResultCard({ result }: TestResultCardProps) {
                 <FailureAnalysis
                   failureExplanation={result.failureExplanation}
                   suggestedFix={result.suggestedFix}
+                  projectId={projectId}
+                  testResultId={result.id}
+                  testCaseName={result.testCase.name}
+                  runId={runId}
                 />
               )}
 

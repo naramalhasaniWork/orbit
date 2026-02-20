@@ -77,6 +77,14 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     );
   }
 
+  // Fetch indexing status for IndexingStatus component
+  let indexingInfo = {
+    lastIndexedAt: null as string | null,
+    nodeCount: 0,
+    edgeCount: 0,
+    isIndexing: false,
+  };
+
   // Fetch system map data for inline preview
   let mapNodes: MapNode[] = [];
   let mapEdges: MapEdge[] = [];
@@ -108,6 +116,13 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       targetId: e.targetNodeId,
       relationship: e.relationship,
     }));
+
+    indexingInfo = {
+      lastIndexedAt: activeProject.lastIndexedAt?.toISOString() ?? null,
+      nodeCount: dbNodes.length,
+      edgeCount: dbEdges.length,
+      isIndexing: false,
+    };
   }
 
   return (
@@ -119,6 +134,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       activeRun={activeRun}
       mapNodes={mapNodes}
       mapEdges={mapEdges}
+      indexingInfo={indexingInfo}
     />
   );
 }

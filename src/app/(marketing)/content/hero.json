@@ -1,0 +1,30 @@
+{
+  "primary": {
+    "headline": "Your Codebase Already Knows What to Test",
+    "subheadline": "Orbit reads your repo, understands your app, and generates a complete test suite — automatically. No test engineers. No hand-written scripts. Just tests that work, updated every time your code changes.",
+    "cta": "Start Testing in 90 Seconds",
+    "cta_secondary": "Watch It Work"
+  },
+  "alternatives": [
+    {
+      "headline": "Ship Fast. Test Faster.",
+      "subheadline": "Orbit connects to your repo, maps your entire application, and runs AI-generated tests against your staging environment. Autonomous QA that actually understands your code."
+    },
+    {
+      "headline": "The QA Engineer That Reads Your Code",
+      "subheadline": "Connect your repo once. Orbit indexes it, generates a test plan, and executes it in a real browser — continuously, intelligently, and without a single line of test code from you."
+    },
+    {
+      "headline": "Stop Writing Tests. Start Shipping.",
+      "subheadline": "Orbit combines deep code analysis with live browser testing to find bugs before your users do. One connection, full coverage, zero maintenance."
+    }
+  ],
+  "social_proof_bar": {
+    "text": "Built for teams shipping with AI coding tools",
+    "stats": [
+      { "value": "90s", "label": "to first test plan" },
+      { "value": "0", "label": "lines of test code" },
+      { "value": "24/7", "label": "autonomous testing" }
+    ]
+  }
+}

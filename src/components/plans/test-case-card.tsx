@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, ChevronRight, ShieldAlert } from "lucide-react";
+import { ChevronDown, ChevronRight, ShieldAlert, Pencil } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { StatusDot } from "@/components/shared/status-dot";
@@ -11,18 +11,35 @@ import {
   TEST_TYPE_CONFIG,
   getPriorityTier,
 } from "@/components/plans/plan-types";
+import { TestCaseEditor } from "@/components/plans/test-case-editor";
 
 interface TestCaseCardProps {
   testCase: TestCaseData;
+  projectId?: string;
 }
 
-export function TestCaseCard({ testCase }: TestCaseCardProps) {
+export function TestCaseCard({ testCase, projectId }: TestCaseCardProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
   const [enabled, setEnabled] = useState(testCase.isEnabled);
 
   const typeConfig = TEST_TYPE_CONFIG[testCase.type];
   const priority = getPriorityTier(testCase.priorityScore);
   const steps = parseSteps(testCase.steps);
+
+  if (isEditing && projectId) {
+    return (
+      <TestCaseEditor
+        projectId={projectId}
+        testCase={testCase}
+        onSave={() => {
+          setIsEditing(false);
+          window.location.reload();
+        }}
+        onClose={() => setIsEditing(false)}
+      />
+    );
+  }
 
   return (
     <div
@@ -78,6 +95,15 @@ export function TestCaseCard({ testCase }: TestCaseCardProps) {
           <span className={cn("text-xs font-medium tabular-nums", priority.className)}>
             {testCase.priorityScore}
           </span>
+
+          {projectId && (
+            <button
+              onClick={() => setIsEditing(true)}
+              className="text-muted-foreground/50 hover:text-orbit-accent transition-colors"
+            >
+              <Pencil className="h-3 w-3" />
+            </button>
+          )}
 
           <Switch
             checked={enabled}

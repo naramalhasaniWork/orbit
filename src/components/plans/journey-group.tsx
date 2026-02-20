@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils";
 interface JourneyGroupProps {
   journey: string;
   testCases: TestCaseData[];
+  projectId?: string;
 }
 
 function verdictSummary(testCases: TestCaseData[]) {
@@ -23,7 +24,7 @@ function verdictSummary(testCases: TestCaseData[]) {
   return { pass, fail, flaky, untested };
 }
 
-export function JourneyGroup({ journey, testCases }: JourneyGroupProps) {
+export function JourneyGroup({ journey, testCases, projectId }: JourneyGroupProps) {
   const [isOpen, setIsOpen] = useState(true);
   const summary = verdictSummary(testCases);
 
@@ -75,7 +76,7 @@ export function JourneyGroup({ journey, testCases }: JourneyGroupProps) {
           >
             <div className="ml-5 mt-1 space-y-2 pb-1">
               {testCases.map((tc) => (
-                <TestCaseCard key={tc.id} testCase={tc} />
+                <TestCaseCard key={tc.id} testCase={tc} projectId={projectId} />
               ))}
             </div>
           </motion.div>

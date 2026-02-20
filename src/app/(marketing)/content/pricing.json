@@ -1,0 +1,126 @@
+{
+  "headline": "Pricing That Scales With You",
+  "subheadline": "Start free. Pay for what you use. No per-seat surprises.",
+  "creditExplainer": "1 credit = 1 test case execution. A typical PR check uses 20-40 credits.",
+  "tiers": [
+    {
+      "name": "Free",
+      "price": 0,
+      "period": "forever",
+      "description": "For solo developers trying Orbit on a side project or evaluating the platform.",
+      "highlight": false,
+      "cta": "Get Started Free",
+      "credits": "500 credits/month",
+      "features": [
+        "1 project",
+        "1 team member",
+        "500 credits/month",
+        "Core indexing, planning, and execution",
+        "GitHub integration",
+        "Basic dashboard and System Map",
+        "Community support",
+        "30-day run history"
+      ]
+    },
+    {
+      "name": "Pro",
+      "price": 79,
+      "annualPrice": 67,
+      "period": "per seat/month",
+      "description": "For small teams shipping fast who need autonomous testing on every PR.",
+      "highlight": true,
+      "badge": "Most Popular",
+      "cta": "Start Pro Trial",
+      "credits": "5,000 credits/month per seat",
+      "features": [
+        "Unlimited projects",
+        "5,000 credits/month per seat",
+        "All integrations (Linear, Slack, VS Code, CLI)",
+        "Custom system prompts",
+        "Plugin marketplace access",
+        "Self-healing selectors",
+        "Smoke, regression, and full suite modes",
+        "30-day run history",
+        "Email support with SLA",
+        "Top-up credits at $0.02/credit"
+      ]
+    },
+    {
+      "name": "Team",
+      "price": 149,
+      "annualPrice": 127,
+      "period": "per seat/month",
+      "description": "For growing teams that need admin controls, audit trails, and higher volume.",
+      "highlight": false,
+      "cta": "Start Team Trial",
+      "credits": "20,000 credits/month per seat",
+      "features": [
+        "Everything in Pro",
+        "20,000 credits/month per seat",
+        "Admin settings and role-based permissions",
+        "Audit logs and compliance exports",
+        "SSO (Google Workspace, Okta)",
+        "Plugin authoring (private plugins)",
+        "1-year run history",
+        "Priority support via Slack Connect"
+      ]
+    },
+    {
+      "name": "Enterprise",
+      "price": null,
+      "period": "custom",
+      "description": "For organizations that need self-hosting, custom data residency, and dedicated support.",
+      "highlight": false,
+      "cta": "Talk to Sales",
+      "credits": "Custom volume",
+      "features": [
+        "Everything in Team",
+        "Self-hosted deployment option",
+        "Bring your own AI API keys",
+        "Custom data retention and residency",
+        "SOC 2 Type II report access",
+        "Dedicated support and onboarding",
+        "SLA with uptime guarantees",
+        "Audit log export for compliance"
+      ]
+    }
+  ],
+  "creditPacks": [
+    { "credits": 5000, "price": 90, "perCredit": 0.018 },
+    { "credits": 25000, "price": 400, "perCredit": 0.016 },
+    { "credits": 100000, "price": 1400, "perCredit": 0.014 }
+  ],
+  "managedService": {
+    "name": "Managed QA",
+    "priceRange": "$2,000-$5,000",
+    "period": "per project/month",
+    "description": "Our team operates Orbit on your behalf. We review test plans, annotate critical flows, triage failures, and deliver monthly QA health reports. The bridge between buying a tool and hiring a QA engineer.",
+    "cta": "Learn About Managed QA"
+  },
+  "faq": [
+    {
+      "question": "What is a credit?",
+      "answer": "One credit covers one test case execution — the browser agent running a single test, including AI inference. A typical smoke test uses 10-20 credits. A full PR regression run uses 20-40."
+    },
+    {
+      "question": "Can I try Pro features for free?",
+      "answer": "Yes. Every new account starts with a 14-day Pro trial with 1,000 bonus credits. No credit card required."
+    },
+    {
+      "question": "Do unused credits roll over?",
+      "answer": "Yes. Credits roll over for 12 months from date of purchase or allocation."
+    },
+    {
+      "question": "What if I run out of credits?",
+      "answer": "You can purchase credit top-ups at any time. We alert you at 75% and 95% consumed so you're never caught off guard."
+    },
+    {
+      "question": "How does this compare to hiring a QA engineer?",
+      "answer": "A junior QA engineer costs $60,000-$90,000/year. A Pro seat at $79/month covers the same project with 24/7 autonomous testing, instant regression detection, and zero ramp-up time."
+    },
+    {
+      "question": "Can I self-host Orbit?",
+      "answer": "Self-hosted deployment is available on the Enterprise plan. It runs on your infrastructure with your own AI API keys."
+    }
+  ]
+}

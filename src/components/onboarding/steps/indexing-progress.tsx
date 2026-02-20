@@ -1,13 +1,16 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { motion } from "framer-motion";
 import { Check, Loader2, Circle, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import type { RepoItem, SyncStatus } from "../onboarding-types";
+import { useIndexingStream } from "@/hooks/use-indexing-stream";
+import type { RepoItem } from "../onboarding-types";
+import type { IndexingPhase } from "@/lib/websocket/channels";
 
-const PHASES = [
+const PHASES: Array<{ id: IndexingPhase; label: string }> = [
   { id: "clone", label: "Cloning repository" },
   { id: "framework", label: "Detecting framework" },
   { id: "ast", label: "Parsing AST" },
@@ -16,9 +19,11 @@ const PHASES = [
   { id: "embeddings", label: "Generating embeddings" },
 ];
 
-function phaseIndexFromProgress(progress: number): number {
-  if (progress >= 100) return PHASES.length;
-  return Math.min(Math.floor((progress / 100) * PHASES.length), PHASES.length - 1);
+function phaseToIndex(phase: IndexingPhase | null): number {
+  if (!phase) return -1;
+  if (phase === "complete") return PHASES.length;
+  if (phase === "error") return -1;
+  return PHASES.findIndex((p) => p.id === phase);
 }
 
 interface IndexingProgressProps {
@@ -34,24 +39,54 @@ function PhaseIcon({ status }: { status: "pending" | "running" | "complete" }) {
 }
 
 export function IndexingProgress({ repo, projectId, onComplete }: IndexingProgressProps) {
-  const [progress, setProgress] = useState(0);
   const [logs, setLogs] = useState<string[]>([]);
+  const [syncTriggered, setSyncTriggered] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [syncStatus, setSyncStatus] = useState<SyncStatus["status"]>("waiting");
   const startedRef = useRef(false);
 
   const addLog = useCallback((message: string) => {
     setLogs((prev) => [...prev, message]);
   }, []);
 
-  // Trigger sync and listen for progress
+  const {
+    status: indexingStatus,
+    phase,
+    progress,
+    nodesFound,
+  } = useIndexingStream({
+    projectId,
+    enabled: syncTriggered,
+    onNodeDiscovered: (node) => {
+      addLog(`[done]  Discovered ${node.nodeType}: ${node.nodeName}`);
+    },
+    onComplete: () => {
+      addLog("");
+      addLog("Analysis complete. System Map ready.");
+      setTimeout(onComplete, 800);
+    },
+    onError: (err) => {
+      setError(err);
+    },
+  });
+
+  // Log phase transitions
+  useEffect(() => {
+    if (!phase) return;
+    const phaseConfig = PHASES.find((p) => p.id === phase);
+    if (phaseConfig) {
+      addLog(`[start] ${phaseConfig.label}...`);
+    }
+    if (phase === "complete") {
+      addLog(`[done]  Indexing complete. ${nodesFound} nodes discovered.`);
+    }
+  }, [phase, nodesFound, addLog]);
+
+  // Trigger sync on mount
   useEffect(() => {
     if (startedRef.current) return;
     startedRef.current = true;
 
-    let cancelled = false;
-
-    const startSync = async () => {
+    const triggerSync = async () => {
       addLog(`[start] Triggering indexing for ${repo.fullName}...`);
 
       try {
@@ -68,103 +103,20 @@ export function IndexingProgress({ repo, projectId, onComplete }: IndexingProgre
         }
 
         addLog(`[done]  Indexing job queued (${json.data.jobId})`);
-        setSyncStatus("indexing");
-
-        // Start SSE polling for progress
-        const eventSource = new EventSource(
-          `/api/projects/${projectId}/sync/progress`
-        );
-
-        eventSource.onmessage = (event) => {
-          if (cancelled) {
-            eventSource.close();
-            return;
-          }
-
-          const data = JSON.parse(event.data) as SyncStatus;
-          setSyncStatus(data.status);
-
-          if (data.status === "indexing") {
-            setProgress(data.progress);
-            const phaseIdx = phaseIndexFromProgress(data.progress);
-            if (data.phase) {
-              addLog(`[start] ${data.phase}...`);
-            }
-            if (phaseIdx > 0 && PHASES[phaseIdx - 1]) {
-              addLog(`[done]  ${PHASES[phaseIdx - 1].label} completed`);
-            }
-          } else if (data.status === "complete") {
-            setProgress(100);
-            addLog(`[done]  Indexing complete. ${data.nodeCount ?? 0} nodes discovered.`);
-            addLog("");
-            addLog("Analysis complete. System Map ready.");
-            eventSource.close();
-            setTimeout(() => {
-              if (!cancelled) onComplete();
-            }, 800);
-          } else if (data.status === "failed" || data.status === "error") {
-            setError(data.error ?? "Indexing failed");
-            eventSource.close();
-          }
-        };
-
-        eventSource.onerror = () => {
-          if (!cancelled) {
-            // SSE connection lost — fall back to polling
-            eventSource.close();
-            pollFallback();
-          }
-        };
+        setSyncTriggered(true);
       } catch {
-        if (!cancelled) {
-          setError("Failed to connect to server");
-        }
+        setError("Failed to connect to server");
       }
     };
 
-    const pollFallback = async () => {
-      for (let i = 0; i < 60; i++) {
-        if (cancelled) return;
-        await new Promise((r) => setTimeout(r, 3000));
+    triggerSync();
+  }, [projectId, repo, addLog]);
 
-        try {
-          const res = await fetch(`/api/projects/${projectId}/sync`);
-          const json = await res.json();
-          if (!json.success) continue;
-
-          if (json.data.isIndexing) {
-            setProgress((prev) => Math.min(prev + 5, 90));
-            setSyncStatus("indexing");
-          } else if (json.data.nodeCount > 0) {
-            setProgress(100);
-            setSyncStatus("complete");
-            addLog(`[done]  Indexing complete. ${json.data.nodeCount} nodes discovered.`);
-            addLog("");
-            addLog("Analysis complete. System Map ready.");
-            setTimeout(() => {
-              if (!cancelled) onComplete();
-            }, 800);
-            return;
-          }
-        } catch {
-          // Continue polling
-        }
-      }
-
-      if (!cancelled) {
-        setError("Indexing timed out. Please try again.");
-      }
-    };
-
-    startSync();
-    return () => { cancelled = true; };
-  }, [projectId, repo, onComplete, addLog]);
-
-  const activePhaseIdx = phaseIndexFromProgress(progress);
+  const activePhaseIdx = phaseToIndex(phase);
 
   const phaseStatuses = PHASES.map((_, idx) => {
     if (idx < activePhaseIdx) return "complete" as const;
-    if (idx === activePhaseIdx && syncStatus === "indexing") return "running" as const;
+    if (idx === activePhaseIdx && indexingStatus === "indexing") return "running" as const;
     return "pending" as const;
   });
 
@@ -198,9 +150,9 @@ export function IndexingProgress({ repo, projectId, onComplete }: IndexingProgre
         <div className="flex-1 space-y-5">
           <ProgressRing progress={progress} />
           <div className="space-y-1">
-            {PHASES.map((phase, idx) => (
+            {PHASES.map((p, idx) => (
               <div
-                key={phase.id}
+                key={p.id}
                 className={cn(
                   "flex items-center gap-3 px-3 py-2 rounded-md transition-colors",
                   phaseStatuses[idx] === "running" && "bg-orbit-accent/5"
@@ -215,14 +167,19 @@ export function IndexingProgress({ repo, projectId, onComplete }: IndexingProgre
                     phaseStatuses[idx] === "pending" && "text-muted-foreground/50"
                   )}
                 >
-                  {phase.label}
+                  {p.label}
+                  {phaseStatuses[idx] === "running" && nodesFound > 0 && (
+                    <span className="ml-2 text-xs text-orbit-accent tabular-nums">
+                      {nodesFound} nodes
+                    </span>
+                  )}
                 </span>
               </div>
             ))}
           </div>
         </div>
 
-        <div className="flex-1 rounded-lg surface-1 overflow-hidden">
+        <div className="flex-1 rounded-lg surface-1 border border-white/[0.04] overflow-hidden">
           <div className="px-3 py-2 border-b border-white/[0.04]">
             <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
               Output
@@ -254,7 +211,8 @@ export function IndexingProgress({ repo, projectId, onComplete }: IndexingProgre
 function ProgressRing({ progress }: { progress: number }) {
   const radius = 40;
   const circumference = 2 * Math.PI * radius;
-  const offset = circumference - (progress / 100) * circumference;
+  const clampedProgress = Math.max(0, Math.min(100, progress));
+  const offset = circumference - (clampedProgress / 100) * circumference;
 
   return (
     <div className="flex items-center justify-center">
@@ -266,20 +224,32 @@ function ProgressRing({ progress }: { progress: number }) {
             stroke="hsl(var(--muted))"
             strokeWidth="4"
           />
-          <circle
+          {/* Glow filter */}
+          <defs>
+            <filter id="progress-glow" x="-50%" y="-50%" width="200%" height="200%">
+              <feGaussianBlur stdDeviation="3" result="blur" />
+              <feMerge>
+                <feMergeNode in="blur" />
+                <feMergeNode in="SourceGraphic" />
+              </feMerge>
+            </filter>
+          </defs>
+          <motion.circle
             cx="48" cy="48" r={radius}
             fill="none"
             stroke="hsl(var(--orbit-accent))"
             strokeWidth="4"
             strokeLinecap="round"
             strokeDasharray={circumference}
-            strokeDashoffset={offset}
-            className="transition-[stroke-dashoffset] duration-300 ease-out"
+            initial={{ strokeDashoffset: circumference }}
+            animate={{ strokeDashoffset: offset }}
+            transition={{ duration: 0.5, ease: "easeOut" }}
+            filter="url(#progress-glow)"
           />
         </svg>
         <div className="absolute inset-0 flex items-center justify-center">
           <span className="text-lg font-semibold text-foreground tabular-nums">
-            {progress}%
+            {clampedProgress}%
           </span>
         </div>
       </div>

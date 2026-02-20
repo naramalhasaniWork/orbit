@@ -122,10 +122,12 @@ export function CompleteView({
   total,
   passCount,
   failCount,
+  projectId,
 }: {
   total: number;
   passCount: number;
   failCount: number;
+  projectId?: string;
 }) {
   const passRate = total > 0 ? Math.round((passCount / total) * 100) : 0;
 
@@ -160,7 +162,8 @@ export function CompleteView({
         className="bg-orbit-accent hover:bg-orbit-accent/90 text-white gap-2"
         size="lg"
         onClick={() => {
-          window.location.href = "/dashboard";
+          const url = projectId ? `/dashboard?project=${projectId}` : "/dashboard";
+          window.location.href = url;
         }}
       >
         Go to Dashboard
@@ -174,10 +177,12 @@ export function ErrorView({
   error,
   onRetry,
   onBack,
+  onConfigureEnv,
 }: {
   error: string;
   onRetry: () => void;
   onBack: () => void;
+  onConfigureEnv?: () => void;
 }) {
   return (
     <>
@@ -187,6 +192,11 @@ export function ErrorView({
       </div>
       <div className="flex gap-3">
         <Button variant="ghost" onClick={onBack}>Back</Button>
+        {onConfigureEnv && (
+          <Button variant="outline" onClick={onConfigureEnv}>
+            Configure Environment
+          </Button>
+        )}
         <Button variant="outline" onClick={onRetry}>Retry</Button>
       </div>
     </>

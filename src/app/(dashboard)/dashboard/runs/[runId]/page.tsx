@@ -76,5 +76,5 @@ export default async function RunDetailPage({ params }: RunDetailPageProps) {
     })),
   };
 
-  return <RunDetailClient run={serializedRun} />;
+  return <RunDetailClient run={serializedRun} projectId={project.id} />;
 }

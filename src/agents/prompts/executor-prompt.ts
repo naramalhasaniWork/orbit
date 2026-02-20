@@ -1,4 +1,4 @@
-import { getOperatorPrompt } from "@/agents/prompts/operator-layer";
+import { buildPrompt, type UserLayerInput } from "@/agents/prompts/prompt-builder";
 
 interface TestStep {
   action: string;
@@ -31,25 +31,12 @@ export interface ExecutorContext {
     result: string;
   }>;
   testCredentials?: Record<string, string>;
+  workspaceName?: string;
 }
-
-const OUTPUT_SCHEMA = `{
-  "action": "click | fill | select | navigate | wait | assert | screenshot | scroll | hover | press_key | verdict",
-  "selector": "string (CSS selector for the target element, required for click/fill/select/hover)",
-  "value": "string (value for fill/select actions)",
-  "url": "string (URL for navigate action)",
-  "waitMs": "number (milliseconds to wait for wait action)",
-  "assertion": {
-    "type": "visible | text_contains | url_matches | element_exists",
-    "expected": "string"
-  },
-  "verdict": "pass | fail (only when action is verdict)",
-  "reason": "string (explanation for the action chosen or verdict rationale)"
-}`;
 
 export function buildExecutorPrompt(
   context: ExecutorContext,
-  userContext?: string
+  userLayer?: UserLayerInput
 ): string {
   const {
     testCaseId,
@@ -61,8 +48,6 @@ export function buildExecutorPrompt(
     previousActions,
     testCredentials,
   } = context;
-
-  const operatorPrompt = getOperatorPrompt();
 
   const stepsStr = steps
     .map((s, i) => {
@@ -77,14 +62,14 @@ export function buildExecutorPrompt(
     .slice(0, 30)
     .map(
       (el) =>
-        `  - <${el.tag}${el.role ? ` role="${el.role}"` : ""}${el.type ? ` type="${el.type}"` : ""}> "${el.text ?? ""}" → ${el.selector}`
+        `  - <${el.tag}${el.role ? ` role="${el.role}"` : ""}${el.type ? ` type="${el.type}"` : ""}> "${el.text ?? ""}" -> ${el.selector}`
     )
     .join("\n");
 
   const historyStr =
     previousActions.length > 0
       ? previousActions
-          .map((a) => `  - Action: ${a.action} → Result: ${a.result}`)
+          .map((a) => `  - Action: ${a.action} -> Result: ${a.result}`)
           .join("\n")
       : "  (none)";
 
@@ -94,21 +79,21 @@ export function buildExecutorPrompt(
         .join("\n")
     : "  (none provided)";
 
-  return `${operatorPrompt}
-
-## Agent Role: Executor
-You are the Executor agent. You control a browser to execute test steps. You observe the current page state and decide what action to take next.
+  const agentInstructions = `## Agent Role: Executor
+You are the Executor agent. You control a browser to execute test steps one at a time. You observe the current page state, decide the next action, and output it as JSON.
 
 ## CRITICAL Safety Constraints
 - **NEVER interact with production environments.**
-- **NEVER submit real payment information.** Use ONLY the test credentials provided below.
+- **NEVER submit real payment information.** Use ONLY the test credentials provided below. For Stripe test flows, use card 4242424242424242.
 - **NEVER delete user data or records.**
 - **NEVER click "delete account", "reset database", or similar destructive actions** unless the test step explicitly requires it AND test credentials are being used.
-- If a selector is not found, try to locate the element using alternative attributes (text content, role, aria-label) before reporting failure.
+- **NEVER navigate away from the target domain** unless the test explicitly requires it (e.g. OAuth callback).
+- If a selector is not found, try alternative strategies in this order: text content, aria-label, role, data-testid, nearby landmarks.
 
 ## Test Case
 - **ID:** ${testCaseId}
 - **Name:** ${testCaseName}
+- **Progress:** Step ${currentStepIndex + 1} of ${steps.length}
 
 ## Test Steps
 ${stepsStr}
@@ -131,18 +116,39 @@ ${historyStr}
 ${credStr}
 
 ## Output Schema
-Your response MUST be valid JSON matching this exact schema:
-${OUTPUT_SCHEMA}
+Your response MUST be valid JSON with exactly these fields:
+{
+  "action": "click | fill | select | navigate | wait | assert | screenshot | scroll | hover | press_key | verdict",
+  "selector": "CSS selector (required for click/fill/select/hover)",
+  "value": "string (required for fill/select)",
+  "url": "string (required for navigate)",
+  "waitMs": "number (required for wait, max 10000)",
+  "assertion": {
+    "type": "visible | text_contains | url_matches | element_exists",
+    "expected": "string"
+  },
+  "verdict": "pass | fail (only when action is verdict)",
+  "reason": "string (always required - explain your decision)"
+}
 
 ## Decision Rules
-1. If the current step requires interacting with an element, output the appropriate action (click, fill, select, etc.).
-2. If the expected outcome of the current step needs verification, output an "assert" action.
-3. If all steps are completed successfully, output a "verdict" action with verdict "pass".
-4. If a step fails (expected outcome not met, element not found after self-healing attempt), output a "verdict" action with verdict "fail" and explain in "reason".
-5. If the page needs time to load, output a "wait" action.
-6. Always provide a "reason" explaining why you chose this action.
-7. When filling forms, use the test credentials provided above.${userContext ? `
+1. Execute the CURRENT step (marked with <-- CURRENT). Choose the action that best accomplishes it.
+2. If the current step requires interacting with an element, find the best matching element from the Interactive Elements list and output click/fill/select.
+3. If the expected outcome needs verification, output an "assert" action before moving to the next step.
+4. If the page is still loading or transitioning, output "wait" with a reasonable waitMs (500-3000ms).
+5. If all steps are completed and verified, output "verdict" with verdict "pass".
+6. If a step fails (element not found, assertion fails, unexpected error), output "verdict" with verdict "fail" and a detailed reason.
+7. When filling forms, use the test credentials provided. Never invent credentials.
+8. Prefer data-testid selectors > aria labels > role selectors > CSS class selectors.
+9. After form submission, wait for navigation or confirmation before asserting success.`;
 
-## User-Provided Context
-${userContext}` : ""}`;
+  const { systemPrompt } = buildPrompt({
+    agentRole: "executor",
+    agentInstructions,
+    userLayer,
+    workspaceName: context.workspaceName,
+    maxOutputTokens: 500,
+  });
+
+  return systemPrompt;
 }

@@ -29,6 +29,8 @@ interface SystemMapProps {
 }
 
 export function SystemMap({ nodes, edges, compact = false }: SystemMapProps) {
+  // react-force-graph-2d uses `any` in its generic node/link types.
+  // We cast to our own typed GraphNode at the boundary.
 
   const graphRef = useRef<any>();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -105,7 +107,6 @@ export function SystemMap({ nodes, edges, compact = false }: SystemMapProps) {
 
   // Handlers
   const handleNodeClick = useCallback(
-  
     (node: any) => {
       const gn = node as GraphNode;
       setSelectedNodeId((prev) => (prev === gn.id ? null : gn.id));
@@ -149,9 +150,8 @@ export function SystemMap({ nodes, edges, compact = false }: SystemMapProps) {
     graphRef.current?.zoomToFit(400, 40);
   }, []);
 
-  // Canvas render callbacks — use `any` at the boundary with the library
+  // Canvas render callbacks
   const nodeCanvasObject = useCallback(
-  
     (node: any, ctx: CanvasRenderingContext2D, globalScale: number) => {
       const gn = node as GraphNode;
       renderNode(gn, ctx, globalScale);
@@ -162,13 +162,11 @@ export function SystemMap({ nodes, edges, compact = false }: SystemMapProps) {
     [selectedNodeId]
   );
 
-
   const nodePointerArea = useCallback((node: any, color: string, ctx: CanvasRenderingContext2D) => {
     paintNodePointerArea(node as GraphNode, color, ctx);
   }, []);
 
   const linkColor = useCallback(
-  
     (link: any) => {
       const src = typeof link.source === "object" ? link.source.id : link.source;
       const tgt = typeof link.target === "object" ? link.target.id : link.target;
@@ -181,7 +179,6 @@ export function SystemMap({ nodes, edges, compact = false }: SystemMapProps) {
   );
 
   const linkWidth = useCallback(
-  
     (link: any) => {
       const src = typeof link.source === "object" ? link.source.id : link.source;
       const tgt = typeof link.target === "object" ? link.target.id : link.target;
@@ -193,34 +190,47 @@ export function SystemMap({ nodes, edges, compact = false }: SystemMapProps) {
     [selectedNodeId]
   );
 
-
   const nodeLabel = useCallback((node: any) => {
     const gn = node as GraphNode;
     return `<div style="background:#13122a;color:#e2e8f0;padding:6px 10px;border-radius:6px;font-size:11px"><strong>${gn.name}</strong><br/><span style="opacity:0.6">${gn.type}${gn.filePath ? ` -- ${gn.filePath}` : ""}</span></div>`;
   }, []);
 
-  // Grid background render
+  // Grid background render -- batched path for performance with large graphs
   const renderBackground = useCallback(
     (ctx: CanvasRenderingContext2D, globalScale: number) => {
       if (globalScale < 0.5) return;
       const spacing = 40;
       const dotSize = 0.5 / globalScale;
-      ctx.fillStyle = "rgba(255, 255, 255, 0.04)";
 
-      const bbox = graphRef.current?.getGraphBbox() ?? { x: [-500, 500] as [number, number], y: [-500, 500] as [number, number] };
-      const [minX, maxX] = bbox.x;
-      const [minY, maxY] = bbox.y;
+      const bbox = graphRef.current?.getGraphBbox() ?? {
+        x: [-500, 500] as [number, number],
+        y: [-500, 500] as [number, number],
+      };
+      const [minX, maxX] = bbox.x as [number, number];
+      const [minY, maxY] = bbox.y as [number, number];
 
       const startX = Math.floor(minX / spacing) * spacing - spacing;
       const startY = Math.floor(minY / spacing) * spacing - spacing;
 
-      for (let gx = startX; gx <= maxX + spacing; gx += spacing) {
-        for (let gy = startY; gy <= maxY + spacing; gy += spacing) {
-          ctx.beginPath();
+      // Cap grid to prevent rendering thousands of dots for very large graphs
+      const maxDots = 2500;
+      const cols = Math.ceil((maxX + spacing - startX) / spacing);
+      const rows = Math.ceil((maxY + spacing - startY) / spacing);
+      const effectiveSpacing =
+        cols * rows > maxDots
+          ? spacing * Math.ceil(Math.sqrt((cols * rows) / maxDots))
+          : spacing;
+
+      // Batch all dots into a single path for much better performance
+      ctx.beginPath();
+      ctx.fillStyle = "rgba(255, 255, 255, 0.04)";
+      for (let gx = startX; gx <= maxX + spacing; gx += effectiveSpacing) {
+        for (let gy = startY; gy <= maxY + spacing; gy += effectiveSpacing) {
+          ctx.moveTo(gx + dotSize, gy);
           ctx.arc(gx, gy, dotSize, 0, 2 * Math.PI);
-          ctx.fill();
         }
       }
+      ctx.fill();
     },
     []
   );
@@ -243,7 +253,7 @@ export function SystemMap({ nodes, edges, compact = false }: SystemMapProps) {
         </div>
       )}
 
-      <div ref={containerRef} className="flex-1 relative bg-[#0b0a13] rounded-lg overflow-hidden">
+      <div ref={containerRef} className="flex-1 relative bg-[#0b0a13] rounded-lg overflow-hidden border border-white/[0.04]">
         {graphData.nodes.length === 0 ? (
           <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
             No nodes match current filters

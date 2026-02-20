@@ -35,6 +35,250 @@ export const IDS = {
 } as const;
 
 // ============================================================
+// CREDIT TRANSACTIONS
+// ============================================================
+
+export interface CreditTransactionDef {
+  type: "consumption" | "purchase" | "monthly_grant";
+  amount: number;
+  balance: number;
+  description: string;
+  testRunId: string | null;
+  createdAt: Date;
+}
+
+export const CREDIT_TRANSACTIONS: CreditTransactionDef[] = [
+  { type: "monthly_grant", amount: 5000, balance: 5000, description: "Monthly credit grant — Pro plan", testRunId: null, createdAt: subDays(now, 30) },
+  { type: "consumption", amount: -15, balance: 4985, description: "Test run: Full suite — Acme Dashboard", testRunId: IDS.runs[0], createdAt: subDays(now, 6) },
+  { type: "consumption", amount: -5, balance: 4980, description: "Test run: Smoke — Acme Dashboard", testRunId: IDS.runs[1], createdAt: subDays(now, 4) },
+  { type: "consumption", amount: -9, balance: 4971, description: "Test run: Regression — Acme Dashboard", testRunId: IDS.runs[2], createdAt: subDays(now, 3) },
+  { type: "consumption", amount: -2, balance: 4969, description: "Test run: Failed (staging unreachable)", testRunId: IDS.runs[3], createdAt: subDays(now, 2) },
+  { type: "consumption", amount: -3, balance: 4966, description: "Test run: Targeted auth — Acme Dashboard", testRunId: IDS.runs[4], createdAt: subDays(now, 1) },
+  { type: "purchase", amount: 1000, balance: 5966, description: "Credit top-up — 1000 credits", testRunId: null, createdAt: subDays(now, 1) },
+];
+
+// ============================================================
+// WEBHOOK EVENTS (inbound)
+// ============================================================
+
+export interface WebhookEventDef {
+  provider: "github" | "linear";
+  event: string;
+  externalId: string | null;
+  status: "processed" | "failed" | "received";
+  error: string | null;
+  createdAt: Date;
+}
+
+export const WEBHOOK_EVENTS: WebhookEventDef[] = [
+  { provider: "github", event: "push", externalId: "gh-delivery-a3f8b2c", status: "processed", error: null, createdAt: subDays(now, 6) },
+  { provider: "github", event: "pull_request.opened", externalId: "gh-delivery-d91e4f7", status: "processed", error: null, createdAt: subDays(now, 4) },
+  { provider: "github", event: "push", externalId: "gh-delivery-7c2a1b9", status: "processed", error: null, createdAt: subDays(now, 3) },
+  { provider: "linear", event: "Issue", externalId: "lin-wh-e5f6a8d", status: "processed", error: null, createdAt: subDays(now, 2) },
+  { provider: "github", event: "check_suite.requested", externalId: "gh-delivery-1b3d5f7", status: "failed", error: "Project not found for repo vercel/commerce", createdAt: subDays(now, 1) },
+];
+
+// ============================================================
+// INTEGRATION CONFIGS
+// ============================================================
+
+export interface IntegrationConfigDef {
+  provider: "github" | "linear" | "slack";
+  isEnabled: boolean;
+  config: Record<string, unknown>;
+}
+
+export const INTEGRATION_CONFIGS: IntegrationConfigDef[] = [
+  {
+    provider: "github",
+    isEnabled: true,
+    config: {
+      installationId: "gh-install-12345",
+      checkRunName: "Orbit Testing",
+      autoCreateIssues: true,
+      commentOnPr: true,
+    },
+  },
+  {
+    provider: "linear",
+    isEnabled: true,
+    config: {
+      teamId: "lin-team-abc",
+      projectId: "lin-project-xyz",
+      bugLabelId: "lin-label-bug",
+      autoCreateBugs: true,
+      commentOnIssue: true,
+    },
+  },
+  {
+    provider: "slack",
+    isEnabled: false,
+    config: {
+      webhookUrl: "",
+      channel: "#orbit-notifications",
+      notifyOnFailure: true,
+      notifyOnComplete: false,
+    },
+  },
+];
+
+// ============================================================
+// RUN ARTIFACTS
+// ============================================================
+
+export interface RunArtifactDef {
+  runIndex: number;
+  resultCaseIndex: number | null;
+  type: "screenshot" | "video" | "dom_snapshot" | "network_log";
+  storageKey: string;
+  fileName: string;
+  contentType: string;
+  sizeBytes: number;
+  stepIndex: number | null;
+}
+
+export const RUN_ARTIFACTS: RunArtifactDef[] = [
+  { runIndex: 0, resultCaseIndex: 2, type: "screenshot", storageKey: "runs/run-1/checkout-failure.png", fileName: "checkout-failure.png", contentType: "image/png", sizeBytes: 245_000, stepIndex: 2 },
+  { runIndex: 0, resultCaseIndex: 2, type: "video", storageKey: "runs/run-1/checkout-failure.webm", fileName: "checkout-failure.webm", contentType: "video/webm", sizeBytes: 3_200_000, stepIndex: null },
+  { runIndex: 0, resultCaseIndex: 2, type: "dom_snapshot", storageKey: "runs/run-1/checkout-failure-dom.html", fileName: "checkout-failure-dom.html", contentType: "text/html", sizeBytes: 68_000, stepIndex: 2 },
+  { runIndex: 0, resultCaseIndex: 12, type: "screenshot", storageKey: "runs/run-1/double-click-dupe.png", fileName: "double-click-dupe.png", contentType: "image/png", sizeBytes: 198_000, stepIndex: 1 },
+  { runIndex: 0, resultCaseIndex: 12, type: "network_log", storageKey: "runs/run-1/double-click-network.json", fileName: "double-click-network.json", contentType: "application/json", sizeBytes: 42_000, stepIndex: null },
+  { runIndex: 2, resultCaseIndex: 14, type: "screenshot", storageKey: "runs/run-3/cart-persist-failure.png", fileName: "cart-persist-failure.png", contentType: "image/png", sizeBytes: 210_000, stepIndex: 2 },
+  { runIndex: 4, resultCaseIndex: 7, type: "screenshot", storageKey: "runs/run-5/auth-redirect-healed.png", fileName: "auth-redirect-healed.png", contentType: "image/png", sizeBytes: 175_000, stepIndex: 1 },
+];
+
+// ============================================================
+// SELECTOR HISTORY
+// ============================================================
+
+export interface SelectorHistoryDef {
+  previousSelector: string;
+  newSelector: string;
+  confidence: number;
+  testRunId: string;
+  pageUrl: string;
+  createdAt: Date;
+}
+
+export const SELECTOR_HISTORY: SelectorHistoryDef[] = [
+  { previousSelector: ".login-redirect", newSelector: "[data-testid=login-page]", confidence: 0.92, testRunId: IDS.runs[4], pageUrl: "https://staging.acme-app.com/dashboard", createdAt: subDays(now, 1) },
+  { previousSelector: "#submit-btn", newSelector: "button[type=submit].primary", confidence: 0.88, testRunId: IDS.runs[0], pageUrl: "https://staging.acme-app.com/checkout", createdAt: subDays(now, 6) },
+];
+
+// ============================================================
+// TEST CASE VERSIONS
+// ============================================================
+
+export interface TestCaseVersionDef {
+  caseIndex: number;
+  version: number;
+  changedBy: string;
+  changeNote: string;
+  createdAt: Date;
+}
+
+export const TEST_CASE_VERSIONS: TestCaseVersionDef[] = [
+  { caseIndex: 0, version: 1, changedBy: "planner", changeNote: "Initial generation from system map analysis", createdAt: subDays(now, 6) },
+  { caseIndex: 1, version: 1, changedBy: "planner", changeNote: "Initial generation from system map analysis", createdAt: subDays(now, 6) },
+  { caseIndex: 2, version: 1, changedBy: "planner", changeNote: "Initial generation from system map analysis", createdAt: subDays(now, 6) },
+  { caseIndex: 6, version: 1, changedBy: "planner", changeNote: "Initial generation from system map analysis", createdAt: subDays(now, 6) },
+  { caseIndex: 7, version: 1, changedBy: "planner", changeNote: "Initial generation from system map analysis", createdAt: subDays(now, 6) },
+  { caseIndex: 7, version: 2, changedBy: "planner", changeNote: "Updated to verify redirect target after auth check", createdAt: subDays(now, 3) },
+  { caseIndex: 11, version: 1, changedBy: "planner", changeNote: "Initial generation — XSS edge case", createdAt: subDays(now, 6) },
+];
+
+// ============================================================
+// FAILURE PATTERNS
+// ============================================================
+
+export interface FailurePatternDef {
+  pattern: string;
+  category: string;
+  occurrences: number;
+  testCaseIndices: number[];
+  firstSeenAt: Date;
+  lastSeenAt: Date;
+}
+
+export const FAILURE_PATTERNS: FailurePatternDef[] = [
+  { pattern: "Checkout button disabled during loading state", category: "selector_not_found", occurrences: 3, testCaseIndices: [2], firstSeenAt: subDays(now, 6), lastSeenAt: subDays(now, 3) },
+  { pattern: "Double-click created duplicate orders", category: "data_inconsistency", occurrences: 2, testCaseIndices: [12], firstSeenAt: subDays(now, 6), lastSeenAt: subDays(now, 6) },
+  { pattern: "Token refresh returned 503 on first attempt", category: "network_error", occurrences: 4, testCaseIndices: [8], firstSeenAt: subDays(now, 6), lastSeenAt: subDays(now, 2) },
+  { pattern: "Cart localStorage cleared on reload in incognito", category: "data_inconsistency", occurrences: 2, testCaseIndices: [14], firstSeenAt: subDays(now, 3), lastSeenAt: subDays(now, 3) },
+];
+
+// ============================================================
+// BASELINE SNAPSHOTS
+// ============================================================
+
+export interface BaselineSnapshotDef {
+  type: "screenshot" | "api_response";
+  routePath: string | null;
+  endpoint: string | null;
+  storageKey: string;
+}
+
+export const BASELINE_SNAPSHOTS: BaselineSnapshotDef[] = [
+  { type: "screenshot", routePath: "/", endpoint: null, storageKey: "baselines/homepage.png" },
+  { type: "screenshot", routePath: "/dashboard", endpoint: null, storageKey: "baselines/dashboard.png" },
+  { type: "screenshot", routePath: "/login", endpoint: null, storageKey: "baselines/login.png" },
+  { type: "screenshot", routePath: "/checkout", endpoint: null, storageKey: "baselines/checkout.png" },
+  { type: "api_response", routePath: null, endpoint: "/api/users", storageKey: "baselines/api-users.json" },
+  { type: "api_response", routePath: null, endpoint: "/api/products", storageKey: "baselines/api-products.json" },
+];
+
+// ============================================================
+// PLUGIN INSTALLATIONS
+// ============================================================
+
+export interface PluginInstallationDef {
+  pluginName: string;
+  version: string;
+  isEnabled: boolean;
+  config: Record<string, unknown>;
+}
+
+export const PLUGIN_INSTALLATIONS: PluginInstallationDef[] = [
+  { pluginName: "stripe-payments", version: "1.2.0", isEnabled: true, config: { testCardNumber: "4242424242424242", webhookSecret: "whsec_test_placeholder" } },
+  { pluginName: "accessibility", version: "0.9.1", isEnabled: true, config: { wcagLevel: "AA", failOnViolation: false, severityThreshold: "critical" } },
+  { pluginName: "performance-budgets", version: "1.0.0", isEnabled: false, config: { lcpThreshold: 2500, clsThreshold: 0.1, fidThreshold: 100 } },
+];
+
+// ============================================================
+// DOMAIN KNOWLEDGE FILES
+// ============================================================
+
+export interface DomainKnowledgeFileDef {
+  name: string;
+  type: "openapi" | "business_rules" | "test_credentials";
+  storageKey: string;
+  sizeBytes: number;
+  chunkCount: number;
+}
+
+export const DOMAIN_KNOWLEDGE_FILES: DomainKnowledgeFileDef[] = [
+  { name: "Acme API Specification", type: "openapi", storageKey: "knowledge/acme-openapi.yaml", sizeBytes: 48_200, chunkCount: 12 },
+  { name: "Business Rules — Pricing & Limits", type: "business_rules", storageKey: "knowledge/business-rules.md", sizeBytes: 6_800, chunkCount: 3 },
+  { name: "Test Account Credentials", type: "test_credentials", storageKey: "knowledge/test-accounts.md", sizeBytes: 1_200, chunkCount: 1 },
+];
+
+// ============================================================
+// WEBHOOK SUBSCRIPTIONS
+// ============================================================
+
+export interface WebhookSubscriptionDef {
+  url: string;
+  events: string[];
+  isEnabled: boolean;
+  description: string;
+}
+
+export const WEBHOOK_SUBSCRIPTIONS: WebhookSubscriptionDef[] = [
+  { url: "https://hooks.slack.com/services/T00000/B00000/XXXX", events: ["run.completed", "run.failed", "bug.discovered"], isEnabled: true, description: "Slack notification channel" },
+  { url: "https://api.acme-internal.com/webhooks/orbit", events: ["run.completed", "test.failed", "plan.updated"], isEnabled: true, description: "Internal monitoring dashboard" },
+];
+
+// ============================================================
 // SYSTEM MAP NODES — 45 nodes
 // ============================================================
 

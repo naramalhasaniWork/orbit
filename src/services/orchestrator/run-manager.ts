@@ -2,6 +2,9 @@ import { prisma } from "@/lib/db";
 import type { RunStatus, RunMode, RunTrigger } from "@/generated/prisma/client";
 import { emitRunProgress, emitRunStarted, emitRunCompleted } from "@/lib/websocket";
 
+// In-memory set of cancelled run IDs for fast checking during execution
+const cancelledRuns = new Set<string>();
+
 interface CreateRunInput {
   projectId: string;
   environmentId?: string;
@@ -41,6 +44,46 @@ export async function createRun(input: CreateRunInput) {
   return run;
 }
 
+/**
+ * Request cancellation of a run. Sets both in-memory flag and DB status.
+ * Pipeline phases check `isRunCancelled()` between stages.
+ */
+export async function cancelRun(runId: string): Promise<boolean> {
+  const run = await prisma.testRun.findUnique({
+    where: { id: runId },
+    select: { status: true },
+  });
+
+  if (!run) return false;
+
+  const cancellableStatuses: RunStatus[] = ["queued", "indexing", "planning", "executing"];
+  if (!cancellableStatuses.includes(run.status)) return false;
+
+  cancelledRuns.add(runId);
+  await updateRunStatus(runId, "cancelled", "Run cancelled by user");
+  return true;
+}
+
+/**
+ * Fast check for pipeline phases to detect cancellation.
+ * Checks in-memory first, falls back to DB for distributed workers.
+ */
+export async function isRunCancelled(runId: string): Promise<boolean> {
+  if (cancelledRuns.has(runId)) return true;
+
+  const run = await prisma.testRun.findUnique({
+    where: { id: runId },
+    select: { status: true },
+  });
+
+  if (run?.status === "cancelled") {
+    cancelledRuns.add(runId);
+    return true;
+  }
+
+  return false;
+}
+
 export async function updateRunStatus(
   runId: string,
   status: RunStatus,
@@ -58,6 +101,8 @@ export async function updateRunStatus(
     if (run?.startedAt) {
       data.durationMs = Date.now() - run.startedAt.getTime();
     }
+    // Clean up in-memory cancellation flag
+    cancelledRuns.delete(runId);
   }
 
   const updated = await prisma.testRun.update({
@@ -65,7 +110,6 @@ export async function updateRunStatus(
     data,
   });
 
-  // Emit terminal event for completed/failed/cancelled, progress for others
   if (status === "completed" || status === "failed" || status === "cancelled") {
     await emitRunCompleted(updated.id, {
       runId: updated.id,
@@ -146,7 +190,6 @@ async function publishRunProgress(
   status: RunStatus,
   message?: string
 ) {
-  // Fetch current stats to emit accurate progress
   const run = await prisma.testRun.findUnique({
     where: { id: runId },
     select: { totalTests: true, passed: true, failed: true },

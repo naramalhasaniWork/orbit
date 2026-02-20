@@ -1,0 +1,97 @@
+{
+  "section_title": "How Orbit Compares",
+  "section_subtitle": "Most testing tools solve one piece of the puzzle. Orbit solves the whole thing.",
+  "columns": [
+    "Code-Aware",
+    "App-Aware",
+    "AI Test Generation",
+    "Self-Healing",
+    "Fully Autonomous",
+    "Continuous on PR",
+    "Pricing Model"
+  ],
+  "competitors": [
+    {
+      "name": "Orbit",
+      "highlight": true,
+      "values": {
+        "Code-Aware": { "value": true, "note": "Full AST parsing with tree-sitter, framework detection, System Map" },
+        "App-Aware": { "value": true, "note": "Real browser execution via Playwright + Stagehand" },
+        "AI Test Generation": { "value": true, "note": "Complete test plans from code analysis, prioritized by risk" },
+        "Self-Healing": { "value": true, "note": "AI-powered selector healing with confidence scoring" },
+        "Fully Autonomous": { "value": true, "note": "Connect repo once, tests update automatically on every push" },
+        "Continuous on PR": { "value": true, "note": "Diff-aware regression runs on every PR, under 3 minutes" },
+        "Pricing Model": { "value": "From $0", "note": "Free tier, $79/seat/mo Pro. Credit-based execution." }
+      }
+    },
+    {
+      "name": "Momentic",
+      "highlight": false,
+      "values": {
+        "Code-Aware": { "value": false, "note": "No repo indexing. Tests only what users describe or record." },
+        "App-Aware": { "value": true, "note": "Browser-based test execution with AI agent" },
+        "AI Test Generation": { "value": "Partial", "note": "Generates from natural language descriptions, not code analysis" },
+        "Self-Healing": { "value": true, "note": "Adapts to UI changes automatically" },
+        "Fully Autonomous": { "value": false, "note": "Requires manual flow description or recording to start" },
+        "Continuous on PR": { "value": true, "note": "CI/CD integration available" },
+        "Pricing Model": { "value": "Quote-based", "note": "Custom pricing, free trial available" }
+      }
+    },
+    {
+      "name": "Octomind",
+      "highlight": false,
+      "values": {
+        "Code-Aware": { "value": false, "note": "Generates tests from URL crawling, not source code" },
+        "App-Aware": { "value": true, "note": "Crawls live app and generates Playwright tests" },
+        "AI Test Generation": { "value": true, "note": "Auto-generates e2e tests from URL exploration" },
+        "Self-Healing": { "value": true, "note": "Auto-maintenance reduces false positives by 78%" },
+        "Fully Autonomous": { "value": "Partial", "note": "Generates from URL but misses auth flows, business logic" },
+        "Continuous on PR": { "value": true, "note": "CI/CD integration with GitHub Actions, Vercel" },
+        "Pricing Model": { "value": "From ~$146/mo", "note": "Pay-per-use with free tier" }
+      }
+    },
+    {
+      "name": "QA Wolf",
+      "highlight": false,
+      "values": {
+        "Code-Aware": { "value": false, "note": "Human QA team writes and maintains tests" },
+        "App-Aware": { "value": true, "note": "Tests run against live environments" },
+        "AI Test Generation": { "value": false, "note": "Tests are human-authored using Playwright" },
+        "Self-Healing": { "value": false, "note": "Maintenance handled by QA Wolf's human team" },
+        "Fully Autonomous": { "value": false, "note": "Full-service model requires human QA engineers" },
+        "Continuous on PR": { "value": true, "note": "Parallel runs on deployments" },
+        "Pricing Model": { "value": "~$40/test/mo", "note": "Median $90K/year contract. $8K/mo for 200 tests." }
+      }
+    },
+    {
+      "name": "Meticulous",
+      "highlight": false,
+      "values": {
+        "Code-Aware": { "value": "Partial", "note": "Tracks code branches executed by interactions" },
+        "App-Aware": { "value": true, "note": "Records real user sessions for replay-based testing" },
+        "AI Test Generation": { "value": true, "note": "Auto-generates visual regression tests from session recordings" },
+        "Self-Healing": { "value": true, "note": "Auto-updates test suite as features change" },
+        "Fully Autonomous": { "value": false, "note": "Requires real production traffic to generate tests" },
+        "Continuous on PR": { "value": true, "note": "Runs automatically on PRs" },
+        "Pricing Model": { "value": "Custom", "note": "Quote-based, no free plan" }
+      }
+    },
+    {
+      "name": "Testim (Tricentis)",
+      "highlight": false,
+      "values": {
+        "Code-Aware": { "value": false, "note": "Record-and-playback with code extensions" },
+        "App-Aware": { "value": true, "note": "Browser-based test execution with AI smart locators" },
+        "AI Test Generation": { "value": "Partial", "note": "AI copilot assists creation, but not fully autonomous" },
+        "Self-Healing": { "value": true, "note": "Smart locators with ML-based element recognition" },
+        "Fully Autonomous": { "value": false, "note": "Requires manual test authoring or recording" },
+        "Continuous on PR": { "value": true, "note": "CI/CD integrations with all major platforms" },
+        "Pricing Model": { "value": "From $450/mo", "note": "Enterprise-focused subscription pricing" }
+      }
+    }
+  ],
+  "summary": {
+    "orbit_unique": "Orbit is the only platform that combines deep code understanding (AST parsing, framework detection, System Map) with live browser testing and fully autonomous operation. Competitors either understand your code OR test your app — never both.",
+    "bottom_line": "If you're a 2-10 person team shipping fast with AI coding tools, Orbit gives you a QA engineer's coverage without the $90K salary or the months of test script authoring."
+  }
+}

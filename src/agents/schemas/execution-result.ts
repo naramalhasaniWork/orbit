@@ -63,7 +63,7 @@ export const ExecutorActionSchema = z.object({
   selector: z.string().optional(),
   value: z.string().optional(),
   url: z.string().optional(),
-  waitMs: z.number().optional(),
+  waitMs: z.number().min(0).max(10000).optional(),
   assertion: z
     .object({
       type: z.enum(["visible", "text_contains", "url_matches", "element_exists"]),
@@ -71,8 +71,44 @@ export const ExecutorActionSchema = z.object({
     })
     .optional(),
   verdict: z.enum(["pass", "fail"]).optional(),
-  reason: z.string().optional(),
-});
+  reason: z.string().describe("Explanation for the action or verdict rationale").optional(),
+}).refine(
+  (data) => {
+    // Selector required for interactive actions
+    if (["click", "fill", "select", "hover"].includes(data.action)) {
+      return !!data.selector;
+    }
+    return true;
+  },
+  { message: "selector is required for click, fill, select, and hover actions" }
+).refine(
+  (data) => {
+    // Value required for fill/select
+    if (["fill", "select"].includes(data.action)) {
+      return data.value !== undefined;
+    }
+    return true;
+  },
+  { message: "value is required for fill and select actions" }
+).refine(
+  (data) => {
+    // Verdict required when action is verdict
+    if (data.action === "verdict") {
+      return !!data.verdict;
+    }
+    return true;
+  },
+  { message: "verdict field is required when action is verdict" }
+).refine(
+  (data) => {
+    // URL required for navigate
+    if (data.action === "navigate") {
+      return !!data.url;
+    }
+    return true;
+  },
+  { message: "url is required for navigate action" }
+);
 
 export type StepResult = z.infer<typeof StepResultSchema>;
 export type ExecutionResult = z.infer<typeof ExecutionResultSchema>;

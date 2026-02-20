@@ -1,5 +1,6 @@
 import { getServerSession as nextAuthGetServerSession } from "next-auth";
 import { NextResponse } from "next/server";
+import { ZodError } from "zod";
 import { authOptions } from "@/lib/auth";
 import type { OrbitSession } from "@/lib/utils/types";
 
@@ -38,6 +39,16 @@ export async function requireWorkspace(): Promise<{
   return { session, workspaceId: session.workspaceId };
 }
 
+export async function requireSuperAdmin(): Promise<OrbitSession> {
+  const session = await requireAuth();
+
+  if (session.userRole !== "super_admin") {
+    throw new AuthError("Super admin access required", "FORBIDDEN", 403);
+  }
+
+  return session;
+}
+
 export function apiSuccess<T>(data: T, status = 200): NextResponse {
   return NextResponse.json({ success: true, data }, { status });
 }
@@ -66,6 +77,19 @@ export class AuthError extends Error {
 export function handleApiError(error: unknown): NextResponse {
   if (error instanceof AuthError) {
     return apiError(error.message, error.code, error.status);
+  }
+
+  if (error instanceof ZodError) {
+    const firstError = error.errors[0]?.message ?? "Validation failed";
+    return apiError(firstError, "VALIDATION_ERROR", 400);
+  }
+
+  // Handle Prisma "not found" errors
+  if (
+    error instanceof Error &&
+    error.name === "NotFoundError"
+  ) {
+    return apiError("Resource not found", "NOT_FOUND", 404);
   }
 
   console.error("Unhandled API error:", error);

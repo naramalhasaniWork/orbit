@@ -1,8 +1,8 @@
 import { NextRequest } from "next/server";
+import { z } from "zod";
 import { prisma } from "@/lib/db";
 import {
   requireAuth,
-  requireWorkspace,
   apiSuccess,
   apiError,
   handleApiError,
@@ -11,33 +11,56 @@ import { generateSlug } from "@/lib/utils/slug";
 
 export async function GET() {
   try {
-    const { workspaceId } = await requireWorkspace();
+    const session = await requireAuth();
 
-    const workspace = await prisma.workspace.findUnique({
-      where: { id: workspaceId },
+    // Return all workspaces the user belongs to
+    const memberships = await prisma.workspaceMember.findMany({
+      where: { userId: session.user.id },
+      include: {
+        workspace: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            tier: true,
+            plan: true,
+            creditBalance: true,
+            createdAt: true,
+          },
+        },
+      },
+      orderBy: { createdAt: "asc" },
     });
 
-    if (!workspace) {
-      return apiError("Workspace not found", "NOT_FOUND", 404);
-    }
+    const workspaces = memberships.map((m) => ({
+      ...m.workspace,
+      role: m.role,
+      memberId: m.id,
+    }));
 
-    return apiSuccess(workspace);
+    return apiSuccess(workspaces);
   } catch (error) {
     return handleApiError(error);
   }
 }
+
+const CreateWorkspaceSchema = z.object({
+  name: z.string().min(1, "Workspace name is required").max(100),
+});
 
 export async function POST(request: NextRequest) {
   try {
     const session = await requireAuth();
 
     const body = await request.json();
-    const { name } = body as { name?: string };
+    const parsed = CreateWorkspaceSchema.safeParse(body);
 
-    if (!name || typeof name !== "string" || name.trim().length === 0) {
-      return apiError("Workspace name is required", "VALIDATION_ERROR", 400);
+    if (!parsed.success) {
+      const firstError = parsed.error.errors[0]?.message ?? "Validation failed";
+      return apiError(firstError, "VALIDATION_ERROR", 400);
     }
 
+    const { name } = parsed.data;
     const slug = generateSlug(name);
 
     const workspace = await prisma.workspace.create({
@@ -48,7 +71,7 @@ export async function POST(request: NextRequest) {
       data: {
         workspaceId: workspace.id,
         userId: session.user.id,
-        role: "admin",
+        role: "owner",
       },
     });
 

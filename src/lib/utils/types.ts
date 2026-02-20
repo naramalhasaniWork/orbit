@@ -13,7 +13,8 @@ export interface OrbitSession extends Session {
   };
   workspaceId: string;
   workspaceSlug: string;
-  role: "admin" | "member" | "viewer" | "billing";
+  role: "owner" | "admin" | "member" | "viewer" | "billing";
+  userRole: "user" | "admin" | "super_admin";
   githubAccessToken?: string;
 }
 
@@ -142,7 +143,7 @@ export interface RunSummary {
   projectId: string;
   status: "queued" | "indexing" | "planning" | "executing" | "reporting" | "completed" | "failed" | "cancelled";
   mode: "full" | "smoke" | "regression" | "targeted";
-  trigger: "push" | "pr" | "scheduled" | "manual" | "linear" | "api";
+  trigger: "push" | "pr" | "scheduled" | "manual" | "linear" | "api" | "deploy";
   totalTests: number;
   passed: number;
   failed: number;

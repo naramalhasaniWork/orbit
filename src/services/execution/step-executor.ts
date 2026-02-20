@@ -11,6 +11,7 @@ import { healSelector, persistHealing } from "@/services/execution/self-healer";
 import { performAction } from "@/services/execution/action-performer";
 import type { EvidenceCollectorInstance } from "@/services/execution/evidence-collector";
 import { isStagehandEnabled } from "@/services/execution/stagehand-adapter";
+import { emitTestStep, emitTestScreenshot } from "@/lib/websocket";
 
 // ============================================================
 // Types
@@ -27,6 +28,7 @@ interface StepExecutorOptions {
   projectId: string;
   testCaseId: string;
   testCaseName: string;
+  runId?: string;
   steps: TestStep[];
   credentials: Record<string, string>;
   evidenceCollector: EvidenceCollectorInstance;
@@ -76,6 +78,7 @@ export async function executeTestSteps(
     projectId,
     testCaseId,
     testCaseName,
+    runId,
     steps,
     credentials,
     evidenceCollector,
@@ -143,24 +146,37 @@ export async function executeTestSteps(
     }
 
     const result = await executeAction(
-      page, projectId, action, maxRetries, evidenceCollector
+      page, projectId, action, maxRetries, evidenceCollector, runId
     );
 
     if (result.wasHealed) {
       healedSelectors.push(result.healedSelector);
     }
 
+    const stepStatus = result.succeeded
+      ? result.wasHealed ? "healed" : "passed"
+      : "failed";
+
     stepResults.push({
       stepIndex: currentStepIndex,
       action: `${action.action}${action.selector ? ` on ${action.selector}` : ""}`,
       expected: steps[currentStepIndex]?.expected ?? action.reason ?? "",
       actual: result.actualResult,
-      status: result.succeeded
-        ? result.wasHealed ? "healed" : "passed"
-        : "failed",
+      status: stepStatus,
       durationMs: result.durationMs,
       healedSelector: result.wasHealed ? result.healedSelector : undefined,
     });
+
+    // Emit real-time step event
+    if (runId) {
+      await emitTestStep(runId, {
+        runId,
+        testCaseId,
+        stepIndex: currentStepIndex,
+        action: `${action.action}${action.selector ? ` on ${action.selector}` : ""}`,
+        status: result.succeeded ? "passed" : "failed",
+      });
+    }
 
     previousActions.push({
       action: `${action.action}${action.selector ? ` ${action.selector}` : ""}`,
@@ -198,7 +214,8 @@ async function executeAction(
   projectId: string,
   action: ExecutorAction,
   maxRetries: number,
-  _evidenceCollector: EvidenceCollectorInstance
+  _evidenceCollector: EvidenceCollectorInstance,
+  runId?: string
 ): Promise<ActionResult> {
   const startTime = Date.now();
   let retries = 0;
@@ -224,8 +241,10 @@ async function executeAction(
           try {
             const healedAction = { ...action, selector: healing.healedSelector };
             actualResult = await performAction(page, healedAction);
+            const pageUrl = page.url();
             await persistHealing(
-              projectId, action.selector, healing.healedSelector, healing.confidence
+              projectId, action.selector, healing.healedSelector, healing.confidence,
+              runId, pageUrl
             );
             healedSelector = healing.healedSelector;
             wasHealed = true;

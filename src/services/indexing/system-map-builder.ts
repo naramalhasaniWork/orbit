@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { emitIndexingNodeDiscovered } from "@/lib/websocket";
 import type { RouteManifest } from "@/services/indexing/route-extractor";
 import type { ComponentMap } from "@/services/indexing/component-mapper";
 import type { ASTResult } from "@/services/indexing/ast-parser";
@@ -223,6 +224,15 @@ export async function buildSystemMap(
       },
     });
     nodeNameToId.set(name, created.id);
+
+    // Emit real-time node discovery event
+    await emitIndexingNodeDiscovered(projectId, {
+      projectId,
+      nodeId: created.id,
+      nodeType: node.type,
+      nodeName: name,
+      filePath: node.filePath,
+    });
   }
 
   // Collect all edges

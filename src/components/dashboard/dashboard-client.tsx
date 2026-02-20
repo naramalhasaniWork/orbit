@@ -1,14 +1,19 @@
 "use client";
 
+import { useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
 import { StatCard } from "@/components/shared/stat-card";
 import { EmptyState } from "@/components/shared/empty-state";
 import { RunsTimeline } from "@/components/dashboard/runs-timeline";
 import { ActiveRunBar } from "@/components/dashboard/active-run-bar";
 import { SystemMap } from "@/components/dashboard/system-map";
 import { Button } from "@/components/ui/button";
-import { FolderGit2, Play } from "lucide-react";
+import { FolderGit2, Play, Plus } from "lucide-react";
 import Link from "next/link";
 import type { MapNode, MapEdge } from "@/components/dashboard/map-types";
+import { useProjectEvents, type ProjectRunUpdate } from "@/hooks/use-project-events";
+import { IndexingStatus } from "@/components/project/indexing-status";
 
 interface Project {
   id: string;
@@ -66,6 +71,13 @@ interface ActiveRun {
   projectId: string;
 }
 
+interface IndexingInfo {
+  lastIndexedAt: string | null;
+  nodeCount: number;
+  edgeCount: number;
+  isIndexing: boolean;
+}
+
 interface DashboardClientProps {
   projects: Project[];
   activeProject: Project | null;
@@ -74,7 +86,21 @@ interface DashboardClientProps {
   activeRun?: ActiveRun | null;
   mapNodes?: MapNode[];
   mapEdges?: MapEdge[];
+  indexingInfo?: IndexingInfo;
 }
+
+const stagger = {
+  hidden: { opacity: 0 },
+  show: {
+    opacity: 1,
+    transition: { staggerChildren: 0.06 },
+  },
+};
+
+const fadeUp = {
+  hidden: { opacity: 0, y: 8 },
+  show: { opacity: 1, y: 0, transition: { duration: 0.35, ease: "easeOut" } },
+};
 
 export function DashboardClient({
   projects,
@@ -84,7 +110,37 @@ export function DashboardClient({
   activeRun,
   mapNodes = [],
   mapEdges = [],
+  indexingInfo,
 }: DashboardClientProps) {
+  const router = useRouter();
+  const [liveActiveRun, setLiveActiveRun] = useState<ActiveRun | null>(null);
+
+  const handleRunStarted = useCallback((run: ProjectRunUpdate) => {
+    setLiveActiveRun({
+      id: run.runId,
+      status: run.status,
+      trigger: run.trigger,
+      mode: run.mode,
+      totalTests: run.totalTests,
+      passed: 0,
+      failed: 0,
+      projectId: run.projectId,
+    });
+  }, []);
+
+  const handleRunCompleted = useCallback(() => {
+    setLiveActiveRun(null);
+    // Refresh server data to update stats and timeline
+    router.refresh();
+  }, [router]);
+
+  useProjectEvents({
+    projectId: activeProject?.id ?? "",
+    enabled: !!activeProject,
+    onRunStarted: handleRunStarted,
+    onRunCompleted: handleRunCompleted,
+  });
+
   if (!activeProject) {
     return (
       <EmptyState
@@ -103,13 +159,45 @@ export function DashboardClient({
     );
   }
 
+  // Show live active run if one started via SSE, otherwise use server-provided
+  const currentActiveRun = liveActiveRun ?? activeRun ?? null;
+
   return (
-    <div className="space-y-6">
-      {activeRun && (
-        <ActiveRunBar initialRun={activeRun} projectId={activeProject.id} />
+    <motion.div
+      variants={stagger}
+      initial="hidden"
+      animate="show"
+      className="space-y-6"
+    >
+      <motion.div variants={fadeUp} className="flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <h1 className="text-lg font-semibold text-foreground">{activeProject.name}</h1>
+          <Link
+            href={`/dashboard/projects/${activeProject.id}`}
+            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            View details
+          </Link>
+        </div>
+        <Link href="/dashboard/onboarding">
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-7 px-3 text-xs gap-1.5 border-white/[0.08] hover:bg-white/[0.04]"
+          >
+            <Plus className="h-3 w-3" />
+            New Project
+          </Button>
+        </Link>
+      </motion.div>
+
+      {currentActiveRun && (
+        <motion.div variants={fadeUp}>
+          <ActiveRunBar initialRun={currentActiveRun} projectId={activeProject.id} />
+        </motion.div>
       )}
 
-      <div className="grid grid-cols-4 gap-3">
+      <motion.div variants={fadeUp} className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <StatCard
           label="Pass Rate"
           value={stats.passRate}
@@ -143,10 +231,22 @@ export function DashboardClient({
           sparklineData={stats.sparklines?.duration}
           sparklineColor="hsl(var(--orbit-untested))"
         />
-      </div>
+      </motion.div>
 
-      <div className="grid grid-cols-5 gap-4">
-        <div className="col-span-3 rounded-xl surface-1 p-5">
+      {indexingInfo && (
+        <motion.div variants={fadeUp}>
+          <IndexingStatus
+            projectId={activeProject.id}
+            lastIndexedAt={indexingInfo.lastIndexedAt}
+            nodeCount={indexingInfo.nodeCount}
+            edgeCount={indexingInfo.edgeCount}
+            isIndexing={indexingInfo.isIndexing}
+          />
+        </motion.div>
+      )}
+
+      <motion.div variants={fadeUp} className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+        <div className="lg:col-span-3 rounded-xl surface-1 border border-white/[0.04] p-5">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-[13px] font-medium text-foreground">System Map</h2>
             <Link
@@ -167,10 +267,10 @@ export function DashboardClient({
           </div>
         </div>
 
-        <div className="col-span-2">
+        <div className="lg:col-span-2">
           <RunsTimeline runs={recentRuns} />
         </div>
-      </div>
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }

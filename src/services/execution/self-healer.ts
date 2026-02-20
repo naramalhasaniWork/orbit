@@ -244,11 +244,15 @@ export async function persistHealing(
   projectId: string,
   originalSelector: string,
   healedSelector: string,
-  confidence: number
+  confidence: number,
+  testRunId?: string,
+  pageUrl?: string
 ): Promise<void> {
   const existing = await prisma.selectorMapping.findFirst({
     where: { projectId, originalSelector, healedSelector },
   });
+
+  let mappingId: string;
 
   if (existing) {
     await prisma.selectorMapping.update({
@@ -258,16 +262,26 @@ export async function persistHealing(
         confidence: Math.max(existing.confidence, confidence),
       },
     });
+    mappingId = existing.id;
   } else {
-    await prisma.selectorMapping.create({
-      data: {
-        projectId,
-        originalSelector,
-        healedSelector,
-        confidence,
-      },
+    const mapping = await prisma.selectorMapping.create({
+      data: { projectId, originalSelector, healedSelector, confidence },
     });
+    mappingId = mapping.id;
   }
+
+  // Write audit trail to selector_history
+  await prisma.selectorHistory.create({
+    data: {
+      projectId,
+      selectorMappingId: mappingId,
+      previousSelector: originalSelector,
+      newSelector: healedSelector,
+      confidence,
+      testRunId,
+      pageUrl,
+    },
+  });
 }
 
 export type { HealingResult };

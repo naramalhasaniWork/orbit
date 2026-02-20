@@ -1,6 +1,6 @@
 import { createEmbeddings } from "@/lib/ai";
 import { prisma } from "@/lib/db";
-import { Prisma } from "@/generated/prisma/client";
+import { setNodeEmbedding, batchSetEmbeddings } from "@/lib/db/vector";
 
 interface EmbeddingInput {
   nodeId: string;
@@ -60,18 +60,22 @@ async function generateBatch(
 export async function generateAndStoreEmbeddings(
   projectId: string
 ): Promise<number> {
-  const nodes = await prisma.systemMapNode.findMany({
-    where: { projectId, embedding: { equals: Prisma.DbNull } },
-    select: {
-      id: true,
-      type: true,
-      name: true,
-      filePath: true,
-      metadata: true,
-    },
-  });
+  // Find nodes without embeddings using raw SQL since
+  // Prisma can't filter on Unsupported vector columns
+  const nodesWithoutEmbeddings = await prisma.$queryRawUnsafe<
+    Array<{ id: string }>
+  >(
+    `SELECT id FROM system_map_nodes WHERE project_id = $1::uuid AND embedding IS NULL`,
+    projectId
+  );
 
-  if (nodes.length === 0) return 0;
+  if (nodesWithoutEmbeddings.length === 0) return 0;
+
+  const nodeIds = new Set(nodesWithoutEmbeddings.map((n) => n.id));
+  const nodes = await prisma.systemMapNode.findMany({
+    where: { projectId, id: { in: Array.from(nodeIds) } },
+    select: { id: true, type: true, name: true, filePath: true, metadata: true },
+  });
 
   let processed = 0;
 
@@ -90,16 +94,9 @@ export async function generateAndStoreEmbeddings(
 
     const results = await generateBatch(inputs);
 
-    // Store embeddings in both JSONB and pgvector columns
-    for (const result of results) {
-      await prisma.systemMapNode.update({
-        where: { id: result.nodeId },
-        data: { embedding: result.embedding },
-      });
-
-      // Also store in native pgvector column if available
-      await storeVectorEmbedding(result.nodeId, result.embedding);
-    }
+    await batchSetEmbeddings(
+      results.map((r) => ({ nodeId: r.nodeId, embedding: r.embedding }))
+    );
 
     processed += results.length;
   }
@@ -112,12 +109,7 @@ export async function generateEmbeddingForNode(
 ): Promise<number[]> {
   const node = await prisma.systemMapNode.findUniqueOrThrow({
     where: { id: nodeId },
-    select: {
-      type: true,
-      name: true,
-      filePath: true,
-      metadata: true,
-    },
+    select: { type: true, name: true, filePath: true, metadata: true },
   });
 
   const text = buildEmbeddingText({
@@ -130,53 +122,9 @@ export async function generateEmbeddingForNode(
   const [embedding] = await createEmbeddings([text]);
   if (!embedding) throw new Error("Failed to generate embedding");
 
-  await prisma.systemMapNode.update({
-    where: { id: nodeId },
-    data: { embedding },
-  });
-
-  // Also store in native pgvector column if available
-  await storeVectorEmbedding(nodeId, embedding);
+  await setNodeEmbedding(nodeId, embedding);
 
   return embedding;
-}
-
-/**
- * Store embedding in the native pgvector column (embedding_vec).
- * Falls back silently if pgvector extension is not installed.
- */
-async function storeVectorEmbedding(nodeId: string, embedding: number[]): Promise<void> {
-  try {
-    const vectorStr = `[${embedding.join(",")}]`;
-    await prisma.$executeRawUnsafe(
-      `UPDATE system_map_nodes SET embedding_vec = $1::vector WHERE id = $2::uuid`,
-      vectorStr,
-      nodeId
-    );
-  } catch {
-    // pgvector column may not exist — fall back to JSONB storage only
-  }
-}
-
-/**
- * Initialize pgvector extension and column if not already present.
- * Call this during app startup or migration.
- */
-export async function initPgvectorColumn(): Promise<boolean> {
-  try {
-    await prisma.$executeRawUnsafe(`CREATE EXTENSION IF NOT EXISTS vector`);
-    await prisma.$executeRawUnsafe(
-      `ALTER TABLE "system_map_nodes" ADD COLUMN IF NOT EXISTS embedding_vec vector(1536)`
-    );
-    await prisma.$executeRawUnsafe(
-      `CREATE INDEX IF NOT EXISTS idx_system_map_nodes_embedding_vec
-       ON "system_map_nodes" USING ivfflat (embedding_vec vector_cosine_ops) WITH (lists = 100)`
-    );
-    return true;
-  } catch {
-    console.warn("[pgvector] Extension not available, falling back to JSONB embeddings");
-    return false;
-  }
 }
 
 export { buildEmbeddingText };

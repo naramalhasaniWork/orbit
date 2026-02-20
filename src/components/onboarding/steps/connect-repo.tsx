@@ -132,22 +132,30 @@ export function ConnectRepo({ onSelect }: ConnectRepoProps) {
       </div>
 
       <div className="flex gap-2 w-full mb-4">
-        {(Object.keys(PROVIDER_CONFIG) as RepoProvider[]).map((p) => (
-          <button
-            key={p}
-            type="button"
-            onClick={() => { setProvider(p); setSelectedId(null); }}
-            className={cn(
-              "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors",
-              provider === p
-                ? "bg-orbit-accent/20 text-orbit-accent"
-                : "bg-white/[0.04] text-muted-foreground hover:text-foreground"
-            )}
-          >
-            <GitBranch className="h-3.5 w-3.5" />
-            {PROVIDER_CONFIG[p].label}
-          </button>
-        ))}
+        {(Object.keys(PROVIDER_CONFIG) as RepoProvider[]).map((p) => {
+          const isSupported = p === "github";
+          return (
+            <button
+              key={p}
+              type="button"
+              disabled={!isSupported}
+              onClick={() => { setProvider(p); setSelectedId(null); }}
+              className={cn(
+                "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors",
+                provider === p
+                  ? "bg-orbit-accent/20 text-orbit-accent"
+                  : "bg-white/[0.04] text-muted-foreground hover:text-foreground",
+                !isSupported && "opacity-40 cursor-not-allowed hover:text-muted-foreground"
+              )}
+            >
+              <GitBranch className="h-3.5 w-3.5" />
+              {PROVIDER_CONFIG[p].label}
+              {!isSupported && (
+                <span className="text-[10px] uppercase tracking-wider">Soon</span>
+              )}
+            </button>
+          );
+        })}
       </div>
 
       <div className="relative w-full mb-4">

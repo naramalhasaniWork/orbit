@@ -25,41 +25,79 @@
     --ring: 240 5.9% 10%;
     --radius: 0.5rem;
 
-    --orbit-pass: 142 71% 45%;
+    --orbit-surface-0: 0 0% 100%;
+    --orbit-surface-1: 240 4.8% 97%;
+    --orbit-surface-2: 240 4.8% 95.9%;
+    --orbit-surface-3: 240 4.8% 92%;
+    --orbit-surface-4: 240 4.8% 88%;
+    --orbit-glow: 239 84% 67%;
+    --orbit-success: 160 84% 39%;
+    --orbit-warning: 38 92% 50%;
+    --orbit-error: 0 84% 60%;
+    --orbit-info: 199 89% 48%;
+    --orbit-pass: 160 84% 39%;
     --orbit-fail: 0 84% 60%;
     --orbit-flaky: 38 92% 50%;
     --orbit-untested: 240 4% 46%;
-    --orbit-accent: 263 70% 66%;
+    --orbit-accent: 239 84% 67%;
+    --orbit-amber: 36 96% 53%;
   }
 
-  /* Mission control dark theme — deep purplish dark */
+  /* ═══════════════════════════════════════════════════
+     ORBIT MISSION CONTROL — Dark Theme
+     Deep indigo-tinted surfaces with electric primary
+     and solar amber accents. Data-dense but calm.
+     ═══════════════════════════════════════════════════ */
   .dark {
-    --background: 245 40% 4%;
-    --foreground: 220 20% 93%;
-    --card: 245 30% 7%;
-    --card-foreground: 220 20% 93%;
-    --popover: 245 30% 8%;
-    --popover-foreground: 220 20% 93%;
-    --primary: 220 20% 93%;
-    --primary-foreground: 245 40% 4%;
-    --secondary: 245 20% 12%;
-    --secondary-foreground: 220 20% 93%;
-    --muted: 245 20% 12%;
-    --muted-foreground: 230 10% 52%;
-    --accent: 245 20% 14%;
-    --accent-foreground: 220 20% 93%;
-    --destructive: 0 62% 30%;
+    /* Core semantic tokens */
+    --background: 234 47% 3.5%;
+    --foreground: 226 20% 94%;
+    --card: 234 35% 6.5%;
+    --card-foreground: 226 20% 94%;
+    --popover: 234 38% 8%;
+    --popover-foreground: 226 20% 94%;
+    --primary: 239 84% 67%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 234 25% 11%;
+    --secondary-foreground: 226 20% 88%;
+    --muted: 234 20% 13%;
+    --muted-foreground: 226 12% 50%;
+    --accent: 234 22% 15%;
+    --accent-foreground: 226 20% 94%;
+    --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 98%;
-    --border: 245 15% 14%;
-    --input: 245 15% 14%;
-    --ring: 263 70% 66%;
-    --surface: 245 28% 9%;
+    --border: 234 18% 12%;
+    --input: 234 18% 14%;
+    --ring: 239 84% 67%;
 
-    --orbit-pass: 142 71% 45%;
+    /* 5-level surface system — indigo-tinted, not gray */
+    --orbit-surface-0: 234 47% 3.5%;
+    --orbit-surface-1: 234 35% 6.5%;
+    --orbit-surface-2: 234 30% 9%;
+    --orbit-surface-3: 234 25% 12%;
+    --orbit-surface-4: 234 22% 15%;
+    --surface: 234 30% 9%;
+
+    /* Primary glow for interactive focus states */
+    --orbit-glow: 239 84% 67%;
+
+    /* Semantic status colors — harmonized with indigo base */
+    --orbit-success: 160 84% 39%;
+    --orbit-warning: 36 96% 53%;
+    --orbit-error: 0 72% 51%;
+    --orbit-info: 199 89% 48%;
+
+    /* Test status colors */
+    --orbit-pass: 160 84% 39%;
     --orbit-fail: 0 72% 51%;
-    --orbit-flaky: 38 92% 50%;
-    --orbit-untested: 230 10% 38%;
-    --orbit-accent: 263 70% 66%;
+    --orbit-flaky: 36 96% 53%;
+    --orbit-untested: 226 12% 36%;
+
+    /* Brand accent — electric indigo (same as primary) */
+    --orbit-accent: 239 84% 67%;
+
+    /* Solar amber — warm CTA / highlight color */
+    --orbit-amber: 36 96% 53%;
   }
 }
 
@@ -70,25 +108,51 @@
   body {
     @apply bg-background text-foreground;
   }
+
+  /* Text hierarchy on dark backgrounds */
+  .dark .text-primary-95 {
+    color: hsl(226 20% 94% / 0.95);
+  }
+  .dark .text-secondary-70 {
+    color: hsl(226 20% 94% / 0.70);
+  }
+  .dark .text-tertiary-50 {
+    color: hsl(226 20% 94% / 0.50);
+  }
+  .dark .text-disabled-30 {
+    color: hsl(226 20% 94% / 0.30);
+  }
+
+  /* Selection styling */
+  .dark ::selection {
+    background: hsl(239 84% 67% / 0.3);
+  }
 }
 
+/* ═══════════════════════════════════════════════════
+   SURFACE LAYERS — Borderless hierarchy via tint
+   ═══════════════════════════════════════════════════ */
 @layer utilities {
-  /* Orbit surface layers for borderless hierarchy */
   .surface-0 {
-    background-color: hsl(var(--background));
+    background-color: hsl(var(--orbit-surface-0));
   }
   .surface-1 {
-    background-color: hsl(var(--card));
+    background-color: hsl(var(--orbit-surface-1));
   }
   .surface-2 {
-    background-color: hsl(var(--surface, var(--card)));
+    background-color: hsl(var(--orbit-surface-2));
   }
   .surface-3 {
-    background-color: hsl(var(--secondary));
+    background-color: hsl(var(--orbit-surface-3));
+  }
+  .surface-4 {
+    background-color: hsl(var(--orbit-surface-4));
   }
 }
 
-/* Smooth scrollbar for dark theme */
+/* ═══════════════════════════════════════════════════
+   SCROLLBAR — Sleek dark scrollbar
+   ═══════════════════════════════════════════════════ */
 @layer base {
   .dark ::-webkit-scrollbar {
     width: 6px;
@@ -98,10 +162,98 @@
     background: transparent;
   }
   .dark ::-webkit-scrollbar-thumb {
-    background: hsl(245 15% 20%);
+    background: hsl(234 18% 18%);
     border-radius: 3px;
   }
   .dark ::-webkit-scrollbar-thumb:hover {
-    background: hsl(245 15% 28%);
+    background: hsl(234 18% 26%);
+  }
+}
+
+/* ═══════════════════════════════════════════════════
+   GLOW EFFECTS — Status-aware glows
+   ═══════════════════════════════════════════════════ */
+@layer utilities {
+  .glow-primary {
+    box-shadow: 0 0 16px hsl(var(--primary) / 0.25),
+                0 0 4px hsl(var(--primary) / 0.15);
+  }
+  .glow-pass {
+    box-shadow: 0 0 12px hsl(var(--orbit-pass) / 0.25),
+                0 0 4px hsl(var(--orbit-pass) / 0.15);
+  }
+  .glow-fail {
+    box-shadow: 0 0 12px hsl(var(--orbit-fail) / 0.25),
+                0 0 4px hsl(var(--orbit-fail) / 0.15);
+  }
+  .glow-accent {
+    box-shadow: 0 0 12px hsl(var(--orbit-accent) / 0.25),
+                0 0 4px hsl(var(--orbit-accent) / 0.15);
+  }
+  .glow-flaky {
+    box-shadow: 0 0 12px hsl(var(--orbit-flaky) / 0.25),
+                0 0 4px hsl(var(--orbit-flaky) / 0.15);
+  }
+}
+
+/* ═══════════════════════════════════════════════════
+   GLASS & SPECIAL SURFACES
+   ═══════════════════════════════════════════════════ */
+@layer utilities {
+  .glass {
+    background: hsl(var(--card) / 0.6);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+  }
+
+  /* Subtle dot grid — mission control background texture */
+  .bg-grid-dots {
+    background-image: radial-gradient(
+      hsl(var(--primary) / 0.06) 1px,
+      transparent 1px
+    );
+    background-size: 24px 24px;
+  }
+
+  /* Gradient border effect for premium cards */
+  .border-gradient {
+    position: relative;
+  }
+  .border-gradient::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(
+      135deg,
+      hsl(var(--primary) / 0.2),
+      hsl(var(--orbit-amber) / 0.08),
+      transparent
+    );
+    -webkit-mask: linear-gradient(#fff 0 0) content-box,
+                  linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+
+  /* Status indicator pulse for active runs */
+  .pulse-status {
+    animation: status-pulse 2s ease-in-out infinite;
+  }
+
+  /* Data-dense table alternating row tints */
+  .table-row-alt:nth-child(even) {
+    background-color: hsl(var(--orbit-surface-1) / 0.5);
+  }
+}
+
+@keyframes status-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
   }
 }

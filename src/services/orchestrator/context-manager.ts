@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/db";
+import { findSimilarNodes } from "@/lib/db/vector";
 import { createEmbedding } from "@/lib/ai";
+import type { AgentPhase } from "./token-budget";
 
 interface RetrievedNode {
   id: string;
@@ -10,10 +12,41 @@ interface RetrievedNode {
   similarity: number;
 }
 
+// Node type filters per agent — each agent gets the context most relevant to it
+const AGENT_NODE_FILTERS: Record<AgentPhase, string[] | null> = {
+  analyst: null, // Analyst sees everything (it builds the map)
+  planner: ["route", "endpoint", "component", "auth_strategy"],
+  executor: ["route", "endpoint", "component"],
+  reporter: ["route", "endpoint"],
+};
+
+const AGENT_TOP_K: Record<AgentPhase, number> = {
+  analyst: 20,
+  planner: 30,
+  executor: 15,
+  reporter: 10,
+};
+
 /**
- * Semantic retrieval using cosine similarity.
- * Tries native pgvector first (embedding_vec column with <=> operator),
- * falls back to JSONB-based cosine similarity computation.
+ * Retrieve context for a specific agent phase.
+ * Applies node-type filters and appropriate topK limits.
+ */
+export async function retrieveAgentContext(
+  projectId: string,
+  agent: AgentPhase,
+  query: string
+): Promise<RetrievedNode[]> {
+  const topK = AGENT_TOP_K[agent];
+  const typeFilter = AGENT_NODE_FILTERS[agent];
+
+  const nodes = await retrieveRelevantNodes(projectId, query, topK);
+
+  if (!typeFilter) return nodes;
+  return nodes.filter((n) => typeFilter.includes(n.type));
+}
+
+/**
+ * Semantic retrieval using cosine similarity via pgvector HNSW index.
  */
 export async function retrieveRelevantNodes(
   projectId: string,
@@ -22,124 +55,74 @@ export async function retrieveRelevantNodes(
 ): Promise<RetrievedNode[]> {
   const queryEmbedding = await createEmbedding(query);
 
-  // Try pgvector native search first
-  const pgvectorResults = await tryPgvectorSearch(projectId, queryEmbedding, topK);
-  if (pgvectorResults) return pgvectorResults;
-
-  // Fallback to JSONB cosine similarity
-  return jsonbCosineSimilaritySearch(projectId, queryEmbedding, topK);
-}
-
-async function tryPgvectorSearch(
-  projectId: string,
-  queryEmbedding: number[],
-  topK: number
-): Promise<RetrievedNode[] | null> {
-  try {
-    const vectorStr = `[${queryEmbedding.join(",")}]`;
-    const results = await prisma.$queryRawUnsafe<
-      Array<{
-        id: string;
-        type: string;
-        name: string;
-        file_path: string;
-        metadata: Record<string, unknown>;
-        similarity: number;
-      }>
-    >(
-      `SELECT
-        id, type, name, file_path, metadata,
-        1 - (embedding_vec <=> $1::vector) AS similarity
-      FROM system_map_nodes
-      WHERE project_id = $2::uuid
-        AND embedding_vec IS NOT NULL
-      ORDER BY embedding_vec <=> $1::vector
-      LIMIT $3`,
-      vectorStr,
-      projectId,
-      topK
-    );
-
-    return results.map((r) => ({
-      id: r.id,
-      type: r.type,
-      name: r.name,
-      filePath: r.file_path,
-      metadata: (r.metadata ?? {}) as Record<string, unknown>,
-      similarity: Number(r.similarity),
-    }));
-  } catch {
-    // pgvector column not available — fall back to JSONB
-    return null;
-  }
-}
-
-async function jsonbCosineSimilaritySearch(
-  projectId: string,
-  queryEmbedding: number[],
-  topK: number
-): Promise<RetrievedNode[]> {
-  const queryVector = JSON.stringify(queryEmbedding);
-
-  const results = await prisma.$queryRawUnsafe<
-    Array<{
-      id: string;
-      type: string;
-      name: string;
-      file_path: string;
-      metadata: Record<string, unknown>;
-      similarity: number;
-    }>
-  >(
-    `
-    WITH query_vec AS (
-      SELECT $1::jsonb AS vec
-    ),
-    node_scores AS (
-      SELECT
-        n.id,
-        n.type,
-        n.name,
-        n.file_path,
-        n.metadata,
-        (
-          SELECT COALESCE(
-            SUM(
-              (ne.val::float8) * (qe.val::float8)
-            ) / NULLIF(
-              SQRT(SUM(POWER(ne.val::float8, 2))) *
-              SQRT(SUM(POWER(qe.val::float8, 2))),
-              0
-            ),
-            0
-          )
-          FROM jsonb_array_elements_text(n.embedding) WITH ORDINALITY AS ne(val, ord)
-          JOIN jsonb_array_elements_text(query_vec.vec) WITH ORDINALITY AS qe(val, ord)
-            ON ne.ord = qe.ord
-        ) AS similarity
-      FROM system_map_nodes n, query_vec
-      WHERE n.project_id = $2::uuid
-        AND n.embedding IS NOT NULL
-        AND jsonb_array_length(n.embedding) > 0
-    )
-    SELECT id, type, name, file_path, metadata, similarity
-    FROM node_scores
-    ORDER BY similarity DESC
-    LIMIT $3
-    `,
-    queryVector,
-    projectId,
-    topK
-  );
-
+  const results = await findSimilarNodes(projectId, queryEmbedding, topK);
   return results.map((r) => ({
     id: r.id,
     type: r.type,
     name: r.name,
     filePath: r.file_path,
-    metadata: (r.metadata ?? {}) as Record<string, unknown>,
+    metadata: {} as Record<string, unknown>,
     similarity: Number(r.similarity),
   }));
+}
+
+/**
+ * Get previous run patterns for agent memory.
+ * Agents can reference this to detect trends (e.g., persistent flaky tests).
+ */
+export async function getAgentMemory(projectId: string, lookback = 5) {
+  const recentRuns = await prisma.testRun.findMany({
+    where: { projectId, status: "completed" },
+    orderBy: { completedAt: "desc" },
+    take: lookback,
+    select: {
+      id: true,
+      mode: true,
+      passed: true,
+      failed: true,
+      flaky: true,
+      totalTests: true,
+      completedAt: true,
+    },
+  });
+
+  const flakyTests = await prisma.flakyTest.findMany({
+    where: { projectId },
+    include: { testCase: { select: { name: true, journey: true } } },
+    orderBy: { occurrences: "desc" },
+    take: 10,
+  });
+
+  const selectorHealings = await prisma.selectorMapping.findMany({
+    where: { projectId },
+    orderBy: { healCount: "desc" },
+    take: 10,
+    select: { originalSelector: true, healedSelector: true, healCount: true },
+  });
+
+  return {
+    recentRuns: recentRuns.map((r) => ({
+      id: r.id,
+      mode: r.mode,
+      passed: r.passed,
+      failed: r.failed,
+      flaky: r.flaky,
+      total: r.totalTests,
+      completedAt: r.completedAt?.toISOString() ?? null,
+    })),
+    flakyPatterns: flakyTests.map((f) => ({
+      testName: f.testCase.name,
+      journey: f.testCase.journey,
+      occurrences: f.occurrences,
+      passRate: f.passRate,
+      isQuarantined: f.isQuarantined,
+    })),
+    selectorHealings: selectorHealings.map((s) => ({
+      original: s.originalSelector,
+      healed: s.healedSelector,
+      healCount: s.healCount,
+    })),
+  };
 }
 
 export async function getProjectContext(projectId: string) {
@@ -169,7 +152,6 @@ export async function getProjectContext(projectId: string) {
     orderBy: { createdAt: "desc" },
   });
 
-  // Extract custom prompt from workspace settings
   const workspaceSettings = (project.workspace?.settings ?? {}) as Record<string, unknown>;
   const customPrompt = typeof workspaceSettings.customPrompt === "string"
     ? workspaceSettings.customPrompt
@@ -188,3 +170,5 @@ export async function getProjectContext(projectId: string) {
     customPrompt,
   };
 }
+
+export type { RetrievedNode };

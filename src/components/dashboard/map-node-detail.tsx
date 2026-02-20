@@ -1,5 +1,6 @@
 "use client";
 
+import { motion } from "framer-motion";
 import { X, FileCode2, ArrowRightLeft, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -38,7 +39,12 @@ export function MapNodeDetail({
   const typeConfig = NODE_TYPE_CONFIG[node.type];
 
   return (
-    <div className="w-72 surface-1 flex flex-col h-full animate-slide-in-right">
+    <motion.div
+      initial={{ opacity: 0, x: 12 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ duration: 0.2, ease: "easeOut" }}
+      className="w-72 surface-1 border-l border-white/[0.04] flex flex-col h-full"
+    >
       {/* Header */}
       <div className="flex items-start justify-between p-4">
         <div className="flex-1 min-w-0">
@@ -139,7 +145,7 @@ export function MapNodeDetail({
           </div>
         </div>
       </ScrollArea>
-    </div>
+    </motion.div>
   );
 }
 

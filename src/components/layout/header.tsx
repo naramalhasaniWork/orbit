@@ -6,6 +6,7 @@ import { useSession } from "next-auth/react";
 import { HealthBadge } from "./health-badge";
 import { Button } from "@/components/ui/button";
 import { Play, ChevronDown } from "lucide-react";
+import { QuickActions } from "@/components/dashboard/quick-actions";
 import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
@@ -36,6 +37,8 @@ const PAGE_TITLES: Record<string, string> = {
   "/dashboard/plans": "Test Plans",
   "/dashboard/runs": "Runs",
   "/dashboard/settings": "Settings",
+  "/dashboard/settings/members": "Team Members",
+  "/dashboard/settings/billing": "Billing & Usage",
   "/dashboard/onboarding": "Onboarding",
 };
 
@@ -48,6 +51,7 @@ const healthDot: Record<string, string> = {
 function getPageTitle(pathname: string | null): string {
   if (!pathname) return "Dashboard";
   if (pathname.startsWith("/dashboard/runs/")) return "Run Detail";
+  if (pathname.startsWith("/dashboard/projects/")) return "Project";
   return PAGE_TITLES[pathname] ?? "Dashboard";
 }
 
@@ -67,7 +71,7 @@ export function Header({ projects = [], activeProjectId, healthStatus }: HeaderP
   }
 
   return (
-    <header className="flex items-center justify-between h-12 px-6 surface-1">
+    <header className="flex items-center justify-between h-12 px-6 surface-1 shrink-0">
       <div className="flex items-center gap-3">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
@@ -111,7 +115,10 @@ export function Header({ projects = [], activeProjectId, healthStatus }: HeaderP
               </DropdownMenuItem>
             ))}
             {projects.length > 0 && <DropdownMenuSeparator />}
-            <DropdownMenuItem className="text-muted-foreground">
+            <DropdownMenuItem
+              className="text-muted-foreground cursor-pointer"
+              onClick={() => router.push("/dashboard/onboarding")}
+            >
               Add project...
             </DropdownMenuItem>
           </DropdownMenuContent>
@@ -124,9 +131,14 @@ export function Header({ projects = [], activeProjectId, healthStatus }: HeaderP
       </div>
 
       <div className="flex items-center gap-2">
+        <QuickActions
+          projectId={activeProjectId ?? undefined}
+          projectName={active?.name}
+        />
+
         <Button
           size="sm"
-          className="h-7 px-3 text-xs bg-orbit-accent hover:bg-orbit-accent/90 text-white gap-1.5 rounded-md"
+          className="h-7 px-3 text-xs bg-orbit-accent hover:bg-orbit-accent/90 text-white gap-1.5 rounded-md shadow-[0_0_12px_hsl(var(--orbit-accent)/0.2)]"
         >
           <Play className="h-3 w-3" />
           Run

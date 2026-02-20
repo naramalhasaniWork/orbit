@@ -4,6 +4,7 @@ import { prisma } from "@/lib/db";
 import type { Prisma } from "@/generated/prisma/client";
 import { getIndexingQueue } from "@/lib/queue/queues";
 import { emitRunStarted } from "@/lib/websocket";
+import { dispatchRunStarted } from "@/services/reporting/integrations/outbound-webhooks";
 
 function verifySignature(payload: string, signature: string | null, secret: string): boolean {
   if (!signature) return false;
@@ -116,6 +117,12 @@ export async function POST(req: NextRequest) {
           trigger: "push",
           totalTests: 0,
         });
+
+        await dispatchRunStarted(project.id, {
+          runId: run.id,
+          mode: run.mode,
+          trigger: "push",
+        });
       }
 
       return NextResponse.json({ status: "push_processed", branch });
@@ -125,7 +132,7 @@ export async function POST(req: NextRequest) {
       const action = payload.action as string;
       const pr = payload.pull_request as {
         number: number;
-        head: { ref: string };
+        head: { ref: string; sha: string };
         title: string;
       } | undefined;
 
@@ -137,6 +144,7 @@ export async function POST(req: NextRequest) {
             mode: "targeted",
             trigger: "pr",
             branch: pr?.head?.ref,
+            commitSha: pr?.head?.sha,
             prNumber: pr?.number,
             metadata: {
               prTitle: pr?.title ?? null,
@@ -162,6 +170,12 @@ export async function POST(req: NextRequest) {
           mode: "targeted",
           trigger: "pr",
           totalTests: 0,
+        });
+
+        await dispatchRunStarted(project.id, {
+          runId: run.id,
+          mode: "targeted",
+          trigger: "pr",
         });
       }
 

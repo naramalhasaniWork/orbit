@@ -6,6 +6,8 @@ import {
   apiError,
   handleApiError,
 } from "@/lib/utils/api";
+import { requirePermission } from "@/lib/auth/rbac";
+import { TIER_LIMITS, type WorkspaceTier } from "@/lib/auth/tenant";
 import { getExecutionQueue } from "@/lib/queue/queues";
 import { getDefaultEnvironment } from "@/services/execution/environment-validator";
 import { emitRunStarted } from "@/lib/websocket";
@@ -84,6 +86,9 @@ export async function POST(
     const { session, workspaceId } = await requireWorkspace();
     const { projectId } = await params;
 
+    // RBAC: require runs.create permission
+    await requirePermission(workspaceId, "runs.create");
+
     // Verify project belongs to workspace
     const project = await prisma.project.findFirst({
       where: { id: projectId, workspaceId },
@@ -92,6 +97,35 @@ export async function POST(
 
     if (!project) {
       return apiError("Project not found", "NOT_FOUND", 404);
+    }
+
+    // Tier run limit check
+    const workspace = await prisma.workspace.findUnique({
+      where: { id: workspaceId },
+      select: { tier: true, runLimit: true },
+    });
+
+    if (workspace) {
+      const tier = workspace.tier as WorkspaceTier;
+      const limit = TIER_LIMITS[tier]?.runsPerMonth ?? workspace.runLimit;
+      const monthStart = new Date();
+      monthStart.setDate(1);
+      monthStart.setHours(0, 0, 0, 0);
+
+      const monthlyRuns = await prisma.testRun.count({
+        where: {
+          project: { workspaceId },
+          createdAt: { gte: monthStart },
+        },
+      });
+
+      if (monthlyRuns >= limit) {
+        return apiError(
+          `Monthly run limit reached (${limit}). Upgrade your plan for more runs.`,
+          "LIMIT_REACHED",
+          403
+        );
+      }
     }
 
     const body = (await request.json()) as CreateRunBody;

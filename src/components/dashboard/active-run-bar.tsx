@@ -65,7 +65,7 @@ export function ActiveRunBar({ initialRun, projectId }: ActiveRunBarProps) {
   const isTerminal = progress?.status === "completed" || progress?.status === "failed";
 
   return (
-    <div className="flex items-center gap-4 rounded-xl bg-orbit-accent/[0.06] px-4 py-3">
+    <div className="flex items-center gap-4 rounded-xl bg-orbit-accent/[0.06] border border-orbit-accent/10 px-4 py-3">
       <StatusDot
         status={isTerminal ? (failed > 0 ? "fail" : "pass") : "running"}
         pulse={!isTerminal}
