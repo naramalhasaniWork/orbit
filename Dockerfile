@@ -17,8 +17,9 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Generate Prisma client
+# Generate Prisma client and run migrations
 RUN pnpm prisma generate
+RUN pnpm prisma migrate deploy
 
 # Build Next.js (standalone output)
 RUN pnpm build
