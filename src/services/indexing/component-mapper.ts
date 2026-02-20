@@ -1,5 +1,16 @@
 import type { ASTResult, ImportInfo } from "@/services/indexing/ast-parser";
 
+interface UIElement {
+  tag: string;
+  text?: string;
+  type?: string;
+  name?: string;
+  ariaLabel?: string;
+  role?: string;
+  href?: string;
+  required?: boolean;
+}
+
 interface ComponentNode {
   name: string;
   filePath: string;
@@ -7,6 +18,7 @@ interface ComponentNode {
   isInteractive: boolean;
   children: string[];
   dependencies: string[];
+  uiElements: UIElement[];
 }
 
 interface ComponentMap {
@@ -53,6 +65,72 @@ function detectInteractivity(content: string): boolean {
   return INTERACTIVE_INDICATORS.some((indicator) =>
     content.includes(indicator)
   );
+}
+
+function extractAttr(attrs: string, attrName: string): string | undefined {
+  const pattern = new RegExp(
+    `${attrName}=(?:"([^"]*)"|'([^']*)'|\\{['"\`]([^'"\`]*)['"\`]\\})`,
+    "i"
+  );
+  const match = pattern.exec(attrs);
+  return match ? (match[1] ?? match[2] ?? match[3]) : undefined;
+}
+
+function extractUIElements(content: string): UIElement[] {
+  const elements: UIElement[] = [];
+  const tagPattern = /<(button|input|select|textarea|a|form)\b([^>]*)>/gi;
+  const MAX_ELEMENTS = 50;
+
+  let match: RegExpExecArray | null;
+  while (
+    (match = tagPattern.exec(content)) !== null &&
+    elements.length < MAX_ELEMENTS
+  ) {
+    const tag = match[1].toLowerCase();
+    const attrs = match[2];
+
+    const element: UIElement = { tag };
+
+    const typeVal = extractAttr(attrs, "type");
+    if (typeVal) element.type = typeVal;
+
+    const nameVal = extractAttr(attrs, "name");
+    if (nameVal) element.name = nameVal;
+
+    const ariaLabel = extractAttr(attrs, "aria-label");
+    if (ariaLabel) element.ariaLabel = ariaLabel;
+
+    const role = extractAttr(attrs, "role");
+    if (role) element.role = role;
+
+    const href = extractAttr(attrs, "href");
+    if (href) element.href = href;
+
+    if (/\brequired\b/.test(attrs) && !/required=\{false\}/.test(attrs)) {
+      element.required = true;
+    }
+
+    // Extract text content for button and a tags
+    if (tag === "button" || tag === "a") {
+      const closingPattern = new RegExp(
+        `<${tag}\\b[^>]*>[\\s\\S]*?<\\/${tag}>`,
+        "gi"
+      );
+      closingPattern.lastIndex = match.index;
+      const textMatch = closingPattern.exec(content);
+      if (textMatch) {
+        const inner = textMatch[0]
+          .replace(/^<[^>]*>/, "")
+          .replace(/<\/[^>]*>$/, "");
+        const text = inner.replace(/<[^>]*>/g, "").trim();
+        if (text && text.length <= 100) element.text = text;
+      }
+    }
+
+    elements.push(element);
+  }
+
+  return elements;
 }
 
 function resolveImportToComponent(
@@ -138,7 +216,9 @@ export function buildComponentMap(
 
     for (const compName of ast.components) {
       const isExported = ast.exports.includes(compName);
-      const isInteractive = detectInteractivity(content);
+      const uiElements = extractUIElements(content);
+      const isInteractive =
+        detectInteractivity(content) || uiElements.length > 0;
 
       // Find child components used in this file
       const usedComponents = findComponentUsages(content, allComponentNames);
@@ -162,6 +242,7 @@ export function buildComponentMap(
         isInteractive,
         children,
         dependencies: Array.from(new Set(dependencies)),
+        uiElements,
       });
 
       // Create relationships for child components
@@ -189,4 +270,4 @@ export function buildComponentMap(
   return { components, relationships };
 }
 
-export type { ComponentNode, ComponentMap, ComponentRelationship };
+export type { ComponentNode, ComponentMap, ComponentRelationship, UIElement };

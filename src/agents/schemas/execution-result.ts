@@ -66,8 +66,18 @@ export const ExecutorActionSchema = z.object({
   waitMs: z.number().min(0).max(10000).optional(),
   assertion: z
     .object({
-      type: z.enum(["visible", "text_contains", "url_matches", "element_exists"]),
+      type: z.enum([
+        "visible",
+        "text_contains",
+        "url_matches",
+        "element_exists",
+        "attribute_equals",
+        "element_count",
+        "accessibility_check",
+      ]),
       expected: z.string(),
+      attribute: z.string().optional(),
+      selector: z.string().optional(),
     })
     .optional(),
   verdict: z.enum(["pass", "fail"]).optional(),

@@ -23,6 +23,14 @@ interface LaunchOptions {
 const DEFAULT_VIEWPORT = { width: 1280, height: 720 };
 const DEFAULT_TIMEOUT = 30_000;
 
+export const VIEWPORT_PRESETS = {
+  mobile: { width: 375, height: 667 },
+  tablet: { width: 768, height: 1024 },
+  desktop: { width: 1280, height: 720 },
+} as const;
+
+export type ViewportName = keyof typeof VIEWPORT_PRESETS;
+
 // ============================================================
 // Browser Lifecycle
 // ============================================================
@@ -190,6 +198,18 @@ export async function getPageState(page: Page): Promise<PageState> {
   });
 
   return { url, title, visibleText, interactiveElements };
+}
+
+// ============================================================
+// Viewport Management
+// ============================================================
+
+export async function setViewport(
+  page: Page,
+  viewport: ViewportName | { width: number; height: number }
+): Promise<void> {
+  const size = typeof viewport === "string" ? VIEWPORT_PRESETS[viewport] : viewport;
+  await page.setViewportSize(size);
 }
 
 export type { BrowserInstance, LaunchOptions };

@@ -119,6 +119,96 @@ async function performAssertion(
       if (count === 0) throw new Error(`Element "${expected}" does not exist`);
       return `Verified "${expected}" exists`;
     }
+    case "attribute_equals": {
+      if (!action.assertion.selector) throw new Error("attribute_equals requires assertion.selector");
+      if (!action.assertion.attribute) throw new Error("attribute_equals requires assertion.attribute");
+
+      const attrValue = await page.locator(action.assertion.selector).first().getAttribute(
+        action.assertion.attribute,
+        { timeout: ACTION_TIMEOUT }
+      );
+
+      if (attrValue !== expected) {
+        throw new Error(
+          `Attribute "${action.assertion.attribute}" on "${action.assertion.selector}" is "${attrValue}", expected "${expected}"`
+        );
+      }
+      return `Verified ${action.assertion.selector} has ${action.assertion.attribute}="${expected}"`;
+    }
+    case "element_count": {
+      if (!action.assertion.selector) throw new Error("element_count requires assertion.selector");
+
+      const elCount = await page.locator(action.assertion.selector).count();
+      const expectedCount = parseInt(expected, 10);
+
+      if (isNaN(expectedCount)) {
+        throw new Error(`element_count expected value must be a number, got "${expected}"`);
+      }
+      if (elCount !== expectedCount) {
+        throw new Error(
+          `Found ${elCount} elements matching "${action.assertion.selector}", expected ${expectedCount}`
+        );
+      }
+      return `Verified ${elCount} elements match "${action.assertion.selector}"`;
+    }
+    case "accessibility_check": {
+      if (!action.assertion.selector) throw new Error("accessibility_check requires assertion.selector");
+
+      const a11yResults = await page.evaluate((sel) => {
+        const el = document.querySelector(sel);
+        if (!el) return { found: false, issues: ["Element not found"] };
+
+        const issues: string[] = [];
+        const htmlEl = el as HTMLElement;
+        const tag = htmlEl.tagName.toLowerCase();
+
+        // Check for accessible name
+        const hasLabel = !!(
+          htmlEl.getAttribute("aria-label") ||
+          htmlEl.getAttribute("aria-labelledby") ||
+          htmlEl.getAttribute("title") ||
+          (tag === "input" && htmlEl.getAttribute("id") &&
+            document.querySelector(`label[for="${htmlEl.getAttribute("id")}"]`))
+        );
+        if (!hasLabel && ["input", "select", "textarea", "button"].includes(tag)) {
+          if (!(tag === "button" && htmlEl.textContent?.trim())) {
+            issues.push("Missing accessible label (aria-label, aria-labelledby, or associated <label>)");
+          }
+        }
+
+        // Check for role attribute on custom interactive elements
+        const hasClick = htmlEl.getAttribute("onclick") || htmlEl.getAttribute("tabindex");
+        if (hasClick && !htmlEl.getAttribute("role") && !["button", "a", "input", "select", "textarea"].includes(tag)) {
+          issues.push("Interactive element missing ARIA role");
+        }
+
+        // Check images for alt text
+        if (tag === "img" && !htmlEl.getAttribute("alt") && htmlEl.getAttribute("alt") !== "") {
+          issues.push("Image missing alt attribute");
+        }
+
+        // Check focusability
+        const tabIndex = htmlEl.getAttribute("tabindex");
+        const isNativelyFocusable = ["a", "button", "input", "select", "textarea"].includes(tag);
+        if (!isNativelyFocusable && hasClick && tabIndex === null) {
+          issues.push("Interactive element not keyboard-focusable (missing tabindex)");
+        }
+
+        return { found: true, issues };
+      }, action.assertion.selector);
+
+      if (!a11yResults.found) {
+        throw new Error(`Element "${action.assertion.selector}" not found for accessibility check`);
+      }
+
+      if (a11yResults.issues.length > 0) {
+        throw new Error(
+          `Accessibility issues on "${action.assertion.selector}": ${a11yResults.issues.join("; ")}`
+        );
+      }
+
+      return `Accessibility check passed for "${action.assertion.selector}"`;
+    }
     default:
       throw new Error(`Unknown assertion type: ${type}`);
   }

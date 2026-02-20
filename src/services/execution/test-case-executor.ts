@@ -1,5 +1,5 @@
-import { launchBrowser, closeBrowser } from "@/services/execution/browser-manager";
-import type { BrowserInstance } from "@/services/execution/browser-manager";
+import { launchBrowser, closeBrowser, VIEWPORT_PRESETS } from "@/services/execution/browser-manager";
+import type { BrowserInstance, ViewportName } from "@/services/execution/browser-manager";
 import { executeTestSteps } from "@/services/execution/step-executor";
 import {
   createEvidenceCollector,
@@ -7,6 +7,7 @@ import {
   saveConsoleLog,
 } from "@/services/execution/evidence-collector";
 import { detectFlakyFromRetry } from "@/services/execution/flaky-registry";
+import { analyzeVisualQuality } from "@/agents/prompts/sub-agents/visual-analyzer";
 
 // ============================================================
 // Types
@@ -15,6 +16,7 @@ import { detectFlakyFromRetry } from "@/services/execution/flaky-registry";
 interface TestCaseForExecution {
   id: string;
   name: string;
+  type?: string;
   steps: Array<{
     action: string;
     expected: string;
@@ -40,7 +42,8 @@ export async function executeTestCase(
   runId: string,
   testCase: TestCaseForExecution,
   environmentUrl: string,
-  credentials: Record<string, string>
+  credentials: Record<string, string>,
+  options?: { viewport?: { width: number; height: number } }
 ): Promise<TestCaseResult> {
   let browserInstance: BrowserInstance | null = null;
   const startTime = Date.now();
@@ -50,6 +53,7 @@ export async function executeTestCase(
       headless: true,
       recordVideo: !process.env.PLAYWRIGHT_WS_ENDPOINT,
       storagePath: `/tmp/orbit-videos/${runId}`,
+      viewport: options?.viewport,
     });
     const { page, context } = browserInstance;
 
@@ -109,6 +113,21 @@ export async function executeTestCase(
     if (evidence.screenshots.length > 0) {
       artifacts.screenshots = JSON.stringify(evidence.screenshots);
     }
+
+    // Visual quality analysis on last screenshot
+    if (evidence.screenshots.length > 0) {
+      try {
+        const visualResult = await analyzeVisualQuality(
+          evidence.screenshots[evidence.screenshots.length - 1],
+          testCase,
+          environmentUrl,
+        );
+        artifacts.visualAnalysis = JSON.stringify(visualResult);
+      } catch {
+        // Visual analysis is non-blocking — don't fail the test
+      }
+    }
+
     if (evidence.networkLog.length > 0) {
       artifacts.networkLog = await saveNetworkLog(
         runId, testCase.id, evidence.networkLog, testCase.projectId
@@ -197,6 +216,39 @@ async function retryTestCase(
       await closeBrowser(retryBrowser);
     }
   }
+}
+
+// ============================================================
+// Multi-Viewport Execution
+// ============================================================
+
+export async function executeWithViewports(
+  runId: string,
+  testCase: TestCaseForExecution,
+  environmentUrl: string,
+  credentials: Record<string, string>,
+  viewports: ViewportName[] = ["desktop", "tablet", "mobile"]
+): Promise<TestCaseResult & { viewportResults: Record<string, TestCaseResult> }> {
+  const viewportResults: Record<string, TestCaseResult> = {};
+
+  for (const vp of viewports) {
+    const vpTestCase = {
+      ...testCase,
+      id: `${testCase.id}-${vp}`,
+      name: `${testCase.name} (${vp})`,
+    };
+    viewportResults[vp] = await executeTestCase(
+      runId,
+      vpTestCase,
+      environmentUrl,
+      credentials,
+      { viewport: VIEWPORT_PRESETS[vp] }
+    );
+  }
+
+  // Primary result is desktop (or first viewport)
+  const primary = viewportResults[viewports[0]] ?? viewportResults.desktop;
+  return { ...primary, viewportResults };
 }
 
 export type { TestCaseForExecution, TestCaseResult };

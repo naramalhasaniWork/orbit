@@ -29,6 +29,8 @@ export interface VisualAnalyzerContext {
     height: number;
     deviceType: "desktop" | "tablet" | "mobile";
   };
+  /** Base64-encoded screenshot image for multimodal analysis */
+  screenshotBase64?: string;
 }
 
 function buildViewportHeuristics(deviceType?: string): string {
@@ -202,4 +204,52 @@ Your response MUST be valid JSON:
   });
 
   return systemPrompt;
+}
+
+export async function analyzeVisualQuality(
+  screenshotUrl: string,
+  testCase: { name: string; steps: Array<{ expected: string }> },
+  environmentUrl: string,
+  viewport?: { width: number; height: number; deviceType: "desktop" | "tablet" | "mobile" }
+): Promise<Record<string, unknown>> {
+  const context: VisualAnalyzerContext = {
+    screenshotDescription: `Screenshot captured after test "${testCase.name}" execution`,
+    pageUrl: environmentUrl,
+    expectedAppearance: testCase.steps.map((s) => s.expected).join(". "),
+    viewport,
+  };
+
+  const prompt = buildVisualAnalyzerPrompt(context);
+
+  try {
+    const { getModelForTask } = await import("@/lib/ai/model-router");
+    const { createTrackedCompletion } = await import("@/lib/ai/tracked-completion");
+
+    const model = await getModelForTask("visual_analysis");
+    const result = await createTrackedCompletion(
+      {
+        model,
+        systemPrompt: prompt,
+        messages: [
+          {
+            role: "user",
+            content:
+              "Analyze the visual quality of this page based on the test context provided.",
+          },
+        ],
+        maxTokens: 500,
+        temperature: 0,
+      },
+      { workspaceId: "system", projectId: "visual-analysis", agentPhase: "reporter" }
+    );
+
+    return JSON.parse(result.content) as Record<string, unknown>;
+  } catch {
+    return {
+      overallStatus: "error",
+      summary: "Visual analysis failed",
+      issues: [],
+      confidence: 0,
+    };
+  }
 }

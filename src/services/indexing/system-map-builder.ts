@@ -84,6 +84,10 @@ function buildNodesFromComponents(componentMap: ComponentMap): NodeInput[] {
       isInteractive: comp.isInteractive,
       isExported: comp.isExported,
       childCount: comp.children.length,
+      uiElements: comp.uiElements,
+      formFields: comp.uiElements.filter((el) =>
+        ["input", "select", "textarea"].includes(el.tag)
+      ),
     },
   }));
 }

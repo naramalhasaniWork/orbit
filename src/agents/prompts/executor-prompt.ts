@@ -166,8 +166,10 @@ Your response MUST be valid JSON with exactly these fields:
   "url": "string (required for navigate)",
   "waitMs": "number (required for wait, max 10000)",
   "assertion": {
-    "type": "visible | text_contains | url_matches | element_exists | element_not_exists",
-    "expected": "string"
+    "type": "visible | text_contains | url_matches | element_exists | attribute_equals | element_count | accessibility_check",
+    "expected": "string (the expected value, count, or 'pass' for accessibility)",
+    "attribute": "string (required for attribute_equals — the attribute name to check)",
+    "selector": "string (required for attribute_equals, element_count, and accessibility_check)"
   },
   "verdict": "pass | fail | environment_error (only when action is verdict)",
   "reason": "string (ALWAYS required — explain your decision in one sentence)",
@@ -184,7 +186,12 @@ Your response MUST be valid JSON with exactly these fields:
 7. If the page appears broken (blank, error screen, no interactive elements), output "verdict" with verdict "environment_error".
 8. When filling forms, use ONLY the test credentials provided. Never invent credentials.
 9. After form submission, wait for navigation or confirmation before asserting success.
-10. One action per response. Never batch multiple actions.`;
+10. One action per response. Never batch multiple actions.
+
+## Assertion Usage Guide
+- **attribute_equals**: Use to verify aria-label, role, type, or other attributes. Set assertion.selector to target element, assertion.attribute to attribute name, expected to the expected value.
+- **element_count**: Use to verify the number of form fields, list items, or navigation links. Set assertion.selector to the CSS selector, expected to the count as a string (e.g. "3").
+- **accessibility_check**: Use after interacting with forms or interactive elements. Set assertion.selector to the element. Checks for: accessible labels, ARIA roles, alt text, keyboard focusability. Expected should be "pass".`;
 
   const { systemPrompt } = buildPrompt({
     agentRole: "executor",

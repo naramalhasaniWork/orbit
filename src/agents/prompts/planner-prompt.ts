@@ -133,10 +133,26 @@ export function buildPlannerPrompt(
   } = context;
 
   const nodesStr = systemMap.nodes
-    .map(
-      (n) =>
-        `  - [${n.type}] ${n.id}: ${n.name} (${n.filePath})${n.metadata?.authRequired ? " [AUTH]" : ""}${n.metadata?.httpMethod ? ` [${n.metadata.httpMethod}]` : ""}`
-    )
+    .map((n) => {
+      const uiElements = n.metadata?.uiElements as
+        | Array<{
+            tag: string;
+            text?: string;
+            type?: string;
+            name?: string;
+          }>
+        | undefined;
+      const uiStr = uiElements?.length
+        ? ` [UI: ${uiElements
+            .slice(0, 5)
+            .map(
+              (el) =>
+                `<${el.tag}${el.type ? ` type="${el.type}"` : ""}${el.name ? ` name="${el.name}"` : ""}${el.text ? ` "${el.text}"` : ""}`
+            )
+            .join(", ")}${uiElements.length > 5 ? ` +${uiElements.length - 5} more` : ""}]`
+        : "";
+      return `  - [${n.type}] ${n.id}: ${n.name} (${n.filePath})${n.metadata?.authRequired ? " [AUTH]" : ""}${n.metadata?.httpMethod ? ` [${n.metadata.httpMethod}]` : ""}${uiStr}`;
+    })
     .join("\n");
 
   const edgesStr = systemMap.edges
@@ -198,6 +214,7 @@ You are the Planner agent. Your job is to generate a comprehensive, prioritized 
 - NEVER assume endpoints or routes exist that are not in the nodes list. If a journey seems incomplete (e.g., no API endpoint for a form submission), note the gap in the test rationale but do not fabricate the endpoint.
 - Every selector hint must reference a component or element type that exists in the System Map nodes.
 - If confidence in a test case is below 70 (e.g., the feature is ambiguously defined), include it only if it covers a critical path (auth/payment/data). Otherwise omit.
+- When component nodes include uiElements metadata, use these to generate precise selector hints and form field validation tests. This is ground-truth data from the source code — prefer it over guessing.
 
 ${buildAdversarialThinking()}
 
@@ -208,6 +225,7 @@ ${buildAdversarialThinking()}
 - **Form Validation Tests**: Required fields, format validation, length limits, XSS payloads, valid submission, error state display
 - **Edge Case Tests**: Empty states, boundary values, double-submit, back-button navigation, concurrent modifications
 - **Regression Tests**: Tests specifically targeting recently changed code paths
+- **Visual/UI Tests**: When component nodes include UI elements (buttons, forms, inputs), generate tests that verify element presence, correct labels, form field validation, and accessibility attributes
 
 ## System Map
 **Framework:** ${systemMap.framework}
