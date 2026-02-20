@@ -40,9 +40,9 @@ function buildSlackMessage(context: RunContext, results: RunResults): Record<str
             {
               type: "context",
               elements: [
-                { type: "mrkdwn", text: `Branch: \`${context.branch}\`` },
+                { type: "mrkdwn", text: "Branch: `" + context.branch + "`" },
                 ...(context.commitSha
-                  ? [{ type: "mrkdwn", text: `Commit: \`${context.commitSha.slice(0, 7)}\`` }]
+                  ? [{ type: "mrkdwn", text: "Commit: `" + context.commitSha.slice(0, 7) + "`" }]
                   : []),
               ],
             },

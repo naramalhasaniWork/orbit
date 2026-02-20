@@ -57,7 +57,7 @@ function formatHealReport(
   for (const entry of entries) {
     lines.push(`### ${entry.testName} (${entry.testType})`);
     for (const selector of entry.healedSelectors) {
-      lines.push(`- \`${selector}\``);
+      lines.push("- `" + selector + "`");
     }
     lines.push("");
   }

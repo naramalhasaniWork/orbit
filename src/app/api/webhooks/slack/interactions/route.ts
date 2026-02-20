@@ -113,7 +113,7 @@ async function handleRerunAction(
   await sendSlackResponse(payload.response_url, {
     response_type: "in_channel",
     replace_original: false,
-    text: `:arrows_counterclockwise: Re-run triggered by <@${payload.user.id}>. Run ID: \`${newRun.id}\``,
+    text: ":arrows_counterclockwise: Re-run triggered by <@" + payload.user.id + ">. Run ID: `" + newRun.id + "`",
   });
 }
 

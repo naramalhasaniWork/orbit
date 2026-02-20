@@ -95,7 +95,7 @@ export function buildCodeReviewerPrompt(
         ? `### [${f.changeType.toUpperCase()}] ${f.path}`
         : `### ${f.path}`;
       const content = f.diff ?? f.content;
-      return `${header}\n\`\`\`${language.toLowerCase()}\n${content.slice(0, 3000)}\n\`\`\``;
+      return header + "\n```" + language.toLowerCase() + "\n" + content.slice(0, 3000) + "\n```";
     })
     .join("\n\n");
 

@@ -63,7 +63,7 @@ ${workspaceConfig.technologyContext}`);
   // Critical paths
   if (workspaceConfig?.criticalPaths?.length) {
     const paths = workspaceConfig.criticalPaths
-      .map((p) => `- \`${p}\``)
+      .map((p) => "- `" + p + "`")
       .join("\n");
     sections.push(`## Critical Paths (Must Always Cover)
 ${paths}`);
@@ -72,7 +72,7 @@ ${paths}`);
   // Exclude paths
   if (workspaceConfig?.excludePaths?.length) {
     const paths = workspaceConfig.excludePaths
-      .map((p) => `- \`${p}\``)
+      .map((p) => "- `" + p + "`")
       .join("\n");
     sections.push(`## Excluded Paths (Do Not Test)
 ${paths}`);

@@ -32,7 +32,7 @@ function formatBugReportAsDescription(report: BugReport): string {
   }
 
   if (report.affectedRoute) {
-    desc += `\n**Affected Route:** \`${report.affectedRoute}\`\n`;
+    desc += "\n**Affected Route:** `" + report.affectedRoute + "`\n";
   }
 
   if (report.screenshotUrls.length > 0) {

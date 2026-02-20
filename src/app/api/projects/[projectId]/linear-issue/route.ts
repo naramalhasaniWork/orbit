@@ -77,8 +77,8 @@ export async function POST(
     const title = `[Orbit] Test Failure: ${testCaseName}`;
     const descriptionParts = [
       `**Project:** ${project.name}`,
-      runId ? `**Run ID:** \`${runId}\`` : null,
-      `**Test Result:** \`${testResultId}\``,
+      runId ? "**Run ID:** `" + runId + "`" : null,
+      "**Test Result:** `" + testResultId + "`",
       "",
       "## Failure Analysis",
       failureExplanation ?? "No analysis available.",

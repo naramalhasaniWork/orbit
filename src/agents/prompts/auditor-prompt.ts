@@ -113,7 +113,7 @@ export function buildAuditorPrompt(
   const { codeFiles, framework, language, focusAreas, brandGuidelines } = context;
 
   const filesSummary = codeFiles
-    .map((f) => `### ${f.path}\n\`\`\`${language}\n${f.content}\n\`\`\``)
+    .map((f) => "### " + f.path + "\n```" + language + "\n" + f.content + "\n```")
     .join("\n\n");
 
   const focusStr = focusAreas?.length

@@ -114,7 +114,7 @@ export async function handleRun(
         type: "section",
         text: {
           type: "mrkdwn",
-          text: `:rocket: Smoke test run started for *${project.name}*\nRun ID: \`${run.id}\``,
+          text: ":rocket: Smoke test run started for *" + project.name + "*\nRun ID: `" + run.id + "`",
         },
       },
     ],

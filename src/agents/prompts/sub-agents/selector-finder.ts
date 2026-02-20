@@ -65,7 +65,8 @@ export function buildSelectorFinderPrompt(
     : "  (not available)";
 
   const failedStr = failedSelectors?.length
-    ? `\n## Previously Failed Selectors (DO NOT suggest these)\n${failedSelectors.map((s) => `- \`${s}\``).join("\n")}`
+    ? "\n## Previously Failed Selectors (DO NOT suggest these)\n" +
+      failedSelectors.map((s) => "- " + JSON.stringify(s)).join("\n")
     : "";
 
   const agentInstructions = `## Sub-Agent Role: Selector Finder
@@ -79,9 +80,9 @@ You are a specialist at finding CSS selectors for web elements. Given a failed s
 5. **Rank by stability.** Prefer data-testid > aria-label > role > text > structure > class.
 
 ## Task
-The selector \`${originalSelector}\` was not found on the page.
+The selector "${originalSelector}" was not found on the page.
 The intended action: ${actionDescription}
-${pageUrl ? `Page URL: ${pageUrl}` : ""}
+${pageUrl ? "Page URL: " + pageUrl : ""}
 
 ## Interactive Elements on Page
 ${elementsStr}
@@ -91,11 +92,11 @@ ${pageHtml}
 ${failedStr}
 
 ## Selector Priority (use this order)
-1. **data-testid:** \`[data-testid="..."]\` — most stable, designed for testing
-2. **ARIA labels:** \`[aria-label="..."]\` — accessibility-driven, stable across visual changes
-3. **Role + text:** \`role=button[name="..."]\` — semantic, resilient to style changes
-4. **Name attribute:** \`input[name="..."]\` — stable for form elements
-5. **Text content:** \`:has-text("...")\`, \`text="..."\` — human-readable fallback
+1. **data-testid:** '[data-testid="..."]' — most stable, designed for testing
+2. **ARIA labels:** '[aria-label="..."]' — accessibility-driven, stable across visual changes
+3. **Role + text:** 'role=button[name="..."]' — semantic, resilient to style changes
+4. **Name attribute:** 'input[name="..."]' — stable for form elements
+5. **Text content:** ':has-text("...")', 'text="..."' — human-readable fallback
 6. **Structural:** tag + parent context — moderate stability
 7. **XPath:** only as absolute last resort
 
