@@ -3,6 +3,9 @@ const nextConfig = {
   output: "standalone",
   experimental: {
     serverComponentsExternalPackages: ["pg", "bullmq", "ioredis"],
+    outputFileTracingIncludes: {
+      "/**": ["./src/generated/prisma/**/*"],
+    },
   },
   images: {
     remotePatterns: [

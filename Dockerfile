@@ -41,9 +41,10 @@ COPY --from=builder /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
 
-# Copy Prisma schema (needed at runtime for Prisma client)
+# Copy Prisma schema and generated client (custom output path needs explicit copy)
 COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
+COPY --from=builder /app/src/generated/prisma ./src/generated/prisma
 
 # Create storage directory for local artifact storage
 RUN mkdir -p /data/storage && chown nextjs:nodejs /data/storage
