@@ -3,6 +3,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { Sidebar } from "@/components/layout/sidebar";
 import { DashboardHeader } from "@/components/layout/dashboard-header";
+import { ChatPanelWrapper } from "@/components/chat/chat-panel-wrapper";
 
 export const dynamic = "force-dynamic";
 
@@ -45,6 +46,7 @@ export default async function DashboardLayout({
           {children}
         </main>
       </div>
+      <ChatPanelWrapper projects={projects} />
     </div>
   );
 }

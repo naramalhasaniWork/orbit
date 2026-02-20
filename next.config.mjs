@@ -11,6 +11,10 @@ const nextConfig = {
       "tree-sitter-wasms",
       "playwright",
       "playwright-core",
+      "@aws-sdk/client-s3",
+      "@aws-sdk/s3-request-presigner",
+      "stripe",
+      "sharp",
     ],
     outputFileTracingIncludes: {
       "/**": ["./src/generated/prisma/**/*"],
@@ -25,6 +29,10 @@ const nextConfig = {
         /^tree-sitter-wasms\//,
         "playwright",
         "playwright-core",
+        /^@aws-sdk\//,
+        "stripe",
+        "sharp",
+        "@browserbasehq/stagehand",
       ];
     }
     return config;

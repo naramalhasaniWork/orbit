@@ -50,7 +50,9 @@ export async function runCodeAudit(input: AuditInput): Promise<AuditResult> {
     projectId,
     project.defaultBranch,
     filePaths,
-    maxFiles
+    maxFiles,
+    project.repoOwner,
+    project.repoName
   );
 
   if (codeFiles.length === 0) {
@@ -133,16 +135,16 @@ export async function runCodeAudit(input: AuditInput): Promise<AuditResult> {
 
 /**
  * Load code files from storage using the system map for file discovery.
+ * Falls back to GitHub API if storage returns no files.
  */
 async function loadCodeFiles(
   projectId: string,
   branch: string,
   filePaths: string[] | undefined,
-  maxFiles: number
+  maxFiles: number,
+  repoOwner: string,
+  repoName: string
 ): Promise<Array<{ path: string; content: string }>> {
-  const storage = getStorage();
-  const storagePrefix = `repos/${projectId}/${branch}`;
-
   // Determine which files to load
   let targetPaths: string[];
 
@@ -161,7 +163,9 @@ async function loadCodeFiles(
     targetPaths = unique.slice(0, maxFiles);
   }
 
-  // Load file contents from storage
+  // Try loading from storage first
+  const storage = getStorage();
+  const storagePrefix = `repos/${projectId}/${branch}`;
   const results: Array<{ path: string; content: string }> = [];
 
   for (const filePath of targetPaths) {
@@ -170,17 +174,84 @@ async function loadCodeFiles(
       const buffer = await storage.download(storageKey);
       const content = buffer.toString("utf-8");
 
-      // Skip very large files (> 50KB) to fit within token budget
       if (content.length > 50_000) continue;
-
       results.push({ path: filePath, content });
     } catch {
-      // File may not exist in storage — skip silently
       continue;
     }
   }
 
+  if (results.length > 0) return results;
+
+  // Fallback: fetch files from GitHub API
+  const token = await getGitHubTokenForProject(projectId);
+  if (!token) {
+    throw new Error(
+      "No code files found in storage and no GitHub token available. Re-index the repository first."
+    );
+  }
+
+  for (const filePath of targetPaths) {
+    const content = await fetchFromGitHub(repoOwner, repoName, filePath, branch, token);
+    if (!content) continue;
+    if (content.length > 50_000) continue;
+    results.push({ path: filePath, content });
+  }
+
   return results;
+}
+
+/**
+ * Fetch a single file's content from the GitHub API.
+ */
+async function fetchFromGitHub(
+  owner: string,
+  repo: string,
+  filePath: string,
+  branch: string,
+  token: string
+): Promise<string | null> {
+  const url = `https://api.github.com/repos/${owner}/${repo}/contents/${filePath}?ref=${branch}`;
+
+  try {
+    const res = await fetch(url, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/vnd.github.v3+json",
+      },
+    });
+
+    if (!res.ok) return null;
+
+    const data = (await res.json()) as { content?: string; encoding?: string };
+    if (!data.content || data.encoding !== "base64") return null;
+
+    return Buffer.from(data.content, "base64").toString("utf-8");
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Retrieve a GitHub access token for the project's workspace owner.
+ */
+async function getGitHubTokenForProject(
+  projectId: string
+): Promise<string | null> {
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: { workspaceId: true },
+  });
+
+  if (!project) return null;
+
+  const member = await prisma.workspaceMember.findFirst({
+    where: { workspaceId: project.workspaceId },
+    orderBy: { createdAt: "asc" },
+    include: { user: { select: { githubAccessToken: true } } },
+  });
+
+  return member?.user.githubAccessToken ?? null;
 }
 
 /**
