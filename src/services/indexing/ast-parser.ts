@@ -31,8 +31,10 @@ interface FunctionInfo {
 
 // ============================================================
 // Tree-sitter initialization (lazy, optional)
-// web-tree-sitter namespace types are incomplete — use dynamic typing
 // ============================================================
+
+type TSTree = import("web-tree-sitter").Tree;
+type TSNode = import("web-tree-sitter").Node;
 
 let parserInstance: import("web-tree-sitter").Parser | null = null;
 let tsLanguage: import("web-tree-sitter").Language | null = null;
@@ -79,29 +81,22 @@ async function getParser(
 // AST extraction helpers
 // ============================================================
 
-function extractExports(tree: any): string[] {
+const DECL_TYPES = [
+  "function_declaration", "class_declaration", "lexical_declaration",
+  "interface_declaration", "type_alias_declaration", "enum_declaration",
+];
+
+function extractExports(tree: TSTree): string[] {
   const exports: string[] = [];
   for (const node of tree.rootNode.descendantsOfType("export_statement")) {
-    const decl = node.namedChildren.find((c: any) =>
-      [
-        "function_declaration",
-        "class_declaration",
-        "lexical_declaration",
-        "interface_declaration",
-        "type_alias_declaration",
-        "enum_declaration",
-      ].includes(c.type)
-    );
-
+    const decl = node.namedChildren.find((c) => DECL_TYPES.includes(c.type));
     if (decl) {
       const nameNode =
         decl.childForFieldName("name") ??
-        decl
-          .descendantsOfType("variable_declarator")[0]
+        decl.descendantsOfType("variable_declarator")[0]
           ?.childForFieldName("name");
       if (nameNode) exports.push(nameNode.text);
     }
-
     for (const spec of node.descendantsOfType("export_specifier")) {
       const name = spec.childForFieldName("name") ?? spec.namedChildren[0];
       if (name) exports.push(name.text);
@@ -110,7 +105,7 @@ function extractExports(tree: any): string[] {
   return Array.from(new Set(exports));
 }
 
-function extractImports(tree: any): ImportInfo[] {
+function extractImports(tree: TSTree): ImportInfo[] {
   const imports: ImportInfo[] = [];
   for (const node of tree.rootNode.descendantsOfType("import_statement")) {
     const sourceNode = node.descendantsOfType("string")[0];
@@ -121,24 +116,19 @@ function extractImports(tree: any): ImportInfo[] {
 
     const defaultImport = node
       .descendantsOfType("identifier")
-      .find((id: any) => id.parent?.type === "import_clause");
+      .find((id: TSNode) => id.parent?.type === "import_clause");
     if (defaultImport) {
       specifiers.push(defaultImport.text);
       isDefault = true;
     }
-
     for (const spec of node.descendantsOfType("import_specifier")) {
       const name = spec.childForFieldName("name") ?? spec.namedChildren[0];
       if (name) specifiers.push(name.text);
     }
-
     for (const ns of node.descendantsOfType("namespace_import")) {
-      const alias = ns.namedChildren.find(
-        (c: any) => c.type === "identifier"
-      );
+      const alias = ns.namedChildren.find((c: TSNode) => c.type === "identifier");
       if (alias) specifiers.push(alias.text);
     }
-
     imports.push({
       source,
       specifiers,
@@ -148,15 +138,12 @@ function extractImports(tree: any): ImportInfo[] {
   return imports;
 }
 
-function extractParams(node: any): string[] {
+function extractParams(node: TSNode): string[] {
   const params: string[] = [];
   const formalParams = node.descendantsOfType("formal_parameters")[0];
   if (!formalParams) return params;
   for (const child of formalParams.namedChildren) {
-    if (
-      child.type === "required_parameter" ||
-      child.type === "optional_parameter"
-    ) {
+    if (child.type === "required_parameter" || child.type === "optional_parameter") {
       const pattern = child.childForFieldName("pattern");
       if (pattern) params.push(pattern.text);
     } else if (child.type === "identifier") {
@@ -166,7 +153,7 @@ function extractParams(node: any): string[] {
   return params;
 }
 
-function extractFunctions(tree: any): FunctionInfo[] {
+function extractFunctions(tree: TSTree): FunctionInfo[] {
   const functions: FunctionInfo[] = [];
   const seen = new Set<string>();
   const root = tree.rootNode;
@@ -201,29 +188,26 @@ function extractFunctions(tree: any): FunctionInfo[] {
   return functions;
 }
 
-function extractClasses(tree: any): string[] {
+function extractClasses(tree: TSTree): string[] {
   return tree.rootNode
     .descendantsOfType("class_declaration")
-    .map((n: any) => n.childForFieldName("name")?.text)
-    .filter((n: any): n is string => !!n);
+    .map((n: TSNode) => n.childForFieldName("name")?.text)
+    .filter((n): n is string => !!n);
 }
 
-function extractTypes(tree: any): string[] {
+function extractTypes(tree: TSTree): string[] {
   const types: string[] = [];
-  for (const node of tree.rootNode.descendantsOfType(
-    "interface_declaration"
-  )) {
+  for (const node of tree.rootNode.descendantsOfType("interface_declaration")) {
     const name = node.childForFieldName("name");
     if (name) types.push(name.text);
   }
-  for (const node of tree.rootNode.descendantsOfType(
-    "type_alias_declaration"
-  )) {
+  for (const node of tree.rootNode.descendantsOfType("type_alias_declaration")) {
     const name = node.childForFieldName("name");
     if (name) types.push(name.text);
   }
   return types;
 }
+
 function extractEnvVars(content: string): string[] {
   const envVars = new Set<string>();
   const re = /process\.env\.(\w+)/g;
@@ -236,10 +220,7 @@ function extractEnvVars(content: string): string[] {
 
 const COMPONENT_PATTERN = /^[A-Z][a-zA-Z0-9]*$/;
 
-function detectComponents(
-  functions: FunctionInfo[],
-  content: string
-): string[] {
+function detectComponents(functions: FunctionInfo[], content: string): string[] {
   return functions
     .filter((fn) => COMPONENT_PATTERN.test(fn.name))
     .filter(
@@ -268,6 +249,9 @@ export async function parseFileAsync(
   }
 
   const tree = parser.parse(content);
+  if (!tree) {
+    return parseFileRegex(filePath, content);
+  }
 
   return {
     filePath,
