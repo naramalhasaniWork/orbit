@@ -46,8 +46,8 @@ COPY --from=builder /app/prisma ./prisma
 COPY --from=builder /app/prisma.config.ts ./prisma.config.ts
 COPY --from=builder /app/src/generated/prisma ./src/generated/prisma
 
-# Create storage directory for local artifact storage
-RUN mkdir -p /data/storage && chown nextjs:nodejs /data/storage
+# Create storage directories for local artifact storage
+RUN mkdir -p /data/storage /tmp/orbit-storage && chown -R nextjs:nodejs /data/storage /tmp/orbit-storage
 
 USER nextjs
 

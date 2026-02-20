@@ -91,11 +91,33 @@ export function getStorage(): StorageProvider {
   if (provider === "s3") {
     instance = createS3Storage();
   } else {
-    const basePath = process.env.STORAGE_PATH || "./storage";
-    const resolved = basePath.startsWith("/") ? basePath : join(process.cwd(), basePath);
-    if (!existsSync(resolved)) {
+    // Try configured path, then /data/storage (Docker), then /tmp fallback
+    const candidates = [
+      process.env.STORAGE_PATH,
+      "/data/storage",
+      "/tmp/orbit-storage",
+    ].filter(Boolean) as string[];
+
+    let resolved = "";
+    for (const candidate of candidates) {
+      const path = candidate.startsWith("/") ? candidate : join(process.cwd(), candidate);
+      try {
+        if (!existsSync(path)) {
+          mkdirSync(path, { recursive: true });
+        }
+        resolved = path;
+        break;
+      } catch {
+        // Permission denied or other error, try next candidate
+        continue;
+      }
+    }
+
+    if (!resolved) {
+      resolved = "/tmp/orbit-storage";
       mkdirSync(resolved, { recursive: true });
     }
+
     instance = createLocalStorage(resolved);
   }
 
