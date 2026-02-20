@@ -1,6 +1,6 @@
 import type { Page } from "playwright";
 import { prisma } from "@/lib/db";
-import { createCompletion } from "@/lib/ai";
+import { createTrackedCompletion } from "@/lib/ai/tracked-completion";
 import { getModelForTask } from "@/lib/ai/model-router";
 
 // ============================================================
@@ -148,35 +148,51 @@ async function tryRoleBasedSelector(
 async function tryLlmHealing(
   page: Page,
   originalSelector: string,
-  actionDescription: string
+  actionDescription: string,
+  projectId: string,
+  runId?: string
 ): Promise<HealingResult | null> {
-  const pageContent = await page.evaluate(() => {
-    return document.body?.innerHTML?.slice(0, 3000) ?? "";
-  });
+  const [pageContent, project] = await Promise.all([
+    page.evaluate(() => {
+      return document.body?.innerHTML?.slice(0, 3000) ?? "";
+    }),
+    prisma.project.findUniqueOrThrow({
+      where: { id: projectId },
+      select: { workspaceId: true },
+    }),
+  ]);
 
   const model = getModelForTask("browser_execution");
 
-  const result = await createCompletion({
-    model,
-    systemPrompt:
-      "You identify CSS selectors for web elements. Output ONLY valid JSON. " +
-      "No markdown, no prose.",
-    messages: [
-      {
-        role: "user",
-        content: [
-          `The selector "${originalSelector}" was not found on the page.`,
-          `The intended action: ${actionDescription}`,
-          `Page HTML (truncated):\n${pageContent}`,
-          "",
-          "Find the most likely matching element and return:",
-          '{"selector": "css-selector-here", "confidence": 0.0-1.0, "reasoning": "why"}',
-        ].join("\n"),
-      },
-    ],
-    maxTokens: 200,
-    temperature: 0,
-  });
+  const result = await createTrackedCompletion(
+    {
+      model,
+      systemPrompt:
+        "You identify CSS selectors for web elements. Output ONLY valid JSON. " +
+        "No markdown, no prose.",
+      messages: [
+        {
+          role: "user",
+          content: [
+            `The selector "${originalSelector}" was not found on the page.`,
+            `The intended action: ${actionDescription}`,
+            `Page HTML (truncated):\n${pageContent}`,
+            "",
+            "Find the most likely matching element and return:",
+            '{"selector": "css-selector-here", "confidence": 0.0-1.0, "reasoning": "why"}',
+          ].join("\n"),
+        },
+      ],
+      maxTokens: 200,
+      temperature: 0,
+    },
+    {
+      workspaceId: project.workspaceId,
+      projectId,
+      runId,
+      agentPhase: "executor",
+    }
+  );
 
   try {
     const parsed = JSON.parse(result.content) as {
@@ -210,7 +226,8 @@ export async function healSelector(
   page: Page,
   projectId: string,
   originalSelector: string,
-  actionDescription: string
+  actionDescription: string,
+  runId?: string
 ): Promise<HealingResult> {
   // Try strategies in order of speed and reliability
   const strategies = [
@@ -218,7 +235,7 @@ export async function healSelector(
     () => tryTextContent(page, originalSelector),
     () => tryAriaLabel(page, originalSelector),
     () => tryRoleBasedSelector(page, originalSelector),
-    () => tryLlmHealing(page, originalSelector, actionDescription),
+    () => tryLlmHealing(page, originalSelector, actionDescription, projectId, runId),
   ];
 
   for (const strategy of strategies) {

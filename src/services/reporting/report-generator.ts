@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { createCompletion } from "@/lib/ai";
+import { createTrackedCompletion } from "@/lib/ai/tracked-completion";
 import { getModelForTask } from "@/lib/ai/model-router";
 import {
   buildReporterPrompt,
@@ -125,6 +125,7 @@ export async function generateReport(
   const run = await prisma.testRun.findUniqueOrThrow({
     where: { id: runId },
     include: {
+      project: { select: { workspaceId: true } },
       results: {
         include: { testCase: true },
       },
@@ -169,18 +170,26 @@ export async function generateReport(
 
   const prompt = buildReporterPrompt(context);
 
-  const completion = await createCompletion({
-    model,
-    systemPrompt: prompt,
-    messages: [
-      {
-        role: "user",
-        content: "Generate a run summary report as JSON.",
-      },
-    ],
-    temperature: 0.2,
-    maxTokens: 4000,
-  });
+  const completion = await createTrackedCompletion(
+    {
+      model,
+      systemPrompt: prompt,
+      messages: [
+        {
+          role: "user",
+          content: "Generate a run summary report as JSON.",
+        },
+      ],
+      temperature: 0.2,
+      maxTokens: 4000,
+    },
+    {
+      workspaceId: run.project.workspaceId,
+      projectId: run.projectId,
+      runId,
+      agentPhase: "reporter",
+    }
+  );
 
   const parsed = RunSummarySchema.safeParse(
     JSON.parse(completion.content)

@@ -1,4 +1,4 @@
-import { createCompletion } from "@/lib/ai";
+import { createTrackedCompletion } from "@/lib/ai/tracked-completion";
 import { getModelForTask } from "@/lib/ai/model-router";
 import { buildPlannerPrompt, type PlannerContext } from "@/agents/prompts/planner-prompt";
 import { loadUserLayerForProject, getWorkspaceName } from "@/agents/prompts/context-loader";
@@ -33,13 +33,14 @@ async function loadSystemMapForPrompt(projectId: string) {
   const [project, nodes, edges] = await Promise.all([
     prisma.project.findUniqueOrThrow({
       where: { id: projectId },
-      select: { framework: true },
+      select: { framework: true, workspaceId: true },
     }),
     prisma.systemMapNode.findMany({ where: { projectId } }),
     prisma.systemMapEdge.findMany({ where: { projectId } }),
   ]);
 
   return {
+    workspaceId: project.workspaceId,
     framework: project.framework ?? "unknown",
     nodes: nodes.map((n) => ({
       id: n.id,
@@ -68,6 +69,19 @@ async function loadExistingTestNames(projectId: string): Promise<string[]> {
   return existing.map((tc) => tc.name);
 }
 
+async function loadFailurePatterns(
+  projectId: string
+): Promise<Array<{ pattern: string; category: string; occurrences: number }>> {
+  const patterns = await prisma.failurePattern.findMany({
+    where: { projectId },
+    orderBy: { occurrences: "desc" },
+    take: 10,
+    select: { pattern: true, category: true, occurrences: true },
+  });
+
+  return patterns;
+}
+
 function parseJsonResponse(content: string): unknown {
   // Strip markdown code fences if present
   const cleaned = content
@@ -87,11 +101,12 @@ export async function generateTestCases(input: GenerationInput): Promise<Generat
     maxTestCases,
   } = input;
 
-  const [systemMap, existingTestNames, userLayer, workspaceName] = await Promise.all([
+  const [systemMap, existingTestNames, userLayer, workspaceName, failurePatterns] = await Promise.all([
     loadSystemMapForPrompt(projectId),
     loadExistingTestNames(projectId),
     loadUserLayerForProject(projectId),
     getWorkspaceName(projectId),
+    loadFailurePatterns(projectId),
   ]);
 
   const context: PlannerContext = {
@@ -105,6 +120,7 @@ export async function generateTestCases(input: GenerationInput): Promise<Generat
     },
     existingTestNames,
     gitHistory: [], // Git history integration deferred to indexing service
+    failurePatterns,
     projectId,
     workspaceName,
   };
@@ -112,18 +128,25 @@ export async function generateTestCases(input: GenerationInput): Promise<Generat
   const prompt = buildPlannerPrompt(context, userLayer);
   const model = getModelForTask("test_generation");
 
-  const completion = await createCompletion({
-    model,
-    systemPrompt: prompt,
-    messages: [
-      {
-        role: "user",
-        content: `Generate a test plan (version ${version}) for project ${projectId}. Follow the system prompt instructions exactly. Output valid JSON only.`,
-      },
-    ],
-    maxTokens: 8192,
-    temperature: 0.3,
-  });
+  const completion = await createTrackedCompletion(
+    {
+      model,
+      systemPrompt: prompt,
+      messages: [
+        {
+          role: "user",
+          content: `Generate a test plan (version ${version}) for project ${projectId}. Follow the system prompt instructions exactly. Output valid JSON only.`,
+        },
+      ],
+      maxTokens: 8192,
+      temperature: 0.3,
+    },
+    {
+      workspaceId: systemMap.workspaceId,
+      projectId,
+      agentPhase: "planner",
+    }
+  );
 
   const parsed = parseJsonResponse(completion.content);
   const validated = TestPlanSchema.parse(parsed);

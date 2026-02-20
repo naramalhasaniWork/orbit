@@ -8,6 +8,7 @@ import {
   getActiveRun,
   computeHealthStatus,
 } from "@/lib/dashboard/stats";
+import { getIndexingQueue } from "@/lib/queue/queues";
 import type { MapNode, MapEdge } from "@/components/dashboard/map-types";
 
 interface DashboardPageProps {
@@ -117,11 +118,24 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       relationship: e.relationship,
     }));
 
+    // Check if indexing is in progress via the queue
+    let isIndexing = false;
+    try {
+      const queue = getIndexingQueue();
+      const activeJobs = await queue.getActive();
+      const waitingJobs = await queue.getWaiting();
+      isIndexing = [...activeJobs, ...waitingJobs].some(
+        (job) => job.data.projectId === activeProject.id
+      );
+    } catch {
+      // Queue not available — default to false
+    }
+
     indexingInfo = {
       lastIndexedAt: activeProject.lastIndexedAt?.toISOString() ?? null,
       nodeCount: dbNodes.length,
       edgeCount: dbEdges.length,
-      isIndexing: false,
+      isIndexing,
     };
   }
 

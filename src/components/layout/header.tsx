@@ -1,11 +1,12 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useSession } from "next-auth/react";
+import { useSession, signOut } from "next-auth/react";
 import { HealthBadge } from "./health-badge";
 import { Button } from "@/components/ui/button";
-import { Play, ChevronDown } from "lucide-react";
+import { Play, ChevronDown, User, Settings, Shield, LogOut } from "lucide-react";
 import { QuickActions } from "@/components/dashboard/quick-actions";
 import { cn } from "@/lib/utils";
 import {
@@ -40,6 +41,7 @@ const PAGE_TITLES: Record<string, string> = {
   "/dashboard/settings/members": "Team Members",
   "/dashboard/settings/billing": "Billing & Usage",
   "/dashboard/onboarding": "Onboarding",
+  "/dashboard/profile": "Profile",
 };
 
 const healthDot: Record<string, string> = {
@@ -138,27 +140,91 @@ export function Header({ projects = [], activeProjectId, healthStatus }: HeaderP
 
         <Button
           size="sm"
-          className="h-7 px-3 text-xs bg-orbit-accent hover:bg-orbit-accent/90 text-white gap-1.5 rounded-md shadow-[0_0_12px_hsl(var(--orbit-accent)/0.2)]"
+          disabled={!activeProjectId}
+          onClick={async () => {
+            if (!activeProjectId) return;
+            try {
+              await fetch(`/api/projects/${activeProjectId}/runs`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ trigger: "manual" }),
+              });
+              router.push(`/dashboard/runs?project=${activeProjectId}`);
+            } catch (err) {
+              console.error("Failed to trigger run:", err);
+            }
+          }}
+          className="h-7 px-3 text-xs bg-orbit-accent hover:bg-orbit-accent/90 text-white gap-1.5 rounded-md shadow-[0_0_12px_hsl(var(--orbit-accent)/0.2)] disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Play className="h-3 w-3" />
           Run
         </Button>
 
-        {session?.user?.image ? (
-          <Image
-            src={session.user.image}
-            alt=""
-            width={26}
-            height={26}
-            className="rounded-full ring-1 ring-white/10"
-          />
-        ) : (
-          <div className="h-[26px] w-[26px] rounded-full bg-white/[0.06] flex items-center justify-center">
-            <span className="text-[10px] font-medium text-muted-foreground">
-              {session?.user?.name?.charAt(0)?.toUpperCase() ?? "U"}
-            </span>
-          </div>
-        )}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="rounded-full ring-1 ring-white/10 hover:ring-white/20 transition-all focus:outline-none focus:ring-2 focus:ring-orbit-accent/50">
+              {session?.user?.image ? (
+                <Image
+                  src={session.user.image}
+                  alt=""
+                  width={26}
+                  height={26}
+                  className="rounded-full"
+                />
+              ) : (
+                <div className="h-[26px] w-[26px] rounded-full bg-white/[0.06] flex items-center justify-center">
+                  <span className="text-[10px] font-medium text-muted-foreground">
+                    {session?.user?.name?.charAt(0)?.toUpperCase() ?? "U"}
+                  </span>
+                </div>
+              )}
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuLabel className="font-normal">
+              <div className="flex flex-col gap-1">
+                <p className="text-sm font-medium text-foreground leading-none">
+                  {session?.user?.name ?? "User"}
+                </p>
+                <p className="text-xs text-muted-foreground leading-none">
+                  {session?.user?.email ?? ""}
+                </p>
+              </div>
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem asChild className="cursor-pointer gap-2">
+              <Link href="/dashboard/profile">
+                <User className="h-4 w-4" />
+                Profile Settings
+              </Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem asChild className="cursor-pointer gap-2">
+              <Link href="/dashboard/settings">
+                <Settings className="h-4 w-4" />
+                Workspace Settings
+              </Link>
+            </DropdownMenuItem>
+            {session?.userRole === "super_admin" && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild className="cursor-pointer gap-2">
+                  <Link href="/admin/dashboard">
+                    <Shield className="h-4 w-4" />
+                    Admin Dashboard
+                  </Link>
+                </DropdownMenuItem>
+              </>
+            )}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              className="cursor-pointer gap-2 text-red-400 focus:text-red-400 focus:bg-red-500/10"
+              onClick={() => signOut({ callbackUrl: "/login" })}
+            >
+              <LogOut className="h-4 w-4" />
+              Sign Out
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
     </header>
   );

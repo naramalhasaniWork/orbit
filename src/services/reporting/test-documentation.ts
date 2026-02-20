@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { createCompletion } from "@/lib/ai";
+import { createTrackedCompletion } from "@/lib/ai/tracked-completion";
 import { getModelForTask } from "@/lib/ai/model-router";
 
 // ============================================================
@@ -110,24 +110,36 @@ export async function generateEnhancedDocs(
 
   const model = getModelForTask("report_writing");
 
-  const result = await createCompletion({
-    model,
-    systemPrompt: [
-      "You generate clean, well-structured behavior specification documents.",
-      "Use clear, non-technical language that stakeholders can understand.",
-      "Format as Markdown with journey headings, behavior descriptions, and acceptance criteria.",
-      "Use 'Given/When/Then' format for individual behaviors where appropriate.",
-      "Be concise. No preamble or meta-commentary.",
-    ].join(" "),
-    messages: [
-      {
-        role: "user",
-        content: `Generate a behavior specification document from these test plans:\n\n${JSON.stringify(specSummary, null, 2)}`,
-      },
-    ],
-    maxTokens: 4000,
-    temperature: 0.3,
+  const project = await prisma.project.findUniqueOrThrow({
+    where: { id: projectId },
+    select: { workspaceId: true },
   });
+
+  const result = await createTrackedCompletion(
+    {
+      model,
+      systemPrompt: [
+        "You generate clean, well-structured behavior specification documents.",
+        "Use clear, non-technical language that stakeholders can understand.",
+        "Format as Markdown with journey headings, behavior descriptions, and acceptance criteria.",
+        "Use 'Given/When/Then' format for individual behaviors where appropriate.",
+        "Be concise. No preamble or meta-commentary.",
+      ].join(" "),
+      messages: [
+        {
+          role: "user",
+          content: `Generate a behavior specification document from these test plans:\n\n${JSON.stringify(specSummary, null, 2)}`,
+        },
+      ],
+      maxTokens: 4000,
+      temperature: 0.3,
+    },
+    {
+      workspaceId: project.workspaceId,
+      projectId,
+      agentPhase: "reporter",
+    }
+  );
 
   return result.content;
 }

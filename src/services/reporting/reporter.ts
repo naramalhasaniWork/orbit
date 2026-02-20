@@ -16,7 +16,7 @@ import {
   dispatchBugDiscovered,
 } from "@/services/reporting/integrations/outbound-webhooks";
 import { BugReportSchema, type BugReport } from "@/agents/schemas/run-summary";
-import { createCompletion } from "@/lib/ai";
+import { createTrackedCompletion } from "@/lib/ai/tracked-completion";
 import { getModelForTask } from "@/lib/ai/model-router";
 import {
   buildReporterPrompt,
@@ -89,7 +89,13 @@ async function generateBugReport(
   trigger: ReporterContext["trigger"],
   mode: ReporterContext["mode"]
 ): Promise<BugReport | null> {
-  const historicalData = await getRunHistoricalData(projectId);
+  const [historicalData, project] = await Promise.all([
+    getRunHistoricalData(projectId),
+    prisma.project.findUniqueOrThrow({
+      where: { id: projectId },
+      select: { workspaceId: true },
+    }),
+  ]);
   const model = getModelForTask("failure_analysis");
 
   const context: ReporterContext = {
@@ -114,18 +120,26 @@ async function generateBugReport(
   };
 
   const prompt = buildReporterPrompt(context);
-  const completion = await createCompletion({
-    model,
-    systemPrompt: prompt,
-    messages: [
-      {
-        role: "user",
-        content: "Generate a bug report for this test failure as JSON.",
-      },
-    ],
-    temperature: 0.2,
-    maxTokens: 2000,
-  });
+  const completion = await createTrackedCompletion(
+    {
+      model,
+      systemPrompt: prompt,
+      messages: [
+        {
+          role: "user",
+          content: "Generate a bug report for this test failure as JSON.",
+        },
+      ],
+      temperature: 0.2,
+      maxTokens: 2000,
+    },
+    {
+      workspaceId: project.workspaceId,
+      projectId,
+      runId,
+      agentPhase: "reporter",
+    }
+  );
 
   const parsed = BugReportSchema.safeParse(JSON.parse(completion.content));
   return parsed.success ? parsed.data : null;

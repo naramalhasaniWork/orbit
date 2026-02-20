@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { AdminSidebar } from "@/components/admin/admin-sidebar";
+import { AdminSignOut } from "@/components/admin/admin-sign-out";
 
 export const dynamic = "force-dynamic";
 
@@ -34,6 +35,7 @@ export default async function AdminLayout({
             <span className="text-xs text-muted-foreground">
               {(session as { user?: { email?: string } }).user?.email}
             </span>
+            <AdminSignOut />
           </div>
         </header>
         <main className="flex-1 overflow-auto p-6 animate-fade-in border-t border-white/[0.04]">

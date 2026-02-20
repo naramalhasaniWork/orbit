@@ -1,5 +1,5 @@
 import type { Page } from "playwright";
-import { createCompletion } from "@/lib/ai";
+import { createTrackedCompletion } from "@/lib/ai/tracked-completion";
 import { getModelForTask } from "@/lib/ai/model-router";
 import { ExecutorActionSchema } from "@/agents/schemas/execution-result";
 import type { ExecutorAction, StepResult } from "@/agents/schemas/execution-result";
@@ -9,6 +9,7 @@ import { getPageState } from "@/services/execution/browser-manager";
 import type { PageState } from "@/services/execution/browser-manager";
 import { healSelector, persistHealing } from "@/services/execution/self-healer";
 import { performAction } from "@/services/execution/action-performer";
+import { prisma } from "@/lib/db";
 import type { EvidenceCollectorInstance } from "@/services/execution/evidence-collector";
 import { isStagehandEnabled } from "@/services/execution/stagehand-adapter";
 import { emitTestStep, emitTestScreenshot } from "@/lib/websocket";
@@ -51,17 +52,34 @@ const MAX_ACTIONS_PER_TEST = 50;
 // LLM Decision Loop
 // ============================================================
 
-async function getNextAction(context: ExecutorContext): Promise<ExecutorAction> {
+interface BillingInfo {
+  workspaceId: string;
+  projectId: string;
+  runId?: string;
+}
+
+async function getNextAction(
+  context: ExecutorContext,
+  billing: BillingInfo
+): Promise<ExecutorAction> {
   const model = getModelForTask("browser_execution");
   const prompt = buildExecutorPrompt(context);
 
-  const result = await createCompletion({
-    model,
-    systemPrompt: prompt,
-    messages: [{ role: "user", content: "Decide the next action." }],
-    maxTokens: 500,
-    temperature: 0,
-  });
+  const result = await createTrackedCompletion(
+    {
+      model,
+      systemPrompt: prompt,
+      messages: [{ role: "user", content: "Decide the next action." }],
+      maxTokens: 500,
+      temperature: 0,
+    },
+    {
+      workspaceId: billing.workspaceId,
+      projectId: billing.projectId,
+      runId: billing.runId,
+      agentPhase: "executor",
+    }
+  );
 
   return ExecutorActionSchema.parse(JSON.parse(result.content));
 }
@@ -90,6 +108,16 @@ export async function executeTestSteps(
   if (useStagehand) {
     return executeWithStagehand(options);
   }
+
+  const project = await prisma.project.findUniqueOrThrow({
+    where: { id: projectId },
+    select: { workspaceId: true },
+  });
+  const billing: BillingInfo = {
+    workspaceId: project.workspaceId,
+    projectId,
+    runId,
+  };
 
   const stepResults: StepResult[] = [];
   const healedSelectors: string[] = [];
@@ -131,7 +159,7 @@ export async function executeTestSteps(
       testCredentials: credentials,
     };
 
-    const action = await getNextAction(context);
+    const action = await getNextAction(context, billing);
 
     if (action.action === "verdict") {
       return {
@@ -198,6 +226,26 @@ export async function executeTestSteps(
 }
 
 // ============================================================
+// Selector Memory Pre-Application
+// ============================================================
+
+async function resolveSelector(
+  projectId: string,
+  originalSelector: string
+): Promise<string> {
+  const mapping = await prisma.selectorMapping.findFirst({
+    where: {
+      projectId,
+      originalSelector,
+      confidence: { gte: 0.85 },
+    },
+    orderBy: { healCount: "desc" },
+  });
+
+  return mapping?.healedSelector ?? originalSelector;
+}
+
+// ============================================================
 // Action Execution with Retry + Self-Healing
 // ============================================================
 
@@ -224,6 +272,16 @@ async function executeAction(
   let wasHealed = false;
   let healedSelector = "";
 
+  // Pre-apply known-good selector from history before attempting action
+  if (action.selector) {
+    const resolved = await resolveSelector(projectId, action.selector);
+    if (resolved !== action.selector) {
+      action = { ...action, selector: resolved };
+      wasHealed = true;
+      healedSelector = resolved;
+    }
+  }
+
   while (retries <= maxRetries) {
     try {
       actualResult = await performAction(page, action);
@@ -234,7 +292,7 @@ async function executeAction(
 
       if (action.selector && errorMsg.includes("not found")) {
         const healing = await healSelector(
-          page, projectId, action.selector, action.reason ?? action.action
+          page, projectId, action.selector, action.reason ?? action.action, runId
         );
 
         if (healing.found) {

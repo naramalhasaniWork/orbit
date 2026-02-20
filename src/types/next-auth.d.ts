@@ -12,6 +12,7 @@ declare module "next-auth" {
     workspaceId: string;
     workspaceSlug: string;
     role: string;
+    userRole: string;
     githubAccessToken?: string;
     gitlabAccessToken?: string;
     provider?: string;
@@ -28,6 +29,7 @@ declare module "next-auth/jwt" {
     workspaceId?: string;
     workspaceSlug?: string;
     role?: string;
+    userRole?: string;
     githubAccessToken?: string;
     gitlabAccessToken?: string;
     provider?: string;

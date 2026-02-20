@@ -6,24 +6,21 @@ const FOOTER_LINKS = {
     { label: "Features", href: "/features" },
     { label: "Pricing", href: "/pricing" },
     { label: "Integrations", href: "/features#integrations" },
-    { label: "Changelog", href: "#" },
+    { label: "Changelog", href: "/changelog" },
   ],
   Developers: [
-    { label: "Documentation", href: "#" },
-    { label: "API Reference", href: "#" },
-    { label: "CLI", href: "#" },
-    { label: "Status", href: "#" },
+    { label: "Documentation", href: "/docs" },
+    { label: "API Reference", href: "/docs/api" },
   ],
   Company: [
     { label: "About", href: "/about" },
-    { label: "Blog", href: "#" },
-    { label: "Careers", href: "#" },
-    { label: "Contact", href: "#" },
+    { label: "Blog", href: "/blog" },
+    { label: "Contact", href: "mailto:hello@sunrisesystems.co" },
   ],
   Legal: [
-    { label: "Privacy", href: "#" },
-    { label: "Terms", href: "#" },
-    { label: "Security", href: "#" },
+    { label: "Privacy", href: "/privacy" },
+    { label: "Terms", href: "/terms" },
+    { label: "Security", href: "/security" },
   ],
 };
 

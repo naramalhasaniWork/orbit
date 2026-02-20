@@ -30,11 +30,18 @@ interface GitChange {
   diff?: string;
 }
 
+interface FailurePatternInput {
+  pattern: string;
+  category: string;
+  occurrences: number;
+}
+
 export interface PlannerContext {
   systemMap: SystemMapExcerpt;
   userConfig: UserConfig;
   existingTestNames: string[];
   gitHistory: GitChange[];
+  failurePatterns?: FailurePatternInput[];
   projectId: string;
   workspaceName?: string;
 }
@@ -48,6 +55,7 @@ export function buildPlannerPrompt(
     userConfig,
     existingTestNames,
     gitHistory,
+    failurePatterns,
     projectId,
   } = context;
 
@@ -73,6 +81,13 @@ export function buildPlannerPrompt(
           .map((g) => `  - [${g.changeType}] ${g.filePath}${g.diff ? `\n    ${g.diff.slice(0, 200)}` : ""}`)
           .join("\n")
       : "  (no recent changes)";
+
+  const failurePatternsStr =
+    failurePatterns && failurePatterns.length > 0
+      ? failurePatterns
+          .map((fp) => `  - [${fp.category}] (${fp.occurrences}x) ${fp.pattern}`)
+          .join("\n")
+      : "  (none)";
 
   const configStr = [
     `- Test mode: ${userConfig.testMode}`,
@@ -103,6 +118,7 @@ You are the Planner agent. Your job is to generate a comprehensive, prioritized 
 5. **Avoid duplication.** Check existing test names below and do not regenerate tests that already exist.
 6. **Generate test cases.** For each case, define clear, specific steps with concrete actions and verifiable expected outcomes.
 7. **Consider regression.** If git history shows recent changes, generate tests targeting those areas with higher risk scores.
+8. **Learn from failures.** If failure patterns are listed below, increase the priority and risk scores for tests covering those areas. Generate additional test cases targeting recurring failure categories.
 
 ## Test Types to Generate
 - **User Journey Tests**: Multi-step browser flows simulating real user behavior
@@ -129,6 +145,9 @@ ${existingStr}
 
 ## Recent Git Changes
 ${gitStr}
+
+## Known Failure Patterns (prioritize testing these areas)
+${failurePatternsStr}
 
 ## Output Schema
 Your response MUST be valid JSON matching this exact structure:

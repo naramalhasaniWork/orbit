@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { createCompletion } from "@/lib/ai";
+import { createTrackedCompletion } from "@/lib/ai/tracked-completion";
 import { getModelForTask } from "@/lib/ai/model-router";
 import {
   buildReporterPrompt,
@@ -73,6 +73,7 @@ export async function analyzeFailures(
   const run = await prisma.testRun.findUniqueOrThrow({
     where: { id: runId },
     include: {
+      project: { select: { workspaceId: true } },
       results: {
         where: { verdict: "fail" },
         include: { testCase: true },
@@ -112,19 +113,27 @@ export async function analyzeFailures(
 
     const prompt = buildReporterPrompt(context);
 
-    const completion = await createCompletion({
-      model,
-      systemPrompt: prompt,
-      messages: [
-        {
-          role: "user",
-          content:
-            "Analyze this test failure and generate a bug report as JSON.",
-        },
-      ],
-      temperature: 0.2,
-      maxTokens: 2000,
-    });
+    const completion = await createTrackedCompletion(
+      {
+        model,
+        systemPrompt: prompt,
+        messages: [
+          {
+            role: "user",
+            content:
+              "Analyze this test failure and generate a bug report as JSON.",
+          },
+        ],
+        temperature: 0.2,
+        maxTokens: 2000,
+      },
+      {
+        workspaceId: run.project.workspaceId,
+        projectId: run.projectId,
+        runId,
+        agentPhase: "reporter",
+      }
+    );
 
     const parsed = BugReportSchema.safeParse(
       JSON.parse(completion.content)

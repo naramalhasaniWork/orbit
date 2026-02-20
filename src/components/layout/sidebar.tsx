@@ -13,12 +13,14 @@ import {
   Orbit,
   Users,
   CreditCard,
+  FolderGit2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { WorkspaceSwitcher } from "@/components/team/workspace-switcher";
 
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
+  { name: "Projects", href: "/dashboard/projects", icon: FolderGit2 },
   { name: "System Map", href: "/dashboard/map", icon: Map },
   { name: "Test Plans", href: "/dashboard/plans", icon: ClipboardList },
   { name: "Runs", href: "/dashboard/runs", icon: Play },

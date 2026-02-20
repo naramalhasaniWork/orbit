@@ -209,8 +209,16 @@ async function runExecutionPhase(
   mode: RunMode
 ): Promise<void> {
   await updateRunStatus(runId, "executing", "Running tests");
-  const { runTestSuite } = await import("@/services/execution/runner");
-  await runTestSuite(runId, testPlanId, mode);
+
+  // Use parallel execution for full/smoke runs (journey-based partitioning),
+  // sequential for targeted/regression runs
+  if (mode === "full" || mode === "smoke") {
+    const { runTestSuiteParallel } = await import("@/services/execution/runner");
+    await runTestSuiteParallel(runId, testPlanId, mode);
+  } else {
+    const { runTestSuite } = await import("@/services/execution/runner");
+    await runTestSuite(runId, testPlanId, mode);
+  }
 }
 
 async function runReportingPhase(runId: string): Promise<void> {

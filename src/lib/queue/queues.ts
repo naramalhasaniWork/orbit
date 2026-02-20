@@ -26,9 +26,14 @@ export const ReportingJobDataSchema = z.object({
   mode: z.enum(["summary", "failure_analysis", "integration_post"]),
 });
 
+export const SchedulerJobDataSchema = z.object({
+  type: z.literal("process_schedules"),
+});
+
 export type IndexingJobData = z.infer<typeof IndexingJobDataSchema>;
 export type ExecutionJobData = z.infer<typeof ExecutionJobDataSchema>;
 export type ReportingJobData = z.infer<typeof ReportingJobDataSchema>;
+export type SchedulerJobData = z.infer<typeof SchedulerJobDataSchema>;
 
 // ============================================================
 // Queue Definitions
@@ -38,11 +43,13 @@ const QUEUE_NAMES = {
   indexing: "indexing",
   execution: "execution",
   reporting: "reporting",
+  scheduler: "scheduler",
 } as const;
 
 let indexingQueue: Queue<IndexingJobData> | null = null;
 let executionQueue: Queue<ExecutionJobData> | null = null;
 let reportingQueue: Queue<ReportingJobData> | null = null;
+let schedulerQueue: Queue<SchedulerJobData> | null = null;
 
 export function getIndexingQueue(): Queue<IndexingJobData> {
   if (!indexingQueue) {
@@ -87,6 +94,20 @@ export function getReportingQueue(): Queue<ReportingJobData> {
     });
   }
   return reportingQueue;
+}
+
+export function getSchedulerQueue(): Queue<SchedulerJobData> {
+  if (!schedulerQueue) {
+    schedulerQueue = new Queue<SchedulerJobData>(QUEUE_NAMES.scheduler, {
+      connection: getQueueConnection(),
+      defaultJobOptions: {
+        attempts: 1,
+        removeOnComplete: { count: 10 },
+        removeOnFail: { count: 50 },
+      },
+    });
+  }
+  return schedulerQueue;
 }
 
 export { QUEUE_NAMES };

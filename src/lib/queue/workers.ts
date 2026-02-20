@@ -2,15 +2,18 @@ import { Worker } from "bullmq";
 import { getQueueConnection } from "@/lib/queue";
 import {
   QUEUE_NAMES,
+  getSchedulerQueue,
   type IndexingJobData,
   type ExecutionJobData,
   type ReportingJobData,
+  type SchedulerJobData,
 } from "@/lib/queue/queues";
 import {
   handleIndexingJob,
   handleExecutionJob,
   handleReportingJob,
 } from "@/lib/queue/worker-handlers";
+import { handleSchedulerJob } from "@/lib/queue/scheduler-handler";
 
 const activeWorkers: Worker[] = [];
 
@@ -35,7 +38,13 @@ export function registerWorkers(): void {
     { connection, concurrency: 3 }
   );
 
-  const workers = [indexingWorker, executionWorker, reportingWorker];
+  const schedulerWorker = new Worker<SchedulerJobData>(
+    QUEUE_NAMES.scheduler,
+    handleSchedulerJob,
+    { connection, concurrency: 1 }
+  );
+
+  const workers = [indexingWorker, executionWorker, reportingWorker, schedulerWorker];
 
   workers.forEach((worker) => {
     worker.on("completed", (job) => {
@@ -56,7 +65,27 @@ export function registerWorkers(): void {
     activeWorkers.push(worker);
   });
 
+  // Register the repeatable scheduler job (every 60 seconds)
+  registerSchedulerRepeatable().catch((err) => {
+    console.error("[Workers] Failed to register scheduler repeatable:", err.message);
+  });
+
   console.log("[Workers] All workers registered");
+}
+
+async function registerSchedulerRepeatable(): Promise<void> {
+  const queue = getSchedulerQueue();
+
+  await queue.upsertJobScheduler(
+    "scheduler-tick",
+    { every: 60_000 },
+    {
+      name: "process_schedules",
+      data: { type: "process_schedules" as const },
+    }
+  );
+
+  console.log("[Workers] Scheduler repeatable job registered (every 60s)");
 }
 
 export async function shutdownWorkers(): Promise<void> {

@@ -52,7 +52,9 @@ export async function GET(
     });
   }
 
-  const lastEventId = request.headers.get("Last-Event-ID");
+  const lastEventId =
+    request.headers.get("Last-Event-ID") ??
+    request.nextUrl.searchParams.get("lastEventId");
   const channel = channels.runProgress(runId);
 
   return createSSEStream({

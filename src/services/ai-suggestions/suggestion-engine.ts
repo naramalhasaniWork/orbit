@@ -5,7 +5,7 @@
  */
 
 import { prisma } from "@/lib/db";
-import { createCompletion } from "@/lib/ai";
+import { createTrackedCompletion } from "@/lib/ai/tracked-completion";
 import { getModelForTask } from "@/lib/ai/model-router";
 import { buildPrompt } from "@/agents/prompts/prompt-builder";
 import type {
@@ -408,13 +408,25 @@ Do NOT repeat suggestions that already exist. Generate ONLY new, unique insights
   });
 
   try {
-    const result = await createCompletion({
-      model,
-      systemPrompt,
-      messages: [{ role: "user", content: "Generate testing suggestions as JSON." }],
-      maxTokens: 1500,
-      temperature: 0.4,
+    const project = await prisma.project.findUniqueOrThrow({
+      where: { id: ctx.projectId },
+      select: { workspaceId: true },
     });
+
+    const result = await createTrackedCompletion(
+      {
+        model,
+        systemPrompt,
+        messages: [{ role: "user", content: "Generate testing suggestions as JSON." }],
+        maxTokens: 1500,
+        temperature: 0.4,
+      },
+      {
+        workspaceId: project.workspaceId,
+        projectId: ctx.projectId,
+        agentPhase: "planner",
+      }
+    );
 
     const cleaned = result.content
       .replace(/^```(?:json)?\s*\n?/m, "")
