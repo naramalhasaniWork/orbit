@@ -22,8 +22,8 @@ interface InvoiceHistoryProps {
 const STATUS_LABELS: Record<string, { label: string; className: string }> = {
   paid: { label: "Paid", className: "text-green-400 bg-green-400/10" },
   open: { label: "Open", className: "text-amber-400 bg-amber-400/10" },
-  draft: { label: "Draft", className: "text-muted-foreground bg-white/5" },
-  void: { label: "Void", className: "text-muted-foreground bg-white/5" },
+  draft: { label: "Draft", className: "text-muted-foreground bg-muted/40" },
+  void: { label: "Void", className: "text-muted-foreground bg-muted/40" },
   uncollectible: { label: "Failed", className: "text-red-400 bg-red-400/10" },
 };
 
@@ -50,7 +50,7 @@ export function InvoiceHistory({ workspaceId }: InvoiceHistoryProps) {
     return (
       <div className="space-y-2">
         {[1, 2, 3].map((i) => (
-          <div key={i} className="h-14 rounded-lg bg-white/[0.02] animate-pulse" />
+          <div key={i} className="h-14 rounded-lg bg-muted/30 animate-pulse" />
         ))}
       </div>
     );
@@ -66,11 +66,11 @@ export function InvoiceHistory({ workspaceId }: InvoiceHistoryProps) {
   }
 
   return (
-    <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] overflow-hidden">
-      <div className="px-4 py-3 border-b border-white/[0.06]">
+    <div className="rounded-xl border border-border bg-muted/30 overflow-hidden">
+      <div className="px-4 py-3 border-b border-border">
         <h4 className="text-xs font-medium text-muted-foreground">Invoices</h4>
       </div>
-      <div className="divide-y divide-white/[0.04]">
+      <div className="divide-y divide-border/50">
         {invoices.map((invoice) => {
           const statusInfo = STATUS_LABELS[invoice.status] ?? STATUS_LABELS.draft;
           return (
@@ -97,7 +97,7 @@ export function InvoiceHistory({ workspaceId }: InvoiceHistoryProps) {
                     href={invoice.pdfUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="p-1.5 rounded-lg hover:bg-white/5 transition-colors"
+                    className="p-1.5 rounded-lg hover:bg-muted/40 transition-colors"
                     title="Download PDF"
                   >
                     <Download className="h-3.5 w-3.5 text-muted-foreground" />

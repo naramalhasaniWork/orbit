@@ -79,6 +79,14 @@ export async function handleExecutionJob(job: Job<ExecutionJobData>): Promise<vo
 
   await job.updateProgress(10);
 
+  // Full-run execution: delegate to the unified runner
+  if (data.testCaseId === "__full_run__") {
+    const { executeRun } = await import("@/services/execution/runner");
+    await executeRun({ runId: data.runId, environmentId: data.environmentId });
+    await job.updateProgress(100);
+    return;
+  }
+
   const { prisma } = await import("@/lib/db");
 
   try {

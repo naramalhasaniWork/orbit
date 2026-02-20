@@ -111,7 +111,7 @@ export function ConfigEditor({ projectId }: ConfigEditorProps) {
   if (loading) {
     return (
       <div className="rounded-xl surface-1 p-8 animate-pulse">
-        <div className="h-4 w-32 bg-white/[0.06] rounded" />
+        <div className="h-4 w-32 bg-muted rounded" />
       </div>
     );
   }
@@ -143,7 +143,7 @@ export function ConfigEditor({ projectId }: ConfigEditorProps) {
             size="sm"
             onClick={handleSave}
             disabled={saving}
-            className="bg-orbit-accent hover:bg-orbit-accent/90 text-white gap-1.5"
+            className="gap-1.5"
           >
             <Save className="h-3.5 w-3.5" />
             {saving ? "Saving..." : "Save"}
@@ -235,7 +235,7 @@ export function ConfigEditor({ projectId }: ConfigEditorProps) {
                   coverage: { ...config.coverage, target: parseInt(e.target.value, 10) || 0 },
                 })
               }
-              className="bg-white/[0.04] w-24"
+              className="bg-muted/40 w-24"
             />
           </div>
           <div className="space-y-1.5">
@@ -253,7 +253,7 @@ export function ConfigEditor({ projectId }: ConfigEditorProps) {
                   coverage: { ...config.coverage, criticalTarget: parseInt(e.target.value, 10) || 0 },
                 })
               }
-              className="bg-white/[0.04] w-24"
+              className="bg-muted/40 w-24"
             />
           </div>
         </div>
@@ -275,7 +275,7 @@ export function ConfigEditor({ projectId }: ConfigEditorProps) {
                   execution: { ...config.execution, mode: e.target.value },
                 })
               }
-              className="w-full h-9 rounded-md border border-transparent bg-white/[0.04] px-3 text-sm focus:border-orbit-accent/30 focus:outline-none"
+              className="w-full h-9 rounded-md border border-input bg-transparent px-3 text-sm text-foreground focus:border-primary/40 focus:ring-1 focus:ring-primary focus:outline-none"
             >
               <option value="autonomous">Autonomous</option>
               <option value="human-in-loop">Human-in-Loop</option>
@@ -300,7 +300,7 @@ export function ConfigEditor({ projectId }: ConfigEditorProps) {
                   },
                 })
               }
-              className="bg-white/[0.04] w-24"
+              className="bg-muted/40 w-24"
             />
           </div>
           <div className="space-y-1.5">
@@ -321,7 +321,7 @@ export function ConfigEditor({ projectId }: ConfigEditorProps) {
                   },
                 })
               }
-              className="bg-white/[0.04] w-24"
+              className="bg-muted/40 w-24"
             />
           </div>
           <div className="space-y-1.5">
@@ -342,7 +342,7 @@ export function ConfigEditor({ projectId }: ConfigEditorProps) {
                   },
                 })
               }
-              className="bg-white/[0.04] w-24"
+              className="bg-muted/40 w-24"
             />
           </div>
         </div>
@@ -367,7 +367,7 @@ function PathListEditor({
         {paths.map((path, i) => (
           <span
             key={i}
-            className="inline-flex items-center gap-1 text-[11px] font-mono px-2 py-0.5 rounded bg-white/[0.06] text-foreground/80"
+            className="inline-flex items-center gap-1 text-[11px] font-mono px-2 py-0.5 rounded bg-muted/50 text-foreground/80"
           >
             {path}
             <button
@@ -380,7 +380,7 @@ function PathListEditor({
         ))}
         <Input
           placeholder="Add path..."
-          className="bg-white/[0.04] text-xs h-6 w-32"
+          className="bg-muted/40 text-xs h-6 w-32"
           onKeyDown={(e) => {
             if (e.key === "Enter") {
               const value = (e.target as HTMLInputElement).value.trim();

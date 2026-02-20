@@ -61,7 +61,7 @@ export function MapControls({
   );
 
   return (
-    <div className="flex flex-col gap-4 p-4 rounded-xl surface-1 border border-white/[0.04]">
+    <div className="flex flex-col gap-4 p-4 rounded-xl surface-1 border border-border">
       {/* Search */}
       <div className="relative">
         <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
@@ -69,7 +69,7 @@ export function MapControls({
           placeholder="Filter nodes..."
           value={searchQuery}
           onChange={handleSearch}
-          className="pl-8 h-8 text-xs bg-white/[0.04] border-transparent focus:border-orbit-accent/30"
+          className="pl-8 h-8 text-xs bg-white/[0.06] border-border focus:border-orbit-accent/40"
         />
       </div>
 
@@ -127,7 +127,7 @@ export function MapControls({
       </div>
 
       {/* Zoom Controls */}
-      <div className="flex items-center gap-1 pt-1 border-t border-white/[0.04]">
+      <div className="flex items-center gap-1 pt-1 border-t border-border">
         <Button
           variant="ghost"
           size="icon"
@@ -156,7 +156,7 @@ export function MapControls({
       </div>
 
       {/* Legend */}
-      <div className="pt-1 border-t border-white/[0.04]">
+      <div className="pt-1 border-t border-border">
         <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-2 block">
           Legend
         </span>

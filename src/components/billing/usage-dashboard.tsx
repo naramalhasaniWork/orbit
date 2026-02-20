@@ -90,7 +90,7 @@ export function BillingUsageDashboard({ workspaceId }: BillingUsageDashboardProp
     return (
       <div className="space-y-4">
         {[1, 2, 3].map((i) => (
-          <div key={i} className="h-24 rounded-xl bg-white/[0.02] animate-pulse" />
+          <div key={i} className="h-24 rounded-xl bg-muted/30 animate-pulse" />
         ))}
       </div>
     );
@@ -152,7 +152,7 @@ export function BillingUsageDashboard({ workspaceId }: BillingUsageDashboardProp
 
       {/* Cost by agent phase */}
       {Object.keys(tokenUsage.byAgent).length > 0 && (
-        <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+        <div className="rounded-xl border border-border bg-muted/30 p-4">
           <h4 className="text-xs font-medium text-muted-foreground mb-3 flex items-center gap-2">
             <Bot className="h-3.5 w-3.5" />
             Cost by Agent Phase
@@ -169,9 +169,9 @@ export function BillingUsageDashboard({ workspaceId }: BillingUsageDashboardProp
                     <span className="text-xs text-muted-foreground w-16">
                       {AGENT_LABELS[agent] ?? agent}
                     </span>
-                    <div className="flex-1 h-2 rounded-full bg-white/[0.06] overflow-hidden">
+                    <div className="flex-1 h-2 rounded-full bg-muted/50 overflow-hidden">
                       <div
-                        className={cn("h-full rounded-full", AGENT_COLORS[agent] ?? "bg-white/20")}
+                        className={cn("h-full rounded-full", AGENT_COLORS[agent] ?? "bg-muted/60")}
                         style={{ width: `${pct}%` }}
                       />
                     </div>
@@ -190,7 +190,7 @@ export function BillingUsageDashboard({ workspaceId }: BillingUsageDashboardProp
 
       {/* Cost by model */}
       {Object.keys(tokenUsage.byModel).length > 0 && (
-        <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+        <div className="rounded-xl border border-border bg-muted/30 p-4">
           <h4 className="text-xs font-medium text-muted-foreground mb-3 flex items-center gap-2">
             <Cpu className="h-3.5 w-3.5" />
             Cost by Model
@@ -213,7 +213,7 @@ export function BillingUsageDashboard({ workspaceId }: BillingUsageDashboardProp
 
       {/* Daily cost trend */}
       {dailyCosts.length > 0 && (
-        <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+        <div className="rounded-xl border border-border bg-muted/30 p-4">
           <h4 className="text-xs font-medium text-muted-foreground mb-3">
             Daily Cost Trend (30 days)
           </h4>
@@ -236,13 +236,13 @@ export function BillingUsageDashboard({ workspaceId }: BillingUsageDashboardProp
 
       {/* Per-project costs */}
       {projectCosts.length > 0 && (
-        <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] overflow-hidden">
-          <div className="px-4 py-3 border-b border-white/[0.06]">
+        <div className="rounded-xl border border-border bg-muted/30 overflow-hidden">
+          <div className="px-4 py-3 border-b border-border">
             <h4 className="text-xs font-medium text-muted-foreground">
               Cost by Project
             </h4>
           </div>
-          <div className="divide-y divide-white/[0.04]">
+          <div className="divide-y divide-border/50">
             {projectCosts.map((project) => (
               <div key={project.projectId} className="flex items-center justify-between px-4 py-2.5">
                 <div>
@@ -273,7 +273,7 @@ function SummaryCard({
   sub: string;
 }) {
   return (
-    <div className="p-4 rounded-xl border border-white/[0.06] bg-white/[0.02]">
+    <div className="p-4 rounded-xl border border-border bg-muted/30">
       <div className="flex items-center gap-2 mb-2">
         <Icon className="h-3.5 w-3.5 text-muted-foreground" />
         <span className="text-[11px] font-medium text-muted-foreground">{label}</span>

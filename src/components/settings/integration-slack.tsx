@@ -103,7 +103,7 @@ export function SlackCard({ workspaceId, config, onUpdate }: SlackCardProps) {
     <div className="rounded-xl surface-1 p-6 space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="h-9 w-9 rounded-lg bg-white/[0.06] flex items-center justify-center">
+          <div className="h-9 w-9 rounded-lg bg-muted/50 flex items-center justify-center">
             <Hash className="h-4.5 w-4.5 text-foreground" />
           </div>
           <div>
@@ -126,7 +126,7 @@ export function SlackCard({ workspaceId, config, onUpdate }: SlackCardProps) {
           {config?.teamName && (
             <div className="space-y-2">
               <Label className="text-xs text-muted-foreground">Connected Workspace</Label>
-              <div className="text-sm bg-white/[0.04] rounded-md px-3 py-2 border border-transparent text-foreground">
+              <div className="text-sm bg-muted/40 rounded-md px-3 py-2 border border-transparent text-foreground">
                 {config.teamName}
               </div>
             </div>
@@ -139,7 +139,7 @@ export function SlackCard({ workspaceId, config, onUpdate }: SlackCardProps) {
                 placeholder="#orbit-testing"
                 value={channel}
                 onChange={(e) => setChannel(e.target.value)}
-                className="bg-white/[0.04]"
+                className="bg-muted/40"
               />
               <Button
                 size="sm"
@@ -184,7 +184,7 @@ export function SlackCard({ workspaceId, config, onUpdate }: SlackCardProps) {
                 placeholder="xoxb-..."
                 value={botToken}
                 onChange={(e) => setBotToken(e.target.value)}
-                className="bg-white/[0.04] font-mono pr-9"
+                className="bg-muted/40 font-mono pr-9"
               />
               <button
                 type="button"
@@ -201,7 +201,7 @@ export function SlackCard({ workspaceId, config, onUpdate }: SlackCardProps) {
               placeholder="#orbit-testing"
               value={channel}
               onChange={(e) => setChannel(e.target.value)}
-              className="bg-white/[0.04] max-w-md"
+              className="bg-muted/40 max-w-md"
             />
           </div>
           <Button

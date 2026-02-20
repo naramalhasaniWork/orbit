@@ -65,7 +65,7 @@ const modeBadgeClass: Record<string, string> = {
 
 export function RunsTimeline({ runs }: { runs: Run[] }) {
   return (
-    <div className="rounded-xl surface-1 border border-white/[0.04] h-full">
+    <div className="rounded-xl surface-1 border border-border h-full">
       <div className="flex items-center justify-between px-4 py-3">
         <h2 className="text-[13px] font-medium text-foreground">Recent Runs</h2>
         <span className="text-[11px] text-muted-foreground">{runs.length} runs</span>
@@ -81,7 +81,7 @@ export function RunsTimeline({ runs }: { runs: Run[] }) {
               <Link
                 key={run.id}
                 href={`/dashboard/runs/${run.id}`}
-                className="flex items-center gap-3 px-4 py-2.5 hover:bg-white/[0.03] transition-colors cursor-pointer block"
+                className="flex items-center gap-3 px-4 py-2.5 hover:bg-white/[0.06] transition-colors cursor-pointer block"
               >
                 <StatusDot status={status} pulse={status === "running"} />
 

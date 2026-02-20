@@ -98,7 +98,8 @@ function SystemMapMockup() {
 export function HeroSection() {
   return (
     <section className="relative min-h-screen flex items-center overflow-hidden pt-16">
-      <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] bg-primary/[0.03] rounded-full blur-[100px] pointer-events-none" />
+      <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[500px] bg-primary/[0.05] rounded-full blur-[120px] pointer-events-none" />
+      <div className="absolute top-2/3 left-1/4 w-[300px] h-[300px] bg-primary/[0.03] rounded-full blur-[80px] pointer-events-none" />
 
       <div className="relative z-10 mx-auto max-w-6xl px-6 py-24 lg:py-32 w-full">
         <div className="grid lg:grid-cols-2 gap-16 lg:gap-20 items-center">

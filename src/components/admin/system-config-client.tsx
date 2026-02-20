@@ -85,7 +85,7 @@ export function SystemConfigClient({
       </div>
 
       {/* Feature Flags */}
-      <div className="rounded-xl surface-1 border border-white/[0.04] p-5 space-y-4">
+      <div className="rounded-xl surface-1 border border-border p-5 space-y-4">
         <div className="flex items-center gap-2">
           <Settings className="h-4 w-4 text-orbit-accent" />
           <h3 className="text-sm font-medium text-foreground">Feature Flags</h3>
@@ -110,7 +110,7 @@ export function SystemConfigClient({
       </div>
 
       {/* Rate Limits */}
-      <div className="rounded-xl surface-1 border border-white/[0.04] p-5 space-y-4">
+      <div className="rounded-xl surface-1 border border-border p-5 space-y-4">
         <div className="flex items-center gap-2">
           <Shield className="h-4 w-4 text-orbit-accent" />
           <h3 className="text-sm font-medium text-foreground">Rate Limits</h3>
@@ -162,7 +162,7 @@ export function SystemConfigClient({
       </div>
 
       {/* Maintenance Mode */}
-      <div className="rounded-xl surface-1 border border-white/[0.04] p-5 space-y-4">
+      <div className="rounded-xl surface-1 border border-border p-5 space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <AlertTriangle className={cn("h-4 w-4", maintenanceMode ? "text-orbit-fail" : "text-muted-foreground")} />
@@ -189,7 +189,7 @@ export function SystemConfigClient({
       </div>
 
       {/* System Announcement */}
-      <div className="rounded-xl surface-1 border border-white/[0.04] p-5 space-y-4">
+      <div className="rounded-xl surface-1 border border-border p-5 space-y-4">
         <div className="flex items-center gap-2">
           <Bell className="h-4 w-4 text-orbit-accent" />
           <h3 className="text-sm font-medium text-foreground">System Announcement</h3>

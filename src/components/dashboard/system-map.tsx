@@ -171,9 +171,9 @@ export function SystemMap({ nodes, edges, compact = false }: SystemMapProps) {
       const src = typeof link.source === "object" ? link.source.id : link.source;
       const tgt = typeof link.target === "object" ? link.target.id : link.target;
       if (selectedNodeId && (src === selectedNodeId || tgt === selectedNodeId)) {
-        return "rgba(139, 92, 246, 0.6)";
+        return "rgba(255, 96, 0, 0.6)";
       }
-      return "rgba(255, 255, 255, 0.1)";
+      return "rgba(255, 255, 255, 0.06)";
     },
     [selectedNodeId]
   );
@@ -183,7 +183,7 @@ export function SystemMap({ nodes, edges, compact = false }: SystemMapProps) {
       const src = typeof link.source === "object" ? link.source.id : link.source;
       const tgt = typeof link.target === "object" ? link.target.id : link.target;
       if (selectedNodeId && (src === selectedNodeId || tgt === selectedNodeId)) {
-        return 1.5;
+        return 2;
       }
       return 0.5;
     },
@@ -192,7 +192,7 @@ export function SystemMap({ nodes, edges, compact = false }: SystemMapProps) {
 
   const nodeLabel = useCallback((node: any) => {
     const gn = node as GraphNode;
-    return `<div style="background:#13122a;color:#e2e8f0;padding:6px 10px;border-radius:6px;font-size:11px"><strong>${gn.name}</strong><br/><span style="opacity:0.6">${gn.type}${gn.filePath ? ` -- ${gn.filePath}` : ""}</span></div>`;
+    return `<div style="background:#141726;color:#e8ecf2;padding:6px 10px;border-radius:6px;font-size:11px;border:1px solid rgba(255,255,255,0.08)"><strong>${gn.name}</strong><br/><span style="opacity:0.6">${gn.type}${gn.filePath ? ` -- ${gn.filePath}` : ""}</span></div>`;
   }, []);
 
   // Grid background render -- batched path for performance with large graphs
@@ -223,7 +223,7 @@ export function SystemMap({ nodes, edges, compact = false }: SystemMapProps) {
 
       // Batch all dots into a single path for much better performance
       ctx.beginPath();
-      ctx.fillStyle = "rgba(255, 255, 255, 0.04)";
+      ctx.fillStyle = "rgba(255, 255, 255, 0.05)";
       for (let gx = startX; gx <= maxX + spacing; gx += effectiveSpacing) {
         for (let gy = startY; gy <= maxY + spacing; gy += effectiveSpacing) {
           ctx.moveTo(gx + dotSize, gy);
@@ -253,7 +253,7 @@ export function SystemMap({ nodes, edges, compact = false }: SystemMapProps) {
         </div>
       )}
 
-      <div ref={containerRef} className="flex-1 relative bg-[#0b0a13] rounded-lg overflow-hidden border border-white/[0.04]">
+      <div ref={containerRef} className="flex-1 relative bg-[#0d0f1a] rounded-lg overflow-hidden border border-border">
         {graphData.nodes.length === 0 ? (
           <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
             No nodes match current filters
@@ -264,7 +264,7 @@ export function SystemMap({ nodes, edges, compact = false }: SystemMapProps) {
             graphData={graphData}
             width={dimensions.width}
             height={dimensions.height}
-            backgroundColor="#0b0a13"
+            backgroundColor="#0d0f1a"
             nodeCanvasObject={nodeCanvasObject}
             nodeCanvasObjectMode={() => "replace"}
             nodePointerAreaPaint={nodePointerArea}

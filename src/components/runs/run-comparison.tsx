@@ -101,8 +101,8 @@ export function RunComparison({ projectId, runAId, runBId }: RunComparisonProps)
   if (loading) {
     return (
       <div className="space-y-4 animate-pulse">
-        <div className="h-20 bg-white/[0.04] rounded-xl" />
-        <div className="h-40 bg-white/[0.04] rounded-xl" />
+        <div className="h-20 bg-muted/30 rounded-xl" />
+        <div className="h-40 bg-muted/30 rounded-xl" />
       </div>
     );
   }
@@ -137,7 +137,7 @@ export function RunComparison({ projectId, runAId, runBId }: RunComparisonProps)
               onClick={() => setChangeFilter(changeFilter === configKey ? null : configKey)}
               className={cn(
                 "flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md transition-colors",
-                changeFilter === configKey ? "bg-white/[0.06]" : "hover:bg-white/[0.03]",
+                changeFilter === configKey ? "bg-muted/40" : "hover:bg-muted/20",
                 config?.className ?? "text-muted-foreground"
               )}
             >
@@ -149,7 +149,7 @@ export function RunComparison({ projectId, runAId, runBId }: RunComparisonProps)
       </div>
 
       {/* Test list */}
-      <div className="rounded-xl surface-1 divide-y divide-white/[0.04] overflow-hidden">
+      <div className="rounded-xl surface-1 divide-y divide-border overflow-hidden">
         {filteredTests.map((test) => {
           const config = CHANGE_CONFIG[test.change];
           const Icon = config?.icon ?? Minus;

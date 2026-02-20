@@ -13,9 +13,12 @@ import { executeTestCase } from "@/services/execution/test-case-executor";
 import type { TestCaseForExecution } from "@/services/execution/test-case-executor";
 import { isRunCancelled } from "@/services/orchestrator/run-manager";
 import { executeParallel } from "@/services/orchestrator/parallel-executor";
-import { deliverWebhook } from "@/lib/webhooks/deliver";
+import { dispatchRunStarted, dispatchRunCompleted } from "@/services/reporting/integrations/outbound-webhooks";
+import { getRedis } from "@/lib/redis";
 import type { TestVerdict } from "@/generated/prisma/enums";
 import type { TestResultEvent } from "@/lib/websocket/channels";
+
+const RUN_LOCK_TTL_SECONDS = 3600; // 1 hour max lock
 
 interface RunOptions {
   runId: string;
@@ -23,6 +26,25 @@ interface RunOptions {
 }
 
 export async function executeRun(options: RunOptions): Promise<void> {
+  const { runId, environmentId } = options;
+
+  // Distributed lock: prevent two workers from executing the same run
+  const redis = getRedis();
+  const lockKey = `orbit:run-lock:${runId}`;
+  const lockAcquired = await redis.set(lockKey, "locked", "EX", RUN_LOCK_TTL_SECONDS, "NX");
+  if (!lockAcquired) {
+    console.warn(`[Runner] Run ${runId} is already being executed by another worker — skipping`);
+    return;
+  }
+
+  try {
+    await executeRunInner(options);
+  } finally {
+    await redis.del(lockKey);
+  }
+}
+
+async function executeRunInner(options: RunOptions): Promise<void> {
   const { runId, environmentId } = options;
 
   await prisma.testRun.update({
@@ -58,13 +80,8 @@ export async function executeRun(options: RunOptions): Promise<void> {
   });
 
   // Fire run.started webhook asynchronously
-  deliverWebhook(run.projectId, {
-    type: "run.started",
-    payload: {
-      runId, projectId: run.projectId, mode: run.mode,
-      trigger: "manual", totalTests: testCases.length,
-      triggeredBy: null, timestamp: new Date().toISOString(),
-    },
+  dispatchRunStarted(run.projectId, {
+    runId, mode: run.mode, trigger: "manual",
   }).catch((err) => console.error("[Runner] Webhook delivery failed:", err));
 
   const counters = { passed: 0, failed: 0, flaky: 0, skipped: 0 };
@@ -180,15 +197,21 @@ async function completeRun(
   });
 
   // Fire webhooks asynchronously — don't block run completion
+  // Note: the reporter pipeline also fires webhooks with richer data;
+  // this is a fallback for direct executeRun() calls outside the full pipeline
   if (projectId) {
-    deliverWebhook(projectId, {
-      type: "run.completed",
-      payload: {
-        runId, projectId, status: "completed", totalTests,
-        passed: counters.passed, failed: counters.failed,
-        flaky: counters.flaky, skipped: counters.skipped,
-        durationMs, timestamp: new Date().toISOString(),
-      },
+    const completedRunData = await prisma.testRun.findUnique({
+      where: { id: runId },
+      select: { mode: true, trigger: true },
+    });
+    dispatchRunCompleted(projectId, {
+      runId, projectId, totalTests, passed: counters.passed, failed: counters.failed,
+      flaky: counters.flaky, skipped: counters.skipped, durationMs,
+      creditsConsumed: totalTests,
+      mode: (completedRunData?.mode as "full" | "smoke" | "regression" | "targeted") ?? "full",
+      trigger: (completedRunData?.trigger as "push" | "pr" | "scheduled" | "manual" | "linear" | "api") ?? "manual",
+      summary: `${counters.passed}/${totalTests} passed`,
+      failures: [],
     }).catch((err) => console.error("[Runner] Webhook delivery failed:", err));
   }
 }

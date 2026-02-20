@@ -12,7 +12,7 @@ interface PlanSummaryProps {
 
 export function PlanSummary({ stats }: PlanSummaryProps) {
   return (
-    <div className="px-5 py-4 bg-white/[0.02] border-b border-white/[0.04] space-y-3">
+    <div className="px-5 py-4 bg-muted/20 border-b border-border space-y-3">
       <div className="grid grid-cols-4 gap-3">
         <MiniStat
           label="Total Cases"

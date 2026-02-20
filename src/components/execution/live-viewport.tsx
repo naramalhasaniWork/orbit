@@ -73,7 +73,7 @@ export function LiveViewport({
     <div
       ref={containerRef}
       className={cn(
-        "rounded-xl border border-white/[0.06] overflow-hidden",
+        "rounded-xl border border-border overflow-hidden",
         "bg-[hsl(var(--orbit-bg-deeper,222_47%_6%))]",
         isFullscreen && "fixed inset-0 z-50 rounded-none border-none",
         className
@@ -184,7 +184,7 @@ export function LiveViewport({
 
       {/* Compact toolbar at bottom */}
       {compact && currentStep && (
-        <div className="px-3 py-1.5 text-xs text-muted-foreground truncate border-t border-white/[0.04]">
+        <div className="px-3 py-1.5 text-xs text-muted-foreground truncate border-t border-border">
           {currentTestName && (
             <span className="font-medium text-foreground mr-2">{currentTestName}</span>
           )}

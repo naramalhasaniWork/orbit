@@ -151,7 +151,7 @@ export function RailwayConnectCard({
     <div className="rounded-xl surface-1 p-6 space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="h-9 w-9 rounded-lg bg-white/[0.06] flex items-center justify-center">
+          <div className="h-9 w-9 rounded-lg bg-muted/50 flex items-center justify-center">
             <Train className="h-4.5 w-4.5 text-foreground" />
           </div>
           <div>
@@ -228,7 +228,7 @@ function DisconnectedView({
             placeholder="Railway API token..."
             value={token}
             onChange={(e) => onTokenChange(e.target.value)}
-            className="bg-white/[0.04] font-mono pr-9"
+            className="bg-muted/40 font-mono pr-9"
           />
           <button
             type="button"
@@ -303,7 +303,7 @@ function ConnectedView({
           <Label className="text-xs text-muted-foreground">
             Connected as
           </Label>
-          <div className="text-sm bg-white/[0.04] rounded-md px-3 py-2 border border-transparent text-foreground">
+          <div className="text-sm bg-muted/40 rounded-md px-3 py-2 border border-transparent text-foreground">
             {config.userName}
           </div>
         </div>
@@ -314,7 +314,7 @@ function ConnectedView({
           <Label className="text-xs text-muted-foreground">
             Railway Project
           </Label>
-          <div className="text-sm bg-white/[0.04] rounded-md px-3 py-2 border border-transparent text-foreground flex items-center justify-between">
+          <div className="text-sm bg-muted/40 rounded-md px-3 py-2 border border-transparent text-foreground flex items-center justify-between">
             <span>{config.railwayProjectName}</span>
             {config.serviceCount !== undefined && (
               <span className="text-xs text-muted-foreground">
@@ -335,7 +335,7 @@ function ConnectedView({
                 <button
                   key={p.id}
                   onClick={() => onSelectProject(p.id)}
-                  className="w-full text-left text-sm bg-white/[0.04] hover:bg-white/[0.08] rounded-md px-3 py-2 border border-transparent text-foreground transition-colors"
+                  className="w-full text-left text-sm bg-muted/40 hover:bg-muted/60 rounded-md px-3 py-2 border border-transparent text-foreground transition-colors"
                 >
                   <span className="font-medium">{p.name}</span>
                   {p.description && (
@@ -390,7 +390,7 @@ function ConnectedView({
       <div className="space-y-2">
         <Label className="text-xs text-muted-foreground">Webhook URL</Label>
         <div className="flex gap-2">
-          <div className="flex-1 text-sm font-mono bg-white/[0.04] rounded-md px-3 py-2 border border-transparent text-muted-foreground truncate">
+          <div className="flex-1 text-sm font-mono bg-muted/40 rounded-md px-3 py-2 border border-transparent text-muted-foreground truncate">
             {webhookUrl}
           </div>
           <Button

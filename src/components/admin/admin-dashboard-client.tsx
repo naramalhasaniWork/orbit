@@ -124,10 +124,10 @@ export function AdminDashboardClient({ stats, recentRuns }: AdminDashboardClient
         <h2 className="text-sm font-medium text-muted-foreground">
           Recent Activity
         </h2>
-        <div className="rounded-lg border border-white/[0.06] overflow-hidden">
+        <div className="rounded-lg border border-border overflow-hidden">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-white/[0.06] bg-white/[0.02]">
+              <tr className="border-b border-border bg-muted/30">
                 <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">
                   Status
                 </th>
@@ -152,7 +152,7 @@ export function AdminDashboardClient({ stats, recentRuns }: AdminDashboardClient
               {recentRuns.map((run) => (
                 <tr
                   key={run.id}
-                  className="border-b border-white/[0.03] hover:bg-white/[0.02] transition-colors"
+                  className="border-b border-border/50 hover:bg-muted/30 transition-colors"
                 >
                   <td className="px-4 py-3">
                     <Badge

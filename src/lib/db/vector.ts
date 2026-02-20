@@ -26,7 +26,7 @@ export async function ensureVectorSetup(): Promise<void> {
 
   for (const { table, column } of vectorColumns) {
     try {
-      // Check if column exists and is jsonb, then convert to vector
+      // Check if column exists and its type
       const result = await prisma.$queryRawUnsafe<Array<{ data_type: string }>>(
         `SELECT data_type FROM information_schema.columns
          WHERE table_name = $1 AND column_name = $2`,
@@ -35,13 +35,28 @@ export async function ensureVectorSetup(): Promise<void> {
       );
 
       if (result.length > 0 && result[0].data_type !== "USER-DEFINED") {
-        // Column exists but is not vector type — drop and re-add
-        await prisma.$executeRawUnsafe(
-          `ALTER TABLE ${table} DROP COLUMN IF EXISTS ${column}`
+        // Column exists but is not vector type — convert in place safely
+        // First check if column has any non-null data
+        const hasData = await prisma.$queryRawUnsafe<Array<{ count: bigint }>>(
+          `SELECT COUNT(*) as count FROM ${table} WHERE ${column} IS NOT NULL`
         );
-        await prisma.$executeRawUnsafe(
-          `ALTER TABLE ${table} ADD COLUMN ${column} vector(1536)`
-        );
+        const rowCount = Number(hasData[0]?.count ?? 0);
+
+        if (rowCount > 0) {
+          // Data exists — convert jsonb to vector using USING clause to preserve data
+          // jsonb values like '[0.1, 0.2, ...]' can be cast to text then to vector
+          await prisma.$executeRawUnsafe(
+            `ALTER TABLE ${table} ALTER COLUMN ${column} TYPE vector(1536) USING (${column}::text)::vector(1536)`
+          );
+        } else {
+          // No data — safe to drop and re-add
+          await prisma.$executeRawUnsafe(
+            `ALTER TABLE ${table} DROP COLUMN IF EXISTS ${column}`
+          );
+          await prisma.$executeRawUnsafe(
+            `ALTER TABLE ${table} ADD COLUMN ${column} vector(1536)`
+          );
+        }
       }
     } catch {
       // Table might not exist yet — skip

@@ -47,7 +47,7 @@ const coverageColors: Record<CoverageLevel, string> = {
   covered: "bg-orbit-pass/20 border-orbit-pass/30 hover:bg-orbit-pass/30",
   partial: "bg-orbit-flaky/20 border-orbit-flaky/30 hover:bg-orbit-flaky/30",
   uncovered: "bg-orbit-fail/20 border-orbit-fail/30 hover:bg-orbit-fail/30",
-  excluded: "bg-muted/20 border-white/[0.04] hover:bg-muted/30",
+  excluded: "bg-muted/20 border-border hover:bg-muted/30",
 };
 
 const coverageDotStatus: Record<CoverageLevel, "pass" | "fail" | "flaky" | "untested"> = {
@@ -141,7 +141,7 @@ export function CoverageMap({ cells, className }: CoverageMapProps) {
               className={cn(
                 "px-2 py-1 rounded text-[11px] transition-colors",
                 !filterType
-                  ? "bg-white/[0.08] text-foreground"
+                  ? "bg-orbit-accent/10 text-orbit-accent"
                   : "text-muted-foreground hover:text-foreground"
               )}
             >
@@ -154,7 +154,7 @@ export function CoverageMap({ cells, className }: CoverageMapProps) {
                 className={cn(
                   "px-2 py-1 rounded text-[11px] transition-colors",
                   filterType === type
-                    ? "bg-white/[0.08] text-foreground"
+                    ? "bg-orbit-accent/10 text-orbit-accent"
                     : "text-muted-foreground hover:text-foreground"
                 )}
               >
@@ -228,7 +228,7 @@ export function CoverageMap({ cells, className }: CoverageMapProps) {
             transition={{ duration: 0.2, ease: "easeOut" }}
             className="shrink-0 overflow-hidden"
           >
-            <div className="w-[280px] rounded-xl surface-1 border border-white/[0.04] p-4 space-y-3">
+            <div className="w-[280px] rounded-xl surface-1 border border-border p-4 space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium text-foreground truncate pr-2">
                   {selectedCell.name}
@@ -285,7 +285,7 @@ export function CoverageMap({ cells, className }: CoverageMapProps) {
 
               {/* Test cases list */}
               {selectedCell.testCases && selectedCell.testCases.length > 0 && (
-                <div className="border-t border-white/[0.04] pt-3">
+                <div className="border-t border-border pt-3">
                   <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
                     Test Cases
                   </span>
@@ -294,7 +294,7 @@ export function CoverageMap({ cells, className }: CoverageMapProps) {
                       {selectedCell.testCases.map((tc) => (
                         <div
                           key={tc.id}
-                          className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-white/[0.03] transition-colors"
+                          className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-white/[0.06] transition-colors"
                         >
                           <StatusDot
                             status={

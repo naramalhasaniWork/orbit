@@ -78,7 +78,7 @@ export function FailureAnalysis({
             </div>
             <CopyButton text={suggestedFix} />
           </div>
-          <pre className="text-[13px] text-foreground/80 leading-relaxed whitespace-pre-wrap font-mono bg-white/[0.03] rounded-md p-3 overflow-x-auto">
+          <pre className="text-[13px] text-foreground/80 leading-relaxed whitespace-pre-wrap font-mono bg-muted/20 rounded-md p-3 overflow-x-auto">
             {suggestedFix}
           </pre>
         </div>

@@ -248,7 +248,7 @@ export function RailwayStatus({
       </div>
 
       {recentDeploys.length > 1 && (
-        <div className="space-y-1 pt-2 border-t border-white/[0.06]">
+        <div className="space-y-1 pt-2 border-t border-border">
           <p className="text-xs text-muted-foreground font-medium">
             Recent Deployments
           </p>

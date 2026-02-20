@@ -85,10 +85,10 @@ export function FailurePatternsPanel({ projectId }: FailurePatternsPanelProps) {
   if (loading) {
     return (
       <div className="rounded-xl surface-1 p-5 animate-pulse">
-        <div className="h-4 w-32 bg-white/[0.06] rounded" />
+        <div className="h-4 w-32 bg-muted/40 rounded" />
         <div className="mt-4 space-y-2">
-          <div className="h-8 bg-white/[0.04] rounded" />
-          <div className="h-8 bg-white/[0.04] rounded" />
+          <div className="h-8 bg-muted/30 rounded" />
+          <div className="h-8 bg-muted/30 rounded" />
         </div>
       </div>
     );
@@ -102,7 +102,7 @@ export function FailurePatternsPanel({ projectId }: FailurePatternsPanelProps) {
 
   return (
     <div className="rounded-xl surface-1 overflow-hidden">
-      <div className="px-5 py-3 border-b border-white/[0.04]">
+      <div className="px-5 py-3 border-b border-border">
         <h3 className="text-[13px] font-medium text-foreground">
           Failure Patterns
         </h3>
@@ -112,14 +112,14 @@ export function FailurePatternsPanel({ projectId }: FailurePatternsPanelProps) {
       </div>
 
       {categories.length > 0 && (
-        <div className="px-5 py-3 flex items-center gap-2 border-b border-white/[0.04] overflow-x-auto">
+        <div className="px-5 py-3 flex items-center gap-2 border-b border-border overflow-x-auto">
           <button
             onClick={() => setSelectedCategory(null)}
             className={cn(
               "text-[11px] px-2.5 py-1 rounded-md transition-colors whitespace-nowrap",
               !selectedCategory
-                ? "bg-white/[0.06] text-foreground"
-                : "text-muted-foreground hover:text-foreground hover:bg-white/[0.03]"
+                ? "bg-muted/40 text-foreground"
+                : "text-muted-foreground hover:text-foreground hover:bg-muted/20"
             )}
           >
             All ({patterns.length})
@@ -137,8 +137,8 @@ export function FailurePatternsPanel({ projectId }: FailurePatternsPanelProps) {
                 className={cn(
                   "flex items-center gap-1.5 text-[11px] px-2.5 py-1 rounded-md transition-colors whitespace-nowrap",
                   selectedCategory === cat.category
-                    ? "bg-white/[0.06]"
-                    : "hover:bg-white/[0.03]",
+                    ? "bg-muted/40"
+                    : "hover:bg-muted/20",
                   CATEGORY_COLORS[cat.category] ?? "text-muted-foreground"
                 )}
               >
@@ -150,7 +150,7 @@ export function FailurePatternsPanel({ projectId }: FailurePatternsPanelProps) {
         </div>
       )}
 
-      <div className="divide-y divide-white/[0.04]">
+      <div className="divide-y divide-border">
         {filteredPatterns.slice(0, 10).map((pattern) => {
           const Icon = CATEGORY_ICONS[pattern.category] ?? HelpCircle;
           const color = CATEGORY_COLORS[pattern.category] ?? "text-muted-foreground";
@@ -158,7 +158,7 @@ export function FailurePatternsPanel({ projectId }: FailurePatternsPanelProps) {
           return (
             <div
               key={pattern.id}
-              className="flex items-start gap-3 px-5 py-3 hover:bg-white/[0.02] transition-colors"
+              className="flex items-start gap-3 px-5 py-3 hover:bg-muted/15 transition-colors"
             >
               <Icon className={cn("h-3.5 w-3.5 mt-0.5 shrink-0", color)} />
               <div className="flex-1 min-w-0">

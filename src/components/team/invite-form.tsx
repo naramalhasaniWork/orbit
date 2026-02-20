@@ -96,7 +96,7 @@ export function InviteForm({ workspaceId, invitations, onInvite, onRevoke }: Inv
               id="invite-role"
               value={role}
               onChange={(e) => setRole(e.target.value)}
-              className="h-9 w-full rounded-md border border-white/[0.08] bg-white/[0.03] px-3 text-sm text-foreground"
+              className="h-9 w-full rounded-md border border-border bg-muted/30 px-3 text-sm text-foreground"
             >
               {ROLE_OPTIONS.map((opt) => (
                 <option key={opt.value} value={opt.value}>
@@ -158,10 +158,10 @@ export function InviteForm({ workspaceId, invitations, onInvite, onRevoke }: Inv
               return (
                 <div
                   key={inv.id}
-                  className="flex items-center justify-between px-4 py-2.5 rounded-lg hover:bg-white/[0.02] transition-colors"
+                  className="flex items-center justify-between px-4 py-2.5 rounded-lg hover:bg-muted/30 transition-colors"
                 >
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="h-8 w-8 rounded-full bg-white/[0.06] flex items-center justify-center shrink-0">
+                    <div className="h-8 w-8 rounded-full bg-muted/50 flex items-center justify-center shrink-0">
                       <span className="text-xs font-medium text-muted-foreground">
                         {inv.email.charAt(0).toUpperCase()}
                       </span>

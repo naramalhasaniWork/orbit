@@ -60,7 +60,7 @@ function UsageMeter({
   const isAtLimit = percentage >= 100;
 
   return (
-    <div className="p-4 rounded-xl border border-white/[0.06] bg-white/[0.02]">
+    <div className="p-4 rounded-xl border border-border bg-muted/30">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <Icon className="h-4 w-4 text-muted-foreground" />
@@ -81,7 +81,7 @@ function UsageMeter({
         </span>
       </div>
       {!isInfinite && (
-        <div className="h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
+        <div className="h-1.5 rounded-full bg-muted/50 overflow-hidden">
           <div
             className={cn(
               "h-full rounded-full transition-all duration-500",
@@ -116,7 +116,7 @@ export function UsageDashboard({ workspaceId }: UsageDashboardProps) {
     return (
       <div className="space-y-4">
         {[1, 2, 3, 4].map((i) => (
-          <div key={i} className="h-20 rounded-xl bg-white/[0.02] animate-pulse" />
+          <div key={i} className="h-20 rounded-xl bg-muted/30 animate-pulse" />
         ))}
       </div>
     );
@@ -181,7 +181,7 @@ export function UsageDashboard({ workspaceId }: UsageDashboardProps) {
 
       {/* Daily usage chart (simple bar chart) */}
       {data.dailyUsage.length > 0 && (
-        <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+        <div className="rounded-xl border border-border bg-muted/30 p-4">
           <h4 className="text-xs font-medium text-muted-foreground mb-3">
             Runs Per Day (This Month)
           </h4>
@@ -204,13 +204,13 @@ export function UsageDashboard({ workspaceId }: UsageDashboardProps) {
 
       {/* Recent transactions */}
       {data.recentTransactions.length > 0 && (
-        <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] overflow-hidden">
-          <div className="px-4 py-3 border-b border-white/[0.06]">
+        <div className="rounded-xl border border-border bg-muted/30 overflow-hidden">
+          <div className="px-4 py-3 border-b border-border">
             <h4 className="text-xs font-medium text-muted-foreground">
               Recent Transactions
             </h4>
           </div>
-          <div className="divide-y divide-white/[0.04]">
+          <div className="divide-y divide-border/50">
             {data.recentTransactions.slice(0, 10).map((tx) => (
               <div key={tx.id} className="flex items-center justify-between px-4 py-2.5">
                 <div>

@@ -73,11 +73,11 @@ export function Header({ projects = [], activeProjectId, healthStatus }: HeaderP
   }
 
   return (
-    <header className="flex items-center justify-between h-12 px-6 surface-1 shrink-0">
+    <header className="flex items-center justify-between h-12 px-6 surface-1 border-b border-border shrink-0">
       <div className="flex items-center gap-3">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className="flex items-center gap-2 px-2 py-1 rounded-md text-sm font-medium text-foreground hover:bg-white/[0.04] transition-colors">
+            <button className="flex items-center gap-2 px-2 py-1 rounded-md text-sm font-medium text-foreground hover:bg-white/[0.06] transition-colors">
               <div className="h-5 w-5 rounded bg-orbit-accent/15 flex items-center justify-center">
                 <span className="text-[9px] font-bold text-orbit-accent">
                   {active?.name?.charAt(0)?.toUpperCase() ?? "P"}
@@ -172,7 +172,7 @@ export function Header({ projects = [], activeProjectId, healthStatus }: HeaderP
                   className="rounded-full"
                 />
               ) : (
-                <div className="h-[26px] w-[26px] rounded-full bg-white/[0.06] flex items-center justify-center">
+                <div className="h-[26px] w-[26px] rounded-full bg-white/[0.08] flex items-center justify-center">
                   <span className="text-[10px] font-medium text-muted-foreground">
                     {session?.user?.name?.charAt(0)?.toUpperCase() ?? "U"}
                   </span>

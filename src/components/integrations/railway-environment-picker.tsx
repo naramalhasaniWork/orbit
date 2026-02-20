@@ -114,7 +114,7 @@ export function RailwayEnvironmentPicker({
   }
 
   return (
-    <div className="space-y-3 rounded-lg bg-white/[0.02] p-4 border border-white/[0.06]">
+    <div className="space-y-3 rounded-lg bg-muted/30 p-4 border border-border">
       <div className="flex items-center gap-2">
         <Train className="h-3.5 w-3.5 text-muted-foreground" />
         <Label className="text-xs font-medium text-foreground">
@@ -128,7 +128,7 @@ export function RailwayEnvironmentPicker({
           <select
             value={selectedService ?? ""}
             onChange={(e) => handleServiceChange(e.target.value)}
-            className="w-full text-sm bg-white/[0.04] border border-white/[0.06] rounded-md px-3 py-1.5 text-foreground"
+            className="w-full text-sm bg-muted/40 border border-border rounded-md px-3 py-1.5 text-foreground"
           >
             <option value="">Select service...</option>
             {projectData.services.map((s) => (
@@ -144,7 +144,7 @@ export function RailwayEnvironmentPicker({
           <select
             value={selectedEnv ?? ""}
             onChange={(e) => handleEnvChange(e.target.value)}
-            className="w-full text-sm bg-white/[0.04] border border-white/[0.06] rounded-md px-3 py-1.5 text-foreground"
+            className="w-full text-sm bg-muted/40 border border-border rounded-md px-3 py-1.5 text-foreground"
           >
             <option value="">Select environment...</option>
             {projectData.environments.map((e) => (

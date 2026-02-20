@@ -21,15 +21,14 @@ interface MapEdge {
 }
 
 /* Colors derived from Orbit brand tokens:
-   orbit-pass (160 84% 39%), primary (239 84% 67%),
-   orbit-info (199 89% 48%), orbit-amber (36 96% 53%),
-   orbit-glow (239 84% 67%) */
+   primary/accent (24 100% 50%), orbit-pass (160 84% 39%),
+   orbit-info (199 89% 48%), warm amber (30 90% 60%) */
 const NODE_COLORS = [
+  { fill: "hsl(24, 100%, 50%)", glow: "hsla(24, 100%, 50%, 0.35)" },
   { fill: "hsl(160, 84%, 39%)", glow: "hsla(160, 84%, 39%, 0.3)" },
-  { fill: "hsl(239, 84%, 67%)", glow: "hsla(239, 84%, 67%, 0.3)" },
   { fill: "hsl(199, 89%, 48%)", glow: "hsla(199, 89%, 48%, 0.3)" },
-  { fill: "hsl(36, 96%, 53%)", glow: "hsla(36, 96%, 53%, 0.2)" },
-  { fill: "hsl(239, 84%, 77%)", glow: "hsla(239, 84%, 77%, 0.3)" },
+  { fill: "hsl(30, 90%, 60%)", glow: "hsla(30, 90%, 60%, 0.25)" },
+  { fill: "hsl(24, 100%, 65%)", glow: "hsla(24, 100%, 65%, 0.3)" },
 ];
 
 function createNodes(width: number, height: number): MapNode[] {
@@ -150,7 +149,7 @@ export function AnimatedSystemMap({ className }: { className?: string }) {
       ctx.beginPath();
       ctx.moveTo(from.x, from.y);
       ctx.lineTo(to.x, to.y);
-      ctx.strokeStyle = "hsla(239, 84%, 67%, 0.08)";
+      ctx.strokeStyle = "hsla(24, 100%, 50%, 0.1)";
       ctx.lineWidth = 0.5;
       ctx.stroke();
 
@@ -159,7 +158,7 @@ export function AnimatedSystemMap({ className }: { className?: string }) {
       const dotY = from.y + (to.y - from.y) * edge.progress;
       ctx.beginPath();
       ctx.arc(dotX, dotY, 1.5, 0, Math.PI * 2);
-      ctx.fillStyle = "hsla(239, 84%, 67%, 0.4)";
+      ctx.fillStyle = "hsla(24, 100%, 50%, 0.5)";
       ctx.fill();
     }
 

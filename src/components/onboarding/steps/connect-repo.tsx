@@ -12,7 +12,7 @@ import type { RepoItem } from "../onboarding-types";
 type RepoProvider = "github" | "gitlab" | "bitbucket";
 
 const PROVIDER_CONFIG: Record<RepoProvider, { label: string; color: string }> = {
-  github: { label: "GitHub", color: "bg-white/10" },
+  github: { label: "GitHub", color: "bg-muted/60" },
   gitlab: { label: "GitLab", color: "bg-orange-500/10" },
   bitbucket: { label: "Bitbucket", color: "bg-blue-500/10" },
 };
@@ -144,7 +144,7 @@ export function ConnectRepo({ onSelect }: ConnectRepoProps) {
                 "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors",
                 provider === p
                   ? "bg-orbit-accent/20 text-orbit-accent"
-                  : "bg-white/[0.04] text-muted-foreground hover:text-foreground",
+                  : "bg-muted/30 text-muted-foreground hover:text-foreground",
                 !isSupported && "opacity-40 cursor-not-allowed hover:text-muted-foreground"
               )}
             >
@@ -194,7 +194,7 @@ export function ConnectRepo({ onSelect }: ConnectRepoProps) {
                 onClick={() => setSelectedId(repo.id)}
                 className={cn(
                   "w-full flex items-center gap-3 px-3 py-3 rounded-md text-left transition-colors",
-                  "hover:bg-white/[0.04]",
+                  "hover:bg-muted/30",
                   selectedId === repo.id && "bg-orbit-accent/10"
                 )}
               >

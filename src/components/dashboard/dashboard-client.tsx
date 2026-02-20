@@ -183,7 +183,7 @@ export function DashboardClient({
           <Button
             variant="outline"
             size="sm"
-            className="h-7 px-3 text-xs gap-1.5 border-white/[0.08] hover:bg-white/[0.04]"
+            className="h-7 px-3 text-xs gap-1.5 border-border hover:bg-white/[0.06]"
           >
             <Plus className="h-3 w-3" />
             New Project
@@ -246,7 +246,7 @@ export function DashboardClient({
       )}
 
       <motion.div variants={fadeUp} className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-        <div className="lg:col-span-3 rounded-xl surface-1 border border-white/[0.04] p-5">
+        <div className="lg:col-span-3 rounded-xl surface-1 border border-border p-5">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-[13px] font-medium text-foreground">System Map</h2>
             <Link

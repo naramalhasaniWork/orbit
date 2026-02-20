@@ -185,7 +185,7 @@ export function ProjectDetailClient({
       {/* System Map preview + Recent Runs */}
       <motion.div variants={fadeUp} className="grid grid-cols-1 lg:grid-cols-5 gap-4">
         {/* System Map */}
-        <div className="lg:col-span-3 rounded-xl surface-1 border border-white/[0.04] p-5">
+        <div className="lg:col-span-3 rounded-xl surface-1 border border-border p-5">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-[13px] font-medium text-foreground flex items-center gap-2">
               <MapIcon className="h-3.5 w-3.5 text-muted-foreground" />
@@ -216,7 +216,7 @@ export function ProjectDetailClient({
         </div>
 
         {/* Recent Runs */}
-        <div className="lg:col-span-2 rounded-xl surface-1 border border-white/[0.04] p-4">
+        <div className="lg:col-span-2 rounded-xl surface-1 border border-border p-4">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-[13px] font-medium text-foreground">
               Recent Runs
@@ -267,11 +267,11 @@ function MiniStat({
   const content = (
     <div
       className={cn(
-        "flex items-center gap-3 p-3 rounded-xl surface-1 border border-white/[0.04]",
-        href && "hover:border-white/[0.08] transition-all duration-200 cursor-pointer"
+        "flex items-center gap-3 p-3 rounded-xl surface-1 border border-border",
+        href && "hover:border-muted-foreground/20 transition-all duration-200 cursor-pointer"
       )}
     >
-      <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-white/[0.04]">
+      <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-muted/30">
         <Icon className="h-4 w-4 text-muted-foreground" />
       </div>
       <div>
@@ -304,7 +304,7 @@ function RunRow({ run, projectId }: { run: RecentRun; projectId: string }) {
   return (
     <Link
       href={`/dashboard/runs/${run.id}?project=${projectId}`}
-      className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-white/[0.03] transition-colors"
+      className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-muted/20 transition-colors"
     >
       <StatusDot status={status} pulse={status === "running"} />
       <div className="flex-1 min-w-0">

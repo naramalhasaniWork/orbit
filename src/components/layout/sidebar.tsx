@@ -41,7 +41,7 @@ export function Sidebar() {
   const workspaceId = (session as { workspaceId?: string } | null)?.workspaceId;
 
   return (
-    <aside className="flex flex-col w-[52px] hover:w-52 transition-all duration-300 ease-in-out surface-1 border-r border-white/[0.04] group overflow-hidden">
+    <aside className="flex flex-col w-[52px] hover:w-52 transition-all duration-300 ease-in-out surface-1 border-r border-border group overflow-hidden">
       {/* Logo */}
       <div className="flex items-center h-14 px-3.5">
         <div className="flex items-center justify-center h-7 w-7 rounded-lg bg-orbit-accent/15 shrink-0 shadow-[0_0_12px_hsl(var(--orbit-accent)/0.15)]">
@@ -66,8 +66,8 @@ export function Sidebar() {
               className={cn(
                 "relative flex items-center gap-3 px-2 py-2 rounded-lg text-[13px] font-medium transition-all duration-200",
                 isActive
-                  ? "text-foreground bg-white/[0.06]"
-                  : "text-muted-foreground hover:text-foreground hover:bg-white/[0.04]"
+                  ? "text-foreground bg-orbit-accent/[0.08] border border-orbit-accent/[0.12]"
+                  : "text-muted-foreground hover:text-foreground hover:bg-white/[0.06]"
               )}
             >
               {/* Active indicator bar */}
@@ -97,7 +97,7 @@ export function Sidebar() {
             <WorkspaceSwitcher currentWorkspaceId={workspaceId} />
           </div>
         ) : (
-          <div className="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-white/[0.04] transition-colors cursor-pointer">
+          <div className="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-white/[0.06] transition-colors cursor-pointer">
             <div className="h-6 w-6 rounded-md bg-orbit-accent/15 flex items-center justify-center shrink-0">
               <span className="text-[10px] font-semibold text-orbit-accent">
                 O

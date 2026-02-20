@@ -91,7 +91,7 @@ export function SecretSettings({ projectId, secrets: initial }: SecretSettingsPr
                 placeholder="API_KEY"
                 value={newKey}
                 onChange={(e) => setNewKey(e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, ""))}
-                className="bg-white/[0.04] font-mono"
+                className="bg-muted/40 font-mono"
               />
             </div>
             <div className="space-y-1.5">
@@ -102,7 +102,7 @@ export function SecretSettings({ projectId, secrets: initial }: SecretSettingsPr
                   placeholder="secret value"
                   value={newValue}
                   onChange={(e) => setNewValue(e.target.value)}
-                  className="bg-white/[0.04] font-mono pr-9"
+                  className="bg-muted/40 font-mono pr-9"
                 />
                 <button
                   type="button"
@@ -152,7 +152,7 @@ export function SecretSettings({ projectId, secrets: initial }: SecretSettingsPr
               <Button
                 size="sm"
                 variant="ghost"
-                className="text-muted-foreground hover:text-red-400"
+                className="text-muted-foreground hover:text-destructive"
                 onClick={() => handleDelete(secret.id)}
               >
                 <Trash2 className="h-3.5 w-3.5" />

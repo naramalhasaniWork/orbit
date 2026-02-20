@@ -61,7 +61,7 @@ export function GitHubCard({ workspaceId, config, onUpdate }: GitHubCardProps) {
     <div className="rounded-xl surface-1 p-6 space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="h-9 w-9 rounded-lg bg-white/[0.06] flex items-center justify-center">
+          <div className="h-9 w-9 rounded-lg bg-muted/50 flex items-center justify-center">
             <GitBranch className="h-4.5 w-4.5 text-foreground" />
           </div>
           <div>
@@ -84,7 +84,7 @@ export function GitHubCard({ workspaceId, config, onUpdate }: GitHubCardProps) {
           {config?.installationId && (
             <div className="space-y-2">
               <Label className="text-xs text-muted-foreground">Installation ID</Label>
-              <div className="text-sm font-mono bg-white/[0.04] rounded-md px-3 py-2 border border-transparent text-foreground">
+              <div className="text-sm font-mono bg-muted/40 rounded-md px-3 py-2 border border-transparent text-foreground">
                 {config.installationId}
               </div>
             </div>
@@ -99,7 +99,7 @@ export function GitHubCard({ workspaceId, config, onUpdate }: GitHubCardProps) {
                 {config.repos.map((repo) => (
                   <div
                     key={repo}
-                    className="text-sm font-mono bg-white/[0.04] rounded-md px-3 py-2 border border-transparent text-foreground"
+                    className="text-sm font-mono bg-muted/40 rounded-md px-3 py-2 border border-transparent text-foreground"
                   >
                     {repo}
                   </div>
@@ -111,7 +111,7 @@ export function GitHubCard({ workspaceId, config, onUpdate }: GitHubCardProps) {
           <div className="space-y-2">
             <Label className="text-xs text-muted-foreground">Webhook URL</Label>
             <div className="flex gap-2">
-              <div className="flex-1 text-sm font-mono bg-white/[0.04] rounded-md px-3 py-2 border border-transparent text-muted-foreground truncate">
+              <div className="flex-1 text-sm font-mono bg-muted/40 rounded-md px-3 py-2 border border-transparent text-muted-foreground truncate">
                 {webhookUrl}
               </div>
               <Button size="sm" variant="outline" className="shrink-0" onClick={copyWebhookUrl}>

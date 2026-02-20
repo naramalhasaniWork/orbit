@@ -24,7 +24,7 @@ interface CoverageMapProps {
 const statusColors: Record<string, string> = {
   covered: "bg-orbit-pass/60 hover:bg-orbit-pass/80",
   partial: "bg-orbit-flaky/50 hover:bg-orbit-flaky/70",
-  none: "bg-white/[0.06] hover:bg-white/[0.12]",
+  none: "bg-muted/40 hover:bg-muted/70",
 };
 
 const statusLabels: Record<string, string> = {
@@ -56,7 +56,7 @@ export function CoverageMap({ nodes }: CoverageMapProps) {
             Partial ({partial})
           </span>
           <span className="flex items-center gap-1.5">
-            <span className="h-2 w-2 rounded-sm bg-white/[0.06]" />
+            <span className="h-2 w-2 rounded-sm bg-muted/40" />
             None ({none})
           </span>
         </div>

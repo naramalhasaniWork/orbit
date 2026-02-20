@@ -55,7 +55,7 @@ export function TestCaseCard({ testCase, projectId }: TestCaseCardProps) {
   return (
     <div
       className={cn(
-        "rounded-lg bg-white/[0.03] transition-colors",
+        "rounded-lg bg-muted/20 transition-colors",
         !enabled && "opacity-50"
       )}
     >
@@ -159,7 +159,7 @@ function ExpandedDetails({
   const parsedEdgeCases = Array.isArray(edgeCases) ? (edgeCases as string[]) : [];
 
   return (
-    <div className="px-4 pb-3 pt-1 border-t border-white/[0.04] space-y-3">
+    <div className="px-4 pb-3 pt-1 border-t border-border space-y-3">
       {rationale && (
         <div>
           <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">

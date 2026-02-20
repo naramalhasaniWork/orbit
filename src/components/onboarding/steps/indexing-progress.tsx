@@ -179,8 +179,8 @@ export function IndexingProgress({ repo, projectId, onComplete }: IndexingProgre
           </div>
         </div>
 
-        <div className="flex-1 rounded-lg surface-1 border border-white/[0.04] overflow-hidden">
-          <div className="px-3 py-2 border-b border-white/[0.04]">
+        <div className="flex-1 rounded-lg surface-1 border border-border overflow-hidden">
+          <div className="px-3 py-2 border-b border-border">
             <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
               Output
             </span>

@@ -86,7 +86,7 @@ export function ProjectsListClient({ projects }: ProjectsListClientProps) {
           <Button
             variant="outline"
             size="sm"
-            className="h-7 px-3 text-xs gap-1.5 border-white/[0.08] hover:bg-white/[0.04]"
+            className="h-7 px-3 text-xs gap-1.5 border-border hover:bg-muted/30"
           >
             <Plus className="h-3 w-3" />
             Add Project
@@ -107,7 +107,7 @@ function ProjectRow({ project }: { project: ProjectSummary }) {
   return (
     <Link
       href={`/dashboard/projects/${project.id}`}
-      className="flex items-center gap-4 p-4 rounded-xl surface-1 border border-white/[0.04] hover:border-white/[0.08] transition-all duration-200"
+      className="flex items-center gap-4 p-4 rounded-xl surface-1 border border-border hover:border-muted-foreground/20 transition-all duration-200"
     >
       <StatusDot status={healthDot[project.healthStatus] ?? "untested"} />
 

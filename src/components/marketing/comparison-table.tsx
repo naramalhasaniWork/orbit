@@ -17,7 +17,7 @@ interface ComparisonContent {
 function ScoreCell({ value, highlight }: { value: boolean; highlight: boolean }) {
   if (value) {
     return (
-      <div className={`flex items-center justify-center ${highlight ? "text-orbit-pass" : "text-orbit-pass/60"}`}>
+      <div className={`flex items-center justify-center ${highlight ? "text-orbit-accent" : "text-muted-foreground"}`}>
         <Check className="h-4 w-4" />
       </div>
     );

@@ -118,7 +118,7 @@ export function WorkspaceDetailClient({
             <span className="text-sm text-muted-foreground">
               {workspace.slug}
             </span>
-            <Badge className="text-[10px] border capitalize bg-white/[0.06] text-muted-foreground border-white/[0.1]">
+            <Badge className="text-[10px] border capitalize bg-muted/50 text-muted-foreground border-border">
               {workspace.plan}
             </Badge>
           </div>
@@ -162,10 +162,10 @@ export function WorkspaceDetailClient({
       {/* Members */}
       <div className="space-y-3">
         <h2 className="text-sm font-medium text-muted-foreground">Members</h2>
-        <div className="rounded-lg border border-white/[0.06] overflow-hidden">
+        <div className="rounded-lg border border-border overflow-hidden">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-white/[0.06] bg-white/[0.02]">
+              <tr className="border-b border-border bg-muted/30">
                 <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">
                   User
                 </th>
@@ -181,7 +181,7 @@ export function WorkspaceDetailClient({
               {members.map((m) => (
                 <tr
                   key={m.id}
-                  className="border-b border-white/[0.03] hover:bg-white/[0.02]"
+                  className="border-b border-border/50 hover:bg-muted/30"
                 >
                   <td className="px-4 py-3">
                     <div>
@@ -194,7 +194,7 @@ export function WorkspaceDetailClient({
                     </div>
                   </td>
                   <td className="px-4 py-3">
-                    <Badge className="text-[10px] border capitalize bg-white/[0.06] text-muted-foreground border-white/[0.1]">
+                    <Badge className="text-[10px] border capitalize bg-muted/50 text-muted-foreground border-border">
                       {m.role}
                     </Badge>
                   </td>
@@ -204,7 +204,7 @@ export function WorkspaceDetailClient({
                         "text-[10px] border capitalize",
                         m.user.platformRole === "super_admin"
                           ? "bg-red-500/15 text-red-400 border-red-500/20"
-                          : "bg-white/[0.06] text-muted-foreground border-white/[0.1]"
+                          : "bg-muted/50 text-muted-foreground border-border"
                       )}
                     >
                       {m.user.platformRole}
@@ -220,10 +220,10 @@ export function WorkspaceDetailClient({
       {/* Projects */}
       <div className="space-y-3">
         <h2 className="text-sm font-medium text-muted-foreground">Projects</h2>
-        <div className="rounded-lg border border-white/[0.06] overflow-hidden">
+        <div className="rounded-lg border border-border overflow-hidden">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-white/[0.06] bg-white/[0.02]">
+              <tr className="border-b border-border bg-muted/30">
                 <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">
                   Project
                 </th>
@@ -248,7 +248,7 @@ export function WorkspaceDetailClient({
               {projects.map((p) => (
                 <tr
                   key={p.id}
-                  className="border-b border-white/[0.03] hover:bg-white/[0.02]"
+                  className="border-b border-border/50 hover:bg-muted/30"
                 >
                   <td className="px-4 py-3">
                     <p className="font-medium">{p.name}</p>
@@ -305,10 +305,10 @@ export function WorkspaceDetailClient({
         <h2 className="text-sm font-medium text-muted-foreground">
           Recent Runs
         </h2>
-        <div className="rounded-lg border border-white/[0.06] overflow-hidden">
+        <div className="rounded-lg border border-border overflow-hidden">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-white/[0.06] bg-white/[0.02]">
+              <tr className="border-b border-border bg-muted/30">
                 <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">
                   Status
                 </th>
@@ -330,7 +330,7 @@ export function WorkspaceDetailClient({
               {recentRuns.map((r) => (
                 <tr
                   key={r.id}
-                  className="border-b border-white/[0.03] hover:bg-white/[0.02]"
+                  className="border-b border-border/50 hover:bg-muted/30"
                 >
                   <td className="px-4 py-3">
                     <Badge

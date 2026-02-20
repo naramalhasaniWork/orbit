@@ -5,8 +5,11 @@ import { motion } from "framer-motion";
 
 export function CtaSection() {
   return (
-    <section className="py-32 lg:py-40 border-t border-white/[0.04]">
-      <div className="mx-auto max-w-5xl px-6">
+    <section className="py-32 lg:py-40 border-t border-white/[0.04] relative overflow-hidden">
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[300px] bg-primary/[0.04] rounded-full blur-[100px]" />
+      </div>
+      <div className="relative mx-auto max-w-5xl px-6">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}

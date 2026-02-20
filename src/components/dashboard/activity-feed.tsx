@@ -132,7 +132,7 @@ export function ActivityFeed({
   return (
     <div
       className={cn(
-        "rounded-xl surface-1 border border-white/[0.04] h-full flex flex-col",
+        "rounded-xl surface-1 border border-border h-full flex flex-col",
         className
       )}
     >
@@ -145,7 +145,7 @@ export function ActivityFeed({
             className={cn(
               "px-2 py-0.5 rounded text-[10px] transition-colors",
               !filter
-                ? "bg-white/[0.08] text-foreground"
+                ? "bg-orbit-accent/10 text-orbit-accent"
                 : "text-muted-foreground hover:text-foreground"
             )}
           >
@@ -192,14 +192,14 @@ export function ActivityFeed({
                   animate="visible"
                   exit="hidden"
                   layout
-                  className="flex gap-3 py-2.5 border-b border-white/[0.03] last:border-0"
+                  className="flex gap-3 py-2.5 border-b border-border/50 last:border-0"
                 >
                   {/* Timeline line + icon */}
                   <div className="flex flex-col items-center pt-0.5">
                     <div
                       className={cn(
                         "flex items-center justify-center h-6 w-6 rounded-md",
-                        "bg-white/[0.04]"
+                        "bg-white/[0.06]"
                       )}
                     >
                       <Icon className={cn("h-3.5 w-3.5", config.color)} />
@@ -221,7 +221,7 @@ export function ActivityFeed({
                         {Object.entries(event.metadata).map(([key, val]) => (
                           <span
                             key={key}
-                            className="text-[10px] px-1.5 py-0.5 rounded bg-white/[0.04] text-muted-foreground"
+                            className="text-[10px] px-1.5 py-0.5 rounded bg-white/[0.06] text-muted-foreground"
                           >
                             {key}: {val}
                           </span>

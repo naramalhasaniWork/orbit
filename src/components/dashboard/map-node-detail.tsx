@@ -43,7 +43,7 @@ export function MapNodeDetail({
       initial={{ opacity: 0, x: 12 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ duration: 0.2, ease: "easeOut" }}
-      className="w-72 surface-1 border-l border-white/[0.04] flex flex-col h-full"
+      className="w-72 surface-1 border-l border-border flex flex-col h-full"
     >
       {/* Header */}
       <div className="flex items-start justify-between p-4">

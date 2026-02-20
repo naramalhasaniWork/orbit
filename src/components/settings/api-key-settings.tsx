@@ -124,7 +124,7 @@ export function ApiKeySettings({ workspaceId }: ApiKeySettingsProps) {
             API key created -- copy it now, it won&apos;t be shown again.
           </p>
           <div className="flex gap-2">
-            <div className="flex-1 text-sm font-mono bg-white/[0.04] rounded-md px-3 py-2 border border-transparent text-foreground break-all">
+            <div className="flex-1 text-sm font-mono bg-muted/40 rounded-md px-3 py-2 border border-transparent text-foreground break-all">
               {newKeyValue}
             </div>
             <Button size="sm" variant="outline" className="shrink-0" onClick={copyKey}>
@@ -145,7 +145,7 @@ export function ApiKeySettings({ workspaceId }: ApiKeySettingsProps) {
               placeholder="CI/CD Pipeline"
               value={newKeyName}
               onChange={(e) => setNewKeyName(e.target.value)}
-              className="bg-white/[0.04]"
+              className="bg-muted/40"
             />
           </div>
           <div className="flex gap-2">
@@ -167,7 +167,7 @@ export function ApiKeySettings({ workspaceId }: ApiKeySettingsProps) {
       <div className="space-y-2">
         {loading ? (
           <div className="rounded-xl surface-1 p-8 text-center animate-pulse">
-            <div className="h-4 w-32 bg-white/[0.06] rounded mx-auto" />
+            <div className="h-4 w-32 bg-muted/50 rounded mx-auto" />
           </div>
         ) : keys.length === 0 ? (
           <div className="rounded-xl surface-1 p-8 text-center">

@@ -94,7 +94,7 @@ export function MemberList({
             key={member.id}
             className={cn(
               "flex items-center justify-between px-4 py-3 rounded-lg",
-              "hover:bg-white/[0.02] transition-colors",
+              "hover:bg-muted/30 transition-colors",
               loadingId === member.id && "opacity-50 pointer-events-none"
             )}
           >
@@ -105,10 +105,10 @@ export function MemberList({
                   alt=""
                   width={32}
                   height={32}
-                  className="rounded-full ring-1 ring-white/10"
+                  className="rounded-full ring-1 ring-border"
                 />
               ) : (
-                <div className="h-8 w-8 rounded-full bg-white/[0.06] flex items-center justify-center shrink-0">
+                <div className="h-8 w-8 rounded-full bg-muted/50 flex items-center justify-center shrink-0">
                   <span className="text-xs font-medium text-muted-foreground">
                     {member.user.name?.charAt(0)?.toUpperCase() ?? "U"}
                   </span>

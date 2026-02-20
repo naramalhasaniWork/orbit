@@ -100,7 +100,7 @@ export function PricingSelector({ currentTier, onSelectTier }: PricingSelectorPr
           className={cn(
             "px-4 py-1.5 rounded-lg text-sm font-medium transition-colors",
             billing === "monthly"
-              ? "bg-white/10 text-foreground"
+              ? "bg-muted/60 text-foreground"
               : "text-muted-foreground hover:text-foreground"
           )}
         >
@@ -111,7 +111,7 @@ export function PricingSelector({ currentTier, onSelectTier }: PricingSelectorPr
           className={cn(
             "px-4 py-1.5 rounded-lg text-sm font-medium transition-colors",
             billing === "annual"
-              ? "bg-white/10 text-foreground"
+              ? "bg-muted/60 text-foreground"
               : "text-muted-foreground hover:text-foreground"
           )}
         >
@@ -133,7 +133,7 @@ export function PricingSelector({ currentTier, onSelectTier }: PricingSelectorPr
                 "rounded-xl border p-5 flex flex-col",
                 tier.highlight
                   ? "border-orbit-accent/40 bg-orbit-accent/[0.03]"
-                  : "border-white/[0.06] bg-white/[0.02]",
+                  : "border-border bg-muted/30",
                 isCurrent && "ring-1 ring-orbit-accent/30"
               )}
             >
@@ -174,12 +174,12 @@ export function PricingSelector({ currentTier, onSelectTier }: PricingSelectorPr
                 className={cn(
                   "flex items-center justify-center gap-2 w-full py-2 rounded-lg text-sm font-medium transition-colors",
                   isCurrent
-                    ? "bg-white/5 text-muted-foreground cursor-default"
+                    ? "bg-muted/40 text-muted-foreground cursor-default"
                     : tier.key === "free"
-                      ? "bg-white/5 text-muted-foreground cursor-default"
+                      ? "bg-muted/40 text-muted-foreground cursor-default"
                       : tier.highlight
                         ? "bg-orbit-accent text-white hover:bg-orbit-accent/90"
-                        : "bg-white/10 text-foreground hover:bg-white/15",
+                        : "bg-muted/60 text-foreground hover:bg-muted/70",
                   loading === tier.key && "opacity-70"
                 )}
               >

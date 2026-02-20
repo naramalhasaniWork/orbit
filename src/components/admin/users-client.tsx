@@ -39,7 +39,7 @@ interface UsersClientProps {
 }
 
 const roleColors: Record<string, string> = {
-  user: "bg-white/[0.06] text-muted-foreground border-white/[0.1]",
+  user: "bg-muted/50 text-muted-foreground border-border",
   admin: "bg-blue-500/15 text-blue-400 border-blue-500/20",
   super_admin: "bg-red-500/15 text-red-400 border-red-500/20",
 };
@@ -83,7 +83,7 @@ export function UsersClient({ users, total }: UsersClientProps) {
               className="h-7 w-7 rounded-full"
             />
           ) : (
-            <div className="h-7 w-7 rounded-full bg-white/[0.06] flex items-center justify-center">
+            <div className="h-7 w-7 rounded-full bg-muted/50 flex items-center justify-center">
               <span className="text-[10px] font-semibold text-muted-foreground">
                 {(row.name ?? row.email)[0]?.toUpperCase()}
               </span>
@@ -123,7 +123,7 @@ export function UsersClient({ users, total }: UsersClientProps) {
           {row.workspaces.slice(0, 2).map((ws) => (
             <span
               key={ws.id}
-              className="text-xs px-1.5 py-0.5 rounded bg-white/[0.04] text-muted-foreground"
+              className="text-xs px-1.5 py-0.5 rounded bg-muted/40 text-muted-foreground"
             >
               {ws.name}
             </span>

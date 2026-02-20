@@ -8,7 +8,6 @@ import {
 } from "@/lib/utils/api";
 import { requirePermission } from "@/lib/auth/rbac";
 import { TIER_LIMITS, type WorkspaceTier } from "@/lib/auth/tenant";
-import { getExecutionQueue } from "@/lib/queue/queues";
 import { getDefaultEnvironment } from "@/services/execution/environment-validator";
 import { emitRunStarted } from "@/lib/websocket";
 
@@ -195,27 +194,15 @@ export async function POST(
       },
     });
 
-    // Queue execution jobs
-    const testCases = await prisma.testCase.findMany({
+    // Count test cases for the response
+    const testCaseCount = await prisma.testCase.count({
       where: { testPlanId, isEnabled: true },
-      select: { id: true },
     });
 
-    // Update total test count
     await prisma.testRun.update({
       where: { id: run.id },
-      data: { totalTests: testCases.length, startedAt: new Date() },
+      data: { totalTests: testCaseCount },
     });
-
-    const queue = getExecutionQueue();
-    for (const tc of testCases) {
-      await queue.add(`exec-${run.id}-${tc.id}`, {
-        runId: run.id,
-        testCaseId: tc.id,
-        environmentUrl: environment.url,
-        environmentId,
-      });
-    }
 
     // Emit run started WebSocket event
     await emitRunStarted(run.id, {
@@ -223,10 +210,20 @@ export async function POST(
       projectId,
       mode: body.mode ?? "full",
       trigger: "manual",
-      totalTests: testCases.length,
+      totalTests: testCaseCount,
     });
 
-    return apiSuccess({ ...run, totalTests: testCases.length }, 201);
+    // Enqueue a single run execution job (unified path with orchestrator)
+    const { getExecutionQueue } = await import("@/lib/queue/queues");
+    const queue = getExecutionQueue();
+    await queue.add(`run-${run.id}`, {
+      runId: run.id,
+      testCaseId: "__full_run__",
+      environmentUrl: environment.url,
+      environmentId,
+    });
+
+    return apiSuccess({ ...run, totalTests: testCaseCount }, 201);
   } catch (error) {
     return handleApiError(error);
   }

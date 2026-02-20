@@ -155,7 +155,7 @@ export function TeamManagement({
             Team Members ({members.length})
           </h3>
         </div>
-        <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] overflow-hidden">
+        <div className="rounded-xl border border-border bg-muted/30 overflow-hidden">
           <MemberList
             members={members}
             currentUserId={currentUserId}
@@ -176,7 +176,7 @@ export function TeamManagement({
               Invite Members
             </h3>
           </div>
-          <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+          <div className="rounded-xl border border-border bg-muted/30 p-4">
             <InviteForm
               workspaceId={workspaceId}
               invitations={invitations}

@@ -159,7 +159,7 @@ export function MapPreview({ projectId, onContinue, onBack }: MapPreviewProps) {
                   {items.slice(0, 20).map((item) => (
                     <div
                       key={item.id}
-                      className="flex items-center gap-3 px-3 py-1.5 rounded text-sm hover:bg-white/[0.04] transition-colors"
+                      className="flex items-center gap-3 px-3 py-1.5 rounded text-sm hover:bg-muted/30 transition-colors"
                     >
                       <span className="font-mono text-foreground">{item.name}</span>
                       <span className="text-xs text-muted-foreground/60 truncate ml-auto">

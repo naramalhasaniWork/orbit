@@ -26,7 +26,7 @@ export function FeatureFlagToggle({
         "flex items-center justify-between p-4 rounded-lg border transition-colors",
         enabled
           ? "border-orbit-accent/20 bg-orbit-accent/5"
-          : "border-white/[0.06] bg-white/[0.02]"
+          : "border-border bg-muted/30"
       )}
     >
       <div className="space-y-0.5">

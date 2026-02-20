@@ -116,7 +116,7 @@ export function AnalyticsClient({
         <h2 className="text-sm font-medium text-muted-foreground">
           Runs Per Day
         </h2>
-        <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5">
+        <div className="rounded-xl border border-border bg-muted/30 p-5">
           {dailyRunStats.length > 0 ? (
             <div className="space-y-4">
               <MiniBarChart
@@ -143,7 +143,7 @@ export function AnalyticsClient({
           <h2 className="text-sm font-medium text-muted-foreground">
             Passed Tests Per Day
           </h2>
-          <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5">
+          <div className="rounded-xl border border-border bg-muted/30 p-5">
             {passedCounts.length > 0 ? (
               <MiniBarChart
                 data={passedCounts}
@@ -159,7 +159,7 @@ export function AnalyticsClient({
           <h2 className="text-sm font-medium text-muted-foreground">
             Failed Tests Per Day
           </h2>
-          <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5">
+          <div className="rounded-xl border border-border bg-muted/30 p-5">
             {failedCounts.length > 0 ? (
               <MiniBarChart
                 data={failedCounts}
@@ -178,7 +178,7 @@ export function AnalyticsClient({
         <h2 className="text-sm font-medium text-muted-foreground">
           Credit Consumption
         </h2>
-        <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5">
+        <div className="rounded-xl border border-border bg-muted/30 p-5">
           {creditCounts.length > 0 ? (
             <div className="space-y-4">
               <MiniBarChart
@@ -203,7 +203,7 @@ export function AnalyticsClient({
           <h2 className="text-sm font-medium text-muted-foreground">
             New Users Per Day
           </h2>
-          <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5">
+          <div className="rounded-xl border border-border bg-muted/30 p-5">
             {userGrowth.length > 0 ? (
               <MiniBarChart
                 data={userGrowth.map((d) => d.count)}
@@ -219,7 +219,7 @@ export function AnalyticsClient({
           <h2 className="text-sm font-medium text-muted-foreground">
             New Workspaces Per Day
           </h2>
-          <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5">
+          <div className="rounded-xl border border-border bg-muted/30 p-5">
             {workspaceGrowth.length > 0 ? (
               <MiniBarChart
                 data={workspaceGrowth.map((d) => d.count)}
@@ -238,11 +238,11 @@ export function AnalyticsClient({
         <h2 className="text-sm font-medium text-muted-foreground">
           Daily Breakdown
         </h2>
-        <div className="rounded-lg border border-white/[0.06] overflow-hidden">
+        <div className="rounded-lg border border-border overflow-hidden">
           <div className="max-h-[400px] overflow-auto">
             <table className="w-full text-sm">
               <thead className="sticky top-0">
-                <tr className="border-b border-white/[0.06] bg-white/[0.02]">
+                <tr className="border-b border-border bg-muted/30">
                   <th className="px-4 py-3 text-left text-xs font-medium text-muted-foreground">
                     Date
                   </th>
@@ -264,7 +264,7 @@ export function AnalyticsClient({
                 {[...dailyRunStats].reverse().map((day) => (
                   <tr
                     key={day.date}
-                    className="border-b border-white/[0.03] hover:bg-white/[0.02]"
+                    className="border-b border-border/50 hover:bg-muted/30"
                   >
                     <td className="px-4 py-2.5 font-medium">{day.date}</td>
                     <td className="px-4 py-2.5 text-right text-muted-foreground">

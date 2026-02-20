@@ -48,7 +48,7 @@ export function HowItWorks() {
               viewport={{ once: true, margin: "-50px" }}
               transition={{ duration: 0.5, delay: i * 0.1 }}
             >
-              <span className="text-5xl font-bold text-white/[0.06] block mb-4 select-none">
+              <span className="text-5xl font-bold text-primary/[0.12] block mb-4 select-none">
                 {step.number}
               </span>
               <h3 className="text-lg font-semibold mb-2">{step.title}</h3>

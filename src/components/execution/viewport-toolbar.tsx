@@ -40,7 +40,7 @@ export function ViewportToolbar({
   status,
 }: ViewportToolbarProps) {
   return (
-    <div className="flex items-center gap-2 px-3 py-2 border-b border-white/[0.04] bg-white/[0.02]">
+    <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-muted/20">
       {/* Connection indicator */}
       <div
         className={cn(

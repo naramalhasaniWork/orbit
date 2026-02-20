@@ -94,7 +94,7 @@ export function EnvironmentSettings({ projectId, environments: initial }: Enviro
                 placeholder="Staging"
                 value={newEnv.name}
                 onChange={(e) => setNewEnv({ ...newEnv, name: e.target.value })}
-                className="bg-white/[0.04]"
+                className="bg-muted/40"
               />
             </div>
             <div className="space-y-1.5">
@@ -102,7 +102,7 @@ export function EnvironmentSettings({ projectId, environments: initial }: Enviro
               <select
                 value={newEnv.type}
                 onChange={(e) => setNewEnv({ ...newEnv, type: e.target.value })}
-                className="w-full h-9 rounded-md border border-transparent bg-white/[0.04] px-3 text-sm focus:border-orbit-accent/30 focus:outline-none"
+                className="w-full h-9 rounded-md border border-transparent bg-muted/40 px-3 text-sm focus:border-orbit-accent/30 focus:outline-none"
               >
                 <option value="staging">Staging</option>
                 <option value="preview">Preview</option>
@@ -116,7 +116,7 @@ export function EnvironmentSettings({ projectId, environments: initial }: Enviro
                 placeholder="https://staging.example.com"
                 value={newEnv.url}
                 onChange={(e) => setNewEnv({ ...newEnv, url: e.target.value })}
-                className="bg-white/[0.04]"
+                className="bg-muted/40"
               />
             </div>
           </div>

@@ -229,7 +229,7 @@ export function PlanPreview({ projectId, onContinue, onBack }: PlanPreviewProps)
                       key={test.id}
                       className={cn(
                         "flex items-center gap-3 px-3 py-2 rounded-md transition-colors",
-                        test.isEnabled ? "hover:bg-white/[0.04]" : "opacity-40"
+                        test.isEnabled ? "hover:bg-muted/30" : "opacity-40"
                       )}
                     >
                       <div className={cn("flex items-center justify-center h-5 w-5 rounded", pc.bg)}>

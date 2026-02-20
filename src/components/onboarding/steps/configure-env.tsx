@@ -139,7 +139,7 @@ export function ConfigureEnv({ projectId, onContinue, onSkip, onBack }: Configur
                   "flex-1 px-3 py-2 rounded-md text-xs font-medium border transition-colors",
                   authMethod === method
                     ? "border-orbit-accent bg-orbit-accent/10 text-orbit-accent"
-                    : "border-transparent bg-white/[0.04] text-muted-foreground hover:bg-white/[0.06]"
+                    : "border-transparent bg-muted/30 text-muted-foreground hover:bg-muted/40"
                 )}
               >
                 {method === "none" && "None"}

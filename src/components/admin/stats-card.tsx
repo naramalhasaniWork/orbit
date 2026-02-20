@@ -11,14 +11,14 @@ interface StatsCardProps {
 }
 
 const variantStyles = {
-  default: "bg-white/[0.03] border-white/[0.06]",
+  default: "bg-muted/30 border-border",
   accent: "bg-orbit-accent/5 border-orbit-accent/10",
   warning: "bg-amber-500/5 border-amber-500/10",
   danger: "bg-red-500/5 border-red-500/10",
 };
 
 const iconVariants = {
-  default: "bg-white/[0.06] text-muted-foreground",
+  default: "bg-muted/50 text-muted-foreground",
   accent: "bg-orbit-accent/15 text-orbit-accent",
   warning: "bg-amber-500/15 text-amber-400",
   danger: "bg-red-500/15 text-red-400",

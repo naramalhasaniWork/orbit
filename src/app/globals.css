@@ -5,24 +5,24 @@
 @layer base {
   :root {
     --background: 0 0% 100%;
-    --foreground: 236 22% 10%;
+    --foreground: 230 25% 10%;
     --card: 0 0% 100%;
-    --card-foreground: 236 22% 10%;
+    --card-foreground: 230 25% 10%;
     --popover: 0 0% 100%;
-    --popover-foreground: 236 22% 10%;
-    --primary: 353 87% 54%;
+    --popover-foreground: 230 25% 10%;
+    --primary: 24 100% 50%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 219 16% 95%;
-    --secondary-foreground: 236 22% 10%;
-    --muted: 219 16% 95%;
+    --secondary: 24 10% 95%;
+    --secondary-foreground: 230 25% 10%;
+    --muted: 24 8% 94%;
     --muted-foreground: 219 16% 46%;
-    --accent: 219 16% 95%;
-    --accent-foreground: 236 22% 10%;
+    --accent: 24 10% 95%;
+    --accent-foreground: 230 25% 10%;
     --destructive: 346 100% 42%;
     --destructive-foreground: 0 0% 98%;
     --border: 219 16% 90%;
     --input: 219 16% 90%;
-    --ring: 353 87% 54%;
+    --ring: 24 100% 50%;
     --radius: 0.5rem;
 
     --orbit-surface-0: 0 0% 100%;
@@ -30,7 +30,7 @@
     --orbit-surface-2: 219 16% 95%;
     --orbit-surface-3: 219 16% 92%;
     --orbit-surface-4: 219 16% 88%;
-    --orbit-glow: 353 87% 54%;
+    --orbit-glow: 24 100% 50%;
     --orbit-success: 160 84% 39%;
     --orbit-warning: 38 92% 50%;
     --orbit-error: 346 100% 42%;
@@ -39,49 +39,49 @@
     --orbit-fail: 0 72% 51%;
     --orbit-flaky: 38 92% 50%;
     --orbit-untested: 219 16% 46%;
-    --orbit-accent: 353 87% 54%;
+    --orbit-accent: 24 100% 50%;
     --orbit-amber: 36 96% 53%;
   }
 
   /* ═══════════════════════════════════════════════════
      ORBIT MISSION CONTROL — Dark Theme
-     Deep Space Indigo surfaces with Punch Red primary
-     and solar amber accents. Data-dense but calm.
+     Dark Slate surfaces with FF6000 Orbit Orange accents
+     and solar amber highlights. Data-dense but calm.
      ═══════════════════════════════════════════════════ */
   .dark {
     /* Core semantic tokens */
-    --background: 236 32% 4%;
-    --foreground: 200 27% 94%;
-    --card: 236 26% 7%;
-    --card-foreground: 200 27% 94%;
-    --popover: 236 28% 8.5%;
-    --popover-foreground: 200 27% 94%;
-    --primary: 353 87% 54%;
+    --background: 230 25% 5%;
+    --foreground: 210 20% 95%;
+    --card: 230 22% 8%;
+    --card-foreground: 210 20% 95%;
+    --popover: 230 22% 8%;
+    --popover-foreground: 210 20% 95%;
+    --primary: 24 100% 50%;
     --primary-foreground: 0 0% 100%;
-    --secondary: 236 22% 12%;
-    --secondary-foreground: 200 27% 88%;
-    --muted: 236 18% 14%;
-    --muted-foreground: 219 16% 50%;
-    --accent: 236 18% 16%;
-    --accent-foreground: 200 27% 94%;
+    --secondary: 230 20% 12%;
+    --secondary-foreground: 210 20% 88%;
+    --muted: 230 16% 14%;
+    --muted-foreground: 215 15% 55%;
+    --accent: 230 16% 16%;
+    --accent-foreground: 210 20% 95%;
     --destructive: 346 100% 42%;
     --destructive-foreground: 0 0% 98%;
-    --border: 236 16% 13%;
-    --input: 236 16% 15%;
-    --ring: 353 87% 54%;
+    --border: 230 14% 16%;
+    --input: 230 14% 18%;
+    --ring: 24 100% 50%;
 
-    /* 5-level surface system — Space Indigo tinted, not gray */
-    --orbit-surface-0: 236 32% 4%;
-    --orbit-surface-1: 236 26% 7%;
-    --orbit-surface-2: 236 22% 10%;
-    --orbit-surface-3: 236 20% 13.5%;
-    --orbit-surface-4: 236 18% 17%;
-    --surface: 236 22% 10%;
+    /* 5-level surface system — Dark Slate, warm neutral */
+    --orbit-surface-0: 230 25% 5%;
+    --orbit-surface-1: 230 22% 8%;
+    --orbit-surface-2: 230 18% 11%;
+    --orbit-surface-3: 228 16% 15%;
+    --orbit-surface-4: 226 14% 19%;
+    --surface: 230 18% 11%;
 
     /* Primary glow for interactive focus states */
-    --orbit-glow: 353 87% 54%;
+    --orbit-glow: 24 100% 50%;
 
-    /* Semantic status colors — harmonized with Space Indigo base */
+    /* Semantic status colors — harmonized with Dark Slate base */
     --orbit-success: 160 84% 39%;
     --orbit-warning: 36 96% 53%;
     --orbit-error: 346 100% 42%;
@@ -93,8 +93,8 @@
     --orbit-flaky: 36 96% 53%;
     --orbit-untested: 219 16% 36%;
 
-    /* Brand accent — Punch Red (same as primary) */
-    --orbit-accent: 353 87% 54%;
+    /* Brand accent — Orbit Orange FF6000 (same as primary) */
+    --orbit-accent: 24 100% 50%;
 
     /* Solar amber — warm CTA / highlight color */
     --orbit-amber: 36 96% 53%;
@@ -125,7 +125,7 @@
 
   /* Selection styling */
   .dark ::selection {
-    background: hsl(353 87% 54% / 0.25);
+    background: hsl(24 100% 50% / 0.25);
   }
 }
 
@@ -162,11 +162,11 @@
     background: transparent;
   }
   .dark ::-webkit-scrollbar-thumb {
-    background: hsl(236 18% 20%);
+    background: hsl(230 16% 20%);
     border-radius: 3px;
   }
   .dark ::-webkit-scrollbar-thumb:hover {
-    background: hsl(236 18% 28%);
+    background: hsl(230 16% 28%);
   }
 }
 

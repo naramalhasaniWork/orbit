@@ -63,17 +63,17 @@ export function DataTable<T>({
             value={localSearch}
             onChange={(e) => handleSearch(e.target.value)}
             placeholder={searchPlaceholder}
-            className="pl-9 bg-white/[0.03] border-white/[0.06]"
+            className="pl-9 bg-muted/30 border-border"
           />
         </div>
       )}
 
       {/* Table */}
-      <div className="rounded-lg border border-white/[0.06] overflow-hidden">
+      <div className="rounded-lg border border-border overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-white/[0.06] bg-white/[0.02]">
+              <tr className="border-b border-border bg-muted/30">
                 {columns.map((col) => (
                   <th
                     key={col.key}
@@ -117,7 +117,7 @@ export function DataTable<T>({
                   <tr
                     key={i}
                     className={cn(
-                      "border-b border-white/[0.03] hover:bg-white/[0.02] transition-colors",
+                      "border-b border-border/50 hover:bg-muted/30 transition-colors",
                       onRowClick && "cursor-pointer"
                     )}
                     onClick={() => onRowClick?.(row)}

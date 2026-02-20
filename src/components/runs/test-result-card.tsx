@@ -52,12 +52,12 @@ export function TestResultCard({ result, projectId, runId }: TestResultCardProps
 
   return (
     <div className={cn(
-      "rounded-xl surface-1 border border-white/[0.04] overflow-hidden transition-colors",
+      "rounded-xl surface-1 border border-border overflow-hidden transition-colors",
       result.verdict === "fail" && "border-orbit-fail/20"
     )}>
       <button
         onClick={() => setExpanded(!expanded)}
-        className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-white/[0.03] transition-colors text-left"
+        className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-muted/20 transition-colors text-left"
       >
         {hasDetails && (
           <ChevronRight
@@ -131,7 +131,7 @@ export function TestResultCard({ result, projectId, runId }: TestResultCardProps
             transition={{ duration: 0.2, ease: "easeInOut" }}
             className="overflow-hidden"
           >
-            <div className="px-4 pb-4 pt-1 border-t border-white/[0.04] space-y-4">
+            <div className="px-4 pb-4 pt-1 border-t border-border space-y-4">
               <StepLog steps={result.steps} />
 
               {(result.failureExplanation || result.suggestedFix) && (
@@ -169,7 +169,7 @@ function ScreenshotThumbs({ urls }: { urls: string[] }) {
             href={url}
             target="_blank"
             rel="noopener noreferrer"
-            className="block h-16 w-24 rounded-md bg-white/[0.04] border border-white/[0.06] overflow-hidden hover:border-orbit-accent/40 transition-colors"
+            className="block h-16 w-24 rounded-md bg-muted/30 border border-border overflow-hidden hover:border-orbit-accent/40 transition-colors"
           >
             <div className="h-full w-full flex items-center justify-center text-muted-foreground">
               <ImageIcon className="h-4 w-4" />

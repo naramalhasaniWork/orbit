@@ -112,7 +112,7 @@ function FilterGroup({
             "text-xs px-2 py-1 rounded-md transition-colors",
             selected === opt.value
               ? "bg-orbit-accent/15 text-orbit-accent"
-              : "text-muted-foreground hover:text-foreground hover:bg-white/[0.04]"
+              : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
           )}
         >
           {opt.label}

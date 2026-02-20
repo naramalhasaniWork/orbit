@@ -49,10 +49,10 @@ export function PlanRow({ plan, stats, isExpanded, onToggle, projectId }: PlanRo
   }
 
   return (
-    <div className="rounded-xl surface-1 border border-white/[0.04] overflow-hidden">
+    <div className="rounded-xl surface-1 border border-border overflow-hidden">
       <button
         onClick={onToggle}
-        className="w-full flex items-center gap-4 px-5 py-4 hover:bg-white/[0.03] transition-colors text-left"
+        className="w-full flex items-center gap-4 px-5 py-4 hover:bg-muted/20 transition-colors text-left"
       >
         <ChevronRight
           className={cn(
@@ -97,7 +97,7 @@ export function PlanRow({ plan, stats, isExpanded, onToggle, projectId }: PlanRo
             transition={{ duration: 0.25, ease: "easeInOut" }}
             className="overflow-hidden"
           >
-            <div className="border-t border-white/[0.04]">
+            <div className="border-t border-border">
               <PlanSummary stats={stats} />
 
               {projectId && (

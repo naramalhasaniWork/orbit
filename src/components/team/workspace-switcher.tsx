@@ -104,7 +104,7 @@ export function WorkspaceSwitcher({
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <button className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-white/[0.04] transition-colors">
+          <button className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-muted/40 transition-colors">
             <div className="h-6 w-6 rounded-md bg-orbit-accent/15 flex items-center justify-center shrink-0">
               <span className="text-[10px] font-semibold text-orbit-accent">
                 {displayName.charAt(0).toUpperCase()}
@@ -129,7 +129,7 @@ export function WorkspaceSwitcher({
                 onClick={() => handleSwitch(ws)}
                 className={cn("gap-2 cursor-pointer")}
               >
-                <div className="h-5 w-5 rounded bg-white/[0.06] flex items-center justify-center shrink-0">
+                <div className="h-5 w-5 rounded bg-muted/50 flex items-center justify-center shrink-0">
                   <span className="text-[9px] font-bold text-muted-foreground">
                     {ws.name.charAt(0).toUpperCase()}
                   </span>

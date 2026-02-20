@@ -27,7 +27,7 @@ export function StepLog({ steps }: StepLogProps) {
       </span>
       <div className="mt-2 relative">
         {/* Timeline connector line */}
-        <div className="absolute left-[7px] top-2 bottom-2 w-px bg-white/[0.06]" />
+        <div className="absolute left-[7px] top-2 bottom-2 w-px bg-muted/40" />
 
         <div className="space-y-0">
           {parsedSteps.map((step, i) => (

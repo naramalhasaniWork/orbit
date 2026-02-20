@@ -95,7 +95,7 @@ export function PlanApproval({
           rows={2}
           placeholder="Optional notes..."
           className={cn(
-            "w-full rounded-md bg-white/[0.04] border border-transparent px-3 py-2",
+            "w-full rounded-md bg-muted/30 border border-transparent px-3 py-2",
             "text-xs text-foreground placeholder:text-muted-foreground",
             "focus:outline-none focus:ring-1 focus:ring-orbit-accent resize-y"
           )}

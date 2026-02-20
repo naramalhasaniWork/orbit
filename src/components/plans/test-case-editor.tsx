@@ -91,7 +91,7 @@ export function TestCaseEditor({
 
   return (
     <div className="rounded-xl surface-1 border border-orbit-accent/20 overflow-hidden">
-      <div className="flex items-center justify-between px-5 py-3 border-b border-white/[0.04] bg-orbit-accent/5">
+      <div className="flex items-center justify-between px-5 py-3 border-b border-border bg-orbit-accent/5">
         <span className="text-sm font-medium text-foreground">Edit Test Case</span>
         <div className="flex items-center gap-2">
           <Button
@@ -127,7 +127,7 @@ export function TestCaseEditor({
             <Input
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="bg-white/[0.04]"
+              className="bg-muted/30"
             />
           </div>
           <div className="space-y-1.5">
@@ -136,7 +136,7 @@ export function TestCaseEditor({
               value={journey}
               onChange={(e) => setJourney(e.target.value)}
               placeholder="e.g., Authentication"
-              className="bg-white/[0.04]"
+              className="bg-muted/30"
             />
           </div>
         </div>
@@ -150,7 +150,7 @@ export function TestCaseEditor({
               max={100}
               value={priorityScore}
               onChange={(e) => setPriorityScore(parseInt(e.target.value, 10) || 0)}
-              className="bg-white/[0.04] w-24"
+              className="bg-muted/30 w-24"
             />
           </div>
           <div className="flex items-center gap-4 pt-5">
@@ -176,7 +176,7 @@ export function TestCaseEditor({
             value={rationale}
             onChange={(e) => setRationale(e.target.value)}
             rows={2}
-            className="w-full rounded-md bg-white/[0.04] border border-transparent px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-orbit-accent resize-y"
+            className="w-full rounded-md bg-muted/30 border border-transparent px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-orbit-accent resize-y"
             placeholder="Why this test case exists..."
           />
         </div>
@@ -207,7 +207,7 @@ export function TestCaseEditor({
                     updated[i] = e.target.value;
                     setSteps(updated);
                   }}
-                  className="bg-white/[0.04] text-xs"
+                  className="bg-muted/30 text-xs"
                   placeholder={`Step ${i + 1}...`}
                 />
                 <button
@@ -243,7 +243,7 @@ export function TestCaseEditor({
                     updated[i] = e.target.value;
                     setEdgeCases(updated);
                   }}
-                  className="bg-white/[0.04] text-xs"
+                  className="bg-muted/30 text-xs"
                   placeholder="Edge case description..."
                 />
                 <button

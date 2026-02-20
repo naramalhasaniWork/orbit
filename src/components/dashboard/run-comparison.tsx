@@ -107,7 +107,7 @@ const changeConfig: Record<
     icon: Minus,
     label: "Unchanged",
     color: "text-muted-foreground",
-    bg: "bg-white/[0.04]",
+    bg: "bg-white/[0.06]",
   },
 };
 
@@ -182,8 +182,8 @@ export function RunComparison({
       </div>
 
       {/* Changed tests table */}
-      <div className="rounded-xl surface-1 border border-white/[0.04] overflow-hidden">
-        <div className="px-4 py-2.5 border-b border-white/[0.04]">
+      <div className="rounded-xl surface-1 border border-border overflow-hidden">
+        <div className="px-4 py-2.5 border-b border-border">
           <span className="text-[13px] font-medium text-foreground">
             Changed Tests ({changedTests.length})
           </span>
@@ -191,7 +191,7 @@ export function RunComparison({
 
         <ScrollArea className="max-h-[480px]">
           {/* Header */}
-          <div className="grid grid-cols-[1fr_100px_100px_80px_80px] gap-2 px-4 py-2 border-b border-white/[0.04] text-[10px] text-muted-foreground uppercase tracking-wider font-medium">
+          <div className="grid grid-cols-[1fr_100px_100px_80px_80px] gap-2 px-4 py-2 border-b border-border text-[10px] text-muted-foreground uppercase tracking-wider font-medium">
             <span>Test Case</span>
             <span className="text-center">Before</span>
             <span className="text-center">After</span>
@@ -211,7 +211,7 @@ export function RunComparison({
                 transition={{ delay: i * 0.02, duration: 0.2 }}
                 className={cn(
                   "grid grid-cols-[1fr_100px_100px_80px_80px] gap-2 px-4 py-2.5 items-center",
-                  "border-b border-white/[0.02] hover:bg-white/[0.02] transition-colors",
+                  "border-b border-border/50 hover:bg-white/[0.06] transition-colors",
                   test.change === "regressed" && "bg-orbit-fail/[0.03]",
                   test.change === "improved" && "bg-orbit-pass/[0.03]"
                 )}
@@ -324,7 +324,7 @@ function RunCard({ run, label }: { run: RunSummary; label: string }) {
       : 0;
 
   return (
-    <div className="rounded-xl surface-1 border border-white/[0.04] p-4 space-y-2.5">
+    <div className="rounded-xl surface-1 border border-border p-4 space-y-2.5">
       <div className="flex items-center justify-between">
         <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">
           {label}

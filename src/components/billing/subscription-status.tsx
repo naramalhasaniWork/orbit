@@ -34,7 +34,7 @@ const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
   active: { label: "Active", className: "text-green-400 bg-green-400/10" },
   trialing: { label: "Trial", className: "text-blue-400 bg-blue-400/10" },
   past_due: { label: "Past Due", className: "text-red-400 bg-red-400/10" },
-  canceled: { label: "Canceled", className: "text-muted-foreground bg-white/5" },
+  canceled: { label: "Canceled", className: "text-muted-foreground bg-muted/40" },
   incomplete: { label: "Incomplete", className: "text-amber-400 bg-amber-400/10" },
   unpaid: { label: "Unpaid", className: "text-red-400 bg-red-400/10" },
 };
@@ -94,7 +94,7 @@ export function SubscriptionStatus({ workspaceId }: SubscriptionStatusProps) {
   }
 
   if (loading) {
-    return <div className="h-20 rounded-xl bg-white/[0.02] animate-pulse" />;
+    return <div className="h-20 rounded-xl bg-muted/30 animate-pulse" />;
   }
 
   if (!data) {
@@ -105,7 +105,7 @@ export function SubscriptionStatus({ workspaceId }: SubscriptionStatusProps) {
   const statusConfig = sub ? (STATUS_CONFIG[sub.status] ?? STATUS_CONFIG.active) : null;
 
   return (
-    <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5">
+    <div className="rounded-xl border border-border bg-muted/30 p-5">
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-3">
           <div className="h-10 w-10 rounded-xl bg-orbit-accent/15 flex items-center justify-center">
@@ -133,7 +133,7 @@ export function SubscriptionStatus({ workspaceId }: SubscriptionStatusProps) {
           <button
             onClick={handleManageBilling}
             disabled={actionLoading}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-muted-foreground hover:text-foreground bg-white/5 hover:bg-white/10 transition-colors"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-muted-foreground hover:text-foreground bg-muted/40 hover:bg-muted/60 transition-colors"
           >
             {actionLoading ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -148,7 +148,7 @@ export function SubscriptionStatus({ workspaceId }: SubscriptionStatusProps) {
       </div>
 
       {sub && (
-        <div className="mt-4 pt-4 border-t border-white/[0.06]">
+        <div className="mt-4 pt-4 border-t border-border">
           <div className="flex items-center gap-4 text-xs text-muted-foreground">
             <div className="flex items-center gap-1.5">
               <Calendar className="h-3.5 w-3.5" />

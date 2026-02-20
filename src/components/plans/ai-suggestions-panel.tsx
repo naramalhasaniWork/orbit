@@ -90,7 +90,7 @@ export function AISuggestionsPanel({ projectId }: AISuggestionsPanelProps) {
     <div className="rounded-xl surface-1 overflow-hidden">
       <button
         onClick={() => setCollapsed(!collapsed)}
-        className="w-full flex items-center gap-2 px-5 py-3 hover:bg-white/[0.03] transition-colors"
+        className="w-full flex items-center gap-2 px-5 py-3 hover:bg-muted/20 transition-colors"
       >
         <Lightbulb className="h-4 w-4 text-orbit-accent shrink-0" />
         <span className="text-[13px] font-medium text-foreground flex-1 text-left">
@@ -108,7 +108,7 @@ export function AISuggestionsPanel({ projectId }: AISuggestionsPanelProps) {
       </button>
 
       {!collapsed && (
-        <div className="border-t border-white/[0.04] px-5 py-3 space-y-2">
+        <div className="border-t border-border px-5 py-3 space-y-2">
           {visibleSuggestions.map((suggestion) => {
             const config = SEVERITY_CONFIG[suggestion.severity];
             const typeKey = suggestion.type ?? suggestion.category ?? "";

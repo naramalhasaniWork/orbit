@@ -72,7 +72,7 @@ export function LinearCard({ workspaceId, config, onUpdate }: LinearCardProps) {
     <div className="rounded-xl surface-1 p-6 space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="h-9 w-9 rounded-lg bg-white/[0.06] flex items-center justify-center">
+          <div className="h-9 w-9 rounded-lg bg-muted/50 flex items-center justify-center">
             <svg className="h-4 w-4 text-foreground" viewBox="0 0 20 20" fill="currentColor">
               <path d="M10 0C4.477 0 0 4.477 0 10s4.477 10 10 10 10-4.477 10-10S15.523 0 10 0zm0 2a8 8 0 110 16 8 8 0 010-16zm0 2a6 6 0 100 12 6 6 0 000-12z" />
             </svg>
@@ -97,7 +97,7 @@ export function LinearCard({ workspaceId, config, onUpdate }: LinearCardProps) {
           {config?.teamName && (
             <div className="space-y-2">
               <Label className="text-xs text-muted-foreground">Connected Team</Label>
-              <div className="text-sm bg-white/[0.04] rounded-md px-3 py-2 border border-transparent text-foreground">
+              <div className="text-sm bg-muted/40 rounded-md px-3 py-2 border border-transparent text-foreground">
                 {config.teamName}
               </div>
             </div>
@@ -132,7 +132,7 @@ export function LinearCard({ workspaceId, config, onUpdate }: LinearCardProps) {
                 placeholder="lin_api_..."
                 value={apiKey}
                 onChange={(e) => setApiKey(e.target.value)}
-                className="bg-white/[0.04] font-mono pr-9"
+                className="bg-muted/40 font-mono pr-9"
               />
               <button
                 type="button"

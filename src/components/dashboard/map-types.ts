@@ -70,4 +70,4 @@ export const STATUS_CONFIG: Record<TestStatus, StatusConfig> = {
   untested: { label: "Untested", color: "#6b7280" },
 };
 
-export const ACCENT_COLOR = "#a78bfa";
+export const ACCENT_COLOR = "#ff6000";

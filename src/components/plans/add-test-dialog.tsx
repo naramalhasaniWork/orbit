@@ -74,7 +74,7 @@ export function AddTestDialog({ projectId, planId, onSaved, onClose }: AddTestDi
 
   return (
     <div className="rounded-xl surface-1 border border-orbit-accent/20 overflow-hidden">
-      <div className="flex items-center justify-between px-5 py-3 border-b border-white/[0.04] bg-orbit-accent/5">
+      <div className="flex items-center justify-between px-5 py-3 border-b border-border bg-orbit-accent/5">
         <div className="flex items-center gap-2">
           <Plus className="h-3.5 w-3.5 text-orbit-accent" />
           <span className="text-sm font-medium text-foreground">Add Test Case</span>
@@ -109,7 +109,7 @@ export function AddTestDialog({ projectId, planId, onSaved, onClose }: AddTestDi
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="e.g., User can reset password"
-              className="bg-white/[0.04]"
+              className="bg-muted/30"
             />
           </div>
           <div className="space-y-1.5">
@@ -118,7 +118,7 @@ export function AddTestDialog({ projectId, planId, onSaved, onClose }: AddTestDi
               value={journey}
               onChange={(e) => setJourney(e.target.value)}
               placeholder="e.g., Authentication"
-              className="bg-white/[0.04]"
+              className="bg-muted/30"
             />
           </div>
         </div>
@@ -129,7 +129,7 @@ export function AddTestDialog({ projectId, planId, onSaved, onClose }: AddTestDi
             <select
               value={type}
               onChange={(e) => setType(e.target.value)}
-              className="h-9 rounded-md border border-transparent bg-white/[0.04] px-3 text-sm focus:border-orbit-accent/30 focus:outline-none"
+              className="h-9 rounded-md border border-transparent bg-muted/30 px-3 text-sm focus:border-orbit-accent/30 focus:outline-none"
             >
               {TEST_TYPES.map((t) => (
                 <option key={t.value} value={t.value}>{t.label}</option>
@@ -144,7 +144,7 @@ export function AddTestDialog({ projectId, planId, onSaved, onClose }: AddTestDi
               max={100}
               value={priorityScore}
               onChange={(e) => setPriorityScore(parseInt(e.target.value, 10) || 0)}
-              className="bg-white/[0.04] w-24"
+              className="bg-muted/30 w-24"
             />
           </div>
           <div className="flex items-center gap-2 pt-5">
@@ -160,7 +160,7 @@ export function AddTestDialog({ projectId, planId, onSaved, onClose }: AddTestDi
             onChange={(e) => setRationale(e.target.value)}
             rows={2}
             className={cn(
-              "w-full rounded-md bg-white/[0.04] border border-transparent px-3 py-2",
+              "w-full rounded-md bg-muted/30 border border-transparent px-3 py-2",
               "text-sm text-foreground placeholder:text-muted-foreground",
               "focus:outline-none focus:ring-1 focus:ring-orbit-accent resize-y"
             )}

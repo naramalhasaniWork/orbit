@@ -84,7 +84,7 @@ export function RunsClient({ projectId, projectName, runs }: RunsClientProps) {
           }
         />
       ) : (
-        <div className="rounded-xl surface-1 border border-white/[0.04] overflow-hidden divide-y divide-white/[0.04]">
+        <div className="rounded-xl surface-1 border border-border overflow-hidden divide-y divide-border">
           {filteredRuns.map((run) => (
             <RunRow key={run.id} run={run} />
           ))}
@@ -102,7 +102,7 @@ function RunRow({ run }: { run: RunListItem }) {
   return (
     <Link
       href={`/dashboard/runs/${run.id}`}
-      className="flex items-center gap-4 px-5 py-3.5 hover:bg-white/[0.03] transition-colors group"
+      className="flex items-center gap-4 px-5 py-3.5 hover:bg-muted/20 transition-colors group"
     >
       <StatusDot
         status={statusConfig?.dot ?? "untested"}
