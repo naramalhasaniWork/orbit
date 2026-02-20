@@ -9,6 +9,8 @@ const nextConfig = {
       "ioredis",
       "web-tree-sitter",
       "tree-sitter-wasms",
+      "playwright",
+      "playwright-core",
     ],
     outputFileTracingIncludes: {
       "/**": ["./src/generated/prisma/**/*"],
@@ -21,6 +23,8 @@ const nextConfig = {
         "web-tree-sitter",
         "tree-sitter-wasms",
         /^tree-sitter-wasms\//,
+        "playwright",
+        "playwright-core",
       ];
     }
     return config;
