@@ -1,0 +1,13 @@
+node_modules
+.next
+.git
+.gitignore
+.env
+.env.local
+.env.local.example
+.claude
+.DS_Store
+*.md
+!README.md
+storage
+Orbit System Brief

@@ -1,0 +1,13 @@
+[build]
+builder = "nixpacks"
+buildCommand = "pnpm install && pnpm prisma generate && pnpm build"
+
+[deploy]
+startCommand = "pnpm start"
+healthcheckPath = "/api/auth/session"
+healthcheckTimeout = 30
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 3
+
+[service]
+internalPort = 3000

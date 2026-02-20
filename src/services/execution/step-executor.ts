@@ -10,11 +10,7 @@ import type { PageState } from "@/services/execution/browser-manager";
 import { healSelector, persistHealing } from "@/services/execution/self-healer";
 import { performAction } from "@/services/execution/action-performer";
 import type { EvidenceCollectorInstance } from "@/services/execution/evidence-collector";
-import {
-  isStagehandEnabled,
-  createStagehandSession,
-  type StagehandInstance,
-} from "@/services/execution/stagehand-adapter";
+import { isStagehandEnabled } from "@/services/execution/stagehand-adapter";
 
 // ============================================================
 // Types
@@ -259,65 +255,10 @@ async function executeAction(
   };
 }
 
-// ============================================================
-// Stagehand-Powered Execution
-// ============================================================
-
+// Stagehand-powered execution lives in stagehand-adapter.ts
 async function executeWithStagehand(
   options: StepExecutorOptions
 ): Promise<StepExecutionResult> {
-  const { testCaseName, steps, evidenceCollector } = options;
-  const stepResults: StepResult[] = [];
-  let stagehand: StagehandInstance | null = null;
-
-  try {
-    stagehand = await createStagehandSession();
-
-    for (let i = 0; i < steps.length; i++) {
-      const step = steps[i];
-      const startTime = Date.now();
-
-      try {
-        // Use Stagehand's act() for natural language actions
-        const result = await stagehand.act(
-          `${step.action}. Expected outcome: ${step.expected}`
-        );
-
-        await evidenceCollector.captureScreenshot(`stagehand-step-${i}`);
-
-        stepResults.push({
-          stepIndex: i,
-          action: step.action,
-          expected: step.expected,
-          actual: result.message,
-          status: "passed",
-          durationMs: Date.now() - startTime,
-        });
-      } catch (err) {
-        const errorMsg = err instanceof Error ? err.message : String(err);
-        await evidenceCollector.captureScreenshot("stagehand-failure");
-
-        stepResults.push({
-          stepIndex: i,
-          action: step.action,
-          expected: step.expected,
-          actual: errorMsg,
-          status: "failed",
-          durationMs: Date.now() - startTime,
-        });
-
-        return { steps: stepResults, verdict: "fail", healedSelectors: [] };
-      }
-    }
-
-    return {
-      steps: stepResults,
-      verdict: "pass",
-      healedSelectors: [],
-    };
-  } finally {
-    if (stagehand) {
-      await stagehand.close().catch(() => {});
-    }
-  }
+  const { executeStagehandSteps } = await import("./stagehand-adapter");
+  return executeStagehandSteps(options.steps, options.evidenceCollector);
 }
