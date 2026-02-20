@@ -13,6 +13,11 @@ import { prisma } from "@/lib/db";
 import type { EvidenceCollectorInstance } from "@/services/execution/evidence-collector";
 import { isStagehandEnabled } from "@/services/execution/stagehand-adapter";
 import { emitTestStep, emitTestScreenshot } from "@/lib/websocket";
+import {
+  captureAndStream,
+  captureInitialState,
+  captureFailureState,
+} from "@/services/execution/screenshot-streamer";
 
 // ============================================================
 // Types
@@ -62,7 +67,7 @@ async function getNextAction(
   context: ExecutorContext,
   billing: BillingInfo
 ): Promise<ExecutorAction> {
-  const model = getModelForTask("browser_execution");
+  const model = await getModelForTask("browser_execution");
   const prompt = buildExecutorPrompt(context);
 
   const result = await createTrackedCompletion(
@@ -125,6 +130,11 @@ export async function executeTestSteps(
 
   let currentStepIndex = 0;
   let actionCount = 0;
+
+  // Capture initial browser state before first step
+  if (runId) {
+    await captureInitialState(page, runId, testCaseId, projectId);
+  }
 
   while (actionCount < MAX_ACTIONS_PER_TEST) {
     actionCount++;
@@ -204,6 +214,9 @@ export async function executeTestSteps(
         action: `${action.action}${action.selector ? ` on ${action.selector}` : ""}`,
         status: result.succeeded ? "passed" : "failed",
       });
+
+      // Stream screenshot after each action for live viewer
+      await captureAndStream(page, runId, testCaseId, currentStepIndex, projectId);
     }
 
     previousActions.push({
@@ -214,6 +227,9 @@ export async function executeTestSteps(
     if (!result.succeeded) {
       await evidenceCollector.captureScreenshot("failure");
       await evidenceCollector.captureDomSnapshot();
+      if (runId) {
+        await captureFailureState(page, runId, testCaseId, currentStepIndex, projectId);
+      }
       return { steps: stepResults, verdict: "fail", healedSelectors };
     }
 

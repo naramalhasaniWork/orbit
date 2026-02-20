@@ -18,6 +18,7 @@ const AGENT_NODE_FILTERS: Record<AgentPhase, string[] | null> = {
   planner: ["route", "endpoint", "component", "auth_strategy"],
   executor: ["route", "endpoint", "component"],
   reporter: ["route", "endpoint"],
+  auditor: null,
 };
 
 const AGENT_TOP_K: Record<AgentPhase, number> = {
@@ -25,6 +26,7 @@ const AGENT_TOP_K: Record<AgentPhase, number> = {
   planner: 30,
   executor: 15,
   reporter: 10,
+  auditor: 8000,
 };
 
 /**

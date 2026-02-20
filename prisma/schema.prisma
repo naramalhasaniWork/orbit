@@ -62,6 +62,7 @@ enum TestType {
   form_validation
   edge_case
   regression
+  visual_regression
 }
 
 enum MemberRole {
@@ -204,6 +205,7 @@ model Workspace {
   subscriptions        Subscription[]
   tokenUsages          TokenUsage[]
   invoices             Invoice[]
+  agentConfigs         AgentConfig[]
 
   @@map("workspaces")
 }
@@ -367,6 +369,7 @@ model Project {
   failurePatterns    FailurePattern[]
   baselineSnapshots  BaselineSnapshot[]
   scheduledRuns      ScheduledRun[]
+  auditResults       AuditResult[]
 
   @@unique([workspaceId, slug], name: "project_slug_workspace")
   @@index([workspaceId])
@@ -582,6 +585,7 @@ model TestRun {
   triggeredBy User?        @relation("TriggeredBy", fields: [triggeredById], references: [id])
   results     TestResult[]
   artifacts   RunArtifact[]
+  traces      AgentExecutionTrace[]
 
   @@index([projectId])
   @@index([projectId, status])
@@ -796,6 +800,7 @@ enum AgentPhase {
   planner
   executor
   reporter
+  auditor
 }
 
 model TokenUsage {
@@ -817,6 +822,66 @@ model TokenUsage {
   @@index([projectId])
   @@index([runId])
   @@map("token_usage")
+}
+
+// ============================================================
+// AGENT CONFIGS — per-workspace per-agent configuration
+// ============================================================
+
+model AgentConfig {
+  id              String     @id @default(uuid()) @db.Uuid
+  workspaceId     String     @map("workspace_id") @db.Uuid
+  agentPhase      AgentPhase @map("agent_phase")
+  model           String?
+  temperature     Float?
+  maxInputTokens  Int?       @map("max_input_tokens")
+  maxOutputTokens Int?       @map("max_output_tokens")
+  customPrompt    String?    @map("custom_prompt")
+  isEnabled       Boolean    @default(true) @map("is_enabled")
+  createdAt       DateTime   @default(now()) @map("created_at")
+  updatedAt       DateTime   @default(now()) @updatedAt @map("updated_at")
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, agentPhase], name: "agent_config_unique")
+  @@index([workspaceId])
+  @@map("agent_configs")
+}
+
+// ============================================================
+// AGENT EXECUTION TRACES — full observability for agent decisions
+// ============================================================
+
+model AgentExecutionTrace {
+  id             String     @id @default(uuid()) @db.Uuid
+  runId          String     @map("run_id") @db.Uuid
+  projectId      String     @map("project_id") @db.Uuid
+  agentPhase     AgentPhase @map("agent_phase")
+  parentTraceId  String?    @map("parent_trace_id") @db.Uuid
+  status         String     @default("started") // started | processing | completed | failed
+  model          String?
+  temperature    Float?
+  inputSummary   String?    @map("input_summary")
+  outputSummary  String?    @map("output_summary")
+  reasoningSteps Json       @default("[]") @map("reasoning_steps")
+  inputTokens    Int        @default(0) @map("input_tokens")
+  outputTokens   Int        @default(0) @map("output_tokens")
+  cost           Decimal?   @db.Decimal(10, 6)
+  errorMessage   String?    @map("error_message")
+  durationMs     Int?       @map("duration_ms")
+  metadata       Json       @default("{}")
+  startedAt      DateTime   @default(now()) @map("started_at")
+  completedAt    DateTime?  @map("completed_at")
+
+  testRun        TestRun                @relation(fields: [runId], references: [id], onDelete: Cascade)
+  parentTrace    AgentExecutionTrace?   @relation("SubTraces", fields: [parentTraceId], references: [id])
+  childTraces    AgentExecutionTrace[]  @relation("SubTraces")
+
+  @@index([runId])
+  @@index([runId, agentPhase])
+  @@index([parentTraceId])
+  @@index([projectId, startedAt])
+  @@map("agent_execution_traces")
 }
 
 // ============================================================
@@ -1041,11 +1106,33 @@ model DomainKnowledgeFile {
   createdAt   DateTime                        @default(now()) @map("created_at")
   updatedAt   DateTime                        @default(now()) @updatedAt @map("updated_at")
 
-  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspace Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  chunks    KnowledgeChunk[]
 
   @@index([workspaceId])
   @@index([workspaceId, type])
   @@map("domain_knowledge_files")
+}
+
+// ============================================================
+// KNOWLEDGE CHUNKS — chunked content for RAG retrieval
+// ============================================================
+
+model KnowledgeChunk {
+  id              String                          @id @default(uuid()) @db.Uuid
+  knowledgeFileId String                          @map("knowledge_file_id") @db.Uuid
+  workspaceId     String                          @map("workspace_id") @db.Uuid
+  content         String
+  chunkIndex      Int                             @map("chunk_index")
+  embedding       Unsupported("vector(1536)")?
+  metadata        Json                            @default("{}")
+  createdAt       DateTime                        @default(now()) @map("created_at")
+
+  knowledgeFile DomainKnowledgeFile @relation(fields: [knowledgeFileId], references: [id], onDelete: Cascade)
+
+  @@index([knowledgeFileId])
+  @@index([workspaceId])
+  @@map("knowledge_chunks")
 }
 
 // ============================================================
@@ -1104,4 +1191,27 @@ model PlatformMetrics {
   @@unique([date])
   @@index([date])
   @@map("platform_metrics")
+}
+
+// ============================================================
+// AUDIT RESULTS — code quality audit findings
+// ============================================================
+
+model AuditResult {
+  id            String   @id @default(uuid()) @db.Uuid
+  projectId     String   @map("project_id") @db.Uuid
+  runId         String?  @map("run_id") @db.Uuid
+  overallScore  Int      @map("overall_score")
+  categories    Json     @default("{}")
+  issues        Json     @default("[]")
+  issueCount    Int      @default(0) @map("issue_count")
+  criticalCount Int      @default(0) @map("critical_count")
+  metadata      Json     @default("{}")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([projectId, createdAt])
+  @@map("audit_results")
 }

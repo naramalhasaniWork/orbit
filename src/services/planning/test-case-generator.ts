@@ -6,6 +6,7 @@ import { TestPlanSchema, type TestCase } from "@/agents/schemas/test-plan";
 import { prisma } from "@/lib/db";
 import type { CoverageReport } from "@/services/planning/coverage-analyzer";
 import type { Journey } from "@/services/planning/journey-reconstructor";
+import { spawnSubAgent, type SubAgentResult } from "@/services/agents/executor";
 
 interface GenerationInput {
   projectId: string;
@@ -83,12 +84,124 @@ async function loadFailurePatterns(
 }
 
 function parseJsonResponse(content: string): unknown {
-  // Strip markdown code fences if present
   const cleaned = content
     .replace(/^```(?:json)?\s*\n?/m, "")
     .replace(/\n?```\s*$/m, "")
     .trim();
   return JSON.parse(cleaned);
+}
+
+const COMPLEX_JOURNEY_THRESHOLD = 5;
+
+interface JourneyAnalysis {
+  journeyName: string;
+  result: SubAgentResult;
+}
+
+/**
+ * Checks if a journey is complex (>5 nodes) and spawns a journey-analyzer
+ * sub-agent to break it down into testable scenarios with edge cases.
+ * Returns analysis results for complex journeys, empty array for simple ones.
+ */
+async function analyzeComplexJourneys(
+  journeys: Journey[],
+  systemMap: { framework: string; nodes: Array<{ id: string; type: string; name: string; filePath: string; metadata: Record<string, unknown> }>; edges: Array<{ source: string; target: string; relationship: string }>; workspaceId: string },
+  projectId: string,
+  existingTestNames: string[],
+  failurePatterns: Array<{ pattern: string; category: string; occurrences: number }>
+): Promise<JourneyAnalysis[]> {
+  const complexJourneys = journeys.filter(
+    (j) => j.nodeIds.length > COMPLEX_JOURNEY_THRESHOLD
+  );
+
+  if (complexJourneys.length === 0) return [];
+
+  const analyses = await Promise.all(
+    complexJourneys.map(async (journey) => {
+      const journeyNodes = systemMap.nodes.filter((n) =>
+        journey.nodeIds.includes(n.id)
+      );
+      const journeyEdges = systemMap.edges.filter(
+        (e) =>
+          journey.nodeIds.includes(e.source) &&
+          journey.nodeIds.includes(e.target)
+      );
+
+      const result = await spawnSubAgent({
+        parentRunId: `plan-${projectId}-${Date.now()}`,
+        projectId,
+        agentType: "journey-analyzer",
+        workspaceId: systemMap.workspaceId,
+        context: {
+          journeyName: journey.name,
+          journeyDescription: journey.description,
+          nodes: journeyNodes,
+          edges: journeyEdges,
+          framework: systemMap.framework,
+          failurePatterns,
+          existingTestNames,
+        },
+      });
+
+      return { journeyName: journey.name, result };
+    })
+  );
+
+  return analyses.filter((a) => a.result.success);
+}
+
+/**
+ * Generate visual_regression test cases for every route node in the system map.
+ * Marks the first run as baseline capture; subsequent runs compare against it.
+ */
+function generateVisualRegressionCases(
+  systemMap: { nodes: Array<{ id: string; type: string; name: string; filePath: string; metadata: Record<string, unknown> }> },
+  existingTestNames: string[]
+): TestCase[] {
+  const routeNodes = systemMap.nodes.filter((n) => n.type === "route");
+  const cases: TestCase[] = [];
+
+  for (const node of routeNodes) {
+    const testName = `Visual regression: ${node.name}`;
+
+    // Skip if this visual test already exists
+    if (existingTestNames.includes(testName)) continue;
+
+    const routePath = (node.metadata?.path as string) ?? node.name;
+
+    cases.push({
+      id: `vr-${node.id.slice(0, 8)}`,
+      name: testName,
+      type: "visual_regression",
+      journey: "visual_identity",
+      priorityScore: 40,
+      criticality: 30,
+      risk: 50,
+      coverageGap: 60,
+      steps: [
+        {
+          action: `Navigate to ${routePath}`,
+          expected: "Page loads and renders completely",
+        },
+        {
+          action: "Capture full-page screenshot",
+          expected: "Screenshot captured and stored as artifact",
+        },
+        {
+          action: "Compare against baseline screenshot",
+          expected: "Visual diff within acceptable threshold or baseline captured",
+        },
+      ],
+      rationale: `Monitors visual consistency of ${node.name} route. Detects unintended layout changes, broken styles, and brand violations.`,
+      edgeCases: [
+        "Different viewport sizes",
+        "Dynamic content loading states",
+        "Dark/light mode variants",
+      ],
+    });
+  }
+
+  return cases;
 }
 
 export async function generateTestCases(input: GenerationInput): Promise<GenerationResult> {
@@ -109,6 +222,21 @@ export async function generateTestCases(input: GenerationInput): Promise<Generat
     loadFailurePatterns(projectId),
   ]);
 
+  // Analyze complex journeys (>5 nodes) with sub-agent for deeper coverage
+  const journeyAnalyses = await analyzeComplexJourneys(
+    input.journeys,
+    systemMap,
+    projectId,
+    existingTestNames,
+    failurePatterns
+  );
+
+  // Inject sub-agent journey analysis into planner context as additional guidance
+  const journeyInsights = journeyAnalyses.map((a) => {
+    const output = a.result.output as Record<string, unknown>;
+    return `[Journey Analysis: ${a.journeyName}]\n${JSON.stringify(output, null, 2)}`;
+  });
+
   const context: PlannerContext = {
     systemMap,
     userConfig: {
@@ -126,12 +254,18 @@ export async function generateTestCases(input: GenerationInput): Promise<Generat
   };
 
   const prompt = buildPlannerPrompt(context, userLayer);
-  const model = getModelForTask("test_generation");
+
+  // Append journey analysis insights to the prompt if available
+  const enrichedPrompt = journeyInsights.length > 0
+    ? `${prompt}\n\n## Sub-Agent Journey Analysis\nThe following complex journeys were pre-analyzed by a specialist sub-agent. Use these insights to generate more targeted test cases:\n\n${journeyInsights.join("\n\n")}`
+    : prompt;
+
+  const model = await getModelForTask("test_generation");
 
   const completion = await createTrackedCompletion(
     {
       model,
-      systemPrompt: prompt,
+      systemPrompt: enrichedPrompt,
       messages: [
         {
           role: "user",
@@ -151,9 +285,22 @@ export async function generateTestCases(input: GenerationInput): Promise<Generat
   const parsed = parseJsonResponse(completion.content);
   const validated = TestPlanSchema.parse(parsed);
 
+  // Append visual regression test cases for route nodes
+  const visualCases = generateVisualRegressionCases(systemMap, existingTestNames);
+  const allTestCases = [...validated.testCases, ...visualCases];
+
+  const updatedMetadata = {
+    ...validated.metadata,
+    totalTests: allTestCases.length,
+    coverageByType: {
+      ...validated.metadata.coverageByType,
+      visual_regression: visualCases.length,
+    },
+  };
+
   return {
-    testCases: validated.testCases,
-    metadata: validated.metadata,
+    testCases: allTestCases,
+    metadata: updatedMetadata,
     tokensUsed: {
       input: completion.usage.inputTokens,
       output: completion.usage.outputTokens,

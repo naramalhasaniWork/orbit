@@ -11,6 +11,7 @@ import {
   isRunCancelled,
 } from "./run-manager";
 import { checkBudgetLimit } from "@/lib/billing/usage-aggregator";
+import { startTrace, completeTrace, failTrace } from "@/services/tracing";
 
 interface PipelineInput {
   projectId: string;
@@ -99,6 +100,12 @@ export async function executePipeline(
       );
     }
 
+    // Phase 1.5: Code Audit (full runs only)
+    if (mode === "full") {
+      await checkCancellation(run.id);
+      await runAuditPhase(run.id, input.projectId);
+    }
+
     // Phase 2: Planning
     await checkCancellation(run.id);
 
@@ -118,11 +125,11 @@ export async function executePipeline(
 
     // Phase 3: Execution
     await checkCancellation(run.id);
-    await runExecutionPhase(run.id, testPlanId, mode);
+    await runExecutionPhase(run.id, input.projectId, testPlanId, mode);
 
     // Phase 4: Reporting
     await checkCancellation(run.id);
-    await runReportingPhase(run.id);
+    await runReportingPhase(run.id, input.projectId);
 
     // Finalize
     return await finalizePipeline(run.id, input.projectId, tokenBudget);
@@ -156,19 +163,52 @@ async function runIndexingPhase(
   const needsReindex = await shouldReindex(projectId, changedFiles);
   if (!needsReindex) return;
 
-  await updateRunStatus(runId, "indexing", reason);
-  const branchToUse = branch ?? context.project.defaultBranch;
+  const isIncremental = changedFiles && changedFiles.length > 0;
+  const traceId = await startTrace({
+    runId,
+    projectId,
+    agentPhase: "analyst",
+    inputSummary: isIncremental
+      ? `Incremental index: ${changedFiles.length} changed files`
+      : "Full repository indexing",
+  });
 
-  if (changedFiles && changedFiles.length > 0) {
-    const { runIncrementalIndex } = await import(
-      "@/services/indexing/incremental"
-    );
-    await runIncrementalIndex(projectId, branchToUse, changedFiles);
-  } else {
-    const { runIndexingPipeline } = await import(
-      "@/services/indexing/pipeline"
-    );
-    await runIndexingPipeline(projectId, branchToUse);
+  try {
+    await updateRunStatus(runId, "indexing", reason);
+    const branchToUse = branch ?? context.project.defaultBranch;
+
+    if (isIncremental) {
+      const { runIncrementalIndex } = await import(
+        "@/services/indexing/incremental"
+      );
+      await runIncrementalIndex(projectId, branchToUse, changedFiles);
+    } else {
+      const { runIndexingPipeline } = await import(
+        "@/services/indexing/pipeline"
+      );
+      await runIndexingPipeline(projectId, branchToUse);
+    }
+
+    await completeTrace(traceId, {
+      outputSummary: isIncremental
+        ? `Indexed ${changedFiles.length} changed files on ${branchToUse}`
+        : `Full index completed on ${branchToUse}`,
+    });
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : "Unknown indexing error";
+    await failTrace(traceId, msg);
+    throw error;
+  }
+}
+
+async function runAuditPhase(runId: string, projectId: string): Promise<void> {
+  await updateRunStatus(runId, "planning", "Running code audit");
+  try {
+    const { runCodeAudit } = await import("@/services/auditing/auditor");
+    await runCodeAudit({ projectId, runId });
+  } catch (error) {
+    // Audit is non-blocking — log and continue
+    console.warn("[Pipeline] Code audit failed, continuing:", error);
   }
 }
 
@@ -184,47 +224,104 @@ async function runPlanningPhase(
     return existingPlanId;
   }
 
-  await updateRunStatus(runId, "planning", "Generating test plan");
-  const { generatePlan } = await import("@/services/planning/planner");
-  const planResult = await generatePlan({ projectId, mode });
-
-  tokenBudget.record(
-    planResult.tokensUsed.input,
-    planResult.tokensUsed.output,
-    0,
-    "planner"
-  );
-
-  await prisma.testRun.update({
-    where: { id: runId },
-    data: { testPlanId: planResult.plan.id },
+  const traceId = await startTrace({
+    runId,
+    projectId,
+    agentPhase: "planner",
+    inputSummary: `Generate ${mode} test plan`,
   });
 
-  return planResult.plan.id;
+  try {
+    await updateRunStatus(runId, "planning", "Generating test plan");
+    const { generatePlan } = await import("@/services/planning/planner");
+    const planResult = await generatePlan({ projectId, mode });
+
+    tokenBudget.record(
+      planResult.tokensUsed.input,
+      planResult.tokensUsed.output,
+      0,
+      "planner"
+    );
+
+    await prisma.testRun.update({
+      where: { id: runId },
+      data: { testPlanId: planResult.plan.id },
+    });
+
+    await completeTrace(traceId, {
+      outputSummary: `Generated plan with ${planResult.testCases.length} test cases`,
+      inputTokens: planResult.tokensUsed.input,
+      outputTokens: planResult.tokensUsed.output,
+    });
+
+    return planResult.plan.id;
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : "Unknown planning error";
+    await failTrace(traceId, msg);
+    throw error;
+  }
 }
 
 async function runExecutionPhase(
   runId: string,
+  projectId: string,
   testPlanId: string,
   mode: RunMode
 ): Promise<void> {
-  await updateRunStatus(runId, "executing", "Running tests");
+  const traceId = await startTrace({
+    runId,
+    projectId,
+    agentPhase: "executor",
+    inputSummary: `Execute ${mode} test suite`,
+  });
 
-  // Use parallel execution for full/smoke runs (journey-based partitioning),
-  // sequential for targeted/regression runs
-  if (mode === "full" || mode === "smoke") {
-    const { runTestSuiteParallel } = await import("@/services/execution/runner");
-    await runTestSuiteParallel(runId, testPlanId, mode);
-  } else {
-    const { runTestSuite } = await import("@/services/execution/runner");
-    await runTestSuite(runId, testPlanId, mode);
+  try {
+    await updateRunStatus(runId, "executing", "Running tests");
+
+    // Use parallel execution for full/smoke runs (journey-based partitioning),
+    // sequential for targeted/regression runs
+    if (mode === "full" || mode === "smoke") {
+      const { runTestSuiteParallel } = await import("@/services/execution/runner");
+      await runTestSuiteParallel(runId, testPlanId, mode);
+    } else {
+      const { runTestSuite } = await import("@/services/execution/runner");
+      await runTestSuite(runId, testPlanId, mode);
+    }
+
+    await completeTrace(traceId, {
+      outputSummary: `${mode} test suite execution completed`,
+    });
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : "Unknown execution error";
+    await failTrace(traceId, msg);
+    throw error;
   }
 }
 
-async function runReportingPhase(runId: string): Promise<void> {
-  await updateRunStatus(runId, "reporting", "Analyzing results");
-  const { generateReport } = await import("@/services/reporting/reporter");
-  await generateReport(runId);
+async function runReportingPhase(
+  runId: string,
+  projectId: string
+): Promise<void> {
+  const traceId = await startTrace({
+    runId,
+    projectId,
+    agentPhase: "reporter",
+    inputSummary: "Generate test run report and failure analysis",
+  });
+
+  try {
+    await updateRunStatus(runId, "reporting", "Analyzing results");
+    const { generateReport } = await import("@/services/reporting/reporter");
+    await generateReport(runId);
+
+    await completeTrace(traceId, {
+      outputSummary: "Report generated with failure analysis and bug reports",
+    });
+  } catch (error) {
+    const msg = error instanceof Error ? error.message : "Unknown reporting error";
+    await failTrace(traceId, msg);
+    throw error;
+  }
 }
 
 async function finalizePipeline(

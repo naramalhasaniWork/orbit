@@ -7,12 +7,14 @@
 import { getOperatorPrompt } from "@/agents/prompts/operator-layer";
 import { buildUserLayer, type UserLayerInput } from "@/agents/prompts/user-layer";
 
-type AgentRole = "analyst" | "planner" | "executor" | "reporter";
+type AgentRole = "analyst" | "planner" | "executor" | "reporter" | "auditor";
 
 interface PromptBuilderInput {
   agentRole: AgentRole;
   agentInstructions: string;
   userLayer?: UserLayerInput;
+  /** RAG-retrieved domain knowledge to inject between operator and agent layers */
+  domainKnowledge?: string;
   workspaceName?: string;
   maxOutputTokens?: number;
 }
@@ -37,6 +39,7 @@ export function buildPrompt(input: PromptBuilderInput): BuiltPrompt {
     agentRole,
     agentInstructions,
     userLayer,
+    domainKnowledge,
     workspaceName,
     maxOutputTokens,
   } = input;
@@ -50,12 +53,16 @@ export function buildPrompt(input: PromptBuilderInput): BuiltPrompt {
   const userContext = userLayer ? buildUserLayer(userLayer) : "";
 
   // Cacheable prefix: operator layer + user context (stable across calls)
-  const cacheablePrefix = userContext
-    ? `${operatorPrompt}\n\n${userContext}`
-    : operatorPrompt;
+  const cacheableParts = [operatorPrompt];
+  if (userContext) cacheableParts.push(userContext);
+  const cacheablePrefix = cacheableParts.join("\n\n");
 
-  // Dynamic suffix: agent-specific instructions (vary per call)
-  const dynamicSuffix = agentInstructions;
+  // Domain knowledge sits between the cacheable prefix and agent instructions.
+  // It varies per invocation based on RAG retrieval, so it's part of the dynamic section.
+  const dynamicParts: string[] = [];
+  if (domainKnowledge) dynamicParts.push(domainKnowledge);
+  dynamicParts.push(agentInstructions);
+  const dynamicSuffix = dynamicParts.join("\n\n");
 
   const systemPrompt = `${cacheablePrefix}\n\n${dynamicSuffix}`;
 

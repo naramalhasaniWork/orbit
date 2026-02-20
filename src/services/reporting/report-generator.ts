@@ -143,7 +143,7 @@ export async function generateReport(
   );
 
   const historicalData = await getHistoricalData(run.projectId);
-  const model = getModelForTask("report_writing");
+  const model = await getModelForTask("report_writing");
 
   const testResults: ReporterContext["testResults"] = run.results.map(
     (r) => ({

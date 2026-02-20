@@ -11,7 +11,7 @@ function getCostForModel(model: string) {
   return costs ?? { input: 0.003, output: 0.015, cached: 0.0003 };
 }
 
-type AgentPhase = "analyst" | "planner" | "executor" | "reporter";
+type AgentPhase = "analyst" | "planner" | "executor" | "reporter" | "auditor";
 
 interface AgentTokenUsage extends TokenUsage {
   callCount: number;
@@ -33,6 +33,7 @@ const DEFAULT_BUDGET: TokenBudgetConfig = {
     planner: { maxInput: 600_000, maxOutput: 200_000 },
     executor: { maxInput: 800_000, maxOutput: 150_000 },
     reporter: { maxInput: 200_000, maxOutput: 50_000 },
+    auditor: { maxInput: 500_000, maxOutput: 150_000 },
   },
 };
 
@@ -73,7 +74,7 @@ export class TokenBudget {
   }
 
   getAllAgentUsage(): Record<AgentPhase, AgentTokenUsage> {
-    const phases: AgentPhase[] = ["analyst", "planner", "executor", "reporter"];
+    const phases: AgentPhase[] = ["analyst", "planner", "executor", "reporter", "auditor"];
     const result = {} as Record<AgentPhase, AgentTokenUsage>;
     for (const phase of phases) {
       result[phase] = this.getAgentUsage(phase);

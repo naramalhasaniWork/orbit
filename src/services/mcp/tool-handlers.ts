@@ -21,10 +21,22 @@ export async function getTestHealth(projectId: string) {
     },
   });
 
+  const recentRuns = await prisma.testRun.findMany({
+    where: { projectId, status: "completed" },
+    orderBy: { completedAt: "desc" },
+    take: 5,
+    select: { passed: true, totalTests: true, completedAt: true },
+  });
+
   const flakyTests = await prisma.flakyTest.findMany({
     where: { projectId, isQuarantined: false },
     include: { testCase: { select: { name: true } } },
   });
+
+  const trend = recentRuns.map((r) => ({
+    passRate: r.totalTests > 0 ? Math.round((r.passed / r.totalTests) * 100) : 0,
+    completedAt: r.completedAt,
+  }));
 
   return {
     project: project.name,
@@ -43,6 +55,7 @@ export async function getTestHealth(projectId: string) {
           summary: lastRun.summary,
         }
       : null,
+    trend,
     flakyTests: flakyTests.map((f) => ({
       name: f.testCase.name,
       occurrences: f.occurrences,
@@ -193,4 +206,167 @@ export async function getCoverage(projectId: string, filePath?: string) {
       filePath: n.filePath,
     })),
   };
+}
+
+export async function triggerRun(
+  projectId: string,
+  mode: string,
+  trigger: string
+) {
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: { id: true, name: true, workspaceId: true },
+  });
+
+  if (!project) return { error: "Project not found" };
+
+  const run = await prisma.testRun.create({
+    data: {
+      projectId,
+      mode: mode as "full" | "smoke" | "regression" | "targeted",
+      trigger: trigger as "api" | "push" | "pr" | "scheduled" | "manual" | "linear" | "deploy",
+      status: "queued",
+      totalTests: 0,
+      passed: 0,
+      failed: 0,
+      flaky: 0,
+      skipped: 0,
+      creditsConsumed: 0,
+    },
+  });
+
+  return {
+    runId: run.id,
+    projectId,
+    projectName: project.name,
+    mode: run.mode,
+    trigger: run.trigger,
+    status: run.status,
+    message: `Test run queued for ${project.name}`,
+  };
+}
+
+export async function searchFailures(
+  projectId: string,
+  query?: string,
+  limit?: number
+) {
+  const maxResults = Math.min(limit ?? 20, 100);
+
+  const recentRuns = await prisma.testRun.findMany({
+    where: { projectId, status: "completed" },
+    orderBy: { completedAt: "desc" },
+    take: 10,
+    select: { id: true },
+  });
+
+  if (recentRuns.length === 0) return { error: "No completed runs" };
+
+  const runIds = recentRuns.map((r) => r.id);
+
+  const failures = await prisma.testResult.findMany({
+    where: {
+      testRunId: { in: runIds },
+      verdict: "fail",
+      ...(query
+        ? {
+            OR: [
+              { failureExplanation: { contains: query, mode: "insensitive" } },
+              { testCase: { name: { contains: query, mode: "insensitive" } } },
+            ],
+          }
+        : {}),
+    },
+    include: {
+      testCase: { select: { name: true, type: true, journey: true } },
+      testRun: { select: { id: true, completedAt: true } },
+    },
+    orderBy: { createdAt: "desc" },
+    take: maxResults,
+  });
+
+  return {
+    totalFailures: failures.length,
+    query: query ?? null,
+    failures: failures.map((f) => ({
+      testName: f.testCase.name,
+      testType: f.testCase.type,
+      journey: f.testCase.journey,
+      runId: f.testRun.id,
+      runCompletedAt: f.testRun.completedAt,
+      explanation: f.failureExplanation,
+      suggestedFix: f.suggestedFix,
+    })),
+  };
+}
+
+export async function auditCode(projectId: string, filePath?: string) {
+  const nodes = await prisma.systemMapNode.findMany({
+    where: {
+      projectId,
+      ...(filePath ? { filePath: { contains: filePath } } : {}),
+    },
+    select: { id: true, type: true, name: true, filePath: true },
+  });
+
+  const testCases = await prisma.testCase.findMany({
+    where: { projectId, isEnabled: true },
+    select: { name: true, journey: true, type: true, lastVerdict: true },
+  });
+
+  const routes = nodes.filter((n) => n.type === "route");
+  const endpoints = nodes.filter((n) => n.type === "endpoint");
+  const testedJourneys = new Set(testCases.map((tc) => tc.journey).filter(Boolean));
+
+  const untestedRoutes = routes.filter(
+    (r) => !testedJourneys.has(r.name) && !testedJourneys.has(r.filePath)
+  );
+
+  const failingTests = testCases.filter((tc) => tc.lastVerdict === "fail");
+  const coveragePercent =
+    routes.length > 0
+      ? Math.round(((routes.length - untestedRoutes.length) / routes.length) * 100)
+      : 0;
+
+  return {
+    projectId,
+    totalRoutes: routes.length,
+    totalEndpoints: endpoints.length,
+    totalTestCases: testCases.length,
+    coveragePercent,
+    untestedRoutes: untestedRoutes.slice(0, 20).map((r) => ({
+      name: r.name,
+      filePath: r.filePath,
+    })),
+    failingTests: failingTests.slice(0, 10).map((t) => ({
+      name: t.name,
+      type: t.type,
+    })),
+    recommendations: buildRecommendations(
+      coveragePercent,
+      untestedRoutes.length,
+      failingTests.length
+    ),
+  };
+}
+
+function buildRecommendations(
+  coverage: number,
+  untestedCount: number,
+  failingCount: number
+): string[] {
+  const recs: string[] = [];
+  if (coverage < 50) {
+    recs.push("Coverage is below 50%. Prioritize adding tests for critical user journeys.");
+  }
+  if (untestedCount > 10) {
+    recs.push(`${untestedCount} routes lack test coverage. Focus on high-traffic routes first.`);
+  }
+  if (failingCount > 0) {
+    recs.push(`${failingCount} tests are currently failing. Fix these before adding new tests.`);
+  }
+  if (recs.length === 0) {
+    recs.push("Good coverage. Consider adding edge case and error state tests.");
+  }
+  return recs;
 }

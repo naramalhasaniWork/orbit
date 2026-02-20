@@ -3,12 +3,15 @@
 import { useState, useMemo } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { ArrowLeft, GitBranch, Clock, Hash } from "lucide-react";
+import { ArrowLeft, GitBranch, Clock, Hash, MonitorPlay, Image as ImageIcon } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { StatCard } from "@/components/shared/stat-card";
 import { cn } from "@/lib/utils";
 import { TestResultCard } from "@/components/runs/test-result-card";
 import { FailurePatternsPanel } from "@/components/runs/failure-patterns-panel";
+import { TraceViewer } from "@/components/runs/trace-viewer";
+import { LiveExecutionViewer } from "@/components/execution/live-viewer";
 import {
   type RunDetailData,
   RUN_STATUS_CONFIG,
@@ -147,6 +150,9 @@ function VerdictFilterBar({
   );
 }
 
+const EXECUTING_STATUSES = new Set(["executing", "indexing", "planning", "reporting"]);
+const TERMINAL_STATUSES = new Set(["completed", "failed", "cancelled"]);
+
 export function RunDetailClient({ run, projectId }: RunDetailClientProps) {
   const [verdictFilter, setVerdictFilter] = useState<string | null>(null);
 
@@ -156,6 +162,9 @@ export function RunDetailClient({ run, projectId }: RunDetailClientProps) {
   }, [run.results, verdictFilter]);
 
   const statusConfig = RUN_STATUS_CONFIG[run.status];
+  const isExecuting = EXECUTING_STATUSES.has(run.status);
+  const isTerminal = TERMINAL_STATUSES.has(run.status);
+  const defaultTab = isExecuting ? "live" : "results";
 
   return (
     <motion.div
@@ -205,21 +214,42 @@ export function RunDetailClient({ run, projectId }: RunDetailClientProps) {
 
       <ResultsBar run={run} />
 
-      <VerdictFilterBar
-        results={run.results}
-        selected={verdictFilter}
-        onSelect={setVerdictFilter}
-      />
+      <Tabs defaultValue="results" className="w-full">
+        <TabsList>
+          <TabsTrigger value="results">
+            Results ({run.totalTests})
+          </TabsTrigger>
+          <TabsTrigger value="traces">Traces</TabsTrigger>
+        </TabsList>
 
-      <div className="space-y-2">
-        {filteredResults.map((result) => (
-          <TestResultCard key={result.id} result={result} projectId={projectId} runId={run.id} />
-        ))}
-      </div>
+        <TabsContent value="results" className="mt-4 space-y-4">
+          <VerdictFilterBar
+            results={run.results}
+            selected={verdictFilter}
+            onSelect={setVerdictFilter}
+          />
 
-      {projectId && run.failed > 0 && (
-        <FailurePatternsPanel projectId={projectId} />
-      )}
+          <div className="space-y-2">
+            {filteredResults.map((result) => (
+              <TestResultCard key={result.id} result={result} projectId={projectId} runId={run.id} />
+            ))}
+          </div>
+
+          {projectId && run.failed > 0 && (
+            <FailurePatternsPanel projectId={projectId} />
+          )}
+        </TabsContent>
+
+        <TabsContent value="traces" className="mt-4">
+          {projectId ? (
+            <TraceViewer projectId={projectId} runId={run.id} />
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              Project context required to view traces.
+            </p>
+          )}
+        </TabsContent>
+      </Tabs>
     </motion.div>
   );
 }

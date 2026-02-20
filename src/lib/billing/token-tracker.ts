@@ -9,7 +9,7 @@ interface TokenTrackingParams {
   inputTokens: number;
   outputTokens: number;
   cachedTokens?: number;
-  agentPhase: "analyst" | "planner" | "executor" | "reporter";
+  agentPhase: "analyst" | "planner" | "executor" | "reporter" | "auditor";
 }
 
 /**

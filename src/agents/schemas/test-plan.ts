@@ -7,6 +7,7 @@ export const TEST_TYPES = {
   form_validation: "form_validation",
   edge_case: "edge_case",
   regression: "regression",
+  visual_regression: "visual_regression",
 } as const;
 
 export const CRITICALITY_LEVELS = {
@@ -39,6 +40,7 @@ export const TestCaseSchema = z.object({
     "form_validation",
     "edge_case",
     "regression",
+    "visual_regression",
   ]),
   journey: z
     .string()

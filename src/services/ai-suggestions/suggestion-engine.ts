@@ -363,7 +363,7 @@ async function generateLLMSuggestions(
   ctx: SuggestionContext,
   existingSuggestions: Suggestion[]
 ): Promise<Suggestion[]> {
-  const model = getModelForTask("test_generation");
+  const model = await getModelForTask("test_generation");
 
   const contextSummary = [
     `Project has ${ctx.totalRoutes} routes, ${ctx.totalEndpoints} endpoints, ${ctx.totalTests} tests.`,

@@ -108,7 +108,7 @@ export async function generateEnhancedDocs(
     })),
   }));
 
-  const model = getModelForTask("report_writing");
+  const model = await getModelForTask("report_writing");
 
   const project = await prisma.project.findUniqueOrThrow({
     where: { id: projectId },

@@ -2,10 +2,7 @@ import type { Page } from "playwright";
 import { prisma } from "@/lib/db";
 import { createTrackedCompletion } from "@/lib/ai/tracked-completion";
 import { getModelForTask } from "@/lib/ai/model-router";
-
-// ============================================================
-// Types
-// ============================================================
+import { trySubAgentHealing } from "@/services/execution/sub-agent-healing";
 
 interface HealingResult {
   found: boolean;
@@ -15,10 +12,6 @@ interface HealingResult {
 }
 
 const CONFIDENCE_THRESHOLD = 0.85;
-
-// ============================================================
-// Selector Healing Strategies
-// ============================================================
 
 async function tryStoredMapping(
   projectId: string,
@@ -162,7 +155,7 @@ async function tryLlmHealing(
     }),
   ]);
 
-  const model = getModelForTask("browser_execution");
+  const model = await getModelForTask("browser_execution");
 
   const result = await createTrackedCompletion(
     {
@@ -218,10 +211,6 @@ async function tryLlmHealing(
   return null;
 }
 
-// ============================================================
-// Main Healing Function
-// ============================================================
-
 export async function healSelector(
   page: Page,
   projectId: string,
@@ -229,13 +218,15 @@ export async function healSelector(
   actionDescription: string,
   runId?: string
 ): Promise<HealingResult> {
-  // Try strategies in order of speed and reliability
+  // Try strategies in order of speed and reliability.
+  // Fast heuristics first, then LLM fallback, then sub-agent (richest context).
   const strategies = [
     () => tryStoredMapping(projectId, originalSelector),
     () => tryTextContent(page, originalSelector),
     () => tryAriaLabel(page, originalSelector),
     () => tryRoleBasedSelector(page, originalSelector),
     () => tryLlmHealing(page, originalSelector, actionDescription, projectId, runId),
+    () => trySubAgentHealing(page, originalSelector, actionDescription, projectId, runId),
   ];
 
   for (const strategy of strategies) {
@@ -252,10 +243,6 @@ export async function healSelector(
     strategy: "none",
   };
 }
-
-// ============================================================
-// Persist Healing Result
-// ============================================================
 
 export async function persistHealing(
   projectId: string,

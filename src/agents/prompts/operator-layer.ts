@@ -9,7 +9,7 @@ const OPERATOR_PROMPT_VERSION = "1.1.0";
 
 interface OperatorPromptOptions {
   /** Agent-specific role identifier for context */
-  agentRole?: "analyst" | "planner" | "executor" | "reporter";
+  agentRole?: "analyst" | "planner" | "executor" | "reporter" | "auditor";
   /** Workspace name for audit trail */
   workspaceName?: string;
   /** Maximum output tokens hint for context-aware generation */

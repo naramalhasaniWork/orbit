@@ -18,7 +18,7 @@ interface BillingContext {
   workspaceId: string;
   projectId?: string;
   runId?: string;
-  agentPhase: "analyst" | "planner" | "executor" | "reporter";
+  agentPhase: "analyst" | "planner" | "executor" | "reporter" | "auditor";
 }
 
 interface CompletionResult {

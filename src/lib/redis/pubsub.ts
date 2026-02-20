@@ -74,6 +74,7 @@ export async function subscribe(
 // Channel name helpers
 export const channels = {
   runProgress: (runId: string) => `run:${runId}:progress`,
+  runScreenshots: (runId: string) => `run:${runId}:screenshots`,
   indexingProgress: (projectId: string) => `index:${projectId}:progress`,
   workspaceEvents: (workspaceId: string) => `workspace:${workspaceId}:events`,
   projectEvents: (projectId: string) => `project:${projectId}:events`,

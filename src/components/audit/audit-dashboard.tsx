@@ -1,0 +1,239 @@
+"use client";
+
+import { useState, useCallback } from "react";
+import { motion } from "framer-motion";
+import { ScoreDisplay } from "@/components/audit/score-display";
+import { CategoryBars } from "@/components/audit/category-bars";
+import { IssueList } from "@/components/audit/issue-list";
+import { AuditTrendChart } from "@/components/audit/trend-chart";
+import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/shared/empty-state";
+import { ShieldCheck, Loader2, AlertTriangle, RefreshCw } from "lucide-react";
+
+interface AuditIssue {
+  id: string;
+  severity: string;
+  category: string;
+  file: string;
+  line: number;
+  title: string;
+  description: string;
+  suggestion: string;
+  codeSnippet: string;
+}
+
+interface AuditSummary {
+  id: string;
+  overallScore: number;
+  issueCount: number;
+  criticalCount: number;
+  categories: Record<string, { score: number; issues: string[] }>;
+  metadata: Record<string, unknown>;
+  createdAt: string;
+}
+
+interface AuditDetail extends AuditSummary {
+  issues: AuditIssue[];
+}
+
+interface AuditDashboardProps {
+  projectId: string;
+  projectName: string;
+  audits: AuditSummary[];
+}
+
+export function AuditDashboard({
+  projectId,
+  projectName,
+  audits: initialAudits,
+}: AuditDashboardProps) {
+  const [audits, setAudits] = useState(initialAudits);
+  const [selectedAudit, setSelectedAudit] = useState<AuditDetail | null>(null);
+  const [isRunning, setIsRunning] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const latestAudit = audits[0] ?? null;
+
+  const triggerAudit = useCallback(async () => {
+    setIsRunning(true);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/audit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      if (!res.ok) throw new Error("Audit failed");
+      const { data } = await res.json();
+
+      // Refresh audit list
+      const listRes = await fetch(`/api/projects/${projectId}/audit`);
+      if (listRes.ok) {
+        const { data: freshAudits } = await listRes.json();
+        setAudits(freshAudits);
+      }
+
+      // Load the new audit detail
+      await loadAuditDetail(data.id);
+    } catch (err) {
+      console.error("Failed to trigger audit:", err);
+    } finally {
+      setIsRunning(false);
+    }
+  }, [projectId]);
+
+  const loadAuditDetail = useCallback(
+    async (auditId: string) => {
+      setIsLoading(true);
+      try {
+        const res = await fetch(
+          `/api/projects/${projectId}/audit/${auditId}`
+        );
+        if (!res.ok) throw new Error("Failed to load audit");
+        const { data } = await res.json();
+        setSelectedAudit(data);
+      } catch (err) {
+        console.error("Failed to load audit detail:", err);
+      } finally {
+        setIsLoading(false);
+      }
+    },
+    [projectId]
+  );
+
+  // If no audits exist, show empty state
+  if (audits.length === 0 && !isRunning) {
+    return (
+      <div className="p-6">
+        <EmptyState
+          icon={ShieldCheck}
+          title="No code audits yet"
+          description={`Run your first audit on ${projectName} to get AI-powered code quality insights.`}
+          action={
+            <Button onClick={triggerAudit} disabled={isRunning}>
+              {isRunning ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : (
+                <ShieldCheck className="h-4 w-4 mr-2" />
+              )}
+              Run First Audit
+            </Button>
+          }
+        />
+      </div>
+    );
+  }
+
+  const displayAudit = selectedAudit ?? latestAudit;
+  const trendData = audits
+    .slice(0, 10)
+    .reverse()
+    .map((a) => ({
+      date: a.createdAt,
+      score: a.overallScore,
+      issues: a.issueCount,
+    }));
+
+  return (
+    <div className="p-6 space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-xl font-semibold text-foreground">Code Audit</h1>
+          <p className="text-sm text-muted-foreground mt-0.5">{projectName}</p>
+        </div>
+        <Button onClick={triggerAudit} disabled={isRunning} size="sm">
+          {isRunning ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+          ) : (
+            <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
+          )}
+          {isRunning ? "Auditing..." : "Run Audit"}
+        </Button>
+      </div>
+
+      {/* Score + Categories overview */}
+      {displayAudit && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="grid grid-cols-1 lg:grid-cols-3 gap-6"
+        >
+          {/* Score card */}
+          <div className="surface-1 rounded-xl border border-white/[0.04] p-6 flex flex-col items-center justify-center">
+            <ScoreDisplay score={displayAudit.overallScore} label="Overall" />
+            <div className="flex items-center gap-4 mt-4 text-sm">
+              <span className="text-muted-foreground">
+                {displayAudit.issueCount} issues
+              </span>
+              {displayAudit.criticalCount > 0 && (
+                <span className="flex items-center gap-1 text-red-400">
+                  <AlertTriangle className="h-3.5 w-3.5" />
+                  {displayAudit.criticalCount} critical
+                </span>
+              )}
+            </div>
+          </div>
+
+          {/* Category breakdown */}
+          <div className="surface-1 rounded-xl border border-white/[0.04] p-6 lg:col-span-2">
+            <h2 className="text-sm font-medium text-foreground mb-4">
+              Category Breakdown
+            </h2>
+            <CategoryBars
+              categories={
+                displayAudit.categories as Record<
+                  string,
+                  { score: number; issues: string[] }
+                >
+              }
+            />
+          </div>
+        </motion.div>
+      )}
+
+      {/* Trend chart */}
+      {trendData.length > 1 && (
+        <div className="surface-1 rounded-xl border border-white/[0.04] p-6">
+          <h2 className="text-sm font-medium text-foreground mb-4">
+            Score Trend
+          </h2>
+          <AuditTrendChart data={trendData} />
+        </div>
+      )}
+
+      {/* Past audits selector */}
+      {audits.length > 1 && (
+        <div className="flex gap-2 overflow-x-auto pb-1">
+          {audits.slice(0, 10).map((a) => (
+            <button
+              key={a.id}
+              type="button"
+              onClick={() => loadAuditDetail(a.id)}
+              className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                displayAudit?.id === a.id
+                  ? "bg-white/[0.08] text-foreground"
+                  : "text-muted-foreground hover:text-foreground hover:bg-white/[0.04]"
+              }`}
+            >
+              {new Date(a.createdAt).toLocaleDateString()} — {a.overallScore}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Issue list */}
+      {isLoading ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+        </div>
+      ) : selectedAudit ? (
+        <div className="surface-1 rounded-xl border border-white/[0.04] p-6">
+          <h2 className="text-sm font-medium text-foreground mb-4">
+            Issues ({selectedAudit.issues.length})
+          </h2>
+          <IssueList issues={selectedAudit.issues} />
+        </div>
+      ) : null}
+    </div>
+  );
+}

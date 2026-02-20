@@ -96,7 +96,7 @@ async function generateBugReport(
       select: { workspaceId: true },
     }),
   ]);
-  const model = getModelForTask("failure_analysis");
+  const model = await getModelForTask("failure_analysis");
 
   const context: ReporterContext = {
     runId,

@@ -86,7 +86,7 @@ export async function analyzeFailures(
   }
 
   const historicalData = await getHistoricalData(run.projectId);
-  const model = getModelForTask("failure_analysis");
+  const model = await getModelForTask("failure_analysis");
   const analyses: FailureAnalysis[] = [];
 
   for (const result of run.results) {

@@ -9,6 +9,7 @@ import {
   Users,
   Settings2,
   BarChart3,
+  ScrollText,
   Shield,
   Orbit,
 } from "lucide-react";
@@ -20,6 +21,7 @@ const navigation = [
   { name: "Users", href: "/admin/users", icon: Users },
   { name: "System", href: "/admin/system", icon: Settings2 },
   { name: "Analytics", href: "/admin/analytics", icon: BarChart3 },
+  { name: "Audit Log", href: "/admin/audit", icon: ScrollText },
 ];
 
 export function AdminSidebar() {

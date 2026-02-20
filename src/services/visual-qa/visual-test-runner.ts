@@ -1,0 +1,183 @@
+import { launchBrowser, closeBrowser } from "@/services/execution/browser-manager";
+import { getStorage } from "@/lib/storage";
+import { compareScreenshots, type DiffResult } from "@/services/visual-qa/diff-engine";
+import { checkBrandConsistency, type BrandCheckResult } from "@/services/visual-qa/brand-checker";
+import { getBaseline, acceptAsBaseline, computeChecksum } from "@/services/visual-qa/baseline-manager";
+import { prisma } from "@/lib/db";
+import type { Prisma } from "@/generated/prisma/client";
+
+// ============================================================
+// Types
+// ============================================================
+
+export interface VisualTestInput {
+  runId: string;
+  projectId: string;
+  routePath: string;
+  environmentUrl: string;
+  checkBrand?: boolean;
+  diffThreshold?: number;
+}
+
+export interface VisualTestResult {
+  passed: boolean;
+  isBaselineCapture: boolean;
+  screenshotKey: string;
+  diff?: DiffResult;
+  brandCheck?: BrandCheckResult;
+  baselineKey?: string;
+  durationMs: number;
+}
+
+interface BillingInfo {
+  workspaceId: string;
+  projectId: string;
+  runId: string;
+}
+
+// ============================================================
+// Screenshot Capture
+// ============================================================
+
+async function captureScreenshot(
+  url: string,
+  routePath: string
+): Promise<Buffer> {
+  const instance = await launchBrowser({ headless: true });
+
+  try {
+    const fullUrl = routePath.startsWith("http")
+      ? routePath
+      : `${url.replace(/\/$/, "")}${routePath}`;
+
+    await instance.page.goto(fullUrl, { waitUntil: "networkidle", timeout: 30_000 });
+    // Allow rendering to settle
+    await instance.page.waitForTimeout(1000);
+    const screenshot = await instance.page.screenshot({ fullPage: true, type: "png" });
+    return Buffer.from(screenshot);
+  } finally {
+    await closeBrowser(instance);
+  }
+}
+
+// ============================================================
+// Storage Helpers
+// ============================================================
+
+function buildStorageKey(projectId: string, runId: string, routePath: string): string {
+  const sanitized = routePath.replace(/[^a-zA-Z0-9-_/]/g, "_");
+  return `visual-qa/${projectId}/${runId}/${sanitized}.png`;
+}
+
+async function storeScreenshot(
+  key: string,
+  data: Buffer,
+  projectId: string,
+  runId: string
+): Promise<void> {
+  const storage = getStorage();
+  await storage.upload(key, data, "image/png");
+
+  // Store as run artifact
+  await prisma.runArtifact.create({
+    data: {
+      projectId,
+      testRunId: runId,
+      type: "screenshot",
+      storageKey: key,
+      fileName: key.split("/").pop() ?? "screenshot.png",
+      contentType: "image/png",
+      sizeBytes: data.length,
+      metadata: { source: "visual-qa" } as Prisma.InputJsonValue,
+    },
+  });
+}
+
+// ============================================================
+// Load Billing Context
+// ============================================================
+
+async function loadBillingContext(
+  projectId: string,
+  runId: string
+): Promise<BillingInfo> {
+  const project = await prisma.project.findUniqueOrThrow({
+    where: { id: projectId },
+    select: { workspaceId: true },
+  });
+
+  return {
+    workspaceId: project.workspaceId,
+    projectId,
+    runId,
+  };
+}
+
+// ============================================================
+// Visual Test Runner
+// ============================================================
+
+export async function runVisualTest(
+  input: VisualTestInput
+): Promise<VisualTestResult> {
+  const startTime = Date.now();
+  const { runId, projectId, routePath, environmentUrl, checkBrand, diffThreshold } = input;
+
+  // 1. Capture screenshot
+  const screenshotData = await captureScreenshot(environmentUrl, routePath);
+  const storageKey = buildStorageKey(projectId, runId, routePath);
+  const checksum = computeChecksum(screenshotData);
+
+  await storeScreenshot(storageKey, screenshotData, projectId, runId);
+
+  // 2. Look for existing baseline
+  const baseline = await getBaseline(projectId, routePath);
+  const billing = await loadBillingContext(projectId, runId);
+
+  // 3. If no baseline exists, this is a baseline capture run
+  if (!baseline) {
+    await acceptAsBaseline(projectId, runId, routePath, storageKey, checksum);
+
+    let brandCheck: BrandCheckResult | undefined;
+    if (checkBrand) {
+      brandCheck = await checkBrandConsistency(storageKey, undefined, projectId, billing);
+    }
+
+    return {
+      passed: true,
+      isBaselineCapture: true,
+      screenshotKey: storageKey,
+      brandCheck,
+      durationMs: Date.now() - startTime,
+    };
+  }
+
+  // 4. Compare against baseline
+  const diff = await compareScreenshots(
+    baseline.storageKey,
+    storageKey,
+    { threshold: diffThreshold },
+    billing
+  );
+
+  // 5. Optionally run brand check
+  let brandCheck: BrandCheckResult | undefined;
+  if (checkBrand) {
+    brandCheck = await checkBrandConsistency(storageKey, undefined, projectId, billing);
+  }
+
+  // 6. Determine pass/fail
+  const diffPassed = !diff.isRegression;
+  const brandPassed = brandCheck ? brandCheck.passed : true;
+  const passed = diffPassed && brandPassed;
+
+  return {
+    passed,
+    isBaselineCapture: false,
+    screenshotKey: storageKey,
+    diff,
+    brandCheck,
+    baselineKey: baseline.storageKey,
+    durationMs: Date.now() - startTime,
+  };
+}

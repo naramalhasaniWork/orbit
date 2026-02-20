@@ -12,6 +12,9 @@ import { ScheduleSettings } from "@/components/settings/schedule-settings";
 import { IntegrationSettings } from "@/components/settings/integration-settings";
 import { ApiKeySettings } from "@/components/settings/api-key-settings";
 import { WebhookSettings } from "@/components/settings/webhook-settings";
+import { PluginSettings } from "@/components/settings/plugin-settings";
+import { KnowledgeUpload } from "@/components/settings/knowledge-upload";
+import { AgentSettingsList } from "@/components/settings/agent-settings-list";
 
 interface IntegrationConfig {
   github?: { connected: boolean; installationId?: string; repos?: string[] };
@@ -61,9 +64,12 @@ const tabs = [
   { id: "environments", label: "Environments" },
   { id: "schedules", label: "Schedules" },
   { id: "secrets", label: "Secrets" },
+  { id: "agents", label: "Agents" },
+  { id: "knowledge", label: "Knowledge" },
   { id: "integrations", label: "Integrations" },
   { id: "webhooks", label: "Webhooks" },
   { id: "api-keys", label: "API Keys" },
+  { id: "plugins", label: "Plugins" },
   { id: "workspace", label: "Workspace" },
 ] as const;
 
@@ -131,6 +137,12 @@ export function SettingsClient({
           {activeTab === "secrets" && (
             <SecretSettings projectId={project?.id ?? null} secrets={secrets} />
           )}
+          {activeTab === "agents" && workspace && (
+            <AgentSettingsList workspaceId={workspace.id} />
+          )}
+          {activeTab === "knowledge" && workspace && (
+            <KnowledgeUpload workspaceId={workspace.id} />
+          )}
           {activeTab === "integrations" && (
             <IntegrationSettings
               workspaceId={workspace?.id ?? null}
@@ -143,6 +155,9 @@ export function SettingsClient({
           )}
           {activeTab === "api-keys" && (
             <ApiKeySettings workspaceId={workspace?.id ?? null} />
+          )}
+          {activeTab === "plugins" && (
+            <PluginSettings workspaceId={workspace?.id ?? null} />
           )}
           {activeTab === "workspace" && <WorkspaceSettings workspace={workspace} />}
         </motion.div>
