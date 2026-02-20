@@ -1,7 +1,12 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { requirePermission } from "@/lib/auth/rbac";
-import { TIER_LIMITS, type WorkspaceTier } from "@/lib/auth/tenant";
+import {
+  TIER_LIMITS,
+  BUDGET_WARNING_THRESHOLD,
+  getBudgetPercentage,
+  type WorkspaceTier,
+} from "@/lib/auth/tenant";
 import { apiSuccess, apiError, handleApiError } from "@/lib/utils/api";
 
 // ============================================================
@@ -99,20 +104,29 @@ export async function GET(
       },
     });
 
+    const creditsUsedThisMonth = Math.abs(monthlyCreditsUsed._sum.amount ?? 0);
+    const creditLimit = limits?.monthlyCredits ?? workspace.monthlyCredits;
+    const budgetPercentage = getBudgetPercentage(creditsUsedThisMonth, tier);
+
     return apiSuccess({
       tier,
       limits: {
         members: limits?.members ?? workspace.memberLimit,
-        projects: limits?.projects ?? workspace.projectLimit,
-        runsPerMonth: limits?.runsPerMonth ?? workspace.runLimit,
-        monthlyCredits: limits?.monthlyCredits ?? workspace.monthlyCredits,
+        projects: limits?.projects === Infinity ? null : (limits?.projects ?? workspace.projectLimit),
+        runsPerMonth: limits?.runsPerMonth === Infinity ? null : (limits?.runsPerMonth ?? workspace.runLimit),
+        monthlyCredits: creditLimit === Infinity ? null : creditLimit,
       },
       current: {
         members: memberCount,
         projects: projectCount,
         runsThisMonth: monthlyRuns,
-        creditsUsedThisMonth: Math.abs(monthlyCreditsUsed._sum.amount ?? 0),
+        creditsUsedThisMonth,
         creditBalance: workspace.creditBalance,
+      },
+      budget: {
+        percentage: Math.round(budgetPercentage * 100),
+        warning: budgetPercentage >= BUDGET_WARNING_THRESHOLD,
+        warningThreshold: BUDGET_WARNING_THRESHOLD * 100,
       },
       dailyUsage,
       recentTransactions,

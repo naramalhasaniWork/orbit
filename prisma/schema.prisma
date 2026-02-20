@@ -171,11 +171,11 @@ model Workspace {
   slug            String        @unique
   plan            String        @default("free")
   tier            WorkspaceTier @default(free)
-  creditBalance   Int           @default(500) @map("credit_balance")
-  monthlyCredits  Int           @default(500) @map("monthly_credits")
+  creditBalance   Int           @default(100) @map("credit_balance")
+  monthlyCredits  Int           @default(100) @map("monthly_credits")
   tokenBudgetMonthly Int?       @map("token_budget_monthly")
   runLimit        Int           @default(100) @map("run_limit")
-  memberLimit     Int           @default(1) @map("member_limit")
+  memberLimit     Int           @default(2) @map("member_limit")
   projectLimit    Int           @default(1) @map("project_limit")
   settings        Json          @default("{}")
 
