@@ -15,6 +15,8 @@ import {
   Users,
   CreditCard,
   FolderGit2,
+  KeyRound,
+  Plug,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { WorkspaceSwitcher } from "@/components/team/workspace-switcher";
@@ -27,6 +29,8 @@ const navigation = [
   { name: "Runs", href: "/dashboard/runs", icon: Play },
   { name: "Code Audit", href: "/dashboard/audit", icon: ShieldCheck },
   { name: "Settings", href: "/dashboard/settings", icon: Settings },
+  { name: "Providers", href: "/dashboard/settings/providers", icon: KeyRound },
+  { name: "MCP Tools", href: "/dashboard/settings/mcp", icon: Plug },
   { name: "Team", href: "/dashboard/settings/members", icon: Users },
   { name: "Billing", href: "/dashboard/settings/billing", icon: CreditCard },
 ];

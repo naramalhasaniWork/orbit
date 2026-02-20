@@ -34,7 +34,7 @@ export default async function KnowledgeSettingsPage() {
       <div>
         <h1 className="text-lg font-semibold text-foreground">Knowledge Base</h1>
         <p className="text-sm text-muted-foreground mt-1">
-          Upload domain knowledge to give Orbit's agents deeper context about your application.
+          Upload domain knowledge to give Orbit&apos;s agents deeper context about your application.
         </p>
       </div>
       <KnowledgeUpload workspaceId={workspaceId} initialFiles={serialized} />

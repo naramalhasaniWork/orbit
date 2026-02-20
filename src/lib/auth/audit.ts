@@ -25,7 +25,11 @@ export type AuditAction =
   | "run.trigger"
   | "run.cancel"
   | "settings.change"
-  | "agent.decision";
+  | "agent.decision"
+  | "mcp_connection.created"
+  | "mcp_connection.updated"
+  | "mcp_connection.deleted"
+  | "mcp_connection.tool_call";
 
 interface AuditLogInput {
   workspaceId: string;

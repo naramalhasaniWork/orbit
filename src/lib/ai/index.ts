@@ -1,5 +1,9 @@
 import { createAnthropicCompletion, streamAnthropicCompletion } from "@/lib/ai/providers/anthropic";
 import { createOpenAICompletion, createEmbedding, createEmbeddings } from "@/lib/ai/providers/openai";
+import {
+  createOpenRouterCompletion,
+  streamOpenRouterCompletion,
+} from "@/lib/ai/providers/openrouter";
 
 export const MODELS = {
   HAIKU: "claude-3-5-haiku-20241022",
@@ -22,6 +26,7 @@ interface CompletionOptions {
   messages: CompletionMessage[];
   maxTokens?: number;
   temperature?: number;
+  apiKey?: string;
 }
 
 interface CompletionResult {
@@ -45,7 +50,7 @@ function isOpenAIModel(model: string): boolean {
 export async function createCompletion(
   options: CompletionOptions
 ): Promise<CompletionResult> {
-  const { model } = options;
+  const { model, apiKey } = options;
 
   if (isAnthropicModel(model)) {
     return createAnthropicCompletion(options);
@@ -55,15 +60,14 @@ export async function createCompletion(
     return createOpenAICompletion(options);
   }
 
-  throw new Error(
-    `Unknown model provider for model "${model}". Models must start with "claude" or "gpt".`
-  );
+  // Route all other models through OpenRouter
+  return createOpenRouterCompletion({ ...options, apiKey });
 }
 
 export async function* streamCompletion(
   options: CompletionOptions
 ): AsyncGenerator<string, CompletionResult> {
-  const { model } = options;
+  const { model, apiKey } = options;
 
   if (isAnthropicModel(model)) {
     return yield* streamAnthropicCompletion(options);
@@ -77,9 +81,8 @@ export async function* streamCompletion(
     return result;
   }
 
-  throw new Error(
-    `Unknown model provider for model "${model}". Models must start with "claude" or "gpt".`
-  );
+  // Route all other models through OpenRouter streaming
+  return yield* streamOpenRouterCompletion({ ...options, apiKey });
 }
 
 export { createEmbedding, createEmbeddings };

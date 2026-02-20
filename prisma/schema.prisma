@@ -206,6 +206,9 @@ model Workspace {
   tokenUsages          TokenUsage[]
   invoices             Invoice[]
   agentConfigs         AgentConfig[]
+  providerConfigs      ProviderConfig[]
+  promptVersions       PromptVersion[]
+  mcpConnections       McpConnection[]
 
   @@map("workspaces")
 }
@@ -229,7 +232,8 @@ model User {
   testPlans    TestPlan[]              @relation("ApprovedBy")
   testRuns     TestRun[]               @relation("TriggeredBy")
   auditLogs    AuditLog[]
-  invitedUsers WorkspaceInvitation[]   @relation("InvitedBy")
+  invitedUsers    WorkspaceInvitation[]   @relation("InvitedBy")
+  promptVersions  PromptVersion[]         @relation("PromptCreatedBy")
 
   @@map("users")
 }
@@ -1214,4 +1218,121 @@ model AuditResult {
   @@index([projectId])
   @@index([projectId, createdAt])
   @@map("audit_results")
+}
+
+// ============================================================
+// PROVIDER CONFIGS — per-workspace AI provider API key storage
+// ============================================================
+
+model ProviderConfig {
+  id              String   @id @default(uuid()) @db.Uuid
+  workspaceId     String   @map("workspace_id") @db.Uuid
+  provider        String   // "anthropic", "openai", "openrouter", "custom"
+  displayName     String?  @map("display_name")
+  apiKeyEncrypted String?  @map("api_key_encrypted")
+  baseUrl         String?  @map("base_url")
+  isActive        Boolean  @default(true) @map("is_active")
+  isDefault       Boolean  @default(false) @map("is_default")
+  settings        Json?
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @default(now()) @updatedAt @map("updated_at")
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, provider], name: "provider_config_unique")
+  @@index([workspaceId])
+  @@map("provider_configs")
+}
+
+// ============================================================
+// MODEL REGISTRY — cache of available models from all providers
+// ============================================================
+
+model ModelRegistry {
+  id              String    @id @default(uuid()) @db.Uuid
+  provider        String
+  modelId         String    @map("model_id")
+  displayName     String    @map("display_name")
+  contextWindow   Int       @map("context_window")
+  inputCostPer1M  Float     @map("input_cost_per_1m")
+  outputCostPer1M Float     @map("output_cost_per_1m")
+  capabilities    Json?
+  isActive        Boolean   @default(true) @map("is_active")
+  lastSyncedAt    DateTime? @map("last_synced_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  @@unique([provider, modelId], name: "model_registry_unique")
+  @@index([provider])
+  @@map("model_registry")
+}
+
+// ============================================================
+// GLOBAL MODEL POLICIES — super admin controls for model access
+// ============================================================
+
+model GlobalModelPolicy {
+  id               String   @id @default(uuid()) @db.Uuid
+  modelId          String   @map("model_id")
+  provider         String
+  isAllowed        Boolean  @default(true) @map("is_allowed")
+  requiredTier     String?  @map("required_tier")
+  maxTemperature   Float?   @map("max_temperature")
+  requiresApproval Boolean  @default(false) @map("requires_approval")
+  notes            String?
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@unique([modelId, provider], name: "model_policy_unique")
+  @@map("global_model_policies")
+}
+
+// ============================================================
+// PROMPT VERSIONS — versioned prompt history
+// ============================================================
+
+model PromptVersion {
+  id          String      @id @default(uuid()) @db.Uuid
+  workspaceId String?     @map("workspace_id") @db.Uuid
+  agentPhase  AgentPhase  @map("agent_phase")
+  promptType  String      @map("prompt_type") // "operator", "user", "agent"
+  content     String
+  version     Int         @default(1)
+  isActive    Boolean     @default(true) @map("is_active")
+  createdById String?     @map("created_by_id") @db.Uuid
+  changelog   String?
+  createdAt   DateTime    @default(now()) @map("created_at")
+
+  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy User?      @relation("PromptCreatedBy", fields: [createdById], references: [id])
+
+  @@index([workspaceId, agentPhase])
+  @@index([agentPhase, isActive])
+  @@map("prompt_versions")
+}
+
+// ============================================================
+// MCP CONNECTIONS — user-connected external MCP servers
+// ============================================================
+
+model McpConnection {
+  id              String    @id @default(uuid()) @db.Uuid
+  workspaceId     String    @map("workspace_id") @db.Uuid
+  name            String
+  description     String?
+  serverUrl       String    @map("server_url")
+  transportType   String    @default("sse") @map("transport_type")
+  apiKeyEncrypted String?   @map("api_key_encrypted")
+  apiKeyIv        String?   @map("api_key_iv")
+  headers         Json?
+  isActive        Boolean   @default(true) @map("is_active")
+  toolsDiscovered Json?     @map("tools_discovered")
+  lastConnectedAt DateTime? @map("last_connected_at")
+  createdAt       DateTime  @default(now()) @map("created_at")
+  updatedAt       DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@map("mcp_connections")
 }

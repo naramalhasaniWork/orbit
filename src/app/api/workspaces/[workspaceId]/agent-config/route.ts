@@ -78,7 +78,7 @@ export async function PUT(
     const { agentPhase, model, temperature, maxInputTokens, maxOutputTokens, customPrompt, isEnabled } = body;
 
     if (!agentPhase || !VALID_PHASES.includes(agentPhase as AgentPhase)) {
-      return apiError("Invalid agentPhase. Must be one of: analyst, planner, executor, reporter", "VALIDATION_ERROR", 400);
+      return apiError("Invalid agentPhase. Must be one of: analyst, planner, executor, reporter, auditor", "VALIDATION_ERROR", 400);
     }
 
     if (temperature !== undefined && (temperature < 0 || temperature > 1)) {

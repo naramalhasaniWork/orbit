@@ -12,6 +12,7 @@ interface TrackedCompletionOptions {
   messages: CompletionMessage[];
   maxTokens?: number;
   temperature?: number;
+  apiKey?: string;
 }
 
 interface BillingContext {

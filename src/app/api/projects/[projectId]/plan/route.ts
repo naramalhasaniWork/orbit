@@ -6,7 +6,13 @@ import {
   apiError,
   handleApiError,
 } from "@/lib/utils/api";
-import { generatePlan, getExistingPlan } from "@/services/planning/planner";
+
+// Dynamic import: planner transitively imports prompt files containing
+// markdown with backtick-escaped code examples that confuse the Next.js
+// bundler during static page data collection.
+async function getPlannerService() {
+  return import("@/services/planning/planner");
+}
 
 interface PlanRequestBody {
   mode?: "full" | "smoke" | "regression" | "targeted";
@@ -42,6 +48,7 @@ export async function GET(
       return apiError("Project not found", "NOT_FOUND", 404);
     }
 
+    const { getExistingPlan } = await getPlannerService();
     const cached = await getExistingPlan(projectId);
     if (!cached) {
       return apiSuccess({ plan: null, testCases: [] });
@@ -108,6 +115,7 @@ export async function POST(
       }
     }
 
+    const { generatePlan } = await getPlannerService();
     const result = await generatePlan({
       projectId,
       mode: body.mode,

@@ -23,6 +23,17 @@ export function TestCaseCard({ testCase, projectId }: TestCaseCardProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [enabled, setEnabled] = useState(testCase.isEnabled);
 
+  async function handleToggleEnabled(checked: boolean) {
+    setEnabled(checked);
+    if (projectId) {
+      await fetch(`/api/projects/${projectId}/test-cases/${testCase.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isEnabled: checked }),
+      });
+    }
+  }
+
   const typeConfig = TEST_TYPE_CONFIG[testCase.type];
   const priority = getPriorityTier(testCase.priorityScore);
   const steps = parseSteps(testCase.steps);
@@ -107,7 +118,7 @@ export function TestCaseCard({ testCase, projectId }: TestCaseCardProps) {
 
           <Switch
             checked={enabled}
-            onCheckedChange={setEnabled}
+            onCheckedChange={handleToggleEnabled}
             className="scale-75"
           />
         </div>

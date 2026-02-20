@@ -151,7 +151,6 @@ function VerdictFilterBar({
 }
 
 const EXECUTING_STATUSES = new Set(["executing", "indexing", "planning", "reporting"]);
-const TERMINAL_STATUSES = new Set(["completed", "failed", "cancelled"]);
 
 export function RunDetailClient({ run, projectId }: RunDetailClientProps) {
   const [verdictFilter, setVerdictFilter] = useState<string | null>(null);
@@ -163,7 +162,6 @@ export function RunDetailClient({ run, projectId }: RunDetailClientProps) {
 
   const statusConfig = RUN_STATUS_CONFIG[run.status];
   const isExecuting = EXECUTING_STATUSES.has(run.status);
-  const isTerminal = TERMINAL_STATUSES.has(run.status);
   const defaultTab = isExecuting ? "live" : "results";
 
   return (
@@ -214,13 +212,32 @@ export function RunDetailClient({ run, projectId }: RunDetailClientProps) {
 
       <ResultsBar run={run} />
 
-      <Tabs defaultValue="results" className="w-full">
+      <Tabs defaultValue={defaultTab} className="w-full">
         <TabsList>
+          {isExecuting && (
+            <TabsTrigger value="live">Live</TabsTrigger>
+          )}
           <TabsTrigger value="results">
             Results ({run.totalTests})
           </TabsTrigger>
           <TabsTrigger value="traces">Traces</TabsTrigger>
         </TabsList>
+
+        {isExecuting && (
+          <TabsContent value="live" className="mt-4">
+            {projectId ? (
+              <LiveExecutionViewer
+                projectId={projectId}
+                runId={run.id}
+                enabled={isExecuting}
+              />
+            ) : (
+              <p className="text-sm text-muted-foreground">
+                Project context required for live view.
+              </p>
+            )}
+          </TabsContent>
+        )}
 
         <TabsContent value="results" className="mt-4 space-y-4">
           <VerdictFilterBar

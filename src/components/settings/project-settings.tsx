@@ -13,6 +13,7 @@ interface ProjectSettingsProps {
 export function ProjectSettings({ project }: ProjectSettingsProps) {
   const [name, setName] = useState(project?.name ?? "");
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   if (!project) {
     return (
@@ -32,6 +33,19 @@ export function ProjectSettings({ project }: ProjectSettingsProps) {
       });
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function handleDelete() {
+    if (!confirm("Are you sure you want to delete this project? This action cannot be undone.")) return;
+    setDeleting(true);
+    try {
+      const res = await fetch(`/api/projects/${project?.id}`, { method: "DELETE" });
+      if (res.ok) {
+        window.location.href = "/dashboard/projects";
+      }
+    } finally {
+      setDeleting(false);
     }
   }
 
@@ -93,8 +107,8 @@ export function ProjectSettings({ project }: ProjectSettingsProps) {
         <p className="text-xs text-muted-foreground">
           Deleting this project will remove all test plans, runs, and associated data. This action cannot be undone.
         </p>
-        <Button variant="destructive" size="sm">
-          Delete Project
+        <Button variant="destructive" size="sm" onClick={handleDelete} disabled={deleting}>
+          {deleting ? "Deleting..." : "Delete Project"}
         </Button>
       </div>
     </div>

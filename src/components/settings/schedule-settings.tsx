@@ -93,6 +93,26 @@ export function ScheduleSettings({ projectId }: ScheduleSettingsProps) {
     }
   }
 
+  async function handleToggle(scheduleId: string, isEnabled: boolean) {
+    setSchedules((prev) =>
+      prev.map((s) => (s.id === scheduleId ? { ...s, isEnabled } : s))
+    );
+    await fetch(`/api/projects/${projectId}/schedules`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ scheduleId, isEnabled }),
+    });
+  }
+
+  async function handleDelete(scheduleId: string) {
+    const res = await fetch(`/api/projects/${projectId}/schedules?scheduleId=${scheduleId}`, {
+      method: "DELETE",
+    });
+    if (res.ok) {
+      setSchedules((prev) => prev.filter((s) => s.id !== scheduleId));
+    }
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -208,6 +228,7 @@ export function ScheduleSettings({ projectId }: ScheduleSettingsProps) {
               <div className="flex items-center gap-3">
                 <Switch
                   checked={schedule.isEnabled}
+                  onCheckedChange={(checked) => handleToggle(schedule.id, checked)}
                   className="scale-75"
                 />
                 <div>
@@ -233,6 +254,7 @@ export function ScheduleSettings({ projectId }: ScheduleSettingsProps) {
                 size="sm"
                 variant="ghost"
                 className="text-muted-foreground hover:text-red-400"
+                onClick={() => handleDelete(schedule.id)}
               >
                 <Trash2 className="h-3.5 w-3.5" />
               </Button>

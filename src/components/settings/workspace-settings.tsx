@@ -131,18 +131,6 @@ export function WorkspaceSettings({ workspace }: WorkspaceSettingsProps) {
         </Button>
       </div>
 
-      <div className="rounded-xl surface-1 p-6 space-y-4">
-        <h3 className="text-sm font-medium text-foreground">API Access</h3>
-        <p className="text-xs text-muted-foreground">
-          Use your workspace API key to trigger runs programmatically and integrate with CI/CD.
-        </p>
-        <div className="text-sm font-mono bg-white/[0.04] rounded-md px-3 py-2 border border-transparent text-muted-foreground">
-          {"••••••••••••••••••••••••••••••••"}
-        </div>
-        <Button size="sm" variant="outline">
-          Regenerate API Key
-        </Button>
-      </div>
     </div>
   );
 }

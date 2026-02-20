@@ -131,3 +131,34 @@ export async function PATCH(
     return handleApiError(error);
   }
 }
+
+// ============================================================
+// DELETE /api/projects/[projectId]
+// ============================================================
+
+export async function DELETE(
+  _request: NextRequest,
+  { params }: { params: Promise<{ projectId: string }> }
+) {
+  try {
+    const { workspaceId } = await requireWorkspace();
+    const { projectId } = await params;
+
+    await requirePermission(workspaceId, "projects.update");
+
+    const project = await prisma.project.findFirst({
+      where: { id: projectId, workspaceId },
+      select: { id: true },
+    });
+
+    if (!project) {
+      return apiError("Project not found", "NOT_FOUND", 404);
+    }
+
+    await prisma.project.delete({ where: { id: projectId } });
+
+    return apiSuccess({ deleted: true });
+  } catch (error) {
+    return handleApiError(error);
+  }
+}

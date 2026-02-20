@@ -156,7 +156,7 @@ export function KnowledgeUpload({ workspaceId, initialFiles = [] }: KnowledgeUpl
     <div className="space-y-4">
       <div>
         <p className="text-xs text-muted-foreground">
-          Upload domain knowledge files to give Orbit's agents context about your application.
+          Upload domain knowledge files to give Orbit&apos;s agents context about your application.
           Files are chunked, embedded, and injected into agent prompts via RAG retrieval.
         </p>
       </div>

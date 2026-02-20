@@ -12,6 +12,8 @@ import {
   ScrollText,
   Shield,
   Orbit,
+  Cpu,
+  FileText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -19,6 +21,8 @@ const navigation = [
   { name: "Overview", href: "/admin/dashboard", icon: LayoutDashboard },
   { name: "Workspaces", href: "/admin/workspaces", icon: Building2 },
   { name: "Users", href: "/admin/users", icon: Users },
+  { name: "Models", href: "/admin/models", icon: Cpu },
+  { name: "Prompts", href: "/admin/prompts", icon: FileText },
   { name: "System", href: "/admin/system", icon: Settings2 },
   { name: "Analytics", href: "/admin/analytics", icon: BarChart3 },
   { name: "Audit Log", href: "/admin/audit", icon: ScrollText },

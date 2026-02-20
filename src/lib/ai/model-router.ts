@@ -1,5 +1,6 @@
 import { MODELS } from "@/lib/ai";
 import { prisma } from "@/lib/db";
+import { decrypt } from "@/lib/vault";
 import type { AgentPhase } from "@/generated/prisma/client";
 
 export const TASK_TYPES = {
@@ -259,4 +260,170 @@ export async function getAllTaskMappings(
   }
 
   return mappings;
+}
+
+// ============================================================
+// PROVIDER RESOLUTION
+// ============================================================
+
+const PROVIDER_PREFIXES: Record<string, string> = {
+  claude: "anthropic",
+  gpt: "openai",
+};
+
+/** Determine the provider for a model ID by prefix or ModelRegistry lookup */
+export async function getProviderForModel(
+  modelId: string
+): Promise<string> {
+  for (const [prefix, provider] of Object.entries(PROVIDER_PREFIXES)) {
+    if (modelId.startsWith(prefix)) return provider;
+  }
+
+  // Check ModelRegistry for dynamic models
+  const entry = await prisma.modelRegistry.findFirst({
+    where: { modelId, isActive: true },
+    select: { provider: true },
+  });
+
+  return entry?.provider ?? "openrouter";
+}
+
+// ============================================================
+// WORKSPACE API KEY MANAGEMENT
+// ============================================================
+
+/** Fetch and decrypt a workspace-specific API key for a provider */
+export async function getWorkspaceApiKey(
+  workspaceId: string,
+  provider: string
+): Promise<string | null> {
+  const config = await prisma.providerConfig.findUnique({
+    where: {
+      provider_config_unique: { workspaceId, provider },
+    },
+    select: { apiKeyEncrypted: true, isActive: true },
+  });
+
+  if (!config?.isActive || !config.apiKeyEncrypted) return null;
+
+  // apiKeyEncrypted stores "iv:encrypted" format
+  const [iv, encrypted] = config.apiKeyEncrypted.split(":");
+  if (!encrypted || !iv) return null;
+
+  try {
+    return decrypt(encrypted, iv);
+  } catch {
+    console.error(
+      `[ModelRouter] Failed to decrypt API key for workspace ${workspaceId}, provider ${provider}`
+    );
+    return null;
+  }
+}
+
+// ============================================================
+// AVAILABLE MODELS
+// ============================================================
+
+interface AvailableModel {
+  modelId: string;
+  displayName: string;
+  provider: string;
+  contextWindow: number;
+  inputCostPer1M: number;
+  outputCostPer1M: number;
+}
+
+/** Returns models from all configured providers, filtered by GlobalModelPolicy */
+export async function getAvailableModels(
+  workspaceId?: string
+): Promise<AvailableModel[]> {
+  // 1. Fetch workspace tier for policy filtering
+  let workspaceTier = "free";
+  if (workspaceId) {
+    const ws = await prisma.workspace.findUnique({
+      where: { id: workspaceId },
+      select: { tier: true },
+    });
+    if (ws) workspaceTier = ws.tier;
+  }
+
+  // 2. Built-in models
+  const builtIn: AvailableModel[] = Object.entries(MODELS).map(
+    ([key, modelId]) => {
+      const costs = MODEL_COSTS[modelId];
+      return {
+        modelId,
+        displayName: key,
+        provider: modelId.startsWith("claude") ? "anthropic" : "openai",
+        contextWindow: 0,
+        inputCostPer1M: costs ? costs.input * 1000 : 0,
+        outputCostPer1M: costs ? costs.output * 1000 : 0,
+      };
+    }
+  );
+
+  // 3. Dynamic models from ModelRegistry
+  const registryModels = await prisma.modelRegistry.findMany({
+    where: { isActive: true },
+    select: {
+      modelId: true,
+      displayName: true,
+      provider: true,
+      contextWindow: true,
+      inputCostPer1M: true,
+      outputCostPer1M: true,
+    },
+  });
+
+  const dynamic: AvailableModel[] = registryModels.map((m) => ({
+    modelId: m.modelId,
+    displayName: m.displayName,
+    provider: m.provider,
+    contextWindow: m.contextWindow,
+    inputCostPer1M: m.inputCostPer1M,
+    outputCostPer1M: m.outputCostPer1M,
+  }));
+
+  // 4. Merge (built-in first, then dynamic, deduped by modelId)
+  const seen = new Set<string>();
+  const merged: AvailableModel[] = [];
+
+  for (const m of [...builtIn, ...dynamic]) {
+    if (seen.has(m.modelId)) continue;
+    seen.add(m.modelId);
+    merged.push(m);
+  }
+
+  // 5. Filter by GlobalModelPolicy
+  const policies = await prisma.globalModelPolicy.findMany({
+    select: {
+      modelId: true,
+      provider: true,
+      isAllowed: true,
+      requiredTier: true,
+    },
+  });
+
+  const policyMap = new Map(
+    policies.map((p) => [`${p.provider}:${p.modelId}`, p])
+  );
+
+  const tierRanks: Record<string, number> = {
+    free: 0,
+    starter: 1,
+    professional: 2,
+    enterprise: 3,
+  };
+  const currentRank = tierRanks[workspaceTier] ?? 0;
+
+  return merged.filter((m) => {
+    const policy = policyMap.get(`${m.provider}:${m.modelId}`);
+    if (!policy) return true; // No policy = allowed
+    if (!policy.isAllowed) return false;
+    if (policy.requiredTier) {
+      const requiredRank = tierRanks[policy.requiredTier] ?? 0;
+      if (currentRank < requiredRank) return false;
+    }
+    return true;
+  });
 }
