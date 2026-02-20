@@ -1,6 +1,6 @@
 [deploy]
 healthcheckPath = "/api/auth/session"
-healthcheckTimeout = 30
+healthcheckTimeout = 120
 restartPolicyType = "on_failure"
 restartPolicyMaxRetries = 3
 
