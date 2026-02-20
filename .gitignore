@@ -49,7 +49,7 @@ playwright-report/
 test-results/
 
 # Storage (local artifacts)
-storage/
+/storage/
 
 # Misc
 *.log
