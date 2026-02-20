@@ -19,211 +19,230 @@ Orbit is an AI-native testing platform that combines deep code-awareness (like C
 
 ### Service Architecture
 
-- **Indexing Service** — tree-sitter AST parsing, framework detection, route/component extraction, embeddings
-- **Planning Service** — LLM-backed test plan generation, caching in Postgres
-- **Execution Service** — Playwright browser orchestration, BullMQ job distribution, artifact capture
-- **Reporting Service** — Linear/GitHub/Slack integrations, formatted reports
-- **Agent Orchestrator** — Multi-agent coordination, token budgets, context passing
-- **API Gateway** — Next.js API routes, webhook ingestion
+- **Indexing Service** (`src/services/indexing/`) — tree-sitter AST parsing with regex fallback, framework detection (Next.js, Express, React, Django, FastAPI, Rails, GraphQL, tRPC), route/component extraction, embedding generation
+- **Planning Service** (`src/services/planning/`) — LLM-backed test plan generation, coverage analysis, journey reconstruction, prioritization scoring, plan caching in Postgres
+- **Execution Service** (`src/services/execution/`) — Playwright browser orchestration via remote CDP, Stagehand v3 adapter for Browserbase, self-healing selectors, evidence capture (screenshots, video, DOM snapshots)
+- **Reporting Service** (`src/services/reporting/`) — AI failure analysis, GitHub PR comments/checks, Linear issue creation, Slack webhook notifications
+- **Agent Orchestrator** (`src/services/orchestrator/`) — Multi-agent coordination, token budgets, context management via cosine similarity, run lifecycle management
+- **API Gateway** — Next.js API routes at `src/app/api/`
 
 ### Data Layer
 
-- **PostgreSQL + pgvector** — Primary DB, vector embeddings for semantic retrieval
-- **Redis** — BullMQ job queues, sessions, rate limiting, WebSocket pub/sub, prompt cache
-- **S3/R2** — Screenshots, videos, DOM snapshots, artifacts
-- **Browserbase** — Cloud browser infrastructure for test execution
+- **PostgreSQL + pgvector** — Primary DB on Railway, vector embeddings for semantic retrieval
+- **Redis** — BullMQ job queues, rate limiting, pub/sub
+- **S3/R2** — Screenshots, videos, DOM snapshots, artifacts via `@aws-sdk/client-s3`
+- **Browserbase** — Cloud browser infrastructure (optional, local Playwright by default)
 
 ## Tech Stack
 
-- **Language:** TypeScript (strict mode, no `any`)
-- **Framework:** Next.js 14+ App Router
-- **ORM:** Prisma 7 with `@prisma/adapter-pg` (schema in `prisma/schema.prisma`, client generated to `src/generated/prisma`)
-- **Database:** PostgreSQL on Railway (embeddings stored as JSONB for now)
-- **Queue:** BullMQ on Redis
-- **Browser Automation:** Playwright + Stagehand (Browserbase)
-- **AST Parsing:** tree-sitter
-- **AI Providers:** Anthropic (Claude), OpenAI — model routing per task type
-- **Auth:** NextAuth v4 with GitHub OAuth + Prisma adapter
-- **Deployment:** Vercel (web) + Railway (workers + DB + Redis)
+- **Language:** TypeScript (strict mode)
+- **Framework:** Next.js 14+ App Router (standalone output for Docker)
+- **ORM:** Prisma 7 with `@prisma/adapter-pg`
+  - Schema: `prisma/schema.prisma` (19 models, 10 enums, 44 indexes)
+  - Client generated to: `src/generated/prisma/`
+  - Import: `import { prisma } from "@/lib/db"`
+- **Database:** PostgreSQL on Railway with pgvector v0.8.1
+- **Queue:** BullMQ on Redis (`src/lib/queue/`)
+- **Browser:** Playwright (remote CDP via `PLAYWRIGHT_WS_ENDPOINT`) + Stagehand v3
+- **AST Parsing:** web-tree-sitter with WASM binaries, regex fallback (`src/services/indexing/ast-parser-regex.ts`)
+- **AI:** Anthropic Claude + OpenAI, model routing per task type (`src/lib/ai/model-router.ts`)
+- **Auth:** NextAuth v4 with GitHub OAuth, JWT strategy, auto workspace provisioning
+- **UI:** shadcn/ui (New York style), react-force-graph-2d for System Map, Geist font
+- **Testing:** Vitest (162 tests, 14 files)
+- **Deployment:** Railway (Dockerfile or nixpacks)
+
+## Infrastructure Details
+
+### Railway Services
+
+| Service | Purpose | Key Env Var |
+|---------|---------|-------------|
+| PostgreSQL (pgvector) | Primary database | `DATABASE_URL` |
+| Redis | Queues, pub/sub | `REDIS_URL` |
+| Playwright | Headless browser | `PLAYWRIGHT_WS_ENDPOINT` |
+| Next.js App | Web + API | `PORT=3000` |
+
+### Environment Variables
+
+All env vars documented in `.env.local.example`. Critical ones:
+- `DATABASE_URL` — PostgreSQL connection string
+- `REDIS_URL` — Redis connection string
+- `NEXTAUTH_SECRET` — JWT signing key (`openssl rand -base64 32`)
+- `NEXTAUTH_URL` — Deployment URL
+- `GITHUB_ID` / `GITHUB_SECRET` — GitHub OAuth app credentials
+- `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` — AI provider keys
+- `PLAYWRIGHT_WS_ENDPOINT` — Remote browser CDP URL
+- `ENCRYPTION_KEY` — AES-256 key for vault (`openssl rand -hex 32`)
+
+### Database Commands
+
+```bash
+pnpm prisma generate    # Generate Prisma client after schema changes
+pnpm prisma db push     # Push schema to database (dev)
+pnpm db:seed            # Seed demo data (workspace, projects, system map, test data)
+```
+
+## File Structure
+
+```
+src/
+  app/                    # Next.js App Router pages + API routes
+    api/                  # 28 API endpoints
+    dashboard/            # Dashboard pages (map, plans, runs, settings, onboarding)
+    login/                # GitHub OAuth login
+  agents/
+    prompts/              # 4 agent prompt builders (analyst, planner, executor, reporter)
+    schemas/              # Zod schemas for agent I/O
+  components/
+    dashboard/            # System Map, health strip, sparklines, active run bar
+    layout/               # Sidebar, header, project selector
+    onboarding/           # 6-step wizard (connect repo → first run)
+    runs/                 # Run list, run detail, filters
+    plans/                # Plan list, plan detail, coverage map
+    settings/             # Project, environment, secret, workspace settings
+    shared/               # Loading spinner, empty state, error boundary, status dot
+    ui/                   # shadcn/ui primitives
+  hooks/                  # Custom hooks (use-run-events SSE, use-projects)
+  lib/
+    ai/                   # AI client, model router, provider wrappers
+    auth/                 # NextAuth config + helpers
+    db/                   # Prisma client singleton
+    queue/                # BullMQ queues + worker handlers
+    redis/                # ioredis connection
+    storage/              # S3 storage provider
+    vault/                # AES-256-GCM encrypt/decrypt
+    websocket/            # SSE event emitters
+    utils/                # API helpers, slug generation, validation
+  services/
+    execution/            # Browser manager, step executor, self-healer, evidence collector, Stagehand adapter
+    indexing/             # Clone, fingerprint, framework detector, AST parser, system map builder, pipeline
+    orchestrator/         # Mode selector, context manager, token budget, run manager, pipeline
+    planning/             # Coverage analyzer, journey reconstructor, test case generator, prioritizer
+    reporting/            # Failure analyzer, report generator, GitHub/Linear/Slack integrations
+  workers/                # BullMQ worker entry point
+prisma/
+  schema.prisma           # 19 models, 10 enums
+  seed.ts                 # Seed orchestrator
+  seed-data.ts            # Demo data (45 nodes, 52 edges, 15 test cases, 5 runs)
+  seed-helpers.ts         # Idempotent DB operations
+```
+
+## Key Patterns
+
+### API Route Pattern
+All API routes use shared helpers from `src/lib/utils/api.ts`:
+```typescript
+import { requireWorkspace, apiSuccess, apiError, handleApiError } from "@/lib/utils/api";
+```
+- `requireWorkspace()` — Gets authenticated user's workspace (throws on no auth)
+- `apiSuccess(data, status?)` — Consistent success response
+- `apiError(message, code, status)` — Consistent error response
+
+### Real-Time Updates
+Uses Server-Sent Events (SSE) instead of WebSocket:
+- `src/app/api/projects/[projectId]/runs/[runId]/progress/route.ts` — Run progress SSE
+- `src/app/api/projects/[projectId]/sync/progress/route.ts` — Indexing progress SSE
+- `src/hooks/use-run-events.ts` — Client-side EventSource hook
+
+### Vault Encryption
+```typescript
+import { encrypt, decrypt } from "@/lib/vault";
+const { encrypted, iv } = encrypt(plaintext);
+const plaintext = decrypt(encrypted, iv);
+```
+
+### Model Routing
+```typescript
+import { getModelForTask } from "@/lib/ai/model-router";
+const model = getModelForTask("test_planning"); // Returns appropriate model ID
+```
+Task types: `classification`, `extraction`, `test_planning`, `browser_execution`, `failure_analysis`, `report_generation`, `security_testing`
+
+### System Map Visualization
+Uses `react-force-graph-2d` with Canvas rendering for 500+ node performance:
+- Custom node renderer in `src/components/dashboard/map-canvas-renderer.ts`
+- Node colors by test status: green (pass), red (fail), yellow (flaky), gray (untested)
+- Click-to-inspect with detail panel
 
 ## Coding Standards
 
-### File Organization
-- Max 300 lines per file. Refactor proactively.
-- Single responsibility per file.
-- Colocation: component + helpers + types together.
-- Directories: lowercase with dashes (`services/indexing-service`).
-
-### TypeScript
-- Strict mode, zero `any`.
-- Functional components, no classes.
-- Interfaces over types.
-- Maps over enums.
-- Named exports.
-- Server components by default, `'use client'` only when needed.
-
-### Agent Prompt Development
-- System prompts use the two-layer architecture: **Operator Layer** (Orbit-controlled, not user-editable) + **User Layer** (workspace-customizable).
-- Agent outputs must always be structured JSON, never prose.
-- Include safety guidelines in every operator prompt: never delete data, never submit payment forms, always use test credentials.
-- Model routing: use cheapest sufficient model per task (Haiku for classification, Sonnet for reasoning, Opus for security testing).
-
-### Testing (Orbit-specific)
-- Orbit dogfoods itself — use Orbit to test Orbit.
-- Browser tests use Playwright + Stagehand.
-- API tests validate against Zod schemas.
-- All test data is cleaned up via teardown hooks.
-
-### Security
-- Secrets encrypted at rest (AES-256).
-- Secrets never logged or displayed in UI (masked with `••••••`).
-- Browser execution in ephemeral containers.
-- Row-level tenant isolation via `workspace_id` on every table.
-- Zero plaintext API key storage — hash and compare.
-- All inter-service communication over TLS.
-
-## Key Domain Concepts
-
-- **System Map** — Directed graph of routes, components, endpoints, data models, auth strategies. Orbit's internal representation of the target application.
-- **Test Plan** — Prioritized list of test cases with descriptions, expected behaviors, coverage targets. Structured JSON, not prose.
-- **Test Run** — An execution of test cases against a target environment. Captures pass/fail, screenshots, videos, network logs.
-- **Self-Healing** — When selectors break, Stagehand + LLM attempt to find the matching element before failing.
-- **Flaky Test Registry** — Tracks tests with inconsistent results for quarantine and investigation.
-- **Credit System** — Unit of consumption billing. ~1 credit per test case execution.
-
-## Database Access
-
-- Import `prisma` from `@/lib/db` for all database operations.
-- Schema is defined in `prisma/schema.prisma` — run `npx prisma generate` after schema changes.
-- Use `prisma.modelName.findMany()`, `prisma.modelName.create()`, etc. for all queries.
-- All tables use UUID primary keys and `workspace_id` for tenant isolation.
-
-## Working Conventions
-
-- When implementing a service, check the spec in `Orbit System Brief/orbit-spec.md` for detailed requirements.
-- Use the agent definitions in `.claude/agents/` when spawning specialized work.
-- Never mock external services in production code — mocks only in test files.
-- Build for the MVP scope first: Indexing (Section 2), Planning (Section 3), Execution (Section 4), Dashboard onboarding + main view (Section 8).
-# Cursor Development Rules
-
-## Core Philosophy
-
-1. **Simplicity** - Simple, clear, maintainable solutions. No over-engineering.
-2. **Iterate** - Extend existing code, don't rebuild from scratch unless necessary.
-3. **Focus** - Stick to the task. No scope creep.
-4. **Modular** - Everything that can be a component should be. Reuse relentlessly.
-5. **Clean** - Working directory stays clean. No orphan files, no accumulation.
-
-## Code Organization
-
-### File Structure
-- **Max 300 lines per file** - Refactor proactively when approaching this.
-- **Single responsibility** - One component/function does one thing well.
-- **Colocation** - Keep related code together (component + its helpers/types).
-- **Directory naming** - Lowercase with dashes (`components/auth-wizard`).
-
-### Modularity Rules
-- Break large components into smaller, reusable pieces.
-- Extract repeated logic into shared utilities.
-- Before creating anything new, check if it exists or can extend something existing.
-- **No duplicate code** - If you're copy-pasting, you're doing it wrong.
-
-### Clean Working Directory
-- **No temp files** - Don't create files named "temp", "test", "old", "v2", etc.
-- **No orphans** - If you replace/refactor something, delete the old version.
-- **No one-time scripts** - Don't commit utility scripts to main codebase.
-- **Edit in place** - Modify existing files, don't duplicate and rename.
-
-## Documentation
-
-### What We Maintain
-1. **`README.md`** - Project overview, setup, architecture. Update when these change.
-2. **`dev_log.md`** - Brief, dated entries for significant changes only. Keep entries concise (2-3 lines max per entry).
-3. **User Guides** - Live alongside their feature. Update the guide when updating the feature.
-
-### What We Don't Create
-- No `status.md`, `tasks.md`, or task tracking files
-- No `fixes/` directory or fix documentation files
-- No `architecture.md` or `technical.md` sprawl
-- No documentation for documentation's sake
-
-### User Guide Pattern
-```
-feature/
-├── component.tsx
-├── utils.ts
-└── GUIDE.md  # Only if feature needs user-facing docs
-```
-
-Update `GUIDE.md` **in the same PR/commit** as the feature change. Not separately, not later.
-
-## Code Style (TypeScript/React/Next.js)
-
-- TypeScript strict mode, no `any`.
-- Functional components, no classes.
-- Interfaces over types.
-- Maps over enums.
-- Named exports for components.
-- Shadcn UI + Radix + Tailwind for styling.
-- Server components by default, `'use client'` only when necessary.
-- Mobile-first responsive design.
-
-### Next.js Specifics
-- Params are Promises - always `await params` in page components.
-- No duplicate route paths.
-- Favor SSR and server components.
-
-### PowerShell Note
-```powershell
-# Use semicolons, not &&
-cd prisma; npx prisma studio
-```
-
-## Task Execution
-
-1. **Understand** - Read the request fully before starting.
-2. **Check existing** - Look for code to extend before creating new.
-3. **Plan** - One logical change at a time.
-4. **Implement** - Edit existing files when possible.
-5. **Clean up** - Remove dead code, unused imports, orphan files.
-6. **Verify** - Test the change works, check console for errors.
-
-## Debugging
-
-- **Fix root cause**, not symptoms.
-- Check console output after every change.
-- Add targeted logging for complex issues.
-- Research before deep-diving (docs, web search).
-
-## Testing
-
-- Tests must pass before considering work complete.
-- Write test for bug before fixing it.
-- **No mock data** outside test files.
+- **Max 300 lines per file** — Refactor proactively when approaching this
+- **Single responsibility** — One component/function does one thing well
+- **TypeScript strict mode** — Minimize `any` usage (only for third-party library boundaries like web-tree-sitter)
+- **Functional components** — No classes
+- **Interfaces over types** — Maps over enums
+- **Named exports** — For components and utilities
+- **Server components by default** — `'use client'` only when needed
+- **Prisma for all DB access** — Never raw SQL except for pgvector operations
+- **Zod validation** — All API inputs validated, all agent outputs parsed with Zod schemas
+- **Never mock in production** — Mocks only in `src/__tests__/` files
+- **No orphan files** — Delete old versions when refactoring
+- **Atomic commits** — Clear messages, no temp files
 
 ## Security
 
-- Sensitive logic stays server-side.
-- Validate/sanitize all user input on server.
-- Never hardcode secrets - use env vars.
-- Never commit `.env` files.
+- Secrets encrypted at rest (AES-256-GCM) via `src/lib/vault/`
+- Secrets never logged or displayed in UI (masked with `••••••`)
+- Row-level tenant isolation via `workspaceId` on every table
+- HMAC-SHA256 webhook signature verification
+- All sensitive logic server-side
+- Never hardcode secrets — use env vars
 
-## Git
+## Testing
 
-- Atomic commits with clear messages.
-- No temp/unrelated files committed.
-- Kill old servers before starting new ones.
+Run tests with:
+```bash
+pnpm test        # Run all tests
+pnpm test:watch  # Watch mode
+```
 
-## AI Collaboration
+Test structure:
+- `src/__tests__/unit/` — Unit tests for vault, model router, prioritizer, etc.
+- `src/__tests__/integration/` — API route tests, pipeline tests
 
-- Be specific about what you want.
-- Question AI output - verify logic, don't trust blindly.
-- For code adjustments, show only the changed lines + minimal context.
-- If something's unclear, ask before implementing.
+## Agent Definitions
 
----
+Agent prompt definitions live in `.claude/agents/`. Use these when spawning specialized work:
+- `analyst.md` — Repo indexing, System Map construction
+- `planner.md` — Test plan generation, coverage analysis
+- `executor.md` — Browser test execution, self-healing
+- `reporter.md` — Results analysis, integration reporting
+- `orchestrator.md` — Multi-agent coordination
+- `dashboard.md` — UI development, mission-control aesthetic
+- `indexing-service.md` — Indexing pipeline implementation
+- `integrations.md` — GitHub/Linear/Slack connectors
 
-**NEVER BUILD WITH MOCK DATA**
+## Spec Reference
 
-**ALWAYS USE `prisma db push` FOR DB UPDATES**
+Full product spec at `Orbit System Brief/orbit-spec.md` (868 lines). Sections:
+1. Vision & Architecture
+2. Repo Indexing (Analyst Agent)
+3. Test Planning (Planner Agent)
+4. Test Execution (Executor Agent)
+5. Reporting & Integrations
+6. Credits & Billing
+7. Deployment & Infrastructure
+8. Dashboard & Onboarding
 
+## Common Tasks
+
+### Adding a new API endpoint
+1. Create route file at `src/app/api/[path]/route.ts`
+2. Use `requireWorkspace()` for auth
+3. Validate input with Zod
+4. Return with `apiSuccess()` / `apiError()`
+
+### Adding a new dashboard page
+1. Create page at `src/app/dashboard/[name]/page.tsx` (server component)
+2. Create client component at `src/components/[name]/[name]-client.tsx`
+3. Fetch data server-side, pass as props to client component
+
+### Adding a new service
+1. Create directory at `src/services/[name]/`
+2. Define types and Zod schemas
+3. Wire to BullMQ queue in `src/lib/queue/queues.ts`
+4. Add worker handler in `src/lib/queue/worker-handlers.ts`
+
+### Running the full pipeline
+Trigger flow: GitHub webhook → BullMQ job → Indexing → Planning → Execution → Reporting
+Manual trigger: POST `/api/projects/[projectId]/runs` with `{ mode, trigger }`
