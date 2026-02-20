@@ -1,0 +1,521 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ============================================================
+// ENUMS
+// ============================================================
+
+enum ProjectStatus {
+  active
+  archived
+  paused
+}
+
+enum RunStatus {
+  queued
+  indexing
+  planning
+  executing
+  reporting
+  completed
+  failed
+  cancelled
+}
+
+enum RunMode {
+  full
+  smoke
+  regression
+  targeted
+}
+
+enum RunTrigger {
+  push
+  pr
+  scheduled
+  manual
+  linear
+  api
+}
+
+enum TestVerdict {
+  pass
+  fail
+  flaky
+  skipped
+  healed
+}
+
+enum TestType {
+  journey
+  api_contract
+  auth
+  form_validation
+  edge_case
+  regression
+}
+
+enum MemberRole {
+  admin
+  member
+  viewer
+  billing
+}
+
+enum SystemMapNodeType {
+  route
+  component
+  endpoint
+  model
+  auth_strategy
+  middleware
+}
+
+enum EnvironmentType {
+  staging
+  preview
+  qa
+  production
+}
+
+enum HealthStatus {
+  healthy
+  degraded
+  failing
+}
+
+// ============================================================
+// WORKSPACES & AUTH
+// ============================================================
+
+model Workspace {
+  id              String   @id @default(uuid()) @db.Uuid
+  name            String
+  slug            String   @unique
+  plan            String   @default("free")
+  creditBalance   Int      @default(500) @map("credit_balance")
+  monthlyCredits  Int      @default(500) @map("monthly_credits")
+  tokenBudgetMonthly Int? @map("token_budget_monthly")
+  settings        Json     @default("{}")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @default(now()) @updatedAt @map("updated_at")
+
+  members   WorkspaceMember[]
+  projects  Project[]
+  auditLogs AuditLog[]
+
+  @@map("workspaces")
+}
+
+model User {
+  id                String    @id @default(uuid()) @db.Uuid
+  email             String    @unique
+  name              String?
+  image             String?
+  emailVerified     DateTime? @map("email_verified")
+  githubId          String?   @unique @map("github_id")
+  githubAccessToken String?   @map("github_access_token")
+  settings          Json      @default("{}")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  memberships WorkspaceMember[]
+  accounts    Account[]
+  sessions    Session[]
+  testPlans   TestPlan[]       @relation("ApprovedBy")
+  testRuns    TestRun[]        @relation("TriggeredBy")
+  auditLogs   AuditLog[]
+
+  @@map("users")
+}
+
+model WorkspaceMember {
+  id          String     @id @default(uuid()) @db.Uuid
+  workspaceId String     @map("workspace_id") @db.Uuid
+  userId      String     @map("user_id") @db.Uuid
+  role        MemberRole @default(member)
+  createdAt   DateTime   @default(now()) @map("created_at")
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, userId], name: "workspace_member_unique")
+  @@map("workspace_members")
+}
+
+model Account {
+  id                String  @id @default(uuid()) @db.Uuid
+  userId            String  @map("user_id") @db.Uuid
+  type              String
+  provider          String
+  providerAccountId String  @map("provider_account_id")
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  sessionToken String   @id @map("session_token")
+  userId       String   @map("user_id") @db.Uuid
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String
+  expires    DateTime
+
+  @@unique([identifier, token], name: "verification_token_unique")
+  @@map("verification_tokens")
+}
+
+// ============================================================
+// PROJECTS & REPOS
+// ============================================================
+
+model Project {
+  id                  String        @id @default(uuid()) @db.Uuid
+  workspaceId         String        @map("workspace_id") @db.Uuid
+  name                String
+  slug                String
+  repoUrl             String        @map("repo_url")
+  repoProvider        String        @default("github") @map("repo_provider")
+  repoOwner           String        @map("repo_owner")
+  repoName            String        @map("repo_name")
+  defaultBranch       String        @default("main") @map("default_branch")
+  framework           String?
+  status              ProjectStatus @default(active)
+  healthStatus        HealthStatus  @default(healthy) @map("health_status")
+  lastIndexedAt       DateTime?     @map("last_indexed_at")
+  lastRunAt           DateTime?     @map("last_run_at")
+  config              Json          @default("{}")
+  settings            Json          @default("{}")
+  onboardingCompleted Boolean       @default(false) @map("onboarding_completed")
+  createdAt           DateTime      @default(now()) @map("created_at")
+  updatedAt           DateTime      @default(now()) @updatedAt @map("updated_at")
+
+  workspace      Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  environments   Environment[]
+  systemMapNodes SystemMapNode[]
+  systemMapEdges SystemMapEdge[]
+  testPlans      TestPlan[]
+  testCases      TestCase[]
+  testRuns       TestRun[]
+  secrets        Secret[]
+  flakyTests     FlakyTest[]
+  selectorMappings SelectorMapping[]
+  webhookDeliveries WebhookDelivery[]
+
+  @@unique([workspaceId, slug], name: "project_slug_workspace")
+  @@index([workspaceId])
+  @@map("projects")
+}
+
+// ============================================================
+// ENVIRONMENTS & SECRETS
+// ============================================================
+
+model Environment {
+  id             String          @id @default(uuid()) @db.Uuid
+  projectId      String          @map("project_id") @db.Uuid
+  name           String
+  type           EnvironmentType @default(staging)
+  url            String
+  teardownHookUrl String?        @map("teardown_hook_url")
+  isDefault      Boolean         @default(false) @map("is_default")
+  createdAt      DateTime        @default(now()) @map("created_at")
+  updatedAt      DateTime        @default(now()) @updatedAt @map("updated_at")
+
+  project  Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  testRuns TestRun[]
+  secrets  Secret[]
+
+  @@map("environments")
+}
+
+model Secret {
+  id            String   @id @default(uuid()) @db.Uuid
+  projectId     String   @map("project_id") @db.Uuid
+  environmentId String?  @map("environment_id") @db.Uuid
+  key           String
+  encryptedValue String  @map("encrypted_value")
+  iv            String
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at")
+
+  project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  environment Environment? @relation(fields: [environmentId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, environmentId, key], name: "secret_unique_key")
+  @@map("secrets")
+}
+
+// ============================================================
+// SYSTEM MAP
+// ============================================================
+
+model SystemMapNode {
+  id            String            @id @default(uuid()) @db.Uuid
+  projectId     String            @map("project_id") @db.Uuid
+  type          SystemMapNodeType
+  name          String
+  filePath      String            @map("file_path")
+  metadata      Json              @default("{}")
+  embedding     Json?
+  lastIndexedAt DateTime          @default(now()) @map("last_indexed_at")
+  createdAt     DateTime          @default(now()) @map("created_at")
+  updatedAt     DateTime          @default(now()) @updatedAt @map("updated_at")
+
+  project       Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  outgoingEdges SystemMapEdge[] @relation("SourceNode")
+  incomingEdges SystemMapEdge[] @relation("TargetNode")
+
+  @@index([projectId])
+  @@index([projectId, type])
+  @@map("system_map_nodes")
+}
+
+model SystemMapEdge {
+  id           String   @id @default(uuid()) @db.Uuid
+  projectId    String   @map("project_id") @db.Uuid
+  sourceNodeId String   @map("source_node_id") @db.Uuid
+  targetNodeId String   @map("target_node_id") @db.Uuid
+  relationship String
+  metadata     Json     @default("{}")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  project    Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  sourceNode SystemMapNode @relation("SourceNode", fields: [sourceNodeId], references: [id], onDelete: Cascade)
+  targetNode SystemMapNode @relation("TargetNode", fields: [targetNodeId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@index([sourceNodeId])
+  @@index([targetNodeId])
+  @@map("system_map_edges")
+}
+
+// ============================================================
+// TEST PLANS
+// ============================================================
+
+model TestPlan {
+  id          String    @id @default(uuid()) @db.Uuid
+  projectId   String    @map("project_id") @db.Uuid
+  version     Int       @default(1)
+  isActive    Boolean   @default(true) @map("is_active")
+  generatedBy String    @default("planner") @map("generated_by")
+  summary     Json      @default("{}")
+  approvedAt  DateTime? @map("approved_at")
+  approvedById String?  @map("approved_by") @db.Uuid
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  project    Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  approvedBy User?      @relation("ApprovedBy", fields: [approvedById], references: [id])
+  testCases  TestCase[]
+  testRuns   TestRun[]
+
+  @@index([projectId])
+  @@map("test_plans")
+}
+
+model TestCase {
+  id           String      @id @default(uuid()) @db.Uuid
+  testPlanId   String      @map("test_plan_id") @db.Uuid
+  projectId    String      @map("project_id") @db.Uuid
+  name         String
+  type         TestType
+  journey      String?
+  priorityScore Int        @default(50) @map("priority_score")
+  criticality  Int         @default(50)
+  risk         Int         @default(50)
+  coverageGap  Int         @default(50) @map("coverage_gap")
+  steps        Json
+  rationale    String?
+  edgeCases    Json        @default("[]") @map("edge_cases")
+  isEnabled    Boolean     @default(true) @map("is_enabled")
+  isCritical   Boolean     @default(false) @map("is_critical")
+  lastVerdict  TestVerdict? @map("last_verdict")
+  lastRunAt    DateTime?   @map("last_run_at")
+  createdAt    DateTime    @default(now()) @map("created_at")
+  updatedAt    DateTime    @default(now()) @updatedAt @map("updated_at")
+
+  testPlan    TestPlan     @relation(fields: [testPlanId], references: [id], onDelete: Cascade)
+  project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  testResults TestResult[]
+  flakyTests  FlakyTest[]
+
+  @@index([testPlanId])
+  @@index([projectId])
+  @@index([projectId, journey])
+  @@map("test_cases")
+}
+
+// ============================================================
+// TEST RUNS & RESULTS
+// ============================================================
+
+model TestRun {
+  id             String     @id @default(uuid()) @db.Uuid
+  projectId      String     @map("project_id") @db.Uuid
+  environmentId  String?    @map("environment_id") @db.Uuid
+  testPlanId     String?    @map("test_plan_id") @db.Uuid
+  status         RunStatus  @default(queued)
+  mode           RunMode    @default(full)
+  trigger        RunTrigger @default(manual)
+  triggeredById  String?    @map("triggered_by") @db.Uuid
+  branch         String?
+  commitSha      String?    @map("commit_sha")
+  prNumber       Int?       @map("pr_number")
+  totalTests     Int        @default(0) @map("total_tests")
+  passed         Int        @default(0)
+  failed         Int        @default(0)
+  flaky          Int        @default(0)
+  skipped        Int        @default(0)
+  creditsConsumed Int       @default(0) @map("credits_consumed")
+  summary        String?
+  startedAt      DateTime?  @map("started_at")
+  completedAt    DateTime?  @map("completed_at")
+  durationMs     Int?       @map("duration_ms")
+  metadata       Json       @default("{}")
+  createdAt      DateTime   @default(now()) @map("created_at")
+  updatedAt      DateTime   @default(now()) @updatedAt @map("updated_at")
+
+  project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  environment Environment? @relation(fields: [environmentId], references: [id])
+  testPlan    TestPlan?    @relation(fields: [testPlanId], references: [id])
+  triggeredBy User?        @relation("TriggeredBy", fields: [triggeredById], references: [id])
+  results     TestResult[]
+
+  @@index([projectId])
+  @@index([status])
+  @@map("test_runs")
+}
+
+model TestResult {
+  id                 String      @id @default(uuid()) @db.Uuid
+  testRunId          String      @map("test_run_id") @db.Uuid
+  testCaseId         String      @map("test_case_id") @db.Uuid
+  verdict            TestVerdict
+  durationMs         Int?        @map("duration_ms")
+  retryCount         Int         @default(0) @map("retry_count")
+  steps              Json        @default("[]")
+  failureExplanation String?     @map("failure_explanation")
+  suggestedFix       String?     @map("suggested_fix")
+  artifacts          Json        @default("{}")
+  healedSelectors    Json        @default("[]") @map("healed_selectors")
+  createdAt          DateTime    @default(now()) @map("created_at")
+
+  testRun  TestRun  @relation(fields: [testRunId], references: [id], onDelete: Cascade)
+  testCase TestCase @relation(fields: [testCaseId], references: [id])
+
+  @@index([testRunId])
+  @@index([testCaseId])
+  @@map("test_results")
+}
+
+// ============================================================
+// FLAKY TEST REGISTRY
+// ============================================================
+
+model FlakyTest {
+  id            String   @id @default(uuid()) @db.Uuid
+  projectId     String   @map("project_id") @db.Uuid
+  testCaseId    String   @map("test_case_id") @db.Uuid
+  occurrences   Int      @default(1)
+  passRate      Float?   @map("pass_rate")
+  isQuarantined Boolean  @default(false) @map("is_quarantined")
+  lastFlakyAt   DateTime @default(now()) @map("last_flaky_at")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at")
+
+  project  Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  testCase TestCase @relation(fields: [testCaseId], references: [id], onDelete: Cascade)
+
+  @@unique([projectId, testCaseId], name: "flaky_test_unique")
+  @@map("flaky_tests")
+}
+
+// ============================================================
+// SELECTOR MEMORY
+// ============================================================
+
+model SelectorMapping {
+  id               String   @id @default(uuid()) @db.Uuid
+  projectId        String   @map("project_id") @db.Uuid
+  originalSelector String   @map("original_selector")
+  healedSelector   String   @map("healed_selector")
+  confidence       Float
+  healCount        Int      @default(1) @map("heal_count")
+  approved         Boolean  @default(false)
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @default(now()) @updatedAt @map("updated_at")
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("selector_mappings")
+}
+
+// ============================================================
+// AUDIT LOG
+// ============================================================
+
+model AuditLog {
+  id           String   @id @default(uuid()) @db.Uuid
+  workspaceId  String   @map("workspace_id") @db.Uuid
+  userId       String?  @map("user_id") @db.Uuid
+  action       String
+  resourceType String?  @map("resource_type")
+  resourceId   String?  @map("resource_id")
+  metadata     Json     @default("{}")
+  ipAddress    String?  @map("ip_address")
+  createdAt    DateTime @default(now()) @map("created_at")
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User?     @relation(fields: [userId], references: [id])
+
+  @@index([workspaceId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+// ============================================================
+// WEBHOOK DELIVERY LOG
+// ============================================================
+
+model WebhookDelivery {
+  id          String    @id @default(uuid()) @db.Uuid
+  projectId   String    @map("project_id") @db.Uuid
+  event       String
+  url         String
+  payload     Json
+  statusCode  Int?      @map("status_code")
+  response    String?
+  attempts    Int       @default(0)
+  deliveredAt DateTime? @map("delivered_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@map("webhook_deliveries")
+}

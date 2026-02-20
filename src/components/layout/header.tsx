@@ -1,0 +1,153 @@
+"use client";
+
+import Image from "next/image";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useSession } from "next-auth/react";
+import { HealthBadge } from "./health-badge";
+import { Button } from "@/components/ui/button";
+import { Play, ChevronDown } from "lucide-react";
+import { cn } from "@/lib/utils";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
+} from "@/components/ui/dropdown-menu";
+
+interface HeaderProject {
+  id: string;
+  name: string;
+  slug: string;
+  framework: string | null;
+  healthStatus: string;
+}
+
+interface HeaderProps {
+  projects?: HeaderProject[];
+  activeProjectId?: string | null;
+  healthStatus?: "healthy" | "degraded" | "failing";
+}
+
+const PAGE_TITLES: Record<string, string> = {
+  "/dashboard": "Dashboard",
+  "/dashboard/map": "System Map",
+  "/dashboard/plans": "Test Plans",
+  "/dashboard/runs": "Runs",
+  "/dashboard/settings": "Settings",
+  "/dashboard/onboarding": "Onboarding",
+};
+
+const healthDot: Record<string, string> = {
+  healthy: "bg-orbit-pass",
+  degraded: "bg-orbit-flaky",
+  failing: "bg-orbit-fail",
+};
+
+function getPageTitle(pathname: string | null): string {
+  if (!pathname) return "Dashboard";
+  if (pathname.startsWith("/dashboard/runs/")) return "Run Detail";
+  return PAGE_TITLES[pathname] ?? "Dashboard";
+}
+
+export function Header({ projects = [], activeProjectId, healthStatus }: HeaderProps) {
+  const { data: session } = useSession();
+  const pathname = usePathname();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const title = getPageTitle(pathname);
+
+  const active = projects.find((p) => p.id === activeProjectId);
+
+  function handleSelectProject(projectId: string) {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("project", projectId);
+    router.push(`/dashboard?${params.toString()}`);
+  }
+
+  return (
+    <header className="flex items-center justify-between h-12 px-6 surface-1">
+      <div className="flex items-center gap-3">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button className="flex items-center gap-2 px-2 py-1 rounded-md text-sm font-medium text-foreground hover:bg-white/[0.04] transition-colors">
+              <div className="h-5 w-5 rounded bg-orbit-accent/15 flex items-center justify-center">
+                <span className="text-[9px] font-bold text-orbit-accent">
+                  {active?.name?.charAt(0)?.toUpperCase() ?? "P"}
+                </span>
+              </div>
+              <span className="max-w-[140px] truncate">
+                {active?.name ?? "Select Project"}
+              </span>
+              <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-56">
+            <DropdownMenuLabel className="text-xs text-muted-foreground">
+              Projects
+            </DropdownMenuLabel>
+            {projects.map((project) => (
+              <DropdownMenuItem
+                key={project.id}
+                onClick={() => handleSelectProject(project.id)}
+                className={cn(
+                  "gap-2 cursor-pointer",
+                  project.id === activeProjectId && "bg-accent"
+                )}
+              >
+                <span
+                  className={cn(
+                    "h-1.5 w-1.5 rounded-full shrink-0",
+                    healthDot[project.healthStatus] ?? "bg-muted-foreground"
+                  )}
+                />
+                <span className="truncate flex-1">{project.name}</span>
+                {project.framework && (
+                  <span className="text-xs text-muted-foreground">
+                    {project.framework}
+                  </span>
+                )}
+              </DropdownMenuItem>
+            ))}
+            {projects.length > 0 && <DropdownMenuSeparator />}
+            <DropdownMenuItem className="text-muted-foreground">
+              Add project...
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        <span className="text-muted-foreground/40 text-sm">/</span>
+        <span className="text-sm text-muted-foreground">{title}</span>
+
+        <HealthBadge status={healthStatus ?? (active?.healthStatus as "healthy" | "degraded" | "failing") ?? "healthy"} />
+      </div>
+
+      <div className="flex items-center gap-2">
+        <Button
+          size="sm"
+          className="h-7 px-3 text-xs bg-orbit-accent hover:bg-orbit-accent/90 text-white gap-1.5 rounded-md"
+        >
+          <Play className="h-3 w-3" />
+          Run
+        </Button>
+
+        {session?.user?.image ? (
+          <Image
+            src={session.user.image}
+            alt=""
+            width={26}
+            height={26}
+            className="rounded-full ring-1 ring-white/10"
+          />
+        ) : (
+          <div className="h-[26px] w-[26px] rounded-full bg-white/[0.06] flex items-center justify-center">
+            <span className="text-[10px] font-medium text-muted-foreground">
+              {session?.user?.name?.charAt(0)?.toUpperCase() ?? "U"}
+            </span>
+          </div>
+        )}
+      </div>
+    </header>
+  );
+}

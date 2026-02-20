@@ -1,0 +1,70 @@
+import { getServerSession } from "next-auth";
+import { redirect } from "next/navigation";
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/db";
+import { RunsClient } from "@/components/runs/runs-client";
+
+export default async function RunsPage() {
+  const session = await getServerSession(authOptions);
+  if (!session) redirect("/login");
+
+  const workspaceId = (session as { workspaceId?: string }).workspaceId;
+  if (!workspaceId) redirect("/login");
+
+  const project = await prisma.project.findFirst({
+    where: { workspaceId },
+    orderBy: { updatedAt: "desc" },
+    select: { id: true, name: true },
+  });
+
+  if (!project) {
+    return (
+      <RunsClient projectId={null} projectName={null} runs={[]} />
+    );
+  }
+
+  const runs = await prisma.testRun.findMany({
+    where: { projectId: project.id },
+    orderBy: { createdAt: "desc" },
+    take: 100,
+    select: {
+      id: true,
+      status: true,
+      mode: true,
+      trigger: true,
+      totalTests: true,
+      passed: true,
+      failed: true,
+      flaky: true,
+      skipped: true,
+      durationMs: true,
+      branch: true,
+      commitSha: true,
+      createdAt: true,
+    },
+  });
+
+  const serializedRuns = runs.map((run) => ({
+    id: run.id,
+    status: run.status,
+    mode: run.mode,
+    trigger: run.trigger,
+    totalTests: run.totalTests,
+    passed: run.passed,
+    failed: run.failed,
+    flaky: run.flaky,
+    skipped: run.skipped,
+    durationMs: run.durationMs,
+    branch: run.branch,
+    commitSha: run.commitSha,
+    createdAt: run.createdAt,
+  }));
+
+  return (
+    <RunsClient
+      projectId={project.id}
+      projectName={project.name}
+      runs={serializedRuns}
+    />
+  );
+}

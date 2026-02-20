@@ -1,0 +1,107 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 240 10% 3.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 3.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 3.9%;
+    --primary: 240 5.9% 10%;
+    --primary-foreground: 0 0% 98%;
+    --secondary: 240 4.8% 95.9%;
+    --secondary-foreground: 240 5.9% 10%;
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 46.1%;
+    --accent: 240 4.8% 95.9%;
+    --accent-foreground: 240 5.9% 10%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 240 5.9% 90%;
+    --input: 240 5.9% 90%;
+    --ring: 240 5.9% 10%;
+    --radius: 0.5rem;
+
+    --orbit-pass: 142 71% 45%;
+    --orbit-fail: 0 84% 60%;
+    --orbit-flaky: 38 92% 50%;
+    --orbit-untested: 240 4% 46%;
+    --orbit-accent: 263 70% 66%;
+  }
+
+  /* Mission control dark theme — deep purplish dark */
+  .dark {
+    --background: 245 40% 4%;
+    --foreground: 220 20% 93%;
+    --card: 245 30% 7%;
+    --card-foreground: 220 20% 93%;
+    --popover: 245 30% 8%;
+    --popover-foreground: 220 20% 93%;
+    --primary: 220 20% 93%;
+    --primary-foreground: 245 40% 4%;
+    --secondary: 245 20% 12%;
+    --secondary-foreground: 220 20% 93%;
+    --muted: 245 20% 12%;
+    --muted-foreground: 230 10% 52%;
+    --accent: 245 20% 14%;
+    --accent-foreground: 220 20% 93%;
+    --destructive: 0 62% 30%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 245 15% 14%;
+    --input: 245 15% 14%;
+    --ring: 263 70% 66%;
+    --surface: 245 28% 9%;
+
+    --orbit-pass: 142 71% 45%;
+    --orbit-fail: 0 72% 51%;
+    --orbit-flaky: 38 92% 50%;
+    --orbit-untested: 230 10% 38%;
+    --orbit-accent: 263 70% 66%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+@layer utilities {
+  /* Orbit surface layers for borderless hierarchy */
+  .surface-0 {
+    background-color: hsl(var(--background));
+  }
+  .surface-1 {
+    background-color: hsl(var(--card));
+  }
+  .surface-2 {
+    background-color: hsl(var(--surface, var(--card)));
+  }
+  .surface-3 {
+    background-color: hsl(var(--secondary));
+  }
+}
+
+/* Smooth scrollbar for dark theme */
+@layer base {
+  .dark ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  .dark ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .dark ::-webkit-scrollbar-thumb {
+    background: hsl(245 15% 20%);
+    border-radius: 3px;
+  }
+  .dark ::-webkit-scrollbar-thumb:hover {
+    background: hsl(245 15% 28%);
+  }
+}
