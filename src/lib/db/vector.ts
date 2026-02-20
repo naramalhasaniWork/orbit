@@ -9,15 +9,57 @@ import { prisma } from "./index";
 /**
  * Ensures the pgvector extension and HNSW index exist.
  * Call once during migration or app startup.
+ *
+ * Prisma's driver adapter stores Unsupported("vector(1536)") columns
+ * as jsonb. We need to ALTER them to the proper vector type before
+ * creating HNSW indexes.
  */
 export async function ensureVectorSetup(): Promise<void> {
   await prisma.$executeRawUnsafe(`CREATE EXTENSION IF NOT EXISTS vector`);
-  await prisma.$executeRawUnsafe(`
-    CREATE INDEX IF NOT EXISTS system_map_nodes_embedding_hnsw_idx
-    ON system_map_nodes
-    USING hnsw (embedding vector_cosine_ops)
-    WITH (m = 16, ef_construction = 64)
-  `);
+
+  // Fix columns that Prisma created as jsonb instead of vector
+  const vectorColumns = [
+    { table: "system_map_nodes", column: "embedding" },
+    { table: "domain_knowledge_files", column: "embedding" },
+    { table: "knowledge_chunks", column: "embedding" },
+  ];
+
+  for (const { table, column } of vectorColumns) {
+    try {
+      // Check if column exists and is jsonb, then convert to vector
+      const result = await prisma.$queryRawUnsafe<Array<{ data_type: string }>>(
+        `SELECT data_type FROM information_schema.columns
+         WHERE table_name = $1 AND column_name = $2`,
+        table,
+        column
+      );
+
+      if (result.length > 0 && result[0].data_type !== "USER-DEFINED") {
+        // Column exists but is not vector type — drop and re-add
+        await prisma.$executeRawUnsafe(
+          `ALTER TABLE ${table} DROP COLUMN IF EXISTS ${column}`
+        );
+        await prisma.$executeRawUnsafe(
+          `ALTER TABLE ${table} ADD COLUMN ${column} vector(1536)`
+        );
+      }
+    } catch {
+      // Table might not exist yet — skip
+    }
+  }
+
+  // Create HNSW index on system_map_nodes
+  try {
+    await prisma.$executeRawUnsafe(`
+      CREATE INDEX IF NOT EXISTS system_map_nodes_embedding_hnsw_idx
+      ON system_map_nodes
+      USING hnsw (embedding vector_cosine_ops)
+      WITH (m = 16, ef_construction = 64)
+    `);
+  } catch {
+    // Index may already exist or column type may still not be vector
+    console.warn("[pgvector] Could not create HNSW index — skipping");
+  }
 }
 
 /**

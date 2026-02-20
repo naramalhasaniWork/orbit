@@ -42,6 +42,13 @@ export const authOptions: AuthOptions = {
         if (account?.access_token) {
           if (account.provider === "github") {
             token.githubAccessToken = account.access_token;
+            // Persist to DB so background workers can access it
+            if (user?.id) {
+              await prisma.user.update({
+                where: { id: user.id },
+                data: { githubAccessToken: account.access_token },
+              });
+            }
           } else if (account.provider === "gitlab") {
             token.gitlabAccessToken = account.access_token;
           }
