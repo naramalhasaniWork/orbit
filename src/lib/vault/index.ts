@@ -15,9 +15,9 @@ let derivedKey: Buffer | null = null;
 function getEncryptionKey(): Buffer {
   if (derivedKey) return derivedKey;
 
-  const rawKey = process.env.VAULT_ENCRYPTION_KEY;
+  const rawKey = process.env.ENCRYPTION_KEY;
   if (!rawKey) {
-    throw new Error("VAULT_ENCRYPTION_KEY environment variable is not set");
+    throw new Error("ENCRYPTION_KEY environment variable is not set");
   }
 
   // If the key is exactly 64 hex chars (32 bytes), use it directly

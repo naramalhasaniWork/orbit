@@ -24,7 +24,6 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.39.0",
-    "@auth/drizzle-adapter": "^1.7.4",
     "@aws-sdk/client-s3": "^3.994.0",
     "@aws-sdk/s3-request-presigner": "^3.994.0",
     "@browserbasehq/stagehand": "^3.0.8",
@@ -51,7 +50,6 @@
     "clsx": "^2.1.1",
     "d3-force": "^3.0.0",
     "date-fns": "^4.1.0",
-    "drizzle-orm": "^0.38.0",
     "framer-motion": "^11.15.0",
     "geist": "^1.7.0",
     "ioredis": "^5.4.2",
@@ -84,7 +82,6 @@
     "@types/react-dom": "^18.3.0",
     "@vitejs/plugin-react": "^5.1.4",
     "autoprefixer": "^10.4.20",
-    "drizzle-kit": "^0.30.0",
     "eslint": "^8.57.0",
     "eslint-config-next": "^14.2.20",
     "postcss": "^8.4.49",
