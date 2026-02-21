@@ -40,12 +40,13 @@ export function AgentPageClient({
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
   // Auto-scroll on new messages
+  const lastMessageContent = messages[messages.length - 1]?.content;
   useEffect(() => {
     const el = scrollRef.current;
     if (el) {
       el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
     }
-  }, [messages.length, messages[messages.length - 1]?.content]);
+  }, [messages.length, lastMessageContent]);
 
   // Track tool calls as background operations
   useEffect(() => {

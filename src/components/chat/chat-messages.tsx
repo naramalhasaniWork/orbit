@@ -14,9 +14,10 @@ export function ChatMessages({ messages, isStreaming }: ChatMessagesProps) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll on new messages
+  const lastContent = messages[messages.length - 1]?.content;
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages.length, messages[messages.length - 1]?.content]);
+  }, [messages.length, lastContent]);
 
   if (messages.length === 0) {
     return (

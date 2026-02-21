@@ -163,7 +163,8 @@ export function useChat({ projectId }: UseChatOptions): UseChatReturn {
           abortRef.current = null;
         });
     },
-    [projectId, conversationId, isStreaming, handleSSEEvent]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [projectId, conversationId, isStreaming]
   );
 
   const handleSSEEvent = useCallback(

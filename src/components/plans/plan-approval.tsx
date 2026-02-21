@@ -26,6 +26,7 @@ export function PlanApproval({
   const [loading, setLoading] = useState(false);
   const [notes, setNotes] = useState("");
   const [showNotes, setShowNotes] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   if (approval?.status === "approved") {
     return (
@@ -58,8 +59,6 @@ export function PlanApproval({
       </div>
     );
   }
-
-  const [error, setError] = useState<string | null>(null);
 
   async function handleAction(action: "approve" | "reject") {
     setLoading(true);
