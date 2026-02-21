@@ -3,6 +3,7 @@
 import { useEffect, useRef } from "react";
 import { Bot, User, Wrench, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { MarkdownRenderer } from "@/components/shared/markdown-renderer";
 import type { ChatMessage } from "@/hooks/use-chat";
 
 interface ChatMessagesProps {
@@ -98,7 +99,11 @@ function MessageBubble({ message }: { message: ChatMessage }) {
             : "bg-white/[0.04] text-foreground"
         )}
       >
-        <div className="whitespace-pre-wrap break-words">{message.content}</div>
+        {isUser ? (
+          <div className="whitespace-pre-wrap break-words">{message.content}</div>
+        ) : (
+          <MarkdownRenderer content={message.content} />
+        )}
       </div>
     </div>
   );

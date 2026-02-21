@@ -5,6 +5,7 @@ import { Bot, User, Sparkles } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { AgentToolCard } from "@/components/agent/agent-tool-card";
+import { MarkdownRenderer } from "@/components/shared/markdown-renderer";
 import type { ChatMessage } from "@/hooks/use-chat";
 
 interface AgentMessageRendererProps {
@@ -146,15 +147,13 @@ const AssistantBubble = memo(function AssistantBubble({
           />
         ))}
 
-        {/* Text content */}
+        {/* Text content with markdown rendering */}
         {content && (
           <div className="rounded-2xl rounded-tl-md px-4 py-3 bg-white/[0.03] border border-white/[0.04]">
-            <div className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
-              {content}
-              {isLast && isStreaming && (
-                <span className="inline-block w-[6px] h-[14px] bg-orbit-accent/70 ml-0.5 animate-pulse rounded-sm" />
-              )}
-            </div>
+            <MarkdownRenderer content={content} />
+            {isLast && isStreaming && (
+              <span className="inline-block w-[6px] h-[14px] bg-orbit-accent/70 ml-0.5 animate-pulse rounded-sm" />
+            )}
           </div>
         )}
 
