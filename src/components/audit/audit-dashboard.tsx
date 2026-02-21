@@ -53,33 +53,7 @@ export function AuditDashboard({
   const [isLoading, setIsLoading] = useState(false);
 
   const latestAudit = audits[0] ?? null;
-
-  const triggerAudit = useCallback(async () => {
-    setIsRunning(true);
-    try {
-      const res = await fetch(`/api/projects/${projectId}/audit`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({}),
-      });
-      if (!res.ok) throw new Error("Audit failed");
-      const { data } = await res.json();
-
-      // Refresh audit list
-      const listRes = await fetch(`/api/projects/${projectId}/audit`);
-      if (listRes.ok) {
-        const { data: freshAudits } = await listRes.json();
-        setAudits(freshAudits);
-      }
-
-      // Load the new audit detail
-      await loadAuditDetail(data.id);
-    } catch (err) {
-      console.error("Failed to trigger audit:", err);
-    } finally {
-      setIsRunning(false);
-    }
-  }, [projectId]);
+  const [auditError, setAuditError] = useState<string | null>(null);
 
   const loadAuditDetail = useCallback(
     async (auditId: string) => {
@@ -99,6 +73,36 @@ export function AuditDashboard({
     },
     [projectId]
   );
+
+  const triggerAudit = useCallback(async () => {
+    setIsRunning(true);
+    setAuditError(null);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/audit`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+      if (!res.ok) throw new Error("Audit failed");
+      const { data } = await res.json();
+
+      // Refresh audit list
+      const listRes = await fetch(`/api/projects/${projectId}/audit`);
+      if (listRes.ok) {
+        const { data: freshAudits } = await listRes.json();
+        setAudits(freshAudits);
+      }
+
+      // Load the new audit detail
+      await loadAuditDetail(data.id);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Audit failed";
+      setAuditError(message);
+      console.error("Failed to trigger audit:", err);
+    } finally {
+      setIsRunning(false);
+    }
+  }, [projectId, loadAuditDetail]);
 
   // If no audits exist, show empty state
   if (audits.length === 0 && !isRunning) {
@@ -150,6 +154,14 @@ export function AuditDashboard({
           {isRunning ? "Auditing..." : "Run Audit"}
         </Button>
       </div>
+
+      {/* Audit error */}
+      {auditError && (
+        <div className="flex items-center gap-2 text-sm text-orbit-fail bg-orbit-fail/10 rounded-md px-3 py-2">
+          <AlertTriangle className="h-4 w-4 shrink-0" />
+          {auditError}
+        </div>
+      )}
 
       {/* Score + Categories overview */}
       {displayAudit && (

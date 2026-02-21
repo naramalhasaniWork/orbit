@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronRight, Plus, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,7 @@ interface PlanRowProps {
 }
 
 export function PlanRow({ plan, stats, isExpanded, onToggle, projectId }: PlanRowProps) {
+  const router = useRouter();
   const [showAddTest, setShowAddTest] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
   const journeyGroups = groupByJourney(plan.testCases);
@@ -42,8 +44,10 @@ export function PlanRow({ plan, stats, isExpanded, onToggle, projectId }: PlanRo
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ mode: "full" }),
       });
-      window.location.reload();
+      router.refresh();
     } catch {
+      // Silently fail
+    } finally {
       setRegenerating(false);
     }
   }
@@ -130,7 +134,7 @@ export function PlanRow({ plan, stats, isExpanded, onToggle, projectId }: PlanRo
                     projectId={projectId}
                     planId={plan.id}
                     approval={approval}
-                    onApproved={() => window.location.reload()}
+                    onApproved={() => router.refresh()}
                   />
                 </div>
               )}
@@ -140,7 +144,7 @@ export function PlanRow({ plan, stats, isExpanded, onToggle, projectId }: PlanRo
                   <AddTestDialog
                     projectId={projectId}
                     planId={plan.id}
-                    onSaved={() => { setShowAddTest(false); window.location.reload(); }}
+                    onSaved={() => { setShowAddTest(false); router.refresh(); }}
                     onClose={() => setShowAddTest(false)}
                   />
                 </div>

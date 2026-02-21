@@ -172,6 +172,7 @@ export function ScheduleSettings({ projectId }: ScheduleSettingsProps) {
             {CRON_PRESETS.map((preset) => (
               <button
                 key={preset.value}
+                type="button"
                 onClick={() =>
                   setNewSchedule({
                     ...newSchedule,

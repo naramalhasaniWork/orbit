@@ -57,7 +57,7 @@ export function AgentActivityPanel({ operations }: AgentActivityPanelProps) {
   }, [operations]);
 
   return (
-    <div className="w-[280px] shrink-0 flex flex-col border-l border-white/[0.06] bg-white/[0.02] overflow-hidden">
+    <div className="w-[280px] shrink-0 flex flex-col bg-white/[0.02] overflow-hidden">
       {/* Header */}
       <div className="px-4 py-3 border-b border-white/[0.04] flex items-center gap-2">
         <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">

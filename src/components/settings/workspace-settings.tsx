@@ -25,6 +25,8 @@ export function WorkspaceSettings({ workspace }: WorkspaceSettingsProps) {
   );
   const [saving, setSaving] = useState(false);
   const [savingPrompt, setSavingPrompt] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [promptError, setPromptError] = useState<string | null>(null);
 
   if (!workspace) {
     return (
@@ -36,12 +38,19 @@ export function WorkspaceSettings({ workspace }: WorkspaceSettingsProps) {
 
   async function handleSave() {
     setSaving(true);
+    setError(null);
     try {
-      await fetch("/api/workspaces", {
+      const res = await fetch("/api/workspaces", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: workspace?.id, name }),
       });
+      if (!res.ok) {
+        const json = await res.json().catch(() => null);
+        setError(json?.error?.message ?? "Failed to save workspace");
+      }
+    } catch {
+      setError("Network error — could not save");
     } finally {
       setSaving(false);
     }
@@ -49,12 +58,19 @@ export function WorkspaceSettings({ workspace }: WorkspaceSettingsProps) {
 
   async function handleSavePrompt() {
     setSavingPrompt(true);
+    setPromptError(null);
     try {
-      await fetch(`/api/workspaces/${workspace?.id}/settings`, {
+      const res = await fetch(`/api/workspaces/${workspace?.id}/settings`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ customPrompt }),
       });
+      if (!res.ok) {
+        const json = await res.json().catch(() => null);
+        setPromptError(json?.error?.message ?? "Failed to save instructions");
+      }
+    } catch {
+      setPromptError("Network error — could not save");
     } finally {
       setSavingPrompt(false);
     }
@@ -93,8 +109,13 @@ export function WorkspaceSettings({ workspace }: WorkspaceSettingsProps) {
           </div>
         </div>
 
+        {error && (
+          <div className="text-xs text-orbit-fail">{error}</div>
+        )}
+
         <div className="pt-2">
           <Button
+            type="button"
             onClick={handleSave}
             disabled={saving || name === workspace.name}
             size="sm"
@@ -121,7 +142,11 @@ export function WorkspaceSettings({ workspace }: WorkspaceSettingsProps) {
           rows={5}
           className="w-full rounded-md bg-white/[0.04] border border-transparent px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-orbit-accent resize-y"
         />
+        {promptError && (
+          <div className="text-xs text-orbit-fail">{promptError}</div>
+        )}
         <Button
+          type="button"
           onClick={handleSavePrompt}
           disabled={savingPrompt || customPrompt === (workspace.settings?.customPrompt ?? "")}
           size="sm"

@@ -107,6 +107,7 @@ function FilterGroup({
       {options.map((opt) => (
         <button
           key={opt.value}
+          type="button"
           onClick={() => onSelect(selected === opt.value ? null : opt.value)}
           className={cn(
             "text-xs px-2 py-1 rounded-md transition-colors",

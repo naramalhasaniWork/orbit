@@ -32,6 +32,8 @@ export function EnvironmentSettings({ projectId, environments: initial }: Enviro
   const [environments, setEnvironments] = useState(initial);
   const [showAdd, setShowAdd] = useState(false);
   const [newEnv, setNewEnv] = useState({ name: "", type: "staging", url: "" });
+  const [adding, setAdding] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   if (!projectId) {
     return (
@@ -42,29 +44,39 @@ export function EnvironmentSettings({ projectId, environments: initial }: Enviro
   }
 
   async function handleAdd() {
-    if (!newEnv.name || !newEnv.url) return;
+    if (!newEnv.name || !newEnv.url || adding) return;
+    setAdding(true);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/environments`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newEnv),
+      });
 
-    const res = await fetch(`/api/projects/${projectId}/environments`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(newEnv),
-    });
-
-    if (res.ok) {
-      const env = await res.json();
-      setEnvironments((prev) => [...prev, env]);
-      setNewEnv({ name: "", type: "staging", url: "" });
-      setShowAdd(false);
+      if (res.ok) {
+        const env = await res.json();
+        setEnvironments((prev) => [...prev, env]);
+        setNewEnv({ name: "", type: "staging", url: "" });
+        setShowAdd(false);
+      }
+    } finally {
+      setAdding(false);
     }
   }
 
   async function handleDelete(envId: string) {
-    const res = await fetch(`/api/projects/${projectId}/environments/${envId}`, {
-      method: "DELETE",
-    });
+    if (deletingId) return;
+    setDeletingId(envId);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/environments/${envId}`, {
+        method: "DELETE",
+      });
 
-    if (res.ok) {
-      setEnvironments((prev) => prev.filter((e) => e.id !== envId));
+      if (res.ok) {
+        setEnvironments((prev) => prev.filter((e) => e.id !== envId));
+      }
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -121,10 +133,10 @@ export function EnvironmentSettings({ projectId, environments: initial }: Enviro
             </div>
           </div>
           <div className="flex gap-2">
-            <Button size="sm" onClick={handleAdd} className="bg-orbit-accent hover:bg-orbit-accent/90 text-white">
-              Add
+            <Button size="sm" onClick={handleAdd} disabled={adding || !newEnv.name || !newEnv.url} className="bg-orbit-accent hover:bg-orbit-accent/90 text-white">
+              {adding ? "Adding..." : "Add"}
             </Button>
-            <Button size="sm" variant="ghost" onClick={() => setShowAdd(false)}>
+            <Button size="sm" variant="ghost" onClick={() => setShowAdd(false)} disabled={adding}>
               Cancel
             </Button>
           </div>
@@ -165,6 +177,7 @@ export function EnvironmentSettings({ projectId, environments: initial }: Enviro
                 variant="ghost"
                 className="text-muted-foreground hover:text-red-400"
                 onClick={() => handleDelete(env.id)}
+                disabled={deletingId === env.id}
               >
                 <Trash2 className="h-3.5 w-3.5" />
               </Button>

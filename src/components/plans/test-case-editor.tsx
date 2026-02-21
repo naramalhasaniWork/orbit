@@ -211,6 +211,7 @@ export function TestCaseEditor({
                   placeholder={`Step ${i + 1}...`}
                 />
                 <button
+                  type="button"
                   onClick={() => setSteps(steps.filter((_, j) => j !== i))}
                   className="text-muted-foreground/50 hover:text-orbit-fail shrink-0"
                 >
@@ -247,6 +248,7 @@ export function TestCaseEditor({
                   placeholder="Edge case description..."
                 />
                 <button
+                  type="button"
                   onClick={() => setEdgeCases(edgeCases.filter((_, j) => j !== i))}
                   className="text-muted-foreground/50 hover:text-orbit-fail shrink-0"
                 >

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { ChevronDown, ChevronRight, ShieldAlert, Pencil } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
@@ -19,18 +20,27 @@ interface TestCaseCardProps {
 }
 
 export function TestCaseCard({ testCase, projectId }: TestCaseCardProps) {
+  const router = useRouter();
   const [isExpanded, setIsExpanded] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [enabled, setEnabled] = useState(testCase.isEnabled);
 
   async function handleToggleEnabled(checked: boolean) {
+    const previous = enabled;
     setEnabled(checked);
     if (projectId) {
-      await fetch(`/api/projects/${projectId}/test-cases/${testCase.id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ isEnabled: checked }),
-      });
+      try {
+        const res = await fetch(`/api/projects/${projectId}/test-cases/${testCase.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ isEnabled: checked }),
+        });
+        if (!res.ok) {
+          setEnabled(previous);
+        }
+      } catch {
+        setEnabled(previous);
+      }
     }
   }
 
@@ -45,7 +55,7 @@ export function TestCaseCard({ testCase, projectId }: TestCaseCardProps) {
         testCase={testCase}
         onSave={() => {
           setIsEditing(false);
-          window.location.reload();
+          router.refresh();
         }}
         onClose={() => setIsEditing(false)}
       />
@@ -61,7 +71,8 @@ export function TestCaseCard({ testCase, projectId }: TestCaseCardProps) {
     >
       <div className="flex items-center gap-3 px-4 py-3">
         <button
-          onClick={() => setIsExpanded(!isExpanded)}
+          type="button"
+          onClick={(e) => { e.stopPropagation(); setIsExpanded(!isExpanded); }}
           className="shrink-0 text-muted-foreground hover:text-foreground"
         >
           {isExpanded ? (
@@ -109,7 +120,8 @@ export function TestCaseCard({ testCase, projectId }: TestCaseCardProps) {
 
           {projectId && (
             <button
-              onClick={() => setIsEditing(true)}
+              type="button"
+              onClick={(e) => { e.stopPropagation(); setIsEditing(true); }}
               className="text-muted-foreground/50 hover:text-orbit-accent transition-colors"
             >
               <Pencil className="h-3 w-3" />

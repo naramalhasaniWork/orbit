@@ -43,25 +43,38 @@ export function useChat({ projectId }: UseChatOptions): UseChatReturn {
   const [isStreaming, setIsStreaming] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
-  const loadedRef = useRef(false);
 
-  // Load history on mount
+  // Load history on mount and when projectId changes
   useEffect(() => {
-    if (loadedRef.current) return;
-    loadedRef.current = true;
+    let cancelled = false;
 
     fetch(`/api/projects/${projectId}/chat/history`)
       .then((res) => res.json())
       .then((data) => {
+        if (cancelled) return;
         if (data.success && data.data.messages.length > 0) {
           setConversationId(data.data.conversationId);
           setMessages(data.data.messages);
+        } else {
+          setConversationId(null);
+          setMessages([]);
         }
       })
       .catch(() => {
         // Silent fail on history load
       });
+
+    return () => {
+      cancelled = true;
+    };
   }, [projectId]);
+
+  // Abort in-flight request on unmount to prevent state updates after unmount
+  useEffect(() => {
+    return () => {
+      abortRef.current?.abort();
+    };
+  }, []);
 
   const sendMessage = useCallback(
     (content: string) => {
@@ -150,7 +163,7 @@ export function useChat({ projectId }: UseChatOptions): UseChatReturn {
           abortRef.current = null;
         });
     },
-    [projectId, conversationId, isStreaming]
+    [projectId, conversationId, isStreaming, handleSSEEvent]
   );
 
   const handleSSEEvent = useCallback(
@@ -230,7 +243,6 @@ export function useChat({ projectId }: UseChatOptions): UseChatReturn {
     );
     setMessages([]);
     setConversationId(null);
-    loadedRef.current = false;
   }, [projectId]);
 
   return { messages, isStreaming, conversationId, sendMessage, clearHistory };

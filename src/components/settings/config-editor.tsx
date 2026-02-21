@@ -371,6 +371,7 @@ function PathListEditor({
           >
             {path}
             <button
+              type="button"
               onClick={() => onChange(paths.filter((_, j) => j !== i))}
               className="text-muted-foreground/50 hover:text-orbit-fail ml-0.5"
             >

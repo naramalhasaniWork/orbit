@@ -54,6 +54,7 @@ export function AgentSettingsCard({ config, workspaceId, onSaved }: AgentSetting
   const [customPrompt, setCustomPrompt] = useState(config.customPrompt ?? "");
   const [isEnabled, setIsEnabled] = useState(config.isEnabled);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [promptEditorOpen, setPromptEditorOpen] = useState(false);
 
   const Icon = AGENT_ICONS[config.agentPhase] ?? FileText;
@@ -70,6 +71,7 @@ export function AgentSettingsCard({ config, workspaceId, onSaved }: AgentSetting
 
   async function handleSave() {
     setSaving(true);
+    setError(null);
     try {
       const res = await fetch(`/api/workspaces/${workspaceId}/agent-config`, {
         method: "PUT",
@@ -84,7 +86,14 @@ export function AgentSettingsCard({ config, workspaceId, onSaved }: AgentSetting
           isEnabled,
         }),
       });
-      if (res.ok) onSaved();
+      if (res.ok) {
+        onSaved();
+      } else {
+        const json = await res.json().catch(() => null);
+        setError(json?.error?.message ?? "Failed to save agent configuration");
+      }
+    } catch {
+      setError("Network error — could not save");
     } finally {
       setSaving(false);
     }
@@ -185,8 +194,15 @@ export function AgentSettingsCard({ config, workspaceId, onSaved }: AgentSetting
           />
         </div>
 
+        {error && (
+          <div className="flex items-center gap-2 text-xs text-orbit-fail">
+            <span>{error}</span>
+          </div>
+        )}
+
         <div className="flex items-center gap-2 pt-1">
           <Button
+            type="button"
             onClick={handleSave}
             disabled={saving || !hasChanges}
             size="sm"
@@ -195,6 +211,7 @@ export function AgentSettingsCard({ config, workspaceId, onSaved }: AgentSetting
             {saving ? "Saving..." : "Save Changes"}
           </Button>
           <Button
+            type="button"
             size="sm"
             variant="outline"
             onClick={() => setPromptEditorOpen(true)}

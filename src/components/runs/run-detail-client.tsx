@@ -1,10 +1,12 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { ArrowLeft, GitBranch, Clock, Hash, MonitorPlay, Image as ImageIcon } from "lucide-react";
+import { ArrowLeft, GitBranch, Clock, Hash, MonitorPlay, Image as ImageIcon, XCircle, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { StatCard } from "@/components/shared/stat-card";
 import { cn } from "@/lib/utils";
@@ -121,6 +123,7 @@ function VerdictFilterBar({
   return (
     <div className="flex items-center gap-2">
       <button
+        type="button"
         onClick={() => onSelect(null)}
         className={cn(
           "text-xs px-2.5 py-1 rounded-md transition-colors",
@@ -134,6 +137,7 @@ function VerdictFilterBar({
       {Object.entries(verdicts).map(([verdict, count]) => (
         <button
           key={verdict}
+          type="button"
           onClick={() => onSelect(selected === verdict ? null : verdict)}
           className={cn(
             "text-xs px-2.5 py-1 rounded-md transition-colors",
@@ -153,7 +157,9 @@ function VerdictFilterBar({
 const EXECUTING_STATUSES = new Set(["executing", "indexing", "planning", "reporting"]);
 
 export function RunDetailClient({ run, projectId }: RunDetailClientProps) {
+  const router = useRouter();
   const [verdictFilter, setVerdictFilter] = useState<string | null>(null);
+  const [cancelling, setCancelling] = useState(false);
 
   const filteredResults = useMemo(() => {
     if (!verdictFilter) return run.results;
@@ -163,6 +169,25 @@ export function RunDetailClient({ run, projectId }: RunDetailClientProps) {
   const statusConfig = RUN_STATUS_CONFIG[run.status];
   const isExecuting = EXECUTING_STATUSES.has(run.status);
   const defaultTab = isExecuting ? "live" : "results";
+
+  const handleCancelRun = useCallback(async () => {
+    if (!projectId || cancelling) return;
+    setCancelling(true);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/runs/${run.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "cancelled" }),
+      });
+      if (res.ok) {
+        router.refresh();
+      }
+    } catch {
+      // Silently fail — user can retry
+    } finally {
+      setCancelling(false);
+    }
+  }, [projectId, run.id, cancelling, router]);
 
   return (
     <motion.div
@@ -197,6 +222,22 @@ export function RunDetailClient({ run, projectId }: RunDetailClientProps) {
           </div>
           <RunMeta run={run} />
         </div>
+        {isExecuting && projectId && (
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5 text-orbit-fail border-orbit-fail/30 hover:bg-orbit-fail/10"
+            onClick={handleCancelRun}
+            disabled={cancelling}
+          >
+            {cancelling ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <XCircle className="h-3.5 w-3.5" />
+            )}
+            {cancelling ? "Cancelling..." : "Cancel Run"}
+          </Button>
+        )}
       </div>
 
       <div className="grid grid-cols-5 gap-3">

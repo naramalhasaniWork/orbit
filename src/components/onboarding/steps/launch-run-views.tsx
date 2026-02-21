@@ -1,3 +1,6 @@
+"use client";
+
+import { useRouter } from "next/navigation";
 import { Play, Check, Loader2, ArrowRight, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -129,6 +132,7 @@ export function CompleteView({
   failCount: number;
   projectId?: string;
 }) {
+  const router = useRouter();
   const passRate = total > 0 ? Math.round((passCount / total) * 100) : 0;
 
   return (
@@ -163,7 +167,7 @@ export function CompleteView({
         size="lg"
         onClick={() => {
           const url = projectId ? `/dashboard?project=${projectId}` : "/dashboard";
-          window.location.href = url;
+          router.push(url);
         }}
       >
         Go to Dashboard

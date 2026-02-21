@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
@@ -41,12 +42,16 @@ export default async function DashboardLayout({
     <div className="flex h-screen surface-0 overflow-hidden">
       <Sidebar />
       <div className="flex flex-col flex-1 min-w-0">
-        <DashboardHeader projects={projects} />
+        <Suspense>
+          <DashboardHeader projects={projects} />
+        </Suspense>
         <main className="flex-1 overflow-auto p-6 animate-fade-in border-t border-white/[0.04]">
           {children}
         </main>
       </div>
-      <ChatPanelWrapper projects={projects} />
+      <Suspense>
+        <ChatPanelWrapper projects={projects} />
+      </Suspense>
     </div>
   );
 }

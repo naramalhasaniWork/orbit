@@ -54,6 +54,7 @@ export function useRunEvents({
 }: UseRunEventsOptions) {
   const [progress, setProgress] = useState<RunProgress | null>(null);
   const [steps, setSteps] = useState<TestStepProgress[]>([]);
+  const [isTerminal, setIsTerminal] = useState(false);
 
   // Stable callback refs
   const onCompleteRef = useRef(onComplete);
@@ -124,6 +125,7 @@ export function useRunEvents({
           durationMs: (payload.durationMs as number) ?? null,
         };
         setProgress(final);
+        setIsTerminal(true);
         onCompleteRef.current?.(final);
         break;
       }
@@ -191,7 +193,7 @@ export function useRunEvents({
   }, []);
 
   const url = `/api/projects/${projectId}/runs/${runId}/progress`;
-  const isEnabled = enabled && !!runId && !!projectId;
+  const isEnabled = enabled && !!runId && !!projectId && !isTerminal;
 
   const { connected, error } = useSSE({
     url,
@@ -199,10 +201,7 @@ export function useRunEvents({
     onEvent: handleEvent,
   });
 
-  // Also disable when terminal
-  const isTerminal = progress ? TERMINAL_STATUSES.has(progress.status) : false;
-
-  // If we're connected but the progress is terminal, we don't need to track steps anymore
+  // Clear steps when run reaches terminal status
   useEffect(() => {
     if (isTerminal) {
       setSteps([]);

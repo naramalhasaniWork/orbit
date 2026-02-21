@@ -14,6 +14,7 @@ export function ProjectSettings({ project }: ProjectSettingsProps) {
   const [name, setName] = useState(project?.name ?? "");
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   if (!project) {
     return (
@@ -25,12 +26,19 @@ export function ProjectSettings({ project }: ProjectSettingsProps) {
 
   async function handleSave() {
     setSaving(true);
+    setError(null);
     try {
-      await fetch("/api/projects", {
+      const res = await fetch("/api/projects", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: project?.id, name }),
       });
+      if (!res.ok) {
+        const json = await res.json().catch(() => null);
+        setError(json?.error?.message ?? "Failed to save project");
+      }
+    } catch {
+      setError("Network error — could not save");
     } finally {
       setSaving(false);
     }
@@ -39,11 +47,17 @@ export function ProjectSettings({ project }: ProjectSettingsProps) {
   async function handleDelete() {
     if (!confirm("Are you sure you want to delete this project? This action cannot be undone.")) return;
     setDeleting(true);
+    setError(null);
     try {
       const res = await fetch(`/api/projects/${project?.id}`, { method: "DELETE" });
       if (res.ok) {
         window.location.href = "/dashboard/projects";
+      } else {
+        const json = await res.json().catch(() => null);
+        setError(json?.error?.message ?? "Failed to delete project");
       }
+    } catch {
+      setError("Network error — could not delete");
     } finally {
       setDeleting(false);
     }
@@ -90,8 +104,13 @@ export function ProjectSettings({ project }: ProjectSettingsProps) {
           )}
         </div>
 
+        {error && (
+          <div className="text-xs text-orbit-fail">{error}</div>
+        )}
+
         <div className="pt-2">
           <Button
+            type="button"
             onClick={handleSave}
             disabled={saving || name === project.name}
             size="sm"

@@ -179,6 +179,7 @@ export function WebhookSettings({ projectId }: WebhookSettingsProps) {
               {EVENT_OPTIONS.map((opt) => (
                 <button
                   key={opt.value}
+                  type="button"
                   onClick={() => toggleEvent(opt.value)}
                   className={`text-[11px] px-2 py-1 rounded-md transition-colors ${
                     newEndpoint.events.includes(opt.value)

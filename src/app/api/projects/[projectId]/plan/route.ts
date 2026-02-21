@@ -230,7 +230,8 @@ function streamPlanGeneration(projectId: string, body: PlanRequestBody) {
           progress: 100,
         });
       } catch (error) {
-        const msg = error instanceof Error ? error.message : "Plan generation failed";
+        console.error("Plan generation stream error:", error);
+        const msg = sanitizeErrorMessage(error);
         emit("plan:error", { message: msg });
       } finally {
         controller.close();
@@ -245,4 +246,28 @@ function streamPlanGeneration(projectId: string, body: PlanRequestBody) {
       Connection: "keep-alive",
     },
   });
+}
+
+/** Sanitize error messages to avoid leaking internal details to clients. */
+function sanitizeErrorMessage(error: unknown): string {
+  if (!(error instanceof Error)) return "Plan generation failed";
+
+  // Allow known user-facing error messages through
+  const safePatterns = [
+    /no.*system map/i,
+    /no.*test.*case/i,
+    /no.*route/i,
+    /project.*not.*found/i,
+    /plan.*generation.*failed/i,
+    /coverage.*analysis.*failed/i,
+    /model.*rate.*limit/i,
+    /token.*budget.*exceeded/i,
+  ];
+
+  if (safePatterns.some((p) => p.test(error.message))) {
+    return error.message;
+  }
+
+  // Generic fallback for unexpected errors (DB, network, etc.)
+  return "Plan generation failed. Please try again.";
 }

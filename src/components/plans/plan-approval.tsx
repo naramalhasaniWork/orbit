@@ -59,8 +59,11 @@ export function PlanApproval({
     );
   }
 
+  const [error, setError] = useState<string | null>(null);
+
   async function handleAction(action: "approve" | "reject") {
     setLoading(true);
+    setError(null);
     try {
       const res = await fetch(`/api/projects/${projectId}/plan/approve`, {
         method: "POST",
@@ -70,7 +73,12 @@ export function PlanApproval({
 
       if (res.ok) {
         onApproved();
+      } else {
+        const json = await res.json().catch(() => null);
+        setError(json?.error?.message ?? `Failed to ${action} plan`);
       }
+    } catch {
+      setError(`Failed to ${action} plan. Please try again.`);
     } finally {
       setLoading(false);
     }
@@ -87,6 +95,12 @@ export function PlanApproval({
           This plan requires approval before execution
         </span>
       </div>
+
+      {error && (
+        <div className="text-xs text-orbit-fail bg-orbit-fail/10 px-3 py-2 rounded-md">
+          {error}
+        </div>
+      )}
 
       {showNotes && (
         <textarea
@@ -123,6 +137,7 @@ export function PlanApproval({
           Reject
         </Button>
         <button
+          type="button"
           onClick={() => setShowNotes(!showNotes)}
           className="text-xs text-muted-foreground hover:text-foreground ml-2"
         >

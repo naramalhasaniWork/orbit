@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { ClipboardList, Plus, Loader2, Check, AlertCircle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
@@ -37,6 +38,7 @@ interface PlansClientProps {
 }
 
 export function PlansClient({ projectId, projectName, plans, coverageNodes = [] }: PlansClientProps) {
+  const router = useRouter();
   const [expandedPlanId, setExpandedPlanId] = useState<string | null>(
     plans.find((p) => p.isActive)?.id ?? null
   );
@@ -101,17 +103,17 @@ export function PlansClient({ projectId, projectName, plans, coverageNodes = [] 
         }
       }
 
-      // Brief delay to show completion state, then reload
+      // Brief delay to show completion state, then refresh
       if (!error) {
         await new Promise((r) => setTimeout(r, 800));
-        window.location.reload();
+        router.refresh();
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Generation failed");
     } finally {
       setGenerating(false);
     }
-  }, [projectId, generating, error]);
+  }, [projectId, generating, error, router]);
 
   if (!projectId) {
     return (

@@ -40,11 +40,13 @@ const iconColors = {
 
 export function AgentToolCard({ name, args, result, status }: AgentToolCardProps) {
   const [expanded, setExpanded] = useState(false);
+  const [showFullResult, setShowFullResult] = useState(false);
 
   const argEntries = Object.entries(args);
   const resultJson = result !== undefined ? JSON.stringify(result, null, 2) : null;
   const resultLines = resultJson?.split("\n") ?? [];
-  const truncatedResult = resultLines.length > 3 && !expanded
+  const isResultTruncatable = resultLines.length > 3;
+  const truncatedResult = isResultTruncatable && !showFullResult
     ? resultLines.slice(0, 3).join("\n") + "\n..."
     : resultJson;
 
@@ -166,13 +168,13 @@ export function AgentToolCard({ name, args, result, status }: AgentToolCardProps
                   <pre className="text-[10px] font-mono leading-relaxed text-foreground/60 bg-white/[0.03] rounded px-2 py-1.5 overflow-x-auto whitespace-pre-wrap break-all">
                     {truncatedResult}
                   </pre>
-                  {resultLines.length > 3 && (
+                  {isResultTruncatable && (
                     <button
                       type="button"
-                      onClick={(e) => { e.stopPropagation(); setExpanded(true); }}
+                      onClick={(e) => { e.stopPropagation(); setShowFullResult((prev) => !prev); }}
                       className="text-[10px] text-orbit-accent hover:underline"
                     >
-                      {resultLines.length} lines total
+                      {showFullResult ? "Show less" : `${resultLines.length} lines total`}
                     </button>
                   )}
                 </div>

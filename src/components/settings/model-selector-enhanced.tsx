@@ -118,6 +118,14 @@ export function ModelSelectorEnhanced({
         <ChevronDown className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`} />
       </button>
 
+      {/* Close on outside click - rendered before dropdown so z-order is correct */}
+      {open && (
+        <div
+          className="fixed inset-0 z-40"
+          onClick={() => { setOpen(false); setSearch(""); }}
+        />
+      )}
+
       {open && (
         <div className="absolute z-50 mt-1 w-full rounded-lg border border-white/[0.08] bg-card shadow-2xl shadow-black/40 overflow-hidden">
           <div className="p-2 border-b border-white/[0.06]">
@@ -181,14 +189,6 @@ export function ModelSelectorEnhanced({
             ))}
           </div>
         </div>
-      )}
-
-      {/* Close on outside click */}
-      {open && (
-        <div
-          className="fixed inset-0 z-40"
-          onClick={() => { setOpen(false); setSearch(""); }}
-        />
       )}
     </div>
   );

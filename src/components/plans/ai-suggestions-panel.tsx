@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import {
   Lightbulb,
   AlertTriangle,
@@ -9,8 +10,8 @@ import {
   TrendingDown,
   ChevronRight,
   X,
+  Loader2,
 } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 interface Suggestion {
@@ -29,62 +30,27 @@ interface AISuggestionsPanelProps {
   onGeneratePlan?: () => void;
 }
 
-function handleSuggestionAction(
-  suggestion: Suggestion,
-  projectId: string,
-  onGeneratePlan?: () => void
-) {
-  switch (suggestion.actionType) {
-    case "generate_tests":
-    case "add_tests":
-    case "generate_plan":
-      // Trigger plan regeneration
-      if (onGeneratePlan) {
-        onGeneratePlan();
-      } else {
-        window.location.href = `/dashboard/plans?project=${projectId}&generate=true`;
-      }
-      break;
-    case "view_flaky":
-    case "quarantine":
-      window.location.href = `/dashboard/runs?project=${projectId}`;
-      break;
-    case "view_failures":
-    case "investigate":
-      window.location.href = `/dashboard/runs?project=${projectId}`;
-      break;
-    case "reindex":
-      fetch(`/api/projects/${projectId}/sync`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ branch: "main" }),
-      }).then(() => window.location.reload());
-      break;
-    default:
-      // Navigate to agent for complex actions
-      window.location.href = `/dashboard/agent?project=${projectId}`;
-      break;
-  }
-}
-
 const SEVERITY_CONFIG = {
   critical: {
     icon: ShieldAlert,
     border: "border-orbit-fail/20",
     bg: "bg-orbit-fail/5",
     text: "text-orbit-fail",
+    hoverBg: "hover:bg-orbit-fail/10",
   },
   warning: {
     icon: AlertTriangle,
     border: "border-orbit-flaky/20",
     bg: "bg-orbit-flaky/5",
     text: "text-orbit-flaky",
+    hoverBg: "hover:bg-orbit-flaky/10",
   },
   info: {
     icon: Lightbulb,
     border: "border-orbit-accent/20",
     bg: "bg-orbit-accent/5",
     text: "text-orbit-accent",
+    hoverBg: "hover:bg-orbit-accent/10",
   },
 };
 
@@ -101,10 +67,12 @@ const TYPE_ICONS: Record<string, typeof Lightbulb> = {
 };
 
 export function AISuggestionsPanel({ projectId, onGeneratePlan }: AISuggestionsPanelProps) {
+  const router = useRouter();
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [loading, setLoading] = useState(true);
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
   const [collapsed, setCollapsed] = useState(false);
+  const [actingOn, setActingOn] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchSuggestions() {
@@ -121,6 +89,59 @@ export function AISuggestionsPanel({ projectId, onGeneratePlan }: AISuggestionsP
     fetchSuggestions();
   }, [projectId]);
 
+  const handleAction = useCallback(
+    async (e: React.MouseEvent, suggestion: Suggestion) => {
+      e.stopPropagation();
+      e.preventDefault();
+
+      setActingOn(suggestion.id);
+
+      try {
+        switch (suggestion.actionType) {
+          case "generate_tests":
+          case "add_tests":
+          case "generate_plan":
+            if (onGeneratePlan) {
+              onGeneratePlan();
+            } else {
+              router.push(`/dashboard/plans?project=${projectId}`);
+            }
+            break;
+
+          case "quarantine":
+          case "review":
+          case "view_flaky":
+          case "view_failures":
+          case "investigate":
+            router.push(`/dashboard/runs?project=${projectId}`);
+            break;
+
+          case "reindex":
+            await fetch(`/api/projects/${projectId}/sync`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ branch: "main" }),
+            });
+            router.refresh();
+            break;
+
+          case "dismiss":
+            setDismissed((prev) => new Set([...Array.from(prev), suggestion.id]));
+            break;
+
+          default:
+            // Anything unrecognized → open agent chat
+            router.push(`/dashboard/agent?project=${projectId}`);
+            break;
+        }
+      } finally {
+        // Clear acting state after a short delay for visual feedback
+        setTimeout(() => setActingOn(null), 500);
+      }
+    },
+    [projectId, onGeneratePlan, router]
+  );
+
   const visibleSuggestions = suggestions.filter((s) => !dismissed.has(s.id));
 
   if (loading || visibleSuggestions.length === 0) return null;
@@ -128,6 +149,7 @@ export function AISuggestionsPanel({ projectId, onGeneratePlan }: AISuggestionsP
   return (
     <div className="rounded-xl surface-1 overflow-hidden">
       <button
+        type="button"
         onClick={() => setCollapsed(!collapsed)}
         className="w-full flex items-center gap-2 px-5 py-3 hover:bg-muted/20 transition-colors"
       >
@@ -152,6 +174,7 @@ export function AISuggestionsPanel({ projectId, onGeneratePlan }: AISuggestionsP
             const config = SEVERITY_CONFIG[suggestion.severity];
             const typeKey = suggestion.type ?? suggestion.category ?? "";
             const Icon = TYPE_ICONS[typeKey] ?? config.icon;
+            const isActing = actingOn === suggestion.id;
 
             return (
               <div
@@ -170,24 +193,29 @@ export function AISuggestionsPanel({ projectId, onGeneratePlan }: AISuggestionsP
                   <p className="text-[11px] text-muted-foreground mt-0.5">
                     {suggestion.description}
                   </p>
-                  <Button
-                    size="sm"
-                    variant="ghost"
+                  <button
+                    type="button"
+                    disabled={isActing}
+                    onClick={(e) => handleAction(e, suggestion)}
                     className={cn(
-                      "mt-1.5 h-6 px-2 text-[11px]",
-                      config.text
+                      "mt-1.5 h-6 px-2.5 rounded-md text-[11px] font-medium inline-flex items-center gap-1.5 transition-all",
+                      config.text,
+                      config.hoverBg,
+                      "border border-transparent hover:border-current/20",
+                      "active:scale-95",
+                      isActing && "opacity-60 pointer-events-none"
                     )}
-                    onClick={() =>
-                      handleSuggestionAction(suggestion, projectId, onGeneratePlan)
-                    }
                   >
+                    {isActing && <Loader2 className="h-3 w-3 animate-spin" />}
                     {suggestion.actionLabel}
-                  </Button>
+                  </button>
                 </div>
                 <button
-                  onClick={() =>
-                    setDismissed((prev) => new Set([...Array.from(prev), suggestion.id]))
-                  }
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setDismissed((prev) => new Set([...Array.from(prev), suggestion.id]));
+                  }}
                   className="text-muted-foreground/50 hover:text-muted-foreground shrink-0"
                 >
                   <X className="h-3 w-3" />

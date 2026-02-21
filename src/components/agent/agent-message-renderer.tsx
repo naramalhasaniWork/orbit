@@ -195,21 +195,6 @@ function EmptyState() {
             I&apos;ll handle everything.
           </p>
         </div>
-        <div className="flex flex-wrap gap-2 justify-center pt-2">
-          {[
-            "What's the status of this project?",
-            "Run a smoke test",
-            "Re-index the repo",
-            "Show me the auth flow",
-          ].map((suggestion) => (
-            <span
-              key={suggestion}
-              className="text-xs px-3 py-1.5 rounded-full bg-white/[0.04] border border-white/[0.06] text-muted-foreground"
-            >
-              {suggestion}
-            </span>
-          ))}
-        </div>
       </motion.div>
     </div>
   );

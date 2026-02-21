@@ -263,14 +263,16 @@ export function ProviderSettings({ workspaceId }: ProviderSettingsProps) {
             <div className="flex items-center gap-2 pt-1">
               <Button
                 size="sm"
+                type="button"
                 onClick={() => handleSave(provider.id)}
-                disabled={card.saving}
+                disabled={card.saving || (!data?.hasKey && !card.apiKey)}
                 className="bg-orbit-accent hover:bg-orbit-accent/90 text-white"
               >
                 {card.saving ? "Saving..." : "Save"}
               </Button>
               <Button
                 size="sm"
+                type="button"
                 variant="outline"
                 onClick={() => handleTest(provider.id)}
                 disabled={card.testing || !data?.hasKey}
@@ -284,6 +286,7 @@ export function ProviderSettings({ workspaceId }: ProviderSettingsProps) {
               {!data?.isDefault && data?.hasKey && (
                 <Button
                   size="sm"
+                  type="button"
                   variant="ghost"
                   onClick={() => handleSetDefault(provider.id)}
                   className="text-xs text-muted-foreground"

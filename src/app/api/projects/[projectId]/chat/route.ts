@@ -151,8 +151,8 @@ export async function POST(
             }
           }
         } catch (error) {
-          const errorMsg =
-            error instanceof Error ? error.message : "Stream failed";
+          console.error("Chat stream error:", error);
+          const errorMsg = sanitizeChatError(error);
           sendEvent("agent:error", { message: errorMsg });
         } finally {
           controller.close();
@@ -215,4 +215,23 @@ function safeJsonParse(str: string): unknown {
   } catch {
     return str;
   }
+}
+
+/** Sanitize error messages to avoid leaking internal details to clients. */
+function sanitizeChatError(error: unknown): string {
+  if (!(error instanceof Error)) return "Something went wrong. Please try again.";
+
+  const safePatterns = [
+    /rate.*limit/i,
+    /token.*budget/i,
+    /context.*too.*long/i,
+    /model.*not.*available/i,
+    /tool.*execution.*failed/i,
+  ];
+
+  if (safePatterns.some((p) => p.test(error.message))) {
+    return error.message;
+  }
+
+  return "Something went wrong. Please try again.";
 }

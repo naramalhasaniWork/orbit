@@ -25,6 +25,8 @@ export function SecretSettings({ projectId, secrets: initial }: SecretSettingsPr
   const [newKey, setNewKey] = useState("");
   const [newValue, setNewValue] = useState("");
   const [showValue, setShowValue] = useState(false);
+  const [adding, setAdding] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   if (!projectId) {
     return (
@@ -35,31 +37,41 @@ export function SecretSettings({ projectId, secrets: initial }: SecretSettingsPr
   }
 
   async function handleAdd() {
-    if (!newKey || !newValue) return;
+    if (!newKey || !newValue || adding) return;
+    setAdding(true);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/secrets`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: newKey, value: newValue }),
+      });
 
-    const res = await fetch(`/api/projects/${projectId}/secrets`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ key: newKey, value: newValue }),
-    });
-
-    if (res.ok) {
-      const secret = await res.json();
-      setSecrets((prev) => [...prev, secret]);
-      setNewKey("");
-      setNewValue("");
-      setShowValue(false);
-      setShowAdd(false);
+      if (res.ok) {
+        const secret = await res.json();
+        setSecrets((prev) => [...prev, secret]);
+        setNewKey("");
+        setNewValue("");
+        setShowValue(false);
+        setShowAdd(false);
+      }
+    } finally {
+      setAdding(false);
     }
   }
 
   async function handleDelete(secretId: string) {
-    const res = await fetch(`/api/projects/${projectId}/secrets/${secretId}`, {
-      method: "DELETE",
-    });
+    if (deletingId) return;
+    setDeletingId(secretId);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/secrets/${secretId}`, {
+        method: "DELETE",
+      });
 
-    if (res.ok) {
-      setSecrets((prev) => prev.filter((s) => s.id !== secretId));
+      if (res.ok) {
+        setSecrets((prev) => prev.filter((s) => s.id !== secretId));
+      }
+    } finally {
+      setDeletingId(null);
     }
   }
 
@@ -115,10 +127,10 @@ export function SecretSettings({ projectId, secrets: initial }: SecretSettingsPr
             </div>
           </div>
           <div className="flex gap-2">
-            <Button size="sm" onClick={handleAdd} className="bg-orbit-accent hover:bg-orbit-accent/90 text-white">
-              Encrypt & Save
+            <Button size="sm" onClick={handleAdd} disabled={adding || !newKey || !newValue} className="bg-orbit-accent hover:bg-orbit-accent/90 text-white">
+              {adding ? "Saving..." : "Encrypt & Save"}
             </Button>
-            <Button size="sm" variant="ghost" onClick={() => setShowAdd(false)}>
+            <Button size="sm" variant="ghost" onClick={() => setShowAdd(false)} disabled={adding}>
               Cancel
             </Button>
           </div>
@@ -154,6 +166,7 @@ export function SecretSettings({ projectId, secrets: initial }: SecretSettingsPr
                 variant="ghost"
                 className="text-muted-foreground hover:text-destructive"
                 onClick={() => handleDelete(secret.id)}
+                disabled={deletingId === secret.id}
               >
                 <Trash2 className="h-3.5 w-3.5" />
               </Button>

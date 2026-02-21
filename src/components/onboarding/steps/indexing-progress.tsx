@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Check, Loader2, Circle, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -39,6 +40,7 @@ function PhaseIcon({ status }: { status: "pending" | "running" | "complete" }) {
 }
 
 export function IndexingProgress({ repo, projectId, onComplete }: IndexingProgressProps) {
+  const router = useRouter();
   const [logs, setLogs] = useState<string[]>([]);
   const [syncTriggered, setSyncTriggered] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -139,7 +141,7 @@ export function IndexingProgress({ repo, projectId, onComplete }: IndexingProgre
             variant="ghost"
             size="sm"
             className="ml-auto text-xs"
-            onClick={() => window.location.reload()}
+            onClick={() => router.refresh()}
           >
             Retry
           </Button>

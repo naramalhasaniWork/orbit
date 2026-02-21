@@ -1,9 +1,11 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback } from "react";
 import Link from "next/link";
-import { Play, ArrowRight } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Play, ArrowRight, Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { StatusDot } from "@/components/shared/status-dot";
 import { EmptyState } from "@/components/shared/empty-state";
 import { cn } from "@/lib/utils";
@@ -32,11 +34,37 @@ interface Filters {
 }
 
 export function RunsClient({ projectId, projectName, runs }: RunsClientProps) {
+  const router = useRouter();
   const [filters, setFilters] = useState<Filters>({
     status: null,
     mode: null,
     trigger: null,
   });
+  const [startingRun, setStartingRun] = useState(false);
+
+  const handleStartRun = useCallback(async () => {
+    if (!projectId || startingRun) return;
+    setStartingRun(true);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/runs`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: "full", trigger: "manual" }),
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.data?.id) {
+          router.push(`/dashboard/runs/${json.data.id}`);
+          return;
+        }
+      }
+      router.refresh();
+    } catch {
+      // Silently fail — user can retry
+    } finally {
+      setStartingRun(false);
+    }
+  }, [projectId, startingRun, router]);
 
   const filteredRuns = useMemo(() => {
     return runs.filter((run) => {
@@ -67,6 +95,18 @@ export function RunsClient({ projectId, projectName, runs }: RunsClientProps) {
             {runs.length} {runs.length === 1 ? "run" : "runs"}
           </p>
         </div>
+        <Button
+          className="bg-orbit-accent hover:bg-orbit-accent/90 text-white gap-2"
+          onClick={handleStartRun}
+          disabled={startingRun}
+        >
+          {startingRun ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Play className="h-4 w-4" />
+          )}
+          {startingRun ? "Starting..." : "Start New Run"}
+        </Button>
       </div>
 
       <RunsSummaryBar runs={runs} />

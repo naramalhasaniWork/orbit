@@ -114,6 +114,7 @@ export function FailurePatternsPanel({ projectId }: FailurePatternsPanelProps) {
       {categories.length > 0 && (
         <div className="px-5 py-3 flex items-center gap-2 border-b border-border overflow-x-auto">
           <button
+            type="button"
             onClick={() => setSelectedCategory(null)}
             className={cn(
               "text-[11px] px-2.5 py-1 rounded-md transition-colors whitespace-nowrap",
@@ -129,6 +130,7 @@ export function FailurePatternsPanel({ projectId }: FailurePatternsPanelProps) {
             return (
               <button
                 key={cat.category}
+                type="button"
                 onClick={() =>
                   setSelectedCategory(
                     selectedCategory === cat.category ? null : cat.category

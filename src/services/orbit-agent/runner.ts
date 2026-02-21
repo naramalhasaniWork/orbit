@@ -167,7 +167,8 @@ export async function* runOrbitAgent(
       usage: { inputTokens: totalInputTokens, outputTokens: totalOutputTokens },
     };
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Agent execution failed";
+    console.error("Orbit agent error:", error);
+    const message = sanitizeAgentError(error);
     yield { type: "error", message };
   }
 }
@@ -262,6 +263,27 @@ function safeJsonParse(str: string): Prisma.InputJsonValue | null {
   } catch {
     return null;
   }
+}
+
+/** Sanitize error messages to avoid leaking internal details to clients. */
+function sanitizeAgentError(error: unknown): string {
+  if (!(error instanceof Error)) return "Agent execution failed";
+
+  const safePatterns = [
+    /rate.*limit/i,
+    /token.*budget/i,
+    /context.*too.*long/i,
+    /model.*not.*available/i,
+    /tool.*execution.*failed/i,
+    /no.*system.*map/i,
+    /project.*not.*found/i,
+  ];
+
+  if (safePatterns.some((p) => p.test(error.message))) {
+    return error.message;
+  }
+
+  return "Agent execution failed. Please try again.";
 }
 
 export type { AgentStreamEvent, RunOrbitAgentInput };
