@@ -187,11 +187,12 @@ export async function spawnSubAgent(input: SubAgentInput): Promise<SubAgentResul
 function estimateContextBudget(model: string): number {
   // Approximate model context windows (conservative estimates)
   const CONTEXT_WINDOWS: Record<string, number> = {
-    "claude-3-5-haiku-20241022": 200000,
-    "claude-sonnet-4-20250514": 200000,
-    "claude-opus-4-20250514": 200000,
-    "gpt-4o": 128000,
-    "gpt-4o-mini": 128000,
+    "claude-haiku-4-5-20251001": 200000,
+    "claude-sonnet-4-6": 200000,
+    "claude-opus-4-6": 200000,
+    "gpt-5.2": 400000,
+    "gpt-4.1": 1047576,
+    "o4-mini": 200000,
   };
 
   const contextWindow = CONTEXT_WINDOWS[model] ?? 100000;

@@ -14,11 +14,11 @@ interface AgentConfigDefaults {
 }
 
 const AGENT_DEFAULTS: Record<AgentPhase, AgentConfigDefaults> = {
-  analyst: { model: "claude-3-5-haiku-20241022", temperature: 0.0, maxInputTokens: 400000, maxOutputTokens: 100000 },
-  planner: { model: "claude-sonnet-4-20250514", temperature: 0.3, maxInputTokens: 600000, maxOutputTokens: 200000 },
-  executor: { model: "claude-sonnet-4-20250514", temperature: 0.0, maxInputTokens: 200000, maxOutputTokens: 50000 },
-  reporter: { model: "claude-3-5-haiku-20241022", temperature: 0.2, maxInputTokens: 300000, maxOutputTokens: 100000 },
-  auditor: { model: "claude-sonnet-4-20250514", temperature: 0.1, maxInputTokens: 500000, maxOutputTokens: 150000 },
+  analyst: { model: "claude-haiku-4-5-20251001", temperature: 0.0, maxInputTokens: 400000, maxOutputTokens: 100000 },
+  planner: { model: "claude-sonnet-4-6", temperature: 0.3, maxInputTokens: 600000, maxOutputTokens: 200000 },
+  executor: { model: "claude-sonnet-4-6", temperature: 0.0, maxInputTokens: 200000, maxOutputTokens: 50000 },
+  reporter: { model: "claude-haiku-4-5-20251001", temperature: 0.2, maxInputTokens: 300000, maxOutputTokens: 100000 },
+  auditor: { model: "claude-sonnet-4-6", temperature: 0.1, maxInputTokens: 500000, maxOutputTokens: 150000 },
 };
 
 export async function GET(

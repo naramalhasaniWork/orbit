@@ -6,11 +6,12 @@ import {
 } from "@/lib/ai/providers/openrouter";
 
 export const MODELS = {
-  HAIKU: "claude-3-5-haiku-20241022",
-  SONNET: "claude-sonnet-4-20250514",
-  OPUS: "claude-opus-4-20250514",
-  GPT4O: "gpt-4o",
-  GPT4O_MINI: "gpt-4o-mini",
+  HAIKU: "claude-haiku-4-5-20251001",
+  SONNET: "claude-sonnet-4-6",
+  OPUS: "claude-opus-4-6",
+  GPT_5_2: "gpt-5.2",
+  GPT_4_1: "gpt-4.1",
+  O4_MINI: "o4-mini",
 } as const;
 
 export type ModelName = (typeof MODELS)[keyof typeof MODELS];
@@ -44,7 +45,7 @@ function isAnthropicModel(model: string): boolean {
 }
 
 function isOpenAIModel(model: string): boolean {
-  return model.startsWith("gpt");
+  return model.startsWith("gpt") || model.startsWith("o4-") || model.startsWith("o3-");
 }
 
 export async function createCompletion(

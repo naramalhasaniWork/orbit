@@ -46,7 +46,7 @@ export async function createStagehandSession(
     apiKey: browserbaseApiKey,
     projectId,
     verbose: (config.verbose ? 1 : 0) as 0 | 1 | 2,
-    model: (config.modelName ?? "gpt-4o") as "gpt-4o",
+    model: (config.modelName ?? "gpt-4.1") as "gpt-4.1",
   });
 
   await stagehand.init();

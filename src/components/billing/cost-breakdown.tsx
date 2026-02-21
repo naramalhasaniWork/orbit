@@ -198,6 +198,9 @@ function formatModelName(model: string): string {
   if (model.includes("haiku")) return "Haiku";
   if (model.includes("sonnet")) return "Sonnet";
   if (model.includes("opus")) return "Opus";
+  if (model.includes("gpt-5")) return "GPT-5.2";
+  if (model.includes("gpt-4.1")) return "GPT-4.1";
+  if (model.includes("o4-mini")) return "o4-mini";
   if (model === "gpt-4o") return "GPT-4o";
   if (model === "gpt-4o-mini") return "GPT-4o Mini";
   return model;

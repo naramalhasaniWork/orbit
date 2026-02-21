@@ -35,20 +35,22 @@ const DEFAULT_MODEL_MAP: Record<TaskType, string> = {
 
 /** Fallback chain: if primary model is unavailable, try these in order */
 const FALLBACK_CHAIN: Record<string, string[]> = {
-  [MODELS.OPUS]: [MODELS.SONNET, MODELS.GPT4O],
-  [MODELS.SONNET]: [MODELS.GPT4O, MODELS.HAIKU],
-  [MODELS.HAIKU]: [MODELS.GPT4O_MINI],
-  [MODELS.GPT4O]: [MODELS.SONNET, MODELS.GPT4O_MINI],
-  [MODELS.GPT4O_MINI]: [MODELS.HAIKU],
+  [MODELS.OPUS]: [MODELS.SONNET, MODELS.GPT_5_2],
+  [MODELS.SONNET]: [MODELS.GPT_4_1, MODELS.HAIKU],
+  [MODELS.HAIKU]: [MODELS.O4_MINI],
+  [MODELS.GPT_5_2]: [MODELS.SONNET, MODELS.GPT_4_1],
+  [MODELS.GPT_4_1]: [MODELS.SONNET, MODELS.O4_MINI],
+  [MODELS.O4_MINI]: [MODELS.HAIKU],
 };
 
 /** Per-1K token costs (input, output, cached_input) */
 const MODEL_COSTS: Record<string, { input: number; output: number; cached: number }> = {
-  [MODELS.HAIKU]: { input: 0.0008, output: 0.004, cached: 0.00008 },
+  [MODELS.HAIKU]: { input: 0.001, output: 0.005, cached: 0.0001 },
   [MODELS.SONNET]: { input: 0.003, output: 0.015, cached: 0.0003 },
-  [MODELS.OPUS]: { input: 0.015, output: 0.075, cached: 0.0015 },
-  [MODELS.GPT4O]: { input: 0.005, output: 0.015, cached: 0.0025 },
-  [MODELS.GPT4O_MINI]: { input: 0.00015, output: 0.0006, cached: 0.000075 },
+  [MODELS.OPUS]: { input: 0.005, output: 0.025, cached: 0.0005 },
+  [MODELS.GPT_5_2]: { input: 0.00175, output: 0.014, cached: 0.00018 },
+  [MODELS.GPT_4_1]: { input: 0.002, output: 0.008, cached: 0.0005 },
+  [MODELS.O4_MINI]: { input: 0.0011, output: 0.0044, cached: 0.00028 },
 };
 
 // ============================================================
@@ -269,6 +271,8 @@ export async function getAllTaskMappings(
 const PROVIDER_PREFIXES: Record<string, string> = {
   claude: "anthropic",
   gpt: "openai",
+  "o4-": "openai",
+  "o3-": "openai",
 };
 
 /** Determine the provider for a model ID by prefix or ModelRegistry lookup */

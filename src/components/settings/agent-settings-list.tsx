@@ -9,7 +9,7 @@ const AGENT_PHASES = ["analyst", "planner", "executor", "reporter"] as const;
 
 const DEFAULT_CONFIGS: AgentConfigData[] = AGENT_PHASES.map((phase) => ({
   agentPhase: phase,
-  model: "claude-sonnet-4-20250514",
+  model: "claude-sonnet-4-6",
   temperature: 0.2,
   maxInputTokens: 100000,
   maxOutputTokens: 4096,

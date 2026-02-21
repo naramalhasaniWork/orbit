@@ -19,7 +19,7 @@ async function testAnthropic(apiKey: string, baseUrl?: string): Promise<{ succes
       "anthropic-version": "2023-06-01",
     },
     body: JSON.stringify({
-      model: "claude-3-5-haiku-20241022",
+      model: "claude-haiku-4-5-20251001",
       max_tokens: 10,
       messages: [{ role: "user", content: "Say hello" }],
     }),
@@ -43,7 +43,7 @@ async function testOpenAI(apiKey: string, baseUrl?: string): Promise<{ success: 
       Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: "gpt-4o-mini",
+      model: "gpt-4.1",
       max_tokens: 10,
       messages: [{ role: "user", content: "Say hello" }],
     }),

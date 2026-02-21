@@ -5,14 +5,14 @@ import { Search, ChevronDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 interface ModelOption {
-  id: string;
-  provider: string;
   modelId: string;
+  provider: string;
   displayName: string;
   contextWindow: number;
   inputCostPer1M: number;
   outputCostPer1M: number;
-  isActive: boolean;
+  isRecommended: boolean;
+  recommendedFor: string[];
 }
 
 const PROVIDER_LABELS: Record<string, string> = {
@@ -22,11 +22,11 @@ const PROVIDER_LABELS: Record<string, string> = {
 };
 
 const RECOMMENDED_MODELS: Record<string, string[]> = {
-  analyst: ["claude-3-5-haiku-20241022", "gpt-4o-mini"],
-  planner: ["claude-sonnet-4-20250514", "gpt-4o"],
-  executor: ["claude-sonnet-4-20250514", "gpt-4o"],
-  reporter: ["claude-sonnet-4-20250514", "gpt-4o"],
-  auditor: ["claude-opus-4-20250514"],
+  analyst: ["claude-haiku-4-5-20251001", "o4-mini"],
+  planner: ["claude-sonnet-4-6", "gpt-4.1"],
+  executor: ["claude-sonnet-4-6", "gpt-4.1"],
+  reporter: ["claude-haiku-4-5-20251001", "gpt-4.1"],
+  auditor: ["claude-opus-4-6", "gpt-5.2"],
 };
 
 function formatContextWindow(tokens: number): string {
@@ -64,7 +64,7 @@ export function ModelSelectorEnhanced({
       if (!res.ok) return;
       const json = await res.json();
       if (json.success && Array.isArray(json.data)) {
-        setModels(json.data.filter((m: ModelOption) => m.isActive));
+        setModels(json.data);
       }
     } finally {
       setLoading(false);
@@ -149,7 +149,7 @@ export function ModelSelectorEnhanced({
 
                   return (
                     <button
-                      key={model.id}
+                      key={model.modelId}
                       type="button"
                       onClick={() => {
                         onChange(model.modelId);
