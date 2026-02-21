@@ -4,18 +4,37 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { RunsClient } from "@/components/runs/runs-client";
 
-export default async function RunsPage() {
+export const dynamic = "force-dynamic";
+
+export default async function RunsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ project?: string }>;
+}) {
   const session = await getServerSession(authOptions);
   if (!session) redirect("/login");
 
   const workspaceId = (session as { workspaceId?: string }).workspaceId;
   if (!workspaceId) redirect("/login");
 
-  const project = await prisma.project.findFirst({
-    where: { workspaceId },
-    orderBy: { updatedAt: "desc" },
-    select: { id: true, name: true },
-  });
+  const params = await searchParams;
+
+  let project: { id: string; name: string } | null = null;
+
+  if (params.project) {
+    project = await prisma.project.findFirst({
+      where: { id: params.project, workspaceId },
+      select: { id: true, name: true },
+    });
+  }
+
+  if (!project) {
+    project = await prisma.project.findFirst({
+      where: { workspaceId },
+      orderBy: { updatedAt: "desc" },
+      select: { id: true, name: true },
+    });
+  }
 
   if (!project) {
     return (

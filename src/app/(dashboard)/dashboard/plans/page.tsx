@@ -4,6 +4,8 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { PlansClient } from "@/components/plans/plans-client";
 
+export const dynamic = "force-dynamic";
+
 interface RouteNodeCoverage {
   id: string;
   name: string;
@@ -13,18 +15,36 @@ interface RouteNodeCoverage {
   testCount: number;
 }
 
-export default async function PlansPage() {
+export default async function PlansPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ project?: string }>;
+}) {
   const session = await getServerSession(authOptions);
   if (!session) redirect("/login");
 
   const workspaceId = (session as { workspaceId?: string }).workspaceId;
   if (!workspaceId) redirect("/login");
 
-  const project = await prisma.project.findFirst({
-    where: { workspaceId },
-    orderBy: { updatedAt: "desc" },
-    select: { id: true, name: true },
-  });
+  const params = await searchParams;
+
+  // Respect the ?project= query param, fall back to first project
+  let project: { id: string; name: string } | null = null;
+
+  if (params.project) {
+    project = await prisma.project.findFirst({
+      where: { id: params.project, workspaceId },
+      select: { id: true, name: true },
+    });
+  }
+
+  if (!project) {
+    project = await prisma.project.findFirst({
+      where: { workspaceId },
+      orderBy: { updatedAt: "desc" },
+      select: { id: true, name: true },
+    });
+  }
 
   if (!project) {
     return (
@@ -34,7 +54,7 @@ export default async function PlansPage() {
 
   const [plans, mapNodes, testCases] = await Promise.all([
     prisma.testPlan.findMany({
-      where: { projectId: project.id },
+      where: { projectId: project.id, deletedAt: null },
       orderBy: { version: "desc" },
       include: {
         testCases: {

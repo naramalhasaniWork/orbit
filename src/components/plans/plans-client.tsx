@@ -145,7 +145,7 @@ export function PlansClient({ projectId, projectName, plans, coverageNodes = [] 
         )}
       </AnimatePresence>
 
-      {plans.length === 0 && !generating ? (
+      {plans.length === 0 && !generating && (
         <EmptyState
           icon={ClipboardList}
           title="No test plans yet"
@@ -161,31 +161,33 @@ export function PlansClient({ projectId, projectName, plans, coverageNodes = [] 
             </Button>
           }
         />
-      ) : (
-        <>
-          <div className="space-y-3">
-            {plans.map((plan) => {
-              const isExpanded = expandedPlanId === plan.id;
-              const stats = computePlanStats(plan.testCases);
+      )}
 
-              return (
-                <PlanRow
-                  key={plan.id}
-                  plan={plan}
-                  stats={stats}
-                  isExpanded={isExpanded}
-                  onToggle={() => setExpandedPlanId(isExpanded ? null : plan.id)}
-                  projectId={projectId}
-                />
-              );
-            })}
-          </div>
+      {plans.length > 0 && (
+        <div className="space-y-3">
+          {plans.map((plan) => {
+            const isExpanded = expandedPlanId === plan.id;
+            const stats = computePlanStats(plan.testCases);
 
-          {coverageNodes.length > 0 && <CoverageMap nodes={coverageNodes} />}
-          {projectId && (
-            <AISuggestionsPanel projectId={projectId} onGeneratePlan={handleGenerate} />
-          )}
-        </>
+            return (
+              <PlanRow
+                key={plan.id}
+                plan={plan}
+                stats={stats}
+                isExpanded={isExpanded}
+                onToggle={() => setExpandedPlanId(isExpanded ? null : plan.id)}
+                projectId={projectId}
+              />
+            );
+          })}
+        </div>
+      )}
+
+      {coverageNodes.length > 0 && <CoverageMap nodes={coverageNodes} />}
+
+      {/* AI suggestions always visible when project exists */}
+      {projectId && (
+        <AISuggestionsPanel projectId={projectId} onGeneratePlan={handleGenerate} />
       )}
     </div>
   );
