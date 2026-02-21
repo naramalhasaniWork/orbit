@@ -17,11 +17,13 @@ import {
   FolderGit2,
   KeyRound,
   Plug,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { WorkspaceSwitcher } from "@/components/team/workspace-switcher";
 
 const navigation = [
+  { name: "Agent", href: "/dashboard/agent", icon: Sparkles },
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Projects", href: "/dashboard/projects", icon: FolderGit2 },
   { name: "System Map", href: "/dashboard/map", icon: Map },
