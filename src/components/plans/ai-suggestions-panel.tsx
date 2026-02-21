@@ -26,6 +26,45 @@ interface Suggestion {
 
 interface AISuggestionsPanelProps {
   projectId: string;
+  onGeneratePlan?: () => void;
+}
+
+function handleSuggestionAction(
+  suggestion: Suggestion,
+  projectId: string,
+  onGeneratePlan?: () => void
+) {
+  switch (suggestion.actionType) {
+    case "generate_tests":
+    case "add_tests":
+    case "generate_plan":
+      // Trigger plan regeneration
+      if (onGeneratePlan) {
+        onGeneratePlan();
+      } else {
+        window.location.href = `/dashboard/plans?project=${projectId}&generate=true`;
+      }
+      break;
+    case "view_flaky":
+    case "quarantine":
+      window.location.href = `/dashboard/runs?project=${projectId}`;
+      break;
+    case "view_failures":
+    case "investigate":
+      window.location.href = `/dashboard/runs?project=${projectId}`;
+      break;
+    case "reindex":
+      fetch(`/api/projects/${projectId}/sync`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ branch: "main" }),
+      }).then(() => window.location.reload());
+      break;
+    default:
+      // Navigate to agent for complex actions
+      window.location.href = `/dashboard/agent?project=${projectId}`;
+      break;
+  }
 }
 
 const SEVERITY_CONFIG = {
@@ -61,7 +100,7 @@ const TYPE_ICONS: Record<string, typeof Lightbulb> = {
   optimization: Lightbulb,
 };
 
-export function AISuggestionsPanel({ projectId }: AISuggestionsPanelProps) {
+export function AISuggestionsPanel({ projectId, onGeneratePlan }: AISuggestionsPanelProps) {
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [loading, setLoading] = useState(true);
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
@@ -138,6 +177,9 @@ export function AISuggestionsPanel({ projectId }: AISuggestionsPanelProps) {
                       "mt-1.5 h-6 px-2 text-[11px]",
                       config.text
                     )}
+                    onClick={() =>
+                      handleSuggestionAction(suggestion, projectId, onGeneratePlan)
+                    }
                   >
                     {suggestion.actionLabel}
                   </Button>

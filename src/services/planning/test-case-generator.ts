@@ -89,16 +89,40 @@ function parseJsonResponse(content: string): unknown {
     .replace(/\n?```\s*$/m, "")
     .trim();
 
+  // Try raw parse first
   try {
     return JSON.parse(cleaned);
   } catch {
-    // Attempt to fix common LLM JSON issues:
-    // - trailing commas before } or ]
-    // - single-quoted strings
-    cleaned = cleaned
-      .replace(/,\s*([}\]])/g, "$1")
-      .replace(/'/g, '"');
+    // Fallthrough to repair attempts
+  }
+
+  // Attempt progressive repair of common LLM JSON issues
+  cleaned = cleaned
+    // Strip JS-style comments
+    .replace(/\/\/[^\n]*/g, "")
+    .replace(/\/\*[\s\S]*?\*\//g, "")
+    // Remove trailing commas before } or ]
+    .replace(/,\s*([}\]])/g, "$1")
+    // Fix unquoted property names: { foo: "bar" } → { "foo": "bar" }
+    .replace(/([{,]\s*)([a-zA-Z_]\w*)\s*:/g, '$1"$2":')
+    // Strip trailing text after the last } or ]
+    .replace(/([\]}])\s*[^}\]]*$/, "$1")
+    .trim();
+
+  try {
     return JSON.parse(cleaned);
+  } catch {
+    // Last resort: extract the largest JSON-like block
+    const jsonMatch = cleaned.match(/[{\[]([\s\S]*)[}\]]/);
+    if (jsonMatch) {
+      const bracket = cleaned[cleaned.indexOf(jsonMatch[0])];
+      const closer = bracket === "{" ? "}" : "]";
+      const extracted = bracket + jsonMatch[1] + closer;
+      return JSON.parse(extracted);
+    }
+    throw new Error(
+      `Failed to parse LLM JSON response (length: ${content.length}). First 200 chars: ${content.slice(0, 200)}`
+    );
   }
 }
 

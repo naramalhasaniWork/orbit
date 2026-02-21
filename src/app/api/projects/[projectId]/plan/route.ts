@@ -19,6 +19,7 @@ interface PlanRequestBody {
   focusAreas?: string[];
   excludePaths?: string[];
   maxTestCases?: number;
+  stream?: boolean;
 }
 
 const VALID_MODES = new Set(["full", "smoke", "regression", "targeted"]);
@@ -115,6 +116,12 @@ export async function POST(
       }
     }
 
+    // Stream mode: return SSE with phase progress
+    if (body.stream) {
+      return streamPlanGeneration(projectId, body);
+    }
+
+    // Legacy non-streaming mode
     const { generatePlan } = await getPlannerService();
     const result = await generatePlan({
       projectId,
@@ -148,4 +155,94 @@ export async function POST(
   } catch (error) {
     return handleApiError(error);
   }
+}
+
+function streamPlanGeneration(projectId: string, body: PlanRequestBody) {
+  const encoder = new TextEncoder();
+
+  const readable = new ReadableStream({
+    async start(controller) {
+      function emit(event: string, data: unknown) {
+        controller.enqueue(
+          encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
+        );
+      }
+
+      try {
+        emit("plan:phase", { phase: "coverage", message: "Analyzing coverage gaps...", progress: 10 });
+
+        const { analyzeCoverage } = await import("@/services/planning/coverage-analyzer");
+        const { reconstructJourneys } = await import("@/services/planning/journey-reconstructor");
+
+        const [coverage, journeys] = await Promise.all([
+          analyzeCoverage(projectId),
+          reconstructJourneys(projectId),
+        ]);
+
+        emit("plan:phase", {
+          phase: "journeys",
+          message: `Found ${journeys.length} user journeys, ${coverage.untestedRoutes.length} untested routes`,
+          progress: 30,
+        });
+
+        emit("plan:phase", { phase: "generating", message: "Generating test cases with AI...", progress: 40 });
+
+        const { generateTestCases } = await import("@/services/planning/test-case-generator");
+        const { getNextVersion } = await import("@/services/planning/plan-cache");
+        const version = await getNextVersion(projectId);
+
+        const generationResult = await generateTestCases({
+          projectId,
+          version,
+          mode: body.mode ?? "full",
+          coverageReport: coverage,
+          journeys,
+          focusAreas: body.focusAreas,
+          excludePaths: body.excludePaths,
+          maxTestCases: body.maxTestCases,
+        });
+
+        emit("plan:phase", {
+          phase: "prioritizing",
+          message: `Generated ${generationResult.testCases.length} test cases, prioritizing...`,
+          progress: 75,
+        });
+
+        const { prioritizeTestCases, filterByMode } = await import("@/services/planning/prioritizer");
+        const prioritized = prioritizeTestCases(generationResult.testCases, coverage);
+        const filtered = filterByMode(prioritized, body.mode ?? "full", body.maxTestCases);
+
+        emit("plan:phase", { phase: "saving", message: "Saving test plan...", progress: 90 });
+
+        const { storePlan } = await import("@/services/planning/plan-cache");
+        const summary = {
+          totalTests: filtered.length,
+          estimatedCredits: filtered.length,
+        };
+        const { plan, testCases } = await storePlan(projectId, version, filtered, summary);
+
+        emit("plan:complete", {
+          planId: plan.id,
+          version: plan.version,
+          testCaseCount: testCases.length,
+          journeyCount: journeys.length,
+          coveragePercent: coverage.overallPercentage,
+          progress: 100,
+        });
+      } catch (error) {
+        const msg = error instanceof Error ? error.message : "Plan generation failed";
+        emit("plan:error", { message: msg });
+      } finally {
+        controller.close();
+      }
+    },
+  });
+
+  return new Response(readable, {
+    headers: {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      Connection: "keep-alive",
+    },
+  });
 }
