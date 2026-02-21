@@ -16,7 +16,7 @@ export const IndexingJobDataSchema = z.object({
 
 export const ExecutionJobDataSchema = z.object({
   runId: z.string().uuid(),
-  testCaseId: z.string().uuid(),
+  testCaseId: z.union([z.string().uuid(), z.literal("__full_run__")]),
   environmentUrl: z.string().url(),
   environmentId: z.string().uuid(),
 });
