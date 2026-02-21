@@ -81,8 +81,16 @@ export async function handleExecutionJob(job: Job<ExecutionJobData>): Promise<vo
 
   // Full-run execution: delegate to the unified runner
   if (data.testCaseId === "__full_run__") {
-    const { executeRun } = await import("@/services/execution/runner");
-    await executeRun({ runId: data.runId, environmentId: data.environmentId });
+    try {
+      const runnerModule = await import("@/services/execution/runner");
+      await runnerModule.executeRun({ runId: data.runId, environmentId: data.environmentId });
+    } catch (importErr) {
+      const msg = importErr instanceof Error
+        ? `${importErr.name}: ${importErr.message}\n${importErr.stack}`
+        : String(importErr);
+      console.error(`[Worker:execution] Runner import/execute failed:\n${msg}`);
+      throw importErr;
+    }
     await job.updateProgress(100);
     return;
   }
