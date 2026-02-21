@@ -45,20 +45,22 @@ function buildWaitStrategy(): string {
 }
 
 function buildSelectorStrategy(): string {
-  return `## Selector Resolution Strategy
-When finding elements, try in this exact order:
-1. **data-testid:** \`[data-testid="submit-button"]\` — most stable, designed for testing
-2. **aria-label:** \`[aria-label="Submit"]\` — accessibility-driven, stable across visual changes
-3. **role + text:** \`button:has-text("Submit")\` or \`role=button[name="Submit"]\` — semantic, resilient
-4. **name attribute:** \`input[name="email"]\` — stable for form elements
-5. **Structural:** \`form > button[type="submit"]\` — DOM structure-based, moderate stability
-6. **CSS class:** \`.btn-primary\` — LAST RESORT, brittle, breaks on style refactors
-
-When the selector hint from the test plan does not match any element:
-- Try the above cascade before failing
-- Match by visible text content as a strong fallback
-- Check if the element exists but is hidden (may need scroll or prior interaction)
-- If no match after all strategies, output a "verdict" with "fail" and explain which selectors were tried`;
+  return [
+    "## Selector Resolution Strategy",
+    "When finding elements, try in this exact order:",
+    '1. **data-testid:** `[data-testid="submit-button"]` — most stable, designed for testing',
+    '2. **aria-label:** `[aria-label="Submit"]` — accessibility-driven, stable across visual changes',
+    '3. **role + text:** `button:has-text("Submit")` or `role=button[name="Submit"]` — semantic, resilient',
+    '4. **name attribute:** `input[name="email"]` — stable for form elements',
+    '5. **Structural:** `form > button[type="submit"]` — DOM structure-based, moderate stability',
+    "6. **CSS class:** `.btn-primary` — LAST RESORT, brittle, breaks on style refactors",
+    "",
+    "When the selector hint from the test plan does not match any element:",
+    "- Try the above cascade before failing",
+    "- Match by visible text content as a strong fallback",
+    "- Check if the element exists but is hidden (may need scroll or prior interaction)",
+    '- If no match after all strategies, output a "verdict" with "fail" and explain which selectors were tried',
+  ].join("\n");
 }
 
 function buildFailureHandling(): string {
