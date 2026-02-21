@@ -84,11 +84,22 @@ async function loadFailurePatterns(
 }
 
 function parseJsonResponse(content: string): unknown {
-  const cleaned = content
+  let cleaned = content
     .replace(/^```(?:json)?\s*\n?/m, "")
     .replace(/\n?```\s*$/m, "")
     .trim();
-  return JSON.parse(cleaned);
+
+  try {
+    return JSON.parse(cleaned);
+  } catch {
+    // Attempt to fix common LLM JSON issues:
+    // - trailing commas before } or ]
+    // - single-quoted strings
+    cleaned = cleaned
+      .replace(/,\s*([}\]])/g, "$1")
+      .replace(/'/g, '"');
+    return JSON.parse(cleaned);
+  }
 }
 
 const COMPLEX_JOURNEY_THRESHOLD = 5;
