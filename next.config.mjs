@@ -29,10 +29,14 @@ const nextConfig = {
         /^tree-sitter-wasms\//,
         "playwright",
         "playwright-core",
+        /^playwright/,
         /^@aws-sdk\//,
         "stripe",
         "sharp",
         "@browserbasehq/stagehand",
+        /^@browserbasehq\//,
+        "socket.io",
+        "socket.io-client",
       ];
     }
     return config;
