@@ -52,7 +52,7 @@ export default async function PlansPage({
     );
   }
 
-  const [plans, mapNodes, testCases] = await Promise.all([
+  const [plans, mapNodes, activePlanTestCases] = await Promise.all([
     prisma.testPlan.findMany({
       where: { projectId: project.id, deletedAt: null },
       orderBy: { version: "desc" },
@@ -67,22 +67,48 @@ export default async function PlansPage({
       select: { id: true, name: true, type: true, filePath: true },
       orderBy: { name: "asc" },
     }),
+    // Fetch name + journey from the active plan — used for multi-signal coverage matching
     prisma.testCase.findMany({
-      where: { projectId: project.id, isEnabled: true },
-      select: { journey: true },
+      where: {
+        projectId: project.id,
+        isEnabled: true,
+        testPlan: { isActive: true },
+      },
+      select: { name: true, journey: true },
     }),
   ]);
 
-  // Compute coverage per node
-  const journeyCounts = new Map<string, number>();
-  for (const tc of testCases) {
-    if (tc.journey) {
-      journeyCounts.set(tc.journey, (journeyCounts.get(tc.journey) ?? 0) + 1);
+  // Multi-signal coverage matching (mirrors coverage-analyzer.ts logic):
+  //  Signal 1 — journey label appears as substring in node name or file path
+  //  Signal 2 — test case name contains the full node name (min 5 chars)
+  // Count how many test cases cover each node so the map shows partial vs full coverage.
+  const MIN_MATCH_LEN = 5;
+  const nodeCoverageCount = new Map<string, number>(); // nodeId → match count
+
+  for (const node of mapNodes) {
+    const nodeNameLower = node.name.toLowerCase();
+    const nodePathLower = node.filePath.toLowerCase();
+    let count = 0;
+
+    for (const tc of activePlanTestCases) {
+      const tcNameLower = tc.name.toLowerCase();
+      const tcJourney = tc.journey?.toLowerCase() ?? "";
+
+      const journeyMatch =
+        tcJourney.length >= 3 &&
+        (nodeNameLower.includes(tcJourney) || nodePathLower.includes(tcJourney));
+
+      const nameMatch =
+        nodeNameLower.length >= MIN_MATCH_LEN &&
+        tcNameLower.includes(nodeNameLower);
+
+      if (journeyMatch || nameMatch) count++;
     }
+    nodeCoverageCount.set(node.id, count);
   }
 
   const coverageNodes: RouteNodeCoverage[] = mapNodes.map((node) => {
-    const count = journeyCounts.get(node.name) ?? journeyCounts.get(node.filePath) ?? 0;
+    const count = nodeCoverageCount.get(node.id) ?? 0;
     return {
       id: node.id,
       name: node.name,

@@ -26,6 +26,7 @@ export function PlanRow({ plan, stats, isExpanded, onToggle, projectId }: PlanRo
   const router = useRouter();
   const [showAddTest, setShowAddTest] = useState(false);
   const [regenerating, setRegenerating] = useState(false);
+  const [regenError, setRegenError] = useState<string | null>(null);
   const journeyGroups = groupByJourney(plan.testCases);
 
   const approval = (plan.summary as Record<string, unknown>)?.approval as {
@@ -38,15 +39,21 @@ export function PlanRow({ plan, stats, isExpanded, onToggle, projectId }: PlanRo
   async function handleRegenerate() {
     if (!projectId) return;
     setRegenerating(true);
+    setRegenError(null);
     try {
-      await fetch(`/api/projects/${projectId}/plan`, {
+      const res = await fetch(`/api/projects/${projectId}/plan`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ mode: "full" }),
       });
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}));
+        setRegenError((json as { error?: { message?: string } }).error?.message ?? "Plan generation failed");
+        return;
+      }
       router.refresh();
     } catch {
-      // Silently fail
+      setRegenError("Plan generation failed. Please try again.");
     } finally {
       setRegenerating(false);
     }
@@ -126,6 +133,9 @@ export function PlanRow({ plan, stats, isExpanded, onToggle, projectId }: PlanRo
                     {regenerating ? "Re-generating..." : "Re-generate Plan"}
                   </Button>
                 </div>
+                {regenError && (
+                  <div className="px-5 pb-2 text-xs text-orbit-fail">{regenError}</div>
+                )}
               )}
 
               {projectId && approval !== undefined && (

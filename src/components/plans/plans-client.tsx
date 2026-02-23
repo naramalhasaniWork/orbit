@@ -56,6 +56,10 @@ export function PlansClient({ projectId, projectName, plans, coverageNodes = [] 
     setError(null);
     setComplete(false);
 
+    // Track whether the stream ended with an error using a local variable
+    // (avoids the stale-closure issue with reading React state mid-async)
+    let streamFailed = false;
+
     try {
       const response = await fetch(`/api/projects/${projectId}/plan`, {
         method: "POST",
@@ -95,6 +99,7 @@ export function PlansClient({ projectId, projectName, plans, coverageNodes = [] 
                 setComplete(true);
                 setSuggestionsRefreshKey((k) => k + 1);
               } else if (eventType === "plan:error") {
+                streamFailed = true;
                 setError(data.message);
               }
             } catch {
@@ -105,8 +110,7 @@ export function PlansClient({ projectId, projectName, plans, coverageNodes = [] 
         }
       }
 
-      // Brief delay to show completion state, then refresh
-      if (!error) {
+      if (!streamFailed) {
         await new Promise((r) => setTimeout(r, 800));
         router.refresh();
       }
@@ -115,7 +119,7 @@ export function PlansClient({ projectId, projectName, plans, coverageNodes = [] 
     } finally {
       setGenerating(false);
     }
-  }, [projectId, generating, error, router]);
+  }, [projectId, generating, router]);
 
   if (!projectId) {
     return (
