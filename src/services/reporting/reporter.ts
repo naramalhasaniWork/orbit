@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { analyzeFailures } from "@/services/reporting/failure-analyzer";
+import { analyzeFailures, getHistoricalData } from "@/services/reporting/failure-analyzer";
 import {
   generateReport as generateRunReport,
   type GenerateReportResult,
@@ -18,6 +18,7 @@ import {
 import { BugReportSchema, type BugReport } from "@/agents/schemas/run-summary";
 import { createTrackedCompletion } from "@/lib/ai/tracked-completion";
 import { getModelForTask } from "@/lib/ai/model-router";
+import { parseLlmJson } from "@/lib/utils/json-parse";
 import {
   buildReporterPrompt,
   type ReporterContext,
@@ -35,47 +36,6 @@ interface ReportingPipelineResult {
   integrations: IntegrationResults;
 }
 
-async function getRunHistoricalData(
-  projectId: string
-): Promise<ReporterContext["historicalData"]> {
-  const previousRuns = await prisma.testRun.findMany({
-    where: { projectId, status: "completed" },
-    orderBy: { completedAt: "desc" },
-    take: 10,
-    select: { passed: true, totalTests: true },
-  });
-
-  const totalPassed = previousRuns.reduce((sum, r) => sum + r.passed, 0);
-  const totalTests = previousRuns.reduce((sum, r) => sum + r.totalTests, 0);
-  const previousPassRate = totalTests > 0 ? totalPassed / totalTests : 1;
-
-  const recentFailedResults = await prisma.testResult.findMany({
-    where: {
-      testRun: { projectId, status: "completed" },
-      verdict: "fail",
-    },
-    orderBy: { createdAt: "desc" },
-    take: 5,
-    include: { testCase: { select: { name: true } } },
-  });
-
-  const flakyTests = await prisma.flakyTest.findMany({
-    where: { projectId, isQuarantined: false },
-    include: { testCase: { select: { name: true } } },
-  });
-
-  return {
-    previousRunCount: previousRuns.length,
-    previousPassRate,
-    recentFailures: recentFailedResults.map((r) => ({
-      testName: r.testCase.name,
-      failedAt: r.createdAt.toISOString(),
-      explanation: r.failureExplanation ?? "No explanation available",
-    })),
-    flakyTests: flakyTests.map((f) => f.testCase.name),
-  };
-}
-
 async function generateBugReport(
   runId: string,
   projectId: string,
@@ -90,7 +50,7 @@ async function generateBugReport(
   mode: ReporterContext["mode"]
 ): Promise<BugReport | null> {
   const [historicalData, project] = await Promise.all([
-    getRunHistoricalData(projectId),
+    getHistoricalData(projectId),
     prisma.project.findUniqueOrThrow({
       where: { id: projectId },
       select: { workspaceId: true },
@@ -141,7 +101,7 @@ async function generateBugReport(
     }
   );
 
-  const parsed = BugReportSchema.safeParse(JSON.parse(completion.content));
+  const parsed = BugReportSchema.safeParse(parseLlmJson(completion.content));
   return parsed.success ? parsed.data : null;
 }
 

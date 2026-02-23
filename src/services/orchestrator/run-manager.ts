@@ -1,9 +1,14 @@
 import { prisma } from "@/lib/db";
 import type { RunStatus, RunMode, RunTrigger } from "@/generated/prisma/client";
 import { emitRunProgress, emitRunStarted, emitRunCompleted } from "@/lib/websocket";
+import { getRedis } from "@/lib/redis";
 
-// In-memory set of cancelled run IDs for fast checking during execution
-const cancelledRuns = new Set<string>();
+// Redis key TTL for cancellation flags — 2 hours covers any realistic run
+const CANCEL_KEY_TTL_SECONDS = 7200;
+
+function cancelKey(runId: string): string {
+  return `orbit:run:cancelled:${runId}`;
+}
 
 interface CreateRunInput {
   projectId: string;
@@ -45,7 +50,8 @@ export async function createRun(input: CreateRunInput) {
 }
 
 /**
- * Request cancellation of a run. Sets both in-memory flag and DB status.
+ * Request cancellation of a run. Writes to Redis so all workers see it
+ * immediately, then updates the DB status.
  * Pipeline phases check `isRunCancelled()` between stages.
  */
 export async function cancelRun(runId: string): Promise<boolean> {
@@ -59,29 +65,35 @@ export async function cancelRun(runId: string): Promise<boolean> {
   const cancellableStatuses: RunStatus[] = ["queued", "indexing", "planning", "executing"];
   if (!cancellableStatuses.includes(run.status)) return false;
 
-  cancelledRuns.add(runId);
+  // Write to Redis so all workers see the cancellation immediately
+  try {
+    await getRedis().set(cancelKey(runId), "1", "EX", CANCEL_KEY_TTL_SECONDS);
+  } catch (err) {
+    console.error(`[RunManager] Failed to write cancel flag to Redis for ${runId}:`, err);
+  }
+
   await updateRunStatus(runId, "cancelled", "Run cancelled by user");
   return true;
 }
 
 /**
  * Fast check for pipeline phases to detect cancellation.
- * Checks in-memory first, falls back to DB for distributed workers.
+ * Checks Redis first (visible to all workers), falls back to DB.
  */
 export async function isRunCancelled(runId: string): Promise<boolean> {
-  if (cancelledRuns.has(runId)) return true;
+  try {
+    const flag = await getRedis().get(cancelKey(runId));
+    if (flag) return true;
+  } catch {
+    // Redis unavailable — fall through to DB check
+  }
 
   const run = await prisma.testRun.findUnique({
     where: { id: runId },
     select: { status: true },
   });
 
-  if (run?.status === "cancelled") {
-    cancelledRuns.add(runId);
-    return true;
-  }
-
-  return false;
+  return run?.status === "cancelled";
 }
 
 export async function updateRunStatus(
@@ -101,8 +113,12 @@ export async function updateRunStatus(
     if (run?.startedAt) {
       data.durationMs = Date.now() - run.startedAt.getTime();
     }
-    // Clean up in-memory cancellation flag
-    cancelledRuns.delete(runId);
+    // Clean up Redis cancellation flag
+    try {
+      await getRedis().del(cancelKey(runId));
+    } catch {
+      // Non-critical — key will expire on its own
+    }
   }
 
   const updated = await prisma.testRun.update({

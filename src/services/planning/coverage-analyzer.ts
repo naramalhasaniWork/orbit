@@ -1,6 +1,10 @@
 import { prisma } from "@/lib/db";
 import type { SystemMapNode as PrismaNode, TestCase as PrismaTestCase } from "@/generated/prisma/client";
 
+// Minimum node-name length for fuzzy matching — prevents short tokens like
+// "list", "id", "new" from matching every test case that mentions them.
+const MIN_NODE_NAME_MATCH_LENGTH = 5;
+
 interface NodeCoverage {
   nodeId: string;
   nodeType: string;
@@ -121,13 +125,33 @@ export async function analyzeCoverage(projectId: string): Promise<CoverageReport
     }),
   ]);
 
-  // Build set of "covered" node names by matching test case names to node names
+  // Build set of "covered" node names using a multi-signal approach:
+  //  1. Journey match — test case's journey field matches the node's file path / name
+  //  2. Name match — test case name includes the full node name (min 5 chars to avoid
+  //     short tokens like "id", "new", "list" matching everything)
+  // We intentionally do NOT use the reverse direction (nodeNameLower includes tcNameLower)
+  // as it caused severe inflation: a test called "Login" would cover all 10 login-related
+  // nodes, making coverage appear 10x higher than it actually is.
   const coveredNodeNames = new Set<string>();
   for (const tc of existingTestCases) {
+    const tcNameLower = tc.name.toLowerCase();
+    const tcJourney = tc.journey?.toLowerCase() ?? "";
+
     for (const node of nodes) {
-      const tcNameLower = tc.name.toLowerCase();
       const nodeNameLower = node.name.toLowerCase();
-      if (tcNameLower.includes(nodeNameLower) || nodeNameLower.includes(tcNameLower)) {
+      const nodePathLower = node.filePath.toLowerCase();
+
+      // Signal 1: journey field matches a path segment in the node
+      const journeyMatch =
+        tcJourney.length >= 3 &&
+        (nodeNameLower.includes(tcJourney) || nodePathLower.includes(tcJourney));
+
+      // Signal 2: test case name contains the full node name (with length guard)
+      const nameMatch =
+        nodeNameLower.length >= MIN_NODE_NAME_MATCH_LENGTH &&
+        tcNameLower.includes(nodeNameLower);
+
+      if (journeyMatch || nameMatch) {
         coveredNodeNames.add(node.name);
       }
     }

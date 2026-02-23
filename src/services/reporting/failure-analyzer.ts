@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { createTrackedCompletion } from "@/lib/ai/tracked-completion";
 import { getModelForTask } from "@/lib/ai/model-router";
+import { parseLlmJson } from "@/lib/utils/json-parse";
 import {
   buildReporterPrompt,
   type ReporterContext,
@@ -26,7 +27,7 @@ interface AnalyzeFailuresResult {
   totalAnalyzed: number;
 }
 
-async function getHistoricalData(
+export async function getHistoricalData(
   projectId: string
 ): Promise<ReporterContext["historicalData"]> {
   const previousRuns = await prisma.testRun.findMany({
@@ -135,9 +136,7 @@ export async function analyzeFailures(
       }
     );
 
-    const parsed = BugReportSchema.safeParse(
-      JSON.parse(completion.content)
-    );
+    const parsed = BugReportSchema.safeParse(parseLlmJson(completion.content));
 
     if (parsed.success) {
       const bugReport: BugReport = parsed.data;

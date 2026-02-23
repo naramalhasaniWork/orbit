@@ -67,27 +67,28 @@ export async function storePlan(
       },
     });
 
-    const testCaseRecords = await Promise.all(
-      testCases.map((tc) =>
-        tx.testCase.create({
-          data: {
-            testPlanId: plan.id,
-            projectId,
-            name: tc.name,
-            type: tc.type,
-            journey: tc.journey,
-            priorityScore: tc.priorityScore,
-            criticality: tc.criticality,
-            risk: tc.risk,
-            coverageGap: tc.coverageGap,
-            steps: toJsonValue(tc.steps),
-            rationale: tc.rationale,
-            edgeCases: toJsonValue(tc.edgeCases),
-            isCritical: tc.priorityScore >= 80,
-          },
-        })
-      )
-    );
+    await tx.testCase.createMany({
+      data: testCases.map((tc) => ({
+        testPlanId: plan.id,
+        projectId,
+        name: tc.name,
+        type: tc.type,
+        journey: tc.journey,
+        priorityScore: tc.priorityScore,
+        criticality: tc.criticality,
+        risk: tc.risk,
+        coverageGap: tc.coverageGap,
+        steps: toJsonValue(tc.steps),
+        rationale: tc.rationale,
+        edgeCases: toJsonValue(tc.edgeCases),
+        isCritical: tc.priorityScore >= 80,
+      })),
+    });
+
+    const testCaseRecords = await tx.testCase.findMany({
+      where: { testPlanId: plan.id },
+      orderBy: { priorityScore: "desc" },
+    });
 
     return { plan, testCases: testCaseRecords };
   });

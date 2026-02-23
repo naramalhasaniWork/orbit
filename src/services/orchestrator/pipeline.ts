@@ -116,10 +116,11 @@ export async function executePipeline(
       );
     }
 
-    // Check budget after planning
+    // Check budget after planning — hard stop before execution to avoid runaway costs
     if (tokenBudget.isOverBudget()) {
-      console.warn(
-        `[Pipeline] Token budget exceeded after planning for run ${run.id}`
+      throw new Error(
+        `Token budget exceeded after planning (input: ${tokenBudget.getUsage().inputTokens.toLocaleString()} tokens). ` +
+        `Increase maxTokenBudget or reduce the system map size.`
       );
     }
 
@@ -202,7 +203,8 @@ async function runIndexingPhase(
 }
 
 async function runAuditPhase(runId: string, projectId: string): Promise<void> {
-  await updateRunStatus(runId, "planning", "Running code audit");
+  // Audit runs silently between indexing and planning — no status transition needed.
+  // The planning phase will update status to "planning" when it starts.
   try {
     const { runCodeAudit } = await import("@/services/auditing/auditor");
     await runCodeAudit({ projectId, runId });

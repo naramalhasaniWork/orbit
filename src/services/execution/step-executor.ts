@@ -12,6 +12,7 @@ import { performAction } from "@/services/execution/action-performer";
 import { prisma } from "@/lib/db";
 import type { EvidenceCollectorInstance } from "@/services/execution/evidence-collector";
 import { isStagehandEnabled } from "@/services/execution/stagehand-adapter";
+import { parseLlmJson } from "@/lib/utils/json-parse";
 import { emitTestStep, emitTestScreenshot } from "@/lib/websocket";
 import {
   captureAndStream,
@@ -86,7 +87,7 @@ async function getNextAction(
     }
   );
 
-  return ExecutorActionSchema.parse(JSON.parse(result.content));
+  return ExecutorActionSchema.parse(parseLlmJson(result.content));
 }
 
 // ============================================================
@@ -234,10 +235,15 @@ export async function executeTestSteps(
     }
 
     if (action.action !== "wait" && action.action !== "screenshot") {
-      currentStepIndex = Math.min(currentStepIndex + 1, steps.length - 1);
+      currentStepIndex++;
+      // All steps completed without a verdict action — treat as pass
+      if (currentStepIndex >= steps.length) {
+        return { steps: stepResults, verdict: "pass", healedSelectors };
+      }
     }
   }
 
+  // Hit the action limit without a verdict — treat as fail
   return { steps: stepResults, verdict: "fail", healedSelectors };
 }
 

@@ -7,6 +7,7 @@ import { prisma } from "@/lib/db";
 import type { CoverageReport } from "@/services/planning/coverage-analyzer";
 import type { Journey } from "@/services/planning/journey-reconstructor";
 import { spawnSubAgent, type SubAgentResult } from "@/services/agents/executor";
+import { parseLlmJson } from "@/lib/utils/json-parse";
 
 interface GenerationInput {
   projectId: string;
@@ -81,49 +82,6 @@ async function loadFailurePatterns(
   });
 
   return patterns;
-}
-
-function parseJsonResponse(content: string): unknown {
-  let cleaned = content
-    .replace(/^```(?:json)?\s*\n?/m, "")
-    .replace(/\n?```\s*$/m, "")
-    .trim();
-
-  // Try raw parse first
-  try {
-    return JSON.parse(cleaned);
-  } catch {
-    // Fallthrough to repair attempts
-  }
-
-  // Attempt progressive repair of common LLM JSON issues
-  cleaned = cleaned
-    // Strip JS-style comments
-    .replace(/\/\/[^\n]*/g, "")
-    .replace(/\/\*[\s\S]*?\*\//g, "")
-    // Remove trailing commas before } or ]
-    .replace(/,\s*([}\]])/g, "$1")
-    // Fix unquoted property names: { foo: "bar" } → { "foo": "bar" }
-    .replace(/([{,]\s*)([a-zA-Z_]\w*)\s*:/g, '$1"$2":')
-    // Strip trailing text after the last } or ]
-    .replace(/([\]}])\s*[^}\]]*$/, "$1")
-    .trim();
-
-  try {
-    return JSON.parse(cleaned);
-  } catch {
-    // Last resort: extract the largest JSON-like block
-    const jsonMatch = cleaned.match(/[{\[]([\s\S]*)[}\]]/);
-    if (jsonMatch) {
-      const bracket = cleaned[cleaned.indexOf(jsonMatch[0])];
-      const closer = bracket === "{" ? "}" : "]";
-      const extracted = bracket + jsonMatch[1] + closer;
-      return JSON.parse(extracted);
-    }
-    throw new Error(
-      `Failed to parse LLM JSON response (length: ${content.length}). First 200 chars: ${content.slice(0, 200)}`
-    );
-  }
 }
 
 const COMPLEX_JOURNEY_THRESHOLD = 5;
@@ -317,7 +275,7 @@ export async function generateTestCases(input: GenerationInput): Promise<Generat
     }
   );
 
-  const parsed = parseJsonResponse(completion.content);
+  const parsed = parseLlmJson(completion.content);
   const validated = TestPlanSchema.parse(parsed);
 
   // Append visual regression test cases for route nodes
