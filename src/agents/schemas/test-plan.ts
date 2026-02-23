@@ -75,17 +75,22 @@ export const TestCaseSchema = z.object({
     .describe("Edge cases this test should consider"),
 });
 
+const MetadataSchema = z.object({
+  totalTests: z.number(),
+  coverageByJourney: z.record(z.string(), z.number()),
+  coverageByType: z.record(z.string(), z.number()),
+  estimatedCredits: z.number(),
+});
+
+// metadata is optional — when the LLM response is truncated mid-output the
+// trailing metadata block is lost. test-case-generator.ts rebuilds it from
+// the recovered test cases in that case.
 export const TestPlanSchema = z.object({
   projectId: z.string(),
   version: z.number().int().positive(),
   generatedAt: z.string().describe("ISO 8601 timestamp"),
   testCases: z.array(TestCaseSchema),
-  metadata: z.object({
-    totalTests: z.number(),
-    coverageByJourney: z.record(z.string(), z.number()),
-    coverageByType: z.record(z.string(), z.number()),
-    estimatedCredits: z.number(),
-  }),
+  metadata: MetadataSchema.optional(),
 });
 
 export type TestStep = z.infer<typeof TestStepSchema>;

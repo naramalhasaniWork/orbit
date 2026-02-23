@@ -1,7 +1,7 @@
 /**
  * Shared LLM JSON response parsing with progressive repair.
  * LLMs occasionally emit malformed JSON: markdown fences, control characters,
- * trailing commas, unquoted keys, etc. This module handles all known cases.
+ * trailing commas, unquoted keys, truncated output, etc.
  */
 
 /**
@@ -48,12 +48,62 @@ function escapeControlCharsInStrings(s: string): string {
 }
 
 /**
+ * Recover a JSON string that was truncated mid-output (e.g. by a maxTokens
+ * limit). Finds the last position where a complete element inside a top-level
+ * array was closed (stack depth goes from 3→2 for object-in-array) and
+ * closes all remaining open structures.
+ *
+ * Example: {"testCases":[{...},{...},{...TRUNCATED → {"testCases":[{...},{...}]}
+ *
+ * Returns the original string unchanged if it is not truncated.
+ */
+function recoverTruncatedJson(s: string): string {
+  const stack: string[] = [];
+  let inString = false;
+  let escaped = false;
+  let lastSafeEnd = -1;
+
+  for (let i = 0; i < s.length; i++) {
+    const char = s[i];
+
+    if (escaped) { escaped = false; continue; }
+    if (char === "\\" && inString) { escaped = true; continue; }
+    if (char === '"') { inString = !inString; continue; }
+    if (inString) continue;
+
+    if (char === "{" || char === "[") {
+      stack.push(char);
+    } else if (char === "}" || char === "]") {
+      stack.pop();
+      // A complete element in a top-level array: stack depth 2 with open array on top
+      if (char === "}" && stack.length === 2 && stack[1] === "[") {
+        lastSafeEnd = i;
+      }
+    }
+  }
+
+  // Not truncated — nothing to do
+  if (!inString && stack.length === 0) return s;
+
+  // No complete array element found — can't recover meaningfully
+  if (lastSafeEnd < 0) return s;
+
+  // Truncate to the last complete element, strip any trailing comma, close open structures
+  const truncated = s.slice(0, lastSafeEnd + 1).replace(/,\s*$/, "");
+
+  // Rebuild the stack state at the truncation point (always [{, [] here)
+  // and close: ]} closes the array then the outer object
+  return truncated + "]}";
+}
+
+/**
  * Parse a JSON string from an LLM response, applying progressive repair:
  *  1. Strip markdown code fences
  *  2. Raw parse
  *  3. Escape control characters in string literals → parse again
  *  4. Strip JS comments, trailing commas, unquoted keys → parse again
- *  5. Extract largest JSON-like block → parse as last resort
+ *  5. Recover truncated JSON (maxTokens cut-off) → parse again
+ *  6. Extract largest JSON-like block → last resort
  *
  * Throws if all repair attempts fail.
  */
@@ -93,7 +143,17 @@ export function parseLlmJson(content: string): unknown {
     // fall through
   }
 
-  // 4. Last resort: extract the largest JSON-like block
+  // 4. Truncation recovery — response was cut off by maxTokens limit
+  const recovered = recoverTruncatedJson(cleaned);
+  if (recovered !== cleaned) {
+    try {
+      return JSON.parse(recovered);
+    } catch {
+      // fall through
+    }
+  }
+
+  // 5. Last resort: extract the largest JSON-like block
   const jsonMatch = cleaned.match(/[{\[]([\s\S]*)[}\]]/);
   if (jsonMatch) {
     const startIdx = cleaned.indexOf(jsonMatch[0]);

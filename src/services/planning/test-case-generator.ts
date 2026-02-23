@@ -265,7 +265,9 @@ export async function generateTestCases(input: GenerationInput): Promise<Generat
           content: `Generate a test plan (version ${version}) for project ${projectId}. Follow the system prompt instructions exactly. Output valid JSON only.`,
         },
       ],
-      maxTokens: 8192,
+      // 16 000 is the Sonnet output-token ceiling. The previous 8 192 was
+      // causing mid-string truncation on larger repos.
+      maxTokens: 16000,
       temperature: 0.3,
     },
     {
@@ -282,11 +284,14 @@ export async function generateTestCases(input: GenerationInput): Promise<Generat
   const visualCases = generateVisualRegressionCases(systemMap, existingTestNames);
   const allTestCases = [...validated.testCases, ...visualCases];
 
+  // metadata may be absent when the response was truncated and recovered —
+  // rebuild it from the actual test cases in that case.
   const updatedMetadata = {
-    ...validated.metadata,
     totalTests: allTestCases.length,
+    estimatedCredits: validated.metadata?.estimatedCredits ?? allTestCases.length,
+    coverageByJourney: validated.metadata?.coverageByJourney ?? {},
     coverageByType: {
-      ...validated.metadata.coverageByType,
+      ...(validated.metadata?.coverageByType ?? {}),
       visual_regression: visualCases.length,
     },
   };
