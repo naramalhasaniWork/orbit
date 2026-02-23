@@ -42,26 +42,37 @@ export default async function RunsPage({
     );
   }
 
-  const runs = await prisma.testRun.findMany({
-    where: { projectId: project.id },
-    orderBy: { createdAt: "desc" },
-    take: 100,
-    select: {
-      id: true,
-      status: true,
-      mode: true,
-      trigger: true,
-      totalTests: true,
-      passed: true,
-      failed: true,
-      flaky: true,
-      skipped: true,
-      durationMs: true,
-      branch: true,
-      commitSha: true,
-      createdAt: true,
-    },
-  });
+  const [runs, envCount, activePlan] = await Promise.all([
+    prisma.testRun.findMany({
+      where: { projectId: project.id },
+      orderBy: { createdAt: "desc" },
+      take: 100,
+      select: {
+        id: true,
+        status: true,
+        mode: true,
+        trigger: true,
+        totalTests: true,
+        passed: true,
+        failed: true,
+        flaky: true,
+        skipped: true,
+        durationMs: true,
+        branch: true,
+        commitSha: true,
+        createdAt: true,
+      },
+    }),
+    // Check for at least one non-production environment
+    prisma.environment.count({
+      where: { projectId: project.id, type: { not: "production" } },
+    }),
+    // Check for an active test plan
+    prisma.testPlan.findFirst({
+      where: { projectId: project.id, isActive: true },
+      select: { id: true },
+    }),
+  ]);
 
   const serializedRuns = runs.map((run) => ({
     id: run.id,
@@ -84,6 +95,8 @@ export default async function RunsPage({
       projectId={project.id}
       projectName={project.name}
       runs={serializedRuns}
+      hasEnvironment={envCount > 0}
+      hasActivePlan={activePlan !== null}
     />
   );
 }

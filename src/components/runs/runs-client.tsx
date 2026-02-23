@@ -25,6 +25,10 @@ interface RunsClientProps {
   projectId: string | null;
   projectName: string | null;
   runs: RunListItem[];
+  /** Whether the project has at least one non-production environment configured */
+  hasEnvironment?: boolean;
+  /** Whether the project has an active test plan */
+  hasActivePlan?: boolean;
 }
 
 interface Filters {
@@ -33,7 +37,13 @@ interface Filters {
   trigger: string | null;
 }
 
-export function RunsClient({ projectId, projectName, runs }: RunsClientProps) {
+export function RunsClient({
+  projectId,
+  projectName,
+  runs,
+  hasEnvironment = true,
+  hasActivePlan = true,
+}: RunsClientProps) {
   const router = useRouter();
   const [filters, setFilters] = useState<Filters>({
     status: null,
@@ -41,9 +51,18 @@ export function RunsClient({ projectId, projectName, runs }: RunsClientProps) {
     trigger: null,
   });
   const [startingRun, setStartingRun] = useState(false);
+  const [runError, setRunError] = useState<string | null>(null);
+
+  // Derive a user-friendly preflight message before even hitting the API
+  const preflightBlock = !hasEnvironment
+    ? "Add a staging environment in Settings before running tests."
+    : !hasActivePlan
+    ? "Generate a test plan first before starting a run."
+    : null;
 
   const handleStartRun = useCallback(async () => {
     if (!projectId || startingRun) return;
+    setRunError(null);
     setStartingRun(true);
     try {
       const res = await fetch(`/api/projects/${projectId}/runs`, {
@@ -51,16 +70,22 @@ export function RunsClient({ projectId, projectName, runs }: RunsClientProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ mode: "full", trigger: "manual" }),
       });
+      const json = await res.json().catch(() => ({}));
       if (res.ok) {
-        const json = await res.json();
-        if (json.data?.id) {
-          router.push(`/dashboard/runs/${json.data.id}`);
+        if ((json as { data?: { id?: string } }).data?.id) {
+          router.push(`/dashboard/runs/${(json as { data: { id: string } }).data.id}`);
           return;
         }
+        router.refresh();
+        return;
       }
-      router.refresh();
+      // Surface the server error message to the user
+      const msg =
+        (json as { error?: { message?: string } }).error?.message ??
+        `Failed to start run (${res.status})`;
+      setRunError(msg);
     } catch {
-      // Silently fail — user can retry
+      setRunError("Failed to start run. Check your connection and try again.");
     } finally {
       setStartingRun(false);
     }
@@ -95,18 +120,31 @@ export function RunsClient({ projectId, projectName, runs }: RunsClientProps) {
             {runs.length} {runs.length === 1 ? "run" : "runs"}
           </p>
         </div>
-        <Button
-          className="bg-orbit-accent hover:bg-orbit-accent/90 text-white gap-2"
-          onClick={handleStartRun}
-          disabled={startingRun}
-        >
-          {startingRun ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Play className="h-4 w-4" />
+        <div className="flex flex-col items-end gap-1">
+          <Button
+            className="bg-orbit-accent hover:bg-orbit-accent/90 text-white gap-2 disabled:opacity-60"
+            onClick={preflightBlock ? undefined : handleStartRun}
+            disabled={startingRun || !!preflightBlock}
+            title={preflightBlock ?? undefined}
+          >
+            {startingRun ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Play className="h-4 w-4" />
+            )}
+            {startingRun ? "Starting..." : "Start New Run"}
+          </Button>
+          {preflightBlock && (
+            <span className="text-[11px] text-muted-foreground text-right max-w-[220px]">
+              {preflightBlock}
+            </span>
           )}
-          {startingRun ? "Starting..." : "Start New Run"}
-        </Button>
+          {runError && (
+            <span className="text-[11px] text-orbit-fail text-right max-w-[220px]">
+              {runError}
+            </span>
+          )}
+        </div>
       </div>
 
       <RunsSummaryBar runs={runs} />
