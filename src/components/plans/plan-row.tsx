@@ -112,30 +112,32 @@ export function PlanRow({ plan, stats, isExpanded, onToggle, projectId }: PlanRo
               <PlanSummary stats={stats} />
 
               {projectId && (
-                <div className="px-5 pb-3 flex items-center gap-2">
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-7 text-xs gap-1.5"
-                    onClick={(e) => { e.stopPropagation(); setShowAddTest(!showAddTest); }}
-                  >
-                    <Plus className="h-3 w-3" />
-                    Add Test
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    className="h-7 text-xs gap-1.5"
-                    onClick={(e) => { e.stopPropagation(); handleRegenerate(); }}
-                    disabled={regenerating}
-                  >
-                    <RefreshCw className={cn("h-3 w-3", regenerating && "animate-spin")} />
-                    {regenerating ? "Re-generating..." : "Re-generate Plan"}
-                  </Button>
-                </div>
-                {regenError && (
-                  <div className="px-5 pb-2 text-xs text-orbit-fail">{regenError}</div>
-                )}
+                <>
+                  <div className="px-5 pb-3 flex items-center gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-xs gap-1.5"
+                      onClick={(e) => { e.stopPropagation(); setShowAddTest(!showAddTest); }}
+                    >
+                      <Plus className="h-3 w-3" />
+                      Add Test
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 text-xs gap-1.5"
+                      onClick={(e) => { e.stopPropagation(); handleRegenerate(); }}
+                      disabled={regenerating}
+                    >
+                      <RefreshCw className={cn("h-3 w-3", regenerating && "animate-spin")} />
+                      {regenerating ? "Re-generating..." : "Re-generate Plan"}
+                    </Button>
+                  </div>
+                  {regenError && (
+                    <div className="px-5 pb-2 text-xs text-orbit-fail">{regenError}</div>
+                  )}
+                </>
               )}
 
               {projectId && approval !== undefined && (

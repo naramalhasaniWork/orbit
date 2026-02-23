@@ -82,13 +82,21 @@ export function getMaxOutputTokensForModel(
 
 /**
  * Derive a safe test-case cap from an output-token budget.
- * Each JSON test case is ~250 tokens; reserve 1 000 for envelope + metadata.
+ *
+ * Empirical sizing (measured from actual LLM output):
+ *   ~400 tokens per test case (id, name, type, journey, priorityScore, criticality,
+ *    risk, coverageGap, 3-5 steps with action/expected/selectorHint, rationale,
+ *    2-3 edgeCases strings)
+ *   ~800 tokens for the outer envelope (projectId, version, generatedAt, metadata)
+ *   0.75 efficiency factor — leave 25% headroom so the model doesn't hit the ceiling
+ *    mid-response, which causes parse failures even with truncation recovery
+ *
  * Minimum 10 to avoid trivially small plans.
  */
 export function computeMaxTestCasesForTokenBudget(maxTokens: number): number {
-  const TOKENS_PER_TEST_CASE = 250;
-  const OVERHEAD = 1_000;
-  const EFFICIENCY = 0.85;
+  const TOKENS_PER_TEST_CASE = 400;
+  const OVERHEAD = 800;
+  const EFFICIENCY = 0.75;
   return Math.max(10, Math.floor((maxTokens * EFFICIENCY - OVERHEAD) / TOKENS_PER_TEST_CASE));
 }
 

@@ -101,11 +101,17 @@ function recoverTruncatedJson(s: string): string {
  *  1. Strip markdown code fences
  *  2. Raw parse
  *  3. Escape control characters in string literals → parse again
- *  4. Strip JS comments, trailing commas, unquoted keys → parse again
- *  5. Recover truncated JSON (maxTokens cut-off) → parse again
- *  6. Extract largest JSON-like block → last resort
+ *  4. Truncation recovery FIRST (before structural repair that can mangle cut-off JSON)
+ *  5. Structural repair: strip JS comments, trailing commas, unquoted keys → parse again
+ *  6. Truncation recovery again on structurally-repaired version
+ *  7. Extract largest JSON-like block → last resort
  *
  * Throws if all repair attempts fail.
+ *
+ * IMPORTANT: truncation recovery runs before structural repair because the
+ * `.replace(/([}\]])\s*[^}\]]*$/, "$1")` strip is harmful on cut-off JSON —
+ * it moves the truncation point to the last bracket in the *middle* of the
+ * response rather than the true end, discarding many valid test cases.
  */
 export function parseLlmJson(content: string): unknown {
   let cleaned = content
@@ -120,7 +126,7 @@ export function parseLlmJson(content: string): unknown {
     // fall through
   }
 
-  // 2. Escape control characters in string literals → parse again
+  // 2. Escape control characters in string literals
   const sanitized = escapeControlCharsInStrings(cleaned);
   try {
     return JSON.parse(sanitized);
@@ -128,13 +134,27 @@ export function parseLlmJson(content: string): unknown {
     // fall through
   }
 
-  // 3. Structural repair: strip comments, trailing commas, unquoted keys
+  // 3. Truncation recovery on the sanitized (minimally-modified) string.
+  //    Do this BEFORE structural repair — the aggressive bracket-strip in step 4
+  //    corrupts truncated JSON by moving the apparent end point backwards into
+  //    the middle of a valid array, discarding many recovered elements.
+  const recoveredEarly = recoverTruncatedJson(sanitized);
+  if (recoveredEarly !== sanitized) {
+    try {
+      return JSON.parse(recoveredEarly);
+    } catch {
+      // fall through
+    }
+  }
+
+  // 4. Structural repair: strip comments, trailing commas, unquoted keys.
+  //    Intentionally NOT stripping "trailing garbage after last bracket" here —
+  //    that pattern destroys truncated JSON before recovery can handle it.
   cleaned = sanitized
     .replace(/\/\/[^\n]*/g, "")
     .replace(/\/\*[\s\S]*?\*\//g, "")
     .replace(/,\s*([}\]])/g, "$1")
     .replace(/([{,]\s*)([a-zA-Z_]\w*)\s*:/g, '$1"$2":')
-    .replace(/([}\]])\s*[^}\]]*$/, "$1")
     .trim();
 
   try {
@@ -143,17 +163,17 @@ export function parseLlmJson(content: string): unknown {
     // fall through
   }
 
-  // 4. Truncation recovery — response was cut off by maxTokens limit
-  const recovered = recoverTruncatedJson(cleaned);
-  if (recovered !== cleaned) {
+  // 5. Truncation recovery on the structurally-repaired version
+  const recoveredLate = recoverTruncatedJson(cleaned);
+  if (recoveredLate !== cleaned) {
     try {
-      return JSON.parse(recovered);
+      return JSON.parse(recoveredLate);
     } catch {
       // fall through
     }
   }
 
-  // 5. Last resort: extract the largest JSON-like block
+  // 6. Last resort: extract the largest JSON-like block
   const jsonMatch = cleaned.match(/[{\[]([\s\S]*)[}\]]/);
   if (jsonMatch) {
     const startIdx = cleaned.indexOf(jsonMatch[0]);
