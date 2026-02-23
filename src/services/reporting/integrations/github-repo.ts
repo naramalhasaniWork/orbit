@@ -1,4 +1,4 @@
-import { prisma } from "@/lib/db";
+import { resolveGitHubToken, getRepoInfo } from "@/lib/github/token";
 
 interface PRDiffFile {
   filename: string;
@@ -14,50 +14,6 @@ interface GitHubIssueResult {
   issueUrl: string;
 }
 
-async function getGitHubToken(projectId: string): Promise<string | null> {
-  const project = await prisma.project.findUnique({
-    where: { id: projectId },
-    select: {
-      workspace: {
-        select: {
-          members: {
-            select: {
-              user: {
-                select: {
-                  accounts: {
-                    where: { provider: "github" },
-                    select: { access_token: true },
-                    take: 1,
-                  },
-                },
-              },
-            },
-            take: 1,
-            orderBy: { createdAt: "asc" },
-          },
-        },
-      },
-    },
-  });
-
-  const token =
-    project?.workspace?.members?.[0]?.user?.accounts?.[0]?.access_token;
-
-  return token ?? process.env.GITHUB_TOKEN ?? null;
-}
-
-async function getRepoInfo(
-  projectId: string
-): Promise<{ owner: string; repo: string } | null> {
-  const project = await prisma.project.findUnique({
-    where: { id: projectId },
-    select: { repoOwner: true, repoName: true },
-  });
-
-  if (!project?.repoOwner || !project?.repoName) return null;
-  return { owner: project.repoOwner, repo: project.repoName };
-}
-
 /**
  * Fetch the list of changed files in a pull request.
  * Used for diff-aware test scoping.
@@ -66,8 +22,8 @@ export async function fetchPRDiff(
   projectId: string,
   prNumber: number
 ): Promise<PRDiffFile[]> {
-  const token = await getGitHubToken(projectId);
-  if (!token) return [];
+  const resolved = await resolveGitHubToken(projectId);
+  if (!resolved) return [];
 
   const repoInfo = await getRepoInfo(projectId);
   if (!repoInfo) return [];
@@ -77,7 +33,7 @@ export async function fetchPRDiff(
   try {
     const response = await fetch(url, {
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${resolved.token}`,
         Accept: "application/vnd.github+json",
         "X-GitHub-Api-Version": "2022-11-28",
       },
@@ -117,8 +73,8 @@ export async function fetchFileContent(
   filePath: string,
   ref?: string
 ): Promise<string | null> {
-  const token = await getGitHubToken(projectId);
-  if (!token) return null;
+  const resolved = await resolveGitHubToken(projectId);
+  if (!resolved) return null;
 
   const repoInfo = await getRepoInfo(projectId);
   if (!repoInfo) return null;
@@ -129,7 +85,7 @@ export async function fetchFileContent(
   try {
     const response = await fetch(url, {
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${resolved.token}`,
         Accept: "application/vnd.github.raw+json",
         "X-GitHub-Api-Version": "2022-11-28",
       },
@@ -151,8 +107,8 @@ export async function createGitHubIssue(
   body: string,
   labels: string[] = ["orbit-discovered", "bug"]
 ): Promise<GitHubIssueResult> {
-  const token = await getGitHubToken(projectId);
-  if (!token) {
+  const resolved = await resolveGitHubToken(projectId);
+  if (!resolved) {
     return { success: false, issueNumber: 0, issueUrl: "" };
   }
 
@@ -167,7 +123,7 @@ export async function createGitHubIssue(
     const response = await fetch(url, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${resolved.token}`,
         Accept: "application/vnd.github+json",
         "X-GitHub-Api-Version": "2022-11-28",
         "Content-Type": "application/json",
@@ -206,8 +162,8 @@ export async function fetchCommitDiff(
   projectId: string,
   commitSha: string
 ): Promise<string[]> {
-  const token = await getGitHubToken(projectId);
-  if (!token) return [];
+  const resolved = await resolveGitHubToken(projectId);
+  if (!resolved) return [];
 
   const repoInfo = await getRepoInfo(projectId);
   if (!repoInfo) return [];
@@ -217,7 +173,7 @@ export async function fetchCommitDiff(
   try {
     const response = await fetch(url, {
       headers: {
-        Authorization: `Bearer ${token}`,
+        Authorization: `Bearer ${resolved.token}`,
         Accept: "application/vnd.github+json",
         "X-GitHub-Api-Version": "2022-11-28",
       },

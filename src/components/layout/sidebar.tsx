@@ -11,7 +11,6 @@ import {
   Play,
   ShieldCheck,
   Settings,
-  Orbit,
   Users,
   CreditCard,
   FolderGit2,
@@ -19,6 +18,7 @@ import {
   Plug,
   Sparkles,
 } from "lucide-react";
+import { Logo } from "@/components/ui/logo";
 import { cn } from "@/lib/utils";
 import { WorkspaceSwitcher } from "@/components/team/workspace-switcher";
 
@@ -45,11 +45,9 @@ export function Sidebar() {
   return (
     <aside className="flex flex-col w-[52px] hover:w-52 transition-all duration-300 ease-in-out surface-1 border-r border-border group overflow-hidden">
       {/* Logo */}
-      <div className="flex items-center h-14 px-3.5">
-        <div className="flex items-center justify-center h-7 w-7 rounded-lg bg-orbit-accent/15 shrink-0 shadow-[0_0_12px_hsl(var(--orbit-accent)/0.15)]">
-          <Orbit className="h-4 w-4 text-orbit-accent" />
-        </div>
-        <span className="ml-3 font-semibold text-sm text-foreground opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap">
+      <div className="flex items-center h-14 px-3">
+        <Logo size="sm" showText={false} className="shrink-0" />
+        <span className="ml-2 font-semibold text-sm text-foreground opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap">
           Orbit
         </span>
       </div>

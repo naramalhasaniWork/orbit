@@ -5,6 +5,8 @@ import type { Prisma } from "@/generated/prisma/client";
 import { getIndexingQueue } from "@/lib/queue/queues";
 import { emitRunStarted } from "@/lib/websocket";
 import { dispatchRunStarted } from "@/services/reporting/integrations/outbound-webhooks";
+import { handleMention, ORBIT_MENTION_PATTERN } from "@/services/mention-handler";
+import type { PRContext } from "@/services/mention-handler";
 
 function verifySignature(payload: string, signature: string | null, secret: string): boolean {
   if (!signature) return false;
@@ -180,6 +182,77 @@ export async function POST(req: NextRequest) {
       }
 
       return NextResponse.json({ status: "pr_processed", action });
+    }
+
+    case "issue_comment": {
+      const action = payload.action as string;
+      if (action !== "created") {
+        return NextResponse.json({ status: "comment_ignored", action });
+      }
+
+      const comment = payload.comment as {
+        id: number;
+        body: string;
+        user: { login: string; type: string };
+      } | undefined;
+
+      if (!comment || !ORBIT_MENTION_PATTERN.test(comment.body)) {
+        return NextResponse.json({ status: "not_a_mention" });
+      }
+
+      // Ignore our own bot comments to prevent loops
+      if (comment.user.type === "Bot") {
+        return NextResponse.json({ status: "bot_comment_ignored" });
+      }
+
+      const issue = payload.issue as {
+        number: number;
+        pull_request?: { url: string };
+      } | undefined;
+
+      // Only handle PR comments (issues with a pull_request link)
+      if (!issue?.pull_request) {
+        return NextResponse.json({ status: "not_a_pr_comment" });
+      }
+
+      const repo = payload.repository as {
+        html_url: string;
+        owner: { login: string };
+        name: string;
+      };
+
+      // Fetch PR details for branch/sha context
+      const prDetailsRes = await fetch(issue.pull_request.url, {
+        headers: { Accept: "application/vnd.github+json" },
+      });
+
+      let branch = "unknown";
+      let commitSha = "";
+      if (prDetailsRes.ok) {
+        const prData = (await prDetailsRes.json()) as {
+          head: { ref: string; sha: string };
+        };
+        branch = prData.head.ref;
+        commitSha = prData.head.sha;
+      }
+
+      const ctx: PRContext = {
+        owner: repo.owner.login,
+        repo: repo.name,
+        prNumber: issue.number,
+        branch,
+        commitSha,
+        commentId: comment.id,
+        commentBody: comment.body,
+        commentAuthor: comment.user.login,
+      };
+
+      // Process mention asynchronously — respond to GitHub quickly
+      handleMention(repo.html_url, ctx).catch((err) =>
+        console.error("[webhook] Mention handler error:", err)
+      );
+
+      return NextResponse.json({ status: "mention_processing", prNumber: issue.number });
     }
 
     case "ping":

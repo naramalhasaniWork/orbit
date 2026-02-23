@@ -1,7 +1,10 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
-import { Search, Star, Lock, Globe, ChevronRight, Loader2, AlertCircle, GitBranch } from "lucide-react";
+import {
+  Search, Star, Lock, Globe, ChevronRight, Loader2,
+  AlertCircle, GitBranch, Building2, ExternalLink, CheckCircle2,
+} from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -32,6 +35,20 @@ interface ConnectRepoProps {
   onSelect: (repo: RepoItem, projectId: string) => void;
 }
 
+interface OrgInfo {
+  login: string;
+  id: number;
+  avatarUrl: string;
+  description: string | null;
+  installed: boolean;
+}
+
+interface OrgData {
+  orgs: OrgInfo[];
+  appConfigured: boolean;
+  installUrl: string | null;
+}
+
 function formatUpdatedAt(dateStr: string): string {
   const date = new Date(dateStr);
   const now = new Date();
@@ -52,6 +69,7 @@ export function ConnectRepo({ onSelect }: ConnectRepoProps) {
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [provider, setProvider] = useState<RepoProvider>("github");
+  const [orgData, setOrgData] = useState<OrgData | null>(null);
 
   const fetchRepos = useCallback(async () => {
     setLoading(true);
@@ -71,9 +89,22 @@ export function ConnectRepo({ onSelect }: ConnectRepoProps) {
     }
   }, [provider]);
 
+  const fetchOrgs = useCallback(async () => {
+    try {
+      const res = await fetch("/api/user/orgs");
+      const json = await res.json();
+      if (res.ok && json.success) {
+        setOrgData(json.data);
+      }
+    } catch {
+      // Non-critical — org info is supplementary
+    }
+  }, []);
+
   useEffect(() => {
     fetchRepos();
-  }, [fetchRepos]);
+    fetchOrgs();
+  }, [fetchRepos, fetchOrgs]);
 
   const filtered = useMemo(() => {
     if (!query.trim()) return repos;
@@ -87,6 +118,9 @@ export function ConnectRepo({ onSelect }: ConnectRepoProps) {
   }, [query, repos]);
 
   const selected = repos.find((r) => r.id === selectedId);
+
+  const uninstalledOrgs = orgData?.orgs.filter((o) => !o.installed) ?? [];
+  const showOrgBanner = orgData?.appConfigured && uninstalledOrgs.length > 0;
 
   const handleContinue = async () => {
     if (!selected) return;
@@ -118,6 +152,14 @@ export function ConnectRepo({ onSelect }: ConnectRepoProps) {
     } finally {
       setCreating(false);
     }
+  };
+
+  const handleInstallApp = (orgLogin?: string) => {
+    if (!orgData?.installUrl) return;
+    const url = orgLogin
+      ? `${orgData.installUrl}/permissions?target_id=${uninstalledOrgs.find((o) => o.login === orgLogin)?.id ?? ""}`
+      : orgData.installUrl;
+    window.open(url, "_blank");
   };
 
   return (
@@ -158,6 +200,64 @@ export function ConnectRepo({ onSelect }: ConnectRepoProps) {
         })}
       </div>
 
+      {/* Organization access banner */}
+      {showOrgBanner && (
+        <div className="w-full mb-4 rounded-lg border border-orbit-accent/20 bg-orbit-accent/[0.04] p-3">
+          <div className="flex items-center gap-2 mb-2">
+            <Building2 className="h-4 w-4 text-orbit-accent" />
+            <span className="text-sm font-medium text-foreground">
+              Organization repos available
+            </span>
+          </div>
+          <p className="text-xs text-muted-foreground mb-3">
+            Install the Orbit GitHub App to access private repos in your organizations.
+          </p>
+          <div className="space-y-2">
+            {uninstalledOrgs.map((org) => (
+              <button
+                key={org.id}
+                type="button"
+                onClick={() => handleInstallApp(org.login)}
+                className="w-full flex items-center gap-3 px-3 py-2 rounded-md bg-muted/20 hover:bg-muted/40 transition-colors"
+              >
+                {org.avatarUrl ? (
+                  <img
+                    src={org.avatarUrl}
+                    alt={org.login}
+                    className="h-5 w-5 rounded-full"
+                  />
+                ) : (
+                  <Building2 className="h-5 w-5 text-muted-foreground" />
+                )}
+                <span className="text-sm text-foreground flex-1 text-left">
+                  {org.login}
+                </span>
+                <span className="text-xs text-orbit-accent flex items-center gap-1">
+                  Install <ExternalLink className="h-3 w-3" />
+                </span>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Installed orgs indicator */}
+      {orgData?.orgs.some((o) => o.installed) && (
+        <div className="w-full mb-3 flex flex-wrap gap-2">
+          {orgData.orgs
+            .filter((o) => o.installed)
+            .map((org) => (
+              <span
+                key={org.id}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 text-xs text-emerald-400"
+              >
+                <CheckCircle2 className="h-3 w-3" />
+                {org.login}
+              </span>
+            ))}
+        </div>
+      )}
+
       <div className="relative w-full mb-4">
         <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
         <Input
@@ -183,8 +283,17 @@ export function ConnectRepo({ onSelect }: ConnectRepoProps) {
               Loading repositories...
             </div>
           ) : filtered.length === 0 ? (
-            <div className="flex items-center justify-center h-32 text-sm text-muted-foreground">
-              No repositories match your search.
+            <div className="flex flex-col items-center justify-center h-32 gap-2 text-sm text-muted-foreground">
+              <span>No repositories match your search.</span>
+              {orgData?.appConfigured && uninstalledOrgs.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => handleInstallApp()}
+                  className="text-orbit-accent hover:underline text-xs"
+                >
+                  Install Orbit on an organization to see more repos
+                </button>
+              )}
             </div>
           ) : (
             filtered.map((repo) => (
@@ -207,6 +316,11 @@ export function ConnectRepo({ onSelect }: ConnectRepoProps) {
                       <Lock className="h-3 w-3 text-muted-foreground shrink-0" />
                     ) : (
                       <Globe className="h-3 w-3 text-muted-foreground shrink-0" />
+                    )}
+                    {repo.source === "installation" && (
+                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 border-orbit-accent/30 text-orbit-accent shrink-0">
+                        App
+                      </Badge>
                     )}
                   </div>
                   <div className="flex items-center gap-3 text-xs text-muted-foreground">

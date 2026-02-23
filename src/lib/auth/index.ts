@@ -11,7 +11,7 @@ export const authOptions: AuthOptions = {
     GitHubProvider({
       clientId: process.env.GITHUB_CLIENT_ID!,
       clientSecret: process.env.GITHUB_CLIENT_SECRET!,
-      authorization: { params: { scope: "read:user user:email repo" } },
+      authorization: { params: { scope: "read:user user:email repo read:org" } },
     }),
     ...(process.env.GITLAB_CLIENT_ID
       ? [

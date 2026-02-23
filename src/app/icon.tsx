@@ -16,25 +16,46 @@ export default function Icon() {
           background: "transparent",
         }}
       >
-        {/* Orbital ring */}
         <div
           style={{
             width: 28,
             height: 28,
-            borderRadius: "50%",
-            border: "2.5px solid #6366f1",
+            borderRadius: 7,
+            background: "rgba(99, 102, 241, 0.15)",
+            border: "1px solid rgba(99, 102, 241, 0.25)",
             display: "flex",
             alignItems: "center",
             justifyContent: "center",
+            position: "relative",
           }}
         >
-          {/* Center dot */}
+          {/* Orbital ring — tilted ellipse */}
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            style={{ position: "absolute" }}
+          >
+            <ellipse
+              cx="12"
+              cy="12"
+              rx="10"
+              ry="4"
+              transform="rotate(-30 12 12)"
+              fill="none"
+              stroke="#6366f1"
+              strokeWidth="1.2"
+              opacity="0.5"
+            />
+          </svg>
+          {/* Center dot with glow */}
           <div
             style={{
-              width: 8,
-              height: 8,
+              width: 7,
+              height: 7,
               borderRadius: "50%",
               background: "#6366f1",
+              boxShadow: "0 0 6px rgba(99, 102, 241, 0.6)",
             }}
           />
         </div>

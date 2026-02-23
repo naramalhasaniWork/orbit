@@ -5,12 +5,14 @@ export interface RepoItem {
   name: string;
   fullName: string;
   owner: string;
+  ownerAvatar?: string;
   language: string;
   stars: number;
   defaultBranch: string;
   updatedAt: string;
   isPrivate: boolean;
   url: string;
+  source?: "oauth" | "installation";
 }
 
 export interface SyncStatus {
