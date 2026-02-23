@@ -46,6 +46,7 @@ export function PlansClient({ projectId, projectName, plans, coverageNodes = [] 
   const [currentPhase, setCurrentPhase] = useState<PlanPhase | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [complete, setComplete] = useState(false);
+  const [suggestionsRefreshKey, setSuggestionsRefreshKey] = useState(0);
 
   const handleGenerate = useCallback(async () => {
     if (!projectId || generating) return;
@@ -92,6 +93,7 @@ export function PlansClient({ projectId, projectName, plans, coverageNodes = [] 
               } else if (eventType === "plan:complete") {
                 setCurrentPhase({ phase: "complete", message: "Plan generated!", progress: 100 });
                 setComplete(true);
+                setSuggestionsRefreshKey((k) => k + 1);
               } else if (eventType === "plan:error") {
                 setError(data.message);
               }
@@ -187,7 +189,11 @@ export function PlansClient({ projectId, projectName, plans, coverageNodes = [] 
 
       {/* AI suggestions always visible when project exists */}
       {projectId && (
-        <AISuggestionsPanel projectId={projectId} onGeneratePlan={handleGenerate} />
+        <AISuggestionsPanel
+          projectId={projectId}
+          onGeneratePlan={handleGenerate}
+          refreshKey={suggestionsRefreshKey}
+        />
       )}
     </div>
   );

@@ -1,5 +1,10 @@
 import { createTrackedCompletion } from "@/lib/ai/tracked-completion";
-import { getModelForTask } from "@/lib/ai/model-router";
+import {
+  getModelForTask,
+  getAgentConfig,
+  getMaxOutputTokensForModel,
+  computeMaxTestCasesForTokenBudget,
+} from "@/lib/ai/model-router";
 import { buildPlannerPrompt, type PlannerContext } from "@/agents/prompts/planner-prompt";
 import { loadUserLayerForProject, getWorkspaceName } from "@/agents/prompts/context-loader";
 import { TestPlanSchema, type TestCase } from "@/agents/schemas/test-plan";
@@ -230,13 +235,22 @@ export async function generateTestCases(input: GenerationInput): Promise<Generat
     return `[Journey Analysis: ${a.journeyName}]\n${JSON.stringify(output, null, 2)}`;
   });
 
+  // Resolve model → token ceiling → test-case cap in priority order:
+  //   1. Workspace AgentConfig (DB) model/maxOutputTokens override
+  //   2. MODEL_MAX_OUTPUT_TOKENS[model] (per-model hard ceiling)
+  //   3. User-supplied maxTestCases (or derived from token budget)
+  const model = await getModelForTask("test_generation", systemMap.workspaceId);
+  const agentConfig = await getAgentConfig(systemMap.workspaceId, "planner");
+  const effectiveMaxTokens = getMaxOutputTokensForModel(model, agentConfig?.maxOutputTokens);
+  const effectiveMaxTestCases = maxTestCases ?? computeMaxTestCasesForTokenBudget(effectiveMaxTokens);
+
   const context: PlannerContext = {
     systemMap,
     userConfig: {
       testMode: mode,
       focusAreas,
       excludePaths,
-      maxTestCases,
+      maxTestCases: effectiveMaxTestCases,
       priorityJourneys: input.journeys.map((j) => j.name),
     },
     existingTestNames,
@@ -253,8 +267,6 @@ export async function generateTestCases(input: GenerationInput): Promise<Generat
     ? `${prompt}\n\n## Sub-Agent Journey Analysis\nThe following complex journeys were pre-analyzed by a specialist sub-agent. Use these insights to generate more targeted test cases:\n\n${journeyInsights.join("\n\n")}`
     : prompt;
 
-  const model = await getModelForTask("test_generation");
-
   const completion = await createTrackedCompletion(
     {
       model,
@@ -265,9 +277,7 @@ export async function generateTestCases(input: GenerationInput): Promise<Generat
           content: `Generate a test plan (version ${version}) for project ${projectId}. Follow the system prompt instructions exactly. Output valid JSON only.`,
         },
       ],
-      // 16 000 is the Sonnet output-token ceiling. The previous 8 192 was
-      // causing mid-string truncation on larger repos.
-      maxTokens: 16000,
+      maxTokens: effectiveMaxTokens,
       temperature: 0.3,
     },
     {

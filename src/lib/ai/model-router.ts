@@ -53,6 +53,45 @@ const MODEL_COSTS: Record<string, { input: number; output: number; cached: numbe
   [MODELS.O4_MINI]: { input: 0.0011, output: 0.0044, cached: 0.00028 },
 };
 
+/**
+ * Hard API ceiling on output tokens per model.
+ * Used to set maxTokens on LLM calls and to derive safe test-case counts.
+ */
+export const MODEL_MAX_OUTPUT_TOKENS: Record<string, number> = {
+  [MODELS.HAIKU]: 8_192,
+  [MODELS.SONNET]: 16_384,
+  [MODELS.OPUS]: 16_384,
+  [MODELS.GPT_5_2]: 16_384,
+  [MODELS.GPT_4_1]: 32_768,
+  [MODELS.O4_MINI]: 65_536,
+};
+
+const DEFAULT_MAX_OUTPUT_TOKENS = 8_192;
+
+/**
+ * Returns the effective max output tokens for a model.
+ * Priority: workspace AgentConfig.maxOutputTokens → model ceiling → safe default.
+ */
+export function getMaxOutputTokensForModel(
+  model: string,
+  agentConfigOverride?: number | null
+): number {
+  if (agentConfigOverride && agentConfigOverride > 0) return agentConfigOverride;
+  return MODEL_MAX_OUTPUT_TOKENS[model] ?? DEFAULT_MAX_OUTPUT_TOKENS;
+}
+
+/**
+ * Derive a safe test-case cap from an output-token budget.
+ * Each JSON test case is ~250 tokens; reserve 1 000 for envelope + metadata.
+ * Minimum 10 to avoid trivially small plans.
+ */
+export function computeMaxTestCasesForTokenBudget(maxTokens: number): number {
+  const TOKENS_PER_TEST_CASE = 250;
+  const OVERHEAD = 1_000;
+  const EFFICIENCY = 0.85;
+  return Math.max(10, Math.floor((maxTokens * EFFICIENCY - OVERHEAD) / TOKENS_PER_TEST_CASE));
+}
+
 // ============================================================
 // TASK → AGENT PHASE MAPPING
 // ============================================================

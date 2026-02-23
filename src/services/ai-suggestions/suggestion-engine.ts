@@ -8,6 +8,7 @@ import { prisma } from "@/lib/db";
 import { createTrackedCompletion } from "@/lib/ai/tracked-completion";
 import { getModelForTask } from "@/lib/ai/model-router";
 import { buildPrompt } from "@/agents/prompts/prompt-builder";
+import { parseLlmJson } from "@/lib/utils/json-parse";
 import type {
   Suggestion,
   SuggestionContext,
@@ -428,11 +429,7 @@ Do NOT repeat suggestions that already exist. Generate ONLY new, unique insights
       }
     );
 
-    const cleaned = result.content
-      .replace(/^```(?:json)?\s*\n?/m, "")
-      .replace(/\n?```\s*$/m, "")
-      .trim();
-    const parsed = JSON.parse(cleaned) as Array<{
+    const parsed = parseLlmJson(result.content) as Array<{
       category: string;
       severity: string;
       title: string;
@@ -463,8 +460,6 @@ Do NOT repeat suggestions that already exist. Generate ONLY new, unique insights
 // Helpers
 // ============================================================
 
-let suggestionCounter = 0;
-
 function makeSuggestion(
   category: SuggestionCategory,
   severity: "info" | "warning" | "critical",
@@ -475,9 +470,8 @@ function makeSuggestion(
   actionable: boolean,
   metadata: Record<string, unknown>,
 ): Suggestion {
-  suggestionCounter++;
   return {
-    id: `sug-${Date.now()}-${suggestionCounter}`,
+    id: `sug-${Math.random().toString(36).slice(2, 10)}`,
     category,
     severity,
     title,

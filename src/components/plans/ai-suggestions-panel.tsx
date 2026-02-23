@@ -28,6 +28,8 @@ interface Suggestion {
 interface AISuggestionsPanelProps {
   projectId: string;
   onGeneratePlan?: () => void;
+  /** Increment to force a re-fetch (e.g. after a new plan is generated) */
+  refreshKey?: number;
 }
 
 const SEVERITY_CONFIG = {
@@ -66,7 +68,7 @@ const TYPE_ICONS: Record<string, typeof Lightbulb> = {
   optimization: Lightbulb,
 };
 
-export function AISuggestionsPanel({ projectId, onGeneratePlan }: AISuggestionsPanelProps) {
+export function AISuggestionsPanel({ projectId, onGeneratePlan, refreshKey = 0 }: AISuggestionsPanelProps) {
   const router = useRouter();
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [loading, setLoading] = useState(true);
@@ -75,19 +77,23 @@ export function AISuggestionsPanel({ projectId, onGeneratePlan }: AISuggestionsP
   const [actingOn, setActingOn] = useState<string | null>(null);
 
   useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+
     async function fetchSuggestions() {
       try {
         const res = await fetch(`/api/projects/${projectId}/suggestions`);
-        if (res.ok) {
+        if (res.ok && !cancelled) {
           const json = await res.json();
           setSuggestions(json.data?.suggestions ?? []);
         }
       } finally {
-        setLoading(false);
+        if (!cancelled) setLoading(false);
       }
     }
     fetchSuggestions();
-  }, [projectId]);
+    return () => { cancelled = true; };
+  }, [projectId, refreshKey]);
 
   const handleAction = useCallback(
     async (e: React.MouseEvent, suggestion: Suggestion) => {

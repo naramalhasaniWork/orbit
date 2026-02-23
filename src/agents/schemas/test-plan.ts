@@ -26,7 +26,7 @@ export const TestStepSchema = z.object({
     .describe("Expected outcome after performing the action"),
   selectorHint: z
     .string()
-    .optional()
+    .nullish()
     .describe("CSS selector or accessibility hint for the target element"),
 });
 
