@@ -60,12 +60,22 @@ export async function launchBrowser(
   let isRemote = false;
 
   if (wsEndpoint) {
-    console.log(`[Browser] Connecting via CDP to ${wsEndpoint}...`);
-    const cdpStart = Date.now();
-    browser = await chromium.connectOverCDP(wsEndpoint, {
-      timeout: DEFAULT_TIMEOUT,
-    });
-    console.log(`[Browser] CDP connected in ${Date.now() - cdpStart}ms`);
+    const startMs = Date.now();
+    const usePlaywrightProtocol = wsEndpoint.includes("/playwright");
+
+    if (usePlaywrightProtocol) {
+      console.log(`[Browser] Connecting via Playwright protocol to ${wsEndpoint.split("?")[0]}...`);
+      browser = await chromium.connect(wsEndpoint, {
+        timeout: DEFAULT_TIMEOUT,
+      });
+    } else {
+      console.log(`[Browser] Connecting via CDP to ${wsEndpoint.split("?")[0]}...`);
+      browser = await chromium.connectOverCDP(wsEndpoint, {
+        timeout: DEFAULT_TIMEOUT,
+      });
+    }
+
+    console.log(`[Browser] Connected in ${Date.now() - startMs}ms`);
     isRemote = true;
   } else {
     console.log("[Browser] Launching local chromium...");
