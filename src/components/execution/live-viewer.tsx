@@ -7,19 +7,14 @@ import {
   Pause,
   Play,
   Download,
-  Monitor,
-  Shield,
-  Cpu,
-  Rocket,
-  FileSearch,
-  BrainCircuit,
   Loader2,
-  CheckCircle2,
+  Cpu,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useScreenshotStream } from "@/hooks/use-screenshot-stream";
-import { useRunEvents, type TestStepProgress } from "@/hooks/use-run-events";
+import type { RunProgress, TestStepProgress, TestItem } from "@/hooks/use-run-events";
+import { TestTimelinePanel } from "@/components/execution/test-timeline-panel";
 import { LiveStepPanel, type LiveStep } from "@/components/execution/live-step-panel";
 import { ScreenshotThumbnailStrip } from "@/components/execution/screenshot-thumbnail-strip";
 
@@ -29,6 +24,9 @@ interface LiveViewerProps {
   runStatus?: string;
   enabled?: boolean;
   className?: string;
+  progress?: RunProgress | null;
+  steps?: TestStepProgress[];
+  tests?: TestItem[];
 }
 
 export function LiveExecutionViewer({
@@ -37,6 +35,9 @@ export function LiveExecutionViewer({
   runStatus = "executing",
   enabled = true,
   className,
+  progress,
+  steps = [],
+  tests = [],
 }: LiveViewerProps) {
   const [selectedFrameIndex, setSelectedFrameIndex] = useState<number | null>(null);
 
@@ -50,20 +51,15 @@ export function LiveExecutionViewer({
     frameCount,
   } = useScreenshotStream({ projectId, runId, enabled });
 
-  const { steps: rawSteps, progress } = useRunEvents({
-    projectId,
-    runId,
-    enabled,
-  });
-
   const liveSteps: LiveStep[] = useMemo(
-    () => rawSteps.map(toLiveStep),
-    [rawSteps]
+    () => steps.map((s) => ({
+      stepIndex: s.stepIndex,
+      testCaseId: s.testCaseId,
+      action: s.action,
+      status: s.status,
+    })),
+    [steps]
   );
-
-  const activeStepIndex = liveSteps.length > 0
-    ? liveSteps[liveSteps.length - 1].stepIndex
-    : null;
 
   const displayedFrame = selectedFrameIndex !== null
     ? frameHistory[selectedFrameIndex] ?? currentFrame
@@ -82,26 +78,24 @@ export function LiveExecutionViewer({
   }, [displayedFrame]);
 
   const handlePlayPause = useCallback(() => {
-    if (isPaused) {
-      resume();
-      setSelectedFrameIndex(null);
-    } else {
-      pause();
-    }
+    if (isPaused) { resume(); setSelectedFrameIndex(null); }
+    else { pause(); }
   }, [isPaused, pause, resume]);
 
   const hasScreenshots = !!displayedFrame;
+  const hasSteps = liveSteps.length > 0;
 
   return (
     <div className={cn("flex flex-col rounded-xl border border-white/[0.06] overflow-hidden bg-[hsl(var(--orbit-bg-deeper,222_47%_6%))]", className)}>
       <div className="flex flex-1 min-h-0">
-        {/* Viewport */}
+        {/* Main viewport */}
         <div className="flex flex-col flex-[7] min-w-0">
           <ViewportHeader
             pageUrl={displayedFrame?.pageUrl ?? null}
             viewport={displayedFrame?.viewport ?? null}
             isStreaming={isStreaming}
             runStatus={runStatus}
+            currentTest={progress?.currentTest ?? null}
           />
 
           <div className="relative flex-1 bg-black/20 min-h-[360px]">
@@ -119,15 +113,19 @@ export function LiveExecutionViewer({
                 />
               ) : (
                 <motion.div
-                  key="preparation"
-                  className="absolute inset-0"
+                  key="prep"
+                  className="absolute inset-0 flex flex-col items-center justify-center gap-6"
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                 >
-                  <PreparationPhase
-                    runStatus={runStatus}
-                    currentTest={progress?.currentTest ?? null}
-                  />
+                  <PreparationOrbit runStatus={runStatus} />
+                  <p className="text-xs text-muted-foreground">
+                    {progress?.currentTest
+                      ? `Testing: ${progress.currentTest}`
+                      : runStatus === "queued"
+                        ? "Waiting for worker..."
+                        : "Connecting to browser..."}
+                  </p>
                 </motion.div>
               )}
             </AnimatePresence>
@@ -156,151 +154,59 @@ export function LiveExecutionViewer({
           )}
         </div>
 
-        {/* Step log panel */}
-        <LiveStepPanel
-          steps={liveSteps}
-          activeStepIndex={activeStepIndex}
-          className="flex-[3] max-w-[350px]"
-        />
+        {/* Right panel: test timeline (primary) or step log (if we have step-level data) */}
+        {hasSteps ? (
+          <LiveStepPanel
+            steps={liveSteps}
+            activeStepIndex={liveSteps.length > 0 ? liveSteps[liveSteps.length - 1].stepIndex : null}
+            className="flex-[3] max-w-[350px]"
+          />
+        ) : (
+          <TestTimelinePanel
+            tests={tests}
+            totalTests={progress?.totalTests ?? 0}
+            className="flex-[3] max-w-[350px]"
+          />
+        )}
       </div>
     </div>
   );
 }
 
 // ============================================================
-// Preparation Phase — Animated pre-execution UI
+// Preparation animation — shown before screenshots arrive
 // ============================================================
 
-const PHASES = [
-  { key: "queued", icon: Loader2, label: "Queued", detail: "Waiting for worker slot..." },
-  { key: "validating", icon: Shield, label: "Validating Environment", detail: "Checking URL reachability and credentials..." },
-  { key: "launching", icon: Monitor, label: "Launching Browser", detail: "Connecting to headless browser via CDP..." },
-  { key: "loading", icon: Globe, label: "Loading Page", detail: "Navigating to staging environment..." },
-  { key: "executing", icon: Cpu, label: "Executing Tests", detail: "Running test steps..." },
-  { key: "indexing", icon: FileSearch, label: "Indexing Repository", detail: "Analyzing codebase structure..." },
-  { key: "planning", icon: BrainCircuit, label: "Generating Test Plan", detail: "AI is building test scenarios..." },
-  { key: "reporting", icon: Rocket, label: "Generating Report", detail: "Analyzing results and failures..." },
-] as const;
-
-function getPhaseIndex(runStatus: string): number {
-  if (runStatus === "queued") return 0;
-  if (runStatus === "indexing") return 5;
-  if (runStatus === "planning") return 6;
-  if (runStatus === "reporting") return 7;
-  return 4;
-}
-
-function PreparationPhase({
-  runStatus,
-  currentTest,
-}: {
-  runStatus: string;
-  currentTest: string | null;
-}) {
-  const activePhaseIndex = getPhaseIndex(runStatus);
-  const showExecutionPhases = runStatus === "executing" || runStatus === "queued";
-  const displayPhases = showExecutionPhases ? PHASES.slice(0, 5) : [PHASES[activePhaseIndex]];
-
+function PreparationOrbit({ runStatus }: { runStatus: string }) {
   return (
-    <div className="flex flex-col items-center justify-center h-full gap-8 px-8">
-      {/* Animated orbit ring */}
-      <div className="relative w-20 h-20">
-        <motion.div
-          className="absolute inset-0 rounded-full border-2 border-orbit-accent/20"
-          animate={{ rotate: 360 }}
-          transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
-        />
-        <motion.div
-          className="absolute inset-1 rounded-full border border-dashed border-orbit-accent/10"
-          animate={{ rotate: -360 }}
-          transition={{ duration: 12, repeat: Infinity, ease: "linear" }}
-        />
-        <motion.div
-          className="absolute inset-0 flex items-center justify-center"
-          animate={{ scale: [1, 1.05, 1] }}
-          transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-        >
-          {(() => {
-            const Icon = PHASES[activePhaseIndex]?.icon ?? Loader2;
-            return <Icon className="h-8 w-8 text-orbit-accent" />;
-          })()}
-        </motion.div>
-        {/* Orbiting dot */}
-        <motion.div
-          className="absolute w-2 h-2 rounded-full bg-orbit-accent shadow-[0_0_8px_rgba(var(--orbit-accent-rgb,255_140_50),0.6)]"
-          style={{ top: -4, left: "calc(50% - 4px)" }}
-          animate={{ rotate: 360 }}
-          transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
-        />
-      </div>
-
-      {/* Phase steps */}
-      <div className="flex flex-col gap-1.5 max-w-xs w-full">
-        {displayPhases.map((phase, i) => {
-          const isActive = showExecutionPhases ? i === activePhaseIndex : true;
-          const isDone = showExecutionPhases ? i < activePhaseIndex : false;
-
-          return (
-            <motion.div
-              key={phase.key}
-              initial={{ opacity: 0, x: -12 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: i * 0.08, duration: 0.3 }}
-              className={cn(
-                "flex items-center gap-3 px-3 py-2 rounded-lg transition-all",
-                isActive && "bg-orbit-accent/[0.06] border border-orbit-accent/20",
-                isDone && "opacity-50",
-                !isActive && !isDone && "opacity-30"
-              )}
-            >
-              <div className="shrink-0">
-                {isDone ? (
-                  <CheckCircle2 className="h-4 w-4 text-orbit-pass" />
-                ) : isActive ? (
-                  <motion.div
-                    animate={{ rotate: phase.key === "queued" || phase.key === "executing" ? 360 : 0 }}
-                    transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
-                  >
-                    <phase.icon className="h-4 w-4 text-orbit-accent" />
-                  </motion.div>
-                ) : (
-                  <phase.icon className="h-4 w-4 text-muted-foreground/40" />
-                )}
-              </div>
-              <div className="flex-1 min-w-0">
-                <span className={cn(
-                  "text-xs font-medium",
-                  isActive ? "text-foreground" : "text-muted-foreground"
-                )}>
-                  {phase.label}
-                </span>
-                {isActive && (
-                  <motion.p
-                    className="text-[10px] text-muted-foreground mt-0.5 truncate"
-                    initial={{ opacity: 0, height: 0 }}
-                    animate={{ opacity: 1, height: "auto" }}
-                  >
-                    {currentTest ?? phase.detail}
-                  </motion.p>
-                )}
-              </div>
-              {isActive && (
-                <motion.div
-                  className="h-1 w-8 rounded-full bg-orbit-accent/20 overflow-hidden shrink-0"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                >
-                  <motion.div
-                    className="h-full bg-orbit-accent rounded-full"
-                    animate={{ x: ["-100%", "100%"] }}
-                    transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
-                  />
-                </motion.div>
-              )}
-            </motion.div>
-          );
-        })}
-      </div>
+    <div className="relative w-16 h-16">
+      <motion.div
+        className="absolute inset-0 rounded-full border-2 border-orbit-accent/20"
+        animate={{ rotate: 360 }}
+        transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
+      />
+      <motion.div
+        className="absolute inset-1 rounded-full border border-dashed border-orbit-accent/10"
+        animate={{ rotate: -360 }}
+        transition={{ duration: 12, repeat: Infinity, ease: "linear" }}
+      />
+      <motion.div
+        className="absolute inset-0 flex items-center justify-center"
+        animate={{ scale: [1, 1.05, 1] }}
+        transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+      >
+        {runStatus === "queued" ? (
+          <Loader2 className="h-6 w-6 text-orbit-accent animate-spin" />
+        ) : (
+          <Cpu className="h-6 w-6 text-orbit-accent" />
+        )}
+      </motion.div>
+      <motion.div
+        className="absolute w-1.5 h-1.5 rounded-full bg-orbit-accent shadow-[0_0_6px_rgba(var(--orbit-accent-rgb,255_140_50),0.6)]"
+        style={{ top: -3, left: "calc(50% - 3px)" }}
+        animate={{ rotate: 360 }}
+        transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+      />
     </div>
   );
 }
@@ -314,11 +220,13 @@ function ViewportHeader({
   viewport,
   isStreaming,
   runStatus,
+  currentTest,
 }: {
   pageUrl: string | null;
   viewport: { width: number; height: number } | null;
   isStreaming: boolean;
   runStatus: string;
+  currentTest: string | null;
 }) {
   const isActive = isStreaming || ["queued", "executing", "indexing", "planning", "reporting"].includes(runStatus);
 
@@ -330,9 +238,7 @@ function ViewportHeader({
             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75" />
             <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
           </span>
-          <span className="text-[10px] font-bold text-red-400 uppercase tracking-wider">
-            Live
-          </span>
+          <span className="text-[10px] font-bold text-red-400 uppercase tracking-wider">Live</span>
         </div>
       )}
 
@@ -340,32 +246,24 @@ function ViewportHeader({
         {pageUrl ? (
           <>
             <Globe className="h-3 w-3 text-muted-foreground shrink-0" />
-            <span className="text-xs text-muted-foreground font-mono truncate">
-              {pageUrl}
-            </span>
+            <span className="text-xs text-muted-foreground font-mono truncate">{pageUrl}</span>
           </>
         ) : (
-          <span className="text-xs text-muted-foreground">
-            {runStatus === "queued" ? "Waiting to start..." : "Preparing browser..."}
+          <span className="text-xs text-muted-foreground truncate">
+            {currentTest ?? (runStatus === "queued" ? "Waiting for worker..." : "Preparing browser...")}
           </span>
         )}
       </div>
 
       {viewport && (
-        <span className="text-[10px] tabular-nums text-muted-foreground shrink-0">
-          {viewport.width}x{viewport.height}
-        </span>
+        <span className="text-[10px] tabular-nums text-muted-foreground shrink-0">{viewport.width}x{viewport.height}</span>
       )}
     </div>
   );
 }
 
 function ControlsBar({
-  isPaused,
-  onPlayPause,
-  onDownload,
-  hasFrame,
-  isStreaming,
+  isPaused, onPlayPause, onDownload, hasFrame, isStreaming,
 }: {
   isPaused: boolean;
   onPlayPause: () => void;
@@ -375,42 +273,13 @@ function ControlsBar({
 }) {
   return (
     <div className="flex items-center gap-2 px-3 py-1.5 border-t border-white/[0.04] bg-white/[0.02] shrink-0">
-      <Button
-        variant="ghost"
-        size="icon"
-        className="h-7 w-7"
-        onClick={onPlayPause}
-        disabled={!isStreaming}
-        title={isPaused ? "Resume" : "Pause"}
-      >
-        {isPaused ? (
-          <Play className="h-3.5 w-3.5" />
-        ) : (
-          <Pause className="h-3.5 w-3.5" />
-        )}
+      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onPlayPause} disabled={!isStreaming}>
+        {isPaused ? <Play className="h-3.5 w-3.5" /> : <Pause className="h-3.5 w-3.5" />}
       </Button>
-
       <div className="flex-1" />
-
-      <Button
-        variant="ghost"
-        size="icon"
-        className="h-7 w-7"
-        onClick={onDownload}
-        disabled={!hasFrame}
-        title="Download screenshot"
-      >
+      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onDownload} disabled={!hasFrame}>
         <Download className="h-3.5 w-3.5" />
       </Button>
     </div>
   );
-}
-
-function toLiveStep(step: TestStepProgress): LiveStep {
-  return {
-    stepIndex: step.stepIndex,
-    testCaseId: step.testCaseId,
-    action: step.action,
-    status: step.status,
-  };
 }

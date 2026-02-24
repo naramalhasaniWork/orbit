@@ -29,6 +29,13 @@ export interface TestStepProgress {
   screenshotUrl?: string;
 }
 
+export interface TestItem {
+  testCaseId: string;
+  testCaseName: string;
+  status: "running" | "passed" | "failed" | "flaky" | "healed" | "skipped";
+  durationMs?: number;
+}
+
 interface UseRunEventsOptions {
   projectId: string;
   runId: string;
@@ -54,9 +61,9 @@ export function useRunEvents({
 }: UseRunEventsOptions) {
   const [progress, setProgress] = useState<RunProgress | null>(null);
   const [steps, setSteps] = useState<TestStepProgress[]>([]);
+  const [tests, setTests] = useState<TestItem[]>([]);
   const [isTerminal, setIsTerminal] = useState(false);
 
-  // Stable callback refs
   const onCompleteRef = useRef(onComplete);
   onCompleteRef.current = onComplete;
   const onTestStartedRef = useRef(onTestStarted);
@@ -88,18 +95,13 @@ export function useRunEvents({
       }
 
       case "run:progress": {
+        const status = payload.status as string;
         setProgress((prev) => ({
           ...(prev ?? {
-            totalTests: 0,
-            passed: 0,
-            failed: 0,
-            flaky: 0,
-            completed: 0,
-            currentTest: null,
-            lastVerdict: null,
-            durationMs: null,
+            totalTests: 0, passed: 0, failed: 0, flaky: 0,
+            completed: 0, currentTest: null, lastVerdict: null, durationMs: null,
           }),
-          status: payload.status as string,
+          status,
           currentTest: (payload.currentTest as string) ?? prev?.currentTest ?? null,
           totalTests: (payload.totalTests as number) ?? prev?.totalTests ?? 0,
           passed: (payload.passed as number) ?? prev?.passed ?? 0,
@@ -109,6 +111,10 @@ export function useRunEvents({
           lastVerdict: prev?.lastVerdict ?? null,
           durationMs: prev?.durationMs ?? null,
         }));
+
+        if (TERMINAL_STATUSES.has(status)) {
+          setIsTerminal(true);
+        }
         break;
       }
 
@@ -133,6 +139,14 @@ export function useRunEvents({
       case "test:started": {
         const data = payload as unknown as TestStartedEvent;
         setProgress((prev) => prev ? { ...prev, currentTest: data.testCaseName } : prev);
+        setTests((prev) => {
+          if (prev.some((t) => t.testCaseId === data.testCaseId)) return prev;
+          return [...prev, {
+            testCaseId: data.testCaseId,
+            testCaseName: data.testCaseName,
+            status: "running",
+          }];
+        });
         onTestStartedRef.current?.(data);
         break;
       }
@@ -178,7 +192,22 @@ export function useRunEvents({
             currentTest: data.testCaseName,
           };
         });
-        // Clear steps for this test
+        setTests((prev) => {
+          const exists = prev.some((t) => t.testCaseId === data.testCaseId);
+          if (!exists) {
+            return [...prev, {
+              testCaseId: data.testCaseId,
+              testCaseName: data.testCaseName,
+              status: data.verdict as TestItem["status"],
+              durationMs: data.durationMs,
+            }];
+          }
+          return prev.map((t) =>
+            t.testCaseId === data.testCaseId
+              ? { ...t, status: data.verdict as TestItem["status"], durationMs: data.durationMs }
+              : t
+          );
+        });
         setSteps((prev) => prev.filter((s) => s.testCaseId !== data.testCaseId));
         onTestCompletedRef.current?.(data);
         break;
@@ -201,12 +230,11 @@ export function useRunEvents({
     onEvent: handleEvent,
   });
 
-  // Clear steps when run reaches terminal status
   useEffect(() => {
     if (isTerminal) {
       setSteps([]);
     }
   }, [isTerminal]);
 
-  return { progress, steps, connected, error };
+  return { progress, steps, tests, connected, error };
 }
