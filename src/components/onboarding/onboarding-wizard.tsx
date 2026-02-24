@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { Loader2 } from "lucide-react";
 import { StepIndicator } from "./step-indicator";
 import { ConnectRepo } from "./steps/connect-repo";
 import { IndexingProgress } from "./steps/indexing-progress";
@@ -32,12 +33,88 @@ const pageTransition = {
   ease: "easeInOut" as const,
 };
 
+/**
+ * Detect onboarding progress by checking what data already exists for the
+ * most recently created project. Returns the step to resume from and the
+ * project context needed to render it.
+ */
+async function detectOnboardingProgress(): Promise<{
+  step: number;
+  projectId: string | null;
+  repo: RepoItem | null;
+  enabledTestCount: number;
+}> {
+  try {
+    const res = await fetch("/api/projects");
+    if (!res.ok) return { step: 1, projectId: null, repo: null, enabledTestCount: 0 };
+    const json = await res.json();
+    if (!json.success || !json.data?.length) {
+      return { step: 1, projectId: null, repo: null, enabledTestCount: 0 };
+    }
+
+    // Use the most recently updated project
+    const sorted = [...json.data].sort(
+      (a: { updatedAt: string }, b: { updatedAt: string }) =>
+        new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+    );
+    const project = sorted[0];
+    const pid = project.id as string;
+    const repo: RepoItem = {
+      id: pid,
+      name: project.repoName ?? project.name,
+      fullName: `${project.repoOwner ?? ""}/${project.repoName ?? project.name}`,
+      url: project.repoUrl ?? "",
+      owner: project.repoOwner ?? "",
+      defaultBranch: project.defaultBranch ?? "main",
+      isPrivate: false,
+      language: project.framework ?? "Unknown",
+      stars: 0,
+      updatedAt: project.updatedAt ?? new Date().toISOString(),
+    };
+
+    // Check if there's a test plan with enabled test cases
+    const planRes = await fetch(`/api/projects/${pid}/plan`);
+    if (planRes.ok) {
+      const planJson = await planRes.json();
+      const testCases = planJson.data?.testCases ?? [];
+      if (testCases.length > 0) {
+        const enabled = testCases.filter((t: { isEnabled: boolean }) => t.isEnabled).length;
+        // Has plan -> go to plan preview (step 5) or launch (step 6)
+        return { step: 5, projectId: pid, repo, enabledTestCount: enabled };
+      }
+    }
+
+    // Check if indexed (has system map nodes)
+    if (project.lastIndexedAt) {
+      // Indexed -> go to map preview (step 3)
+      return { step: 3, projectId: pid, repo, enabledTestCount: 0 };
+    }
+
+    // Project exists but not yet indexed -> go to indexing (step 2)
+    return { step: 2, projectId: pid, repo, enabledTestCount: 0 };
+  } catch {
+    return { step: 1, projectId: null, repo: null, enabledTestCount: 0 };
+  }
+}
+
 export function OnboardingWizard() {
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState(0); // 0 = detecting
   const [direction, setDirection] = useState(1);
   const [selectedRepo, setSelectedRepo] = useState<RepoItem | null>(null);
   const [projectId, setProjectId] = useState<string | null>(null);
   const [enabledTestCount, setEnabledTestCount] = useState(0);
+
+  // On mount, detect where the user left off
+  useEffect(() => {
+    detectOnboardingProgress().then((result) => {
+      if (result.projectId) {
+        setProjectId(result.projectId);
+        setSelectedRepo(result.repo);
+        setEnabledTestCount(result.enabledTestCount);
+      }
+      setStep(result.step);
+    });
+  }, []);
 
   const goTo = useCallback((nextStep: number) => {
     setDirection(nextStep > step ? 1 : -1);
@@ -76,6 +153,16 @@ export function OnboardingWizard() {
     },
     [goTo]
   );
+
+  // Show loading state while detecting progress
+  if (step === 0) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full gap-3">
+        <Loader2 className="h-6 w-6 animate-spin text-orbit-accent" />
+        <span className="text-sm text-muted-foreground">Resuming your setup...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-full min-h-0">

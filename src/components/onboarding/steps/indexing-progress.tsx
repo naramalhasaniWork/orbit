@@ -83,15 +83,30 @@ export function IndexingProgress({ repo, projectId, onComplete }: IndexingProgre
     }
   }, [phase, nodesFound, addLog]);
 
-  // Trigger sync on mount
+  // Trigger sync on mount (or reconnect if already running)
   useEffect(() => {
     if (startedRef.current) return;
     startedRef.current = true;
 
     const triggerSync = async () => {
-      addLog(`[start] Triggering indexing for ${repo.fullName}...`);
-
       try {
+        // Check if indexing is already in progress
+        const statusRes = await fetch(`/api/projects/${projectId}/sync`);
+        if (statusRes.ok) {
+          const statusJson = await statusRes.json();
+          if (statusJson.data?.isIndexing) {
+            addLog(`[start] Reconnecting to active indexing session...`);
+            setSyncTriggered(true);
+            return;
+          }
+          if (statusJson.data?.lastIndexedAt && statusJson.data?.nodeCount > 0) {
+            addLog(`[done]  Repository already indexed (${statusJson.data.nodeCount} nodes).`);
+            setTimeout(onComplete, 500);
+            return;
+          }
+        }
+
+        addLog(`[start] Triggering indexing for ${repo.fullName}...`);
         const res = await fetch(`/api/projects/${projectId}/sync`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -112,7 +127,7 @@ export function IndexingProgress({ repo, projectId, onComplete }: IndexingProgre
     };
 
     triggerSync();
-  }, [projectId, repo, addLog]);
+  }, [projectId, repo, addLog, onComplete]);
 
   const activePhaseIdx = phaseToIndex(phase);
 
