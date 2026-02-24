@@ -130,10 +130,15 @@ async function fetchInstallationRepos(
         results.push(...mapped);
       }
     } catch (err) {
-      console.error(
-        `Failed to fetch repos for installation ${inst.installationId}:`,
-        err
-      );
+      const msg = err instanceof Error ? err.message : String(err);
+      console.error(`Failed to fetch repos for installation ${inst.installationId}:`, msg);
+
+      // Auto-prune stale installations (uninstalled on GitHub)
+      if (msg.includes("404")) {
+        prisma.gitHubInstallation
+          .deleteMany({ where: { workspaceId, installationId: inst.installationId } })
+          .catch(() => {});
+      }
     }
   }
 
