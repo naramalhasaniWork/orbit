@@ -92,6 +92,7 @@ async function executeRunInner(options: RunOptions): Promise<void> {
   }).catch((err) => console.error("[Runner] Webhook delivery failed:", err));
 
   const counters = { passed: 0, failed: 0, flaky: 0, skipped: 0 };
+  let consecutiveBrowserFailures = 0;
 
   for (const testCase of testCases) {
     if (await isRunCancelled(runId)) {
@@ -126,6 +127,23 @@ async function executeRunInner(options: RunOptions): Promise<void> {
       counters[verdictMap[result.verdict] ?? "failed"]++;
       log(`  -> ${result.verdict.toUpperCase()} (${result.durationMs}ms)`);
 
+      // Fail-fast: if consecutive browser connection failures, abort the run
+      if (result.verdict === "fail" && result.steps?.[0]) {
+        const firstStep = result.steps[0] as Record<string, unknown>;
+        const actual = String(firstStep.actual ?? "");
+        if (actual.includes("connectOverCDP") || actual.includes("Timeout")) {
+          consecutiveBrowserFailures++;
+          if (consecutiveBrowserFailures >= 3) {
+            log("ABORTING: Browser unreachable after 3 consecutive connection failures");
+            await failRun(runId, "Browser service unreachable — all connection attempts timed out. Check PLAYWRIGHT_WS_ENDPOINT.");
+            return;
+          }
+        } else {
+          consecutiveBrowserFailures = 0;
+        }
+      } else {
+        consecutiveBrowserFailures = 0;
+      }
       await saveTestResult(
         runId, testCase.id, result.verdict as TestVerdict,
         result.durationMs, result.steps, result.artifacts, result.healedSelectors
