@@ -64,6 +64,19 @@ interface BillingInfo {
   runId?: string;
 }
 
+function stripNulls(obj: unknown): unknown {
+  if (obj === null) return undefined;
+  if (Array.isArray(obj)) return obj.map(stripNulls);
+  if (typeof obj === "object") {
+    return Object.fromEntries(
+      Object.entries(obj as Record<string, unknown>)
+        .filter(([, v]) => v !== null && v !== undefined)
+        .map(([k, v]) => [k, stripNulls(v)])
+    );
+  }
+  return obj;
+}
+
 async function getNextAction(
   context: ExecutorContext,
   billing: BillingInfo
@@ -87,7 +100,7 @@ async function getNextAction(
     }
   );
 
-  return ExecutorActionSchema.parse(parseLlmJson(result.content));
+  return ExecutorActionSchema.parse(stripNulls(parseLlmJson(result.content)));
 }
 
 // ============================================================
