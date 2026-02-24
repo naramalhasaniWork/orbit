@@ -160,14 +160,16 @@ export function RunDetailClient({ run, projectId }: RunDetailClientProps) {
   const router = useRouter();
   const [verdictFilter, setVerdictFilter] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState(false);
+  const [localStatus, setLocalStatus] = useState(run.status);
 
+  const effectiveStatus = localStatus === "cancelled" ? "cancelled" : run.status;
   const filteredResults = useMemo(() => {
     if (!verdictFilter) return run.results;
     return run.results.filter((r) => r.verdict === verdictFilter);
   }, [run.results, verdictFilter]);
 
-  const statusConfig = RUN_STATUS_CONFIG[run.status];
-  const isLive = LIVE_STATUSES.has(run.status);
+  const statusConfig = RUN_STATUS_CONFIG[effectiveStatus];
+  const isLive = LIVE_STATUSES.has(effectiveStatus);
   const defaultTab = isLive ? "live" : "results";
 
   const handleCancelRun = useCallback(async () => {
@@ -180,10 +182,14 @@ export function RunDetailClient({ run, projectId }: RunDetailClientProps) {
         body: JSON.stringify({ status: "cancelled" }),
       });
       if (res.ok) {
+        setLocalStatus("cancelled");
         router.refresh();
+      } else {
+        const data = await res.json().catch(() => null);
+        console.error("[CancelRun] API error:", res.status, data);
       }
-    } catch {
-      // Silently fail — user can retry
+    } catch (err) {
+      console.error("[CancelRun] Network error:", err);
     } finally {
       setCancelling(false);
     }

@@ -77,6 +77,16 @@ function stripNulls(obj: unknown): unknown {
   return obj;
 }
 
+const VALID_VERDICTS = new Set(["pass", "fail"]);
+
+function normalizeAction(raw: Record<string, unknown>): Record<string, unknown> {
+  if (raw.verdict && !VALID_VERDICTS.has(raw.verdict as string)) {
+    const original = raw.verdict;
+    raw = { ...raw, verdict: "fail", reason: raw.reason ?? `Non-standard verdict: ${original}` };
+  }
+  return raw;
+}
+
 async function getNextAction(
   context: ExecutorContext,
   billing: BillingInfo
@@ -100,7 +110,8 @@ async function getNextAction(
     }
   );
 
-  return ExecutorActionSchema.parse(stripNulls(parseLlmJson(result.content)));
+  const cleaned = stripNulls(parseLlmJson(result.content)) as Record<string, unknown>;
+  return ExecutorActionSchema.parse(normalizeAction(cleaned));
 }
 
 // ============================================================

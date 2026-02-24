@@ -11,6 +11,7 @@ import { validateEnvironment } from "@/services/execution/environment-validator"
 import { isTestQuarantined } from "@/services/execution/flaky-registry";
 import { executeTestCase } from "@/services/execution/test-case-executor";
 import type { TestCaseForExecution } from "@/services/execution/test-case-executor";
+import type { StorageState } from "@/services/execution/browser-manager";
 import { isRunCancelled } from "@/services/orchestrator/run-manager";
 import { executeParallel } from "@/services/orchestrator/parallel-executor";
 import { dispatchRunStarted, dispatchRunCompleted } from "@/services/reporting/integrations/outbound-webhooks";
@@ -93,8 +94,17 @@ async function executeRunInner(options: RunOptions): Promise<void> {
 
   const counters = { passed: 0, failed: 0, flaky: 0, skipped: 0 };
   let consecutiveBrowserFailures = 0;
+  let authState: StorageState | undefined;
+
+  const UNAUTH_PATTERNS = [
+    "unauth", "redirect", "logout", "log out", "session expir",
+    "without auth", "no auth", "sign out", "not logged in",
+  ];
 
   for (const testCase of testCases) {
+    const needsFreshBrowser = UNAUTH_PATTERNS.some(
+      (p) => testCase.name.toLowerCase().includes(p)
+    );
     if (await isRunCancelled(runId)) {
       await prisma.testRun.update({ where: { id: runId }, data: { status: "cancelled", completedAt: new Date() } });
       await emitRunProgress(runId, {
@@ -119,7 +129,17 @@ async function executeRunInner(options: RunOptions): Promise<void> {
     });
 
     try {
-      const result = await executeTestCase(runId, testCase, validation.environmentUrl, validation.credentials);
+      const useAuth = !needsFreshBrowser && authState ? authState : undefined;
+      const result = await executeTestCase(
+        runId, testCase, validation.environmentUrl, validation.credentials,
+        { storageState: useAuth }
+      );
+
+      // Capture auth state from the first passing test
+      if (result.storageState && !authState) {
+        authState = result.storageState;
+        log("Auth state captured — subsequent tests will start authenticated");
+      }
 
       const verdictMap: Record<string, keyof typeof counters> = {
         pass: "passed", fail: "failed", flaky: "flaky", healed: "passed",

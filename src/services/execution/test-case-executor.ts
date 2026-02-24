@@ -1,5 +1,5 @@
-import { launchBrowser, closeBrowser, VIEWPORT_PRESETS } from "@/services/execution/browser-manager";
-import type { BrowserInstance, ViewportName } from "@/services/execution/browser-manager";
+import { launchBrowser, closeBrowser, captureStorageState, VIEWPORT_PRESETS } from "@/services/execution/browser-manager";
+import type { BrowserInstance, ViewportName, StorageState } from "@/services/execution/browser-manager";
 import { executeTestSteps } from "@/services/execution/step-executor";
 import {
   createEvidenceCollector,
@@ -32,6 +32,7 @@ interface TestCaseResult {
   steps: Array<Record<string, unknown>>;
   artifacts: Record<string, string>;
   healedSelectors: string[];
+  storageState?: StorageState;
 }
 
 // ============================================================
@@ -43,7 +44,7 @@ export async function executeTestCase(
   testCase: TestCaseForExecution,
   environmentUrl: string,
   credentials: Record<string, string>,
-  options?: { viewport?: { width: number; height: number } }
+  options?: { viewport?: { width: number; height: number }; storageState?: StorageState }
 ): Promise<TestCaseResult> {
   let browserInstance: BrowserInstance | null = null;
   const startTime = Date.now();
@@ -51,12 +52,13 @@ export async function executeTestCase(
   const log = (msg: string) => console.log(`[TestCase:${testCase.id.slice(0, 8)}] ${msg}`);
 
   try {
-    log(`Launching browser (remote: ${!!process.env.PLAYWRIGHT_WS_ENDPOINT})...`);
+    log(`Launching browser (remote: ${!!process.env.PLAYWRIGHT_WS_ENDPOINT}, hasAuth: ${!!options?.storageState})...`);
     browserInstance = await launchBrowser({
       headless: true,
       recordVideo: !process.env.PLAYWRIGHT_WS_ENDPOINT,
       storagePath: `/tmp/orbit-videos/${runId}`,
       viewport: options?.viewport,
+      storageState: options?.storageState,
     });
     log("Browser connected");
     const { page, context } = browserInstance;
@@ -90,6 +92,16 @@ export async function executeTestCase(
     });
 
     evidenceCollector.stopCapture();
+
+    // Capture auth state for reuse in subsequent tests
+    let capturedState: StorageState | undefined;
+    if (result.verdict === "pass" || result.verdict === "healed") {
+      try {
+        capturedState = await captureStorageState(context);
+      } catch {
+        // Non-critical — proceed without session reuse
+      }
+    }
 
     // Handle retry for flaky detection
     let finalVerdict: string = result.verdict;
@@ -154,6 +166,7 @@ export async function executeTestCase(
       steps: result.steps as unknown as Array<Record<string, unknown>>,
       artifacts,
       healedSelectors: result.healedSelectors,
+      storageState: capturedState,
     };
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : "Unknown execution error";

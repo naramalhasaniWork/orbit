@@ -11,6 +11,11 @@ interface BrowserInstance {
   isRemote: boolean;
 }
 
+interface StorageState {
+  cookies: Array<Record<string, unknown>>;
+  origins: Array<{ origin: string; localStorage: Array<{ name: string; value: string }> }>;
+}
+
 interface LaunchOptions {
   headless?: boolean;
   viewport?: { width: number; height: number };
@@ -18,6 +23,7 @@ interface LaunchOptions {
   timezoneId?: string;
   recordVideo?: boolean;
   storagePath?: string;
+  storageState?: StorageState;
 }
 
 const DEFAULT_VIEWPORT = { width: 1280, height: 720 };
@@ -54,6 +60,10 @@ export async function launchBrowser(
       dir: options.storagePath,
       size: options.viewport ?? DEFAULT_VIEWPORT,
     };
+  }
+
+  if (options.storageState) {
+    contextOptions.storageState = options.storageState;
   }
 
   let browser: Browser;
@@ -227,4 +237,8 @@ export async function setViewport(
   await page.setViewportSize(size);
 }
 
-export type { BrowserInstance, LaunchOptions };
+export async function captureStorageState(context: BrowserContext): Promise<StorageState> {
+  return context.storageState() as Promise<StorageState>;
+}
+
+export type { BrowserInstance, LaunchOptions, StorageState };
