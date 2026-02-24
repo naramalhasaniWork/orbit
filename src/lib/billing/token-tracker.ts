@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/db";
 import { getModelCosts } from "@/lib/ai/model-router";
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 interface TokenTrackingParams {
   workspaceId: string;
   projectId?: string;
@@ -50,6 +52,10 @@ export async function recordTokenUsage(params: TokenTrackingParams) {
   } = params;
 
   const cost = calculateTokenCost(model, inputTokens, outputTokens, cachedTokens);
+
+  if (!UUID_RE.test(workspaceId)) {
+    return { cost, inputTokens, outputTokens, cachedTokens };
+  }
 
   await prisma.tokenUsage.create({
     data: {
