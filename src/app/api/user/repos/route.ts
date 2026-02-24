@@ -97,10 +97,16 @@ async function fetchInstallationRepos(
 ): Promise<RepoItem[]> {
   if (!isGitHubAppConfigured()) return [];
 
-  const installations = await prisma.gitHubInstallation.findMany({
-    where: { workspaceId },
-    select: { installationId: true },
-  });
+  let installations: { installationId: number }[];
+  try {
+    installations = await prisma.gitHubInstallation.findMany({
+      where: { workspaceId },
+      select: { installationId: true },
+    });
+  } catch {
+    // Table may not exist yet — gracefully skip
+    return [];
+  }
 
   if (installations.length === 0) return [];
 

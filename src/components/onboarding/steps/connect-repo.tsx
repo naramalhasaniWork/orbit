@@ -1,9 +1,10 @@
 "use client";
 
 import { useState, useEffect, useMemo, useCallback } from "react";
+import { useSearchParams, usePathname } from "next/navigation";
 import {
   Search, Star, Lock, Globe, ChevronRight, Loader2,
-  AlertCircle, GitBranch, Building2, ExternalLink, CheckCircle2,
+  AlertCircle, GitBranch, Building2, CheckCircle2, Plus,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -62,6 +63,9 @@ function formatUpdatedAt(dateStr: string): string {
 }
 
 export function ConnectRepo({ onSelect }: ConnectRepoProps) {
+  const searchParams = useSearchParams();
+  const pathname = usePathname();
+
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [repos, setRepos] = useState<RepoItem[]>([]);
@@ -70,6 +74,7 @@ export function ConnectRepo({ onSelect }: ConnectRepoProps) {
   const [creating, setCreating] = useState(false);
   const [provider, setProvider] = useState<RepoProvider>("github");
   const [orgData, setOrgData] = useState<OrgData | null>(null);
+  const [justConnectedOrg, setJustConnectedOrg] = useState<string | null>(null);
 
   const fetchRepos = useCallback(async () => {
     setLoading(true);
@@ -97,14 +102,36 @@ export function ConnectRepo({ onSelect }: ConnectRepoProps) {
         setOrgData(json.data);
       }
     } catch {
-      // Non-critical — org info is supplementary
+      // Non-critical
     }
   }, []);
+
+  // Detect return from GitHub App installation
+  useEffect(() => {
+    const orgConnected = searchParams.get("org_connected");
+    if (orgConnected) {
+      setJustConnectedOrg(orgConnected);
+      // Clean URL without reload
+      const url = new URL(window.location.href);
+      url.searchParams.delete("org_connected");
+      window.history.replaceState({}, "", url.toString());
+      // Refresh data to pick up new org repos
+      fetchRepos();
+      fetchOrgs();
+    }
+  }, [searchParams, fetchRepos, fetchOrgs]);
 
   useEffect(() => {
     fetchRepos();
     fetchOrgs();
   }, [fetchRepos, fetchOrgs]);
+
+  // Auto-dismiss success banner after 5s
+  useEffect(() => {
+    if (!justConnectedOrg) return;
+    const t = setTimeout(() => setJustConnectedOrg(null), 5000);
+    return () => clearTimeout(t);
+  }, [justConnectedOrg]);
 
   const filtered = useMemo(() => {
     if (!query.trim()) return repos;
@@ -119,8 +146,9 @@ export function ConnectRepo({ onSelect }: ConnectRepoProps) {
 
   const selected = repos.find((r) => r.id === selectedId);
 
+  const installedOrgs = orgData?.orgs.filter((o) => o.installed) ?? [];
   const uninstalledOrgs = orgData?.orgs.filter((o) => !o.installed) ?? [];
-  const showOrgBanner = orgData?.appConfigured && uninstalledOrgs.length > 0;
+  const showOrgSection = orgData?.appConfigured === true;
 
   const handleContinue = async () => {
     if (!selected) return;
@@ -154,12 +182,15 @@ export function ConnectRepo({ onSelect }: ConnectRepoProps) {
     }
   };
 
-  const handleInstallApp = (orgLogin?: string) => {
-    if (!orgData?.installUrl) return;
-    const url = orgLogin
-      ? `${orgData.installUrl}/permissions?target_id=${uninstalledOrgs.find((o) => o.login === orgLogin)?.id ?? ""}`
-      : orgData.installUrl;
-    window.open(url, "_blank");
+  /**
+   * Navigate to /api/github/install with the current path as return_to.
+   * The API sets a cookie, then redirects to GitHub's app install page.
+   * After the user installs, GitHub redirects back to our callback,
+   * which reads the cookie and sends the user right back here.
+   */
+  const handleConnectOrg = () => {
+    const returnTo = encodeURIComponent(pathname);
+    window.location.href = `/api/github/install?return_to=${returnTo}`;
   };
 
   return (
@@ -172,6 +203,14 @@ export function ConnectRepo({ onSelect }: ConnectRepoProps) {
           Select the repository you want Orbit to analyze and test.
         </p>
       </div>
+
+      {/* Success banner after org install */}
+      {justConnectedOrg && (
+        <div className="w-full mb-4 flex items-center gap-2 text-sm text-emerald-400 bg-emerald-500/10 rounded-md px-3 py-2">
+          <CheckCircle2 className="h-4 w-4 shrink-0" />
+          Connected <strong>{justConnectedOrg}</strong> — their repos are now available below.
+        </div>
+      )}
 
       <div className="flex gap-2 w-full mb-4">
         {(Object.keys(PROVIDER_CONFIG) as RepoProvider[]).map((p) => {
@@ -200,61 +239,66 @@ export function ConnectRepo({ onSelect }: ConnectRepoProps) {
         })}
       </div>
 
-      {/* Organization access banner */}
-      {showOrgBanner && (
-        <div className="w-full mb-4 rounded-lg border border-orbit-accent/20 bg-orbit-accent/[0.04] p-3">
-          <div className="flex items-center gap-2 mb-2">
-            <Building2 className="h-4 w-4 text-orbit-accent" />
-            <span className="text-sm font-medium text-foreground">
-              Organization repos available
+      {/* Organization connections */}
+      {showOrgSection && (
+        <div className="w-full mb-4">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+              Organizations
             </span>
+            <button
+              type="button"
+              onClick={handleConnectOrg}
+              className="text-xs text-orbit-accent hover:text-orbit-accent/80 flex items-center gap-1 transition-colors"
+            >
+              <Plus className="h-3 w-3" />
+              Connect organization
+            </button>
           </div>
-          <p className="text-xs text-muted-foreground mb-3">
-            Install the Orbit GitHub App to access private repos in your organizations.
-          </p>
-          <div className="space-y-2">
-            {uninstalledOrgs.map((org) => (
-              <button
-                key={org.id}
-                type="button"
-                onClick={() => handleInstallApp(org.login)}
-                className="w-full flex items-center gap-3 px-3 py-2 rounded-md bg-muted/20 hover:bg-muted/40 transition-colors"
-              >
-                {org.avatarUrl ? (
-                  <img
-                    src={org.avatarUrl}
-                    alt={org.login}
-                    className="h-5 w-5 rounded-full"
-                  />
-                ) : (
-                  <Building2 className="h-5 w-5 text-muted-foreground" />
-                )}
-                <span className="text-sm text-foreground flex-1 text-left">
-                  {org.login}
-                </span>
-                <span className="text-xs text-orbit-accent flex items-center gap-1">
-                  Install <ExternalLink className="h-3 w-3" />
-                </span>
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
 
-      {/* Installed orgs indicator */}
-      {orgData?.orgs.some((o) => o.installed) && (
-        <div className="w-full mb-3 flex flex-wrap gap-2">
-          {orgData.orgs
-            .filter((o) => o.installed)
-            .map((org) => (
+          <div className="flex flex-wrap gap-2">
+            {installedOrgs.map((org) => (
               <span
                 key={org.id}
                 className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 text-xs text-emerald-400"
               >
-                <CheckCircle2 className="h-3 w-3" />
+                {org.avatarUrl ? (
+                  <img src={org.avatarUrl} alt="" className="h-3.5 w-3.5 rounded-full" />
+                ) : (
+                  <CheckCircle2 className="h-3 w-3" />
+                )}
                 {org.login}
               </span>
             ))}
+
+            {uninstalledOrgs.map((org) => (
+              <button
+                key={org.id}
+                type="button"
+                onClick={handleConnectOrg}
+                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-muted/30 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+              >
+                {org.avatarUrl ? (
+                  <img src={org.avatarUrl} alt="" className="h-3.5 w-3.5 rounded-full opacity-50" />
+                ) : (
+                  <Building2 className="h-3 w-3" />
+                )}
+                {org.login}
+                <Plus className="h-2.5 w-2.5" />
+              </button>
+            ))}
+
+            {orgData?.orgs.length === 0 && (
+              <button
+                type="button"
+                onClick={handleConnectOrg}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-dashed border-muted-foreground/30 text-xs text-muted-foreground hover:text-foreground hover:border-orbit-accent/40 transition-colors"
+              >
+                <Building2 className="h-3.5 w-3.5" />
+                Connect an organization
+              </button>
+            )}
+          </div>
         </div>
       )}
 
@@ -285,13 +329,13 @@ export function ConnectRepo({ onSelect }: ConnectRepoProps) {
           ) : filtered.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-32 gap-2 text-sm text-muted-foreground">
               <span>No repositories match your search.</span>
-              {orgData?.appConfigured && uninstalledOrgs.length > 0 && (
+              {showOrgSection && (
                 <button
                   type="button"
-                  onClick={() => handleInstallApp()}
+                  onClick={handleConnectOrg}
                   className="text-orbit-accent hover:underline text-xs"
                 >
-                  Install Orbit on an organization to see more repos
+                  Connect an organization to see more repos
                 </button>
               )}
             </div>

@@ -51,12 +51,17 @@ export async function GET() {
 
     const orgs: GitHubOrg[] = await res.json();
 
-    const installations = isGitHubAppConfigured()
-      ? await prisma.gitHubInstallation.findMany({
+    let installations: { accountLogin: string }[] = [];
+    if (isGitHubAppConfigured()) {
+      try {
+        installations = await prisma.gitHubInstallation.findMany({
           where: { workspaceId },
           select: { accountLogin: true },
-        })
-      : [];
+        });
+      } catch {
+        // Table may not exist yet — treat as no installations
+      }
+    }
 
     const installedLogins = new Set(installations.map((i) => i.accountLogin));
 

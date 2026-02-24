@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import { prisma } from "@/lib/db";
 import { requireWorkspace } from "@/lib/utils/api";
 import {
@@ -10,23 +11,26 @@ import {
 export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
+  const cookieStore = await cookies();
+  const returnTo = cookieStore.get("orbit_install_return")?.value ?? "/dashboard/onboarding";
+
   try {
     const { workspaceId } = await requireWorkspace();
 
     if (!isGitHubAppConfigured()) {
-      redirect("/dashboard/settings?error=github_app_not_configured");
+      redirect(`${returnTo}?error=github_app_not_configured`);
     }
 
     const installationId = request.nextUrl.searchParams.get("installation_id");
     const setupAction = request.nextUrl.searchParams.get("setup_action");
 
-    if (!installationId || setupAction !== "install") {
-      redirect("/dashboard/settings?error=invalid_callback");
+    if (!installationId || (setupAction !== "install" && setupAction !== "update")) {
+      redirect(`${returnTo}?error=invalid_callback`);
     }
 
     const numericId = parseInt(installationId, 10);
     if (isNaN(numericId)) {
-      redirect("/dashboard/settings?error=invalid_installation_id");
+      redirect(`${returnTo}?error=invalid_installation_id`);
     }
 
     const info = await getInstallationInfo(numericId);
@@ -52,9 +56,16 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    redirect("/dashboard/settings?github_app=installed");
+    // Clear the return cookie
+    cookieStore.delete("orbit_install_return");
+
+    redirect(`${returnTo}?org_connected=${info.account.login}`);
   } catch (error) {
+    // Next.js redirect() throws a special error — rethrow it
+    if (error instanceof Error && error.message === "NEXT_REDIRECT") {
+      throw error;
+    }
     console.error("GitHub App installation callback error:", error);
-    redirect("/dashboard/settings?error=installation_failed");
+    redirect(`${returnTo}?error=installation_failed`);
   }
 }
