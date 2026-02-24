@@ -129,7 +129,6 @@ export async function syncInstallations(workspaceId: string): Promise<number> {
 async function findWorkspaceForGitHubUser(
   senderGitHubId: number
 ): Promise<{ id: string } | null> {
-  // Match sender by GitHub account ID stored in the Account table
   const account = await prisma.account.findFirst({
     where: {
       provider: "github",
@@ -138,7 +137,7 @@ async function findWorkspaceForGitHubUser(
     select: {
       user: {
         select: {
-          workspaces: {
+          memberships: {
             select: { workspaceId: true },
             take: 1,
           },
@@ -147,6 +146,6 @@ async function findWorkspaceForGitHubUser(
     },
   });
 
-  if (!account?.user?.workspaces[0]) return null;
-  return { id: account.user.workspaces[0].workspaceId };
+  if (!account?.user?.memberships[0]) return null;
+  return { id: account.user.memberships[0].workspaceId };
 }
