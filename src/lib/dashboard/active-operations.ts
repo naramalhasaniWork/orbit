@@ -15,10 +15,10 @@ export interface ActiveOperation {
 
 /** How long a run can sit in each status before we consider it dead */
 const STALE_THRESHOLDS_MS: Record<string, number> = {
-  queued: 10 * 60 * 1000,      // 10 min — should start within seconds
+  queued: 3 * 60 * 60 * 1000,  // 3 hours — queue backlog is legitimate
   indexing: 30 * 60 * 1000,    // 30 min
   planning: 20 * 60 * 1000,    // 20 min
-  executing: 60 * 60 * 1000,   // 60 min
+  executing: 2 * 60 * 60 * 1000, // 2 hours — large test suites
   reporting: 15 * 60 * 1000,   // 15 min
 };
 
