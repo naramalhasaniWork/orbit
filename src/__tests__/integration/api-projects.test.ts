@@ -76,7 +76,8 @@ describe("api-projects", () => {
       mockPrisma.project.findMany.mockResolvedValue(projects);
 
       const { GET } = await import("@/app/api/projects/route");
-      const response = await GET();
+      const request = new NextRequest("http://localhost/api/projects");
+      const response = await GET(request);
       const json = await response.json();
 
       expect(json.success).toBe(true);
@@ -88,7 +89,8 @@ describe("api-projects", () => {
       mockPrisma.project.findMany.mockResolvedValue([]);
 
       const { GET } = await import("@/app/api/projects/route");
-      const response = await GET();
+      const request = new NextRequest("http://localhost/api/projects");
+      const response = await GET(request);
       const json = await response.json();
 
       expect(json.success).toBe(true);

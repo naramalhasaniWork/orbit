@@ -146,7 +146,7 @@ export async function POST(
     // Verify environment exists and is not production
     const environment = await prisma.environment.findFirst({
       where: { id: environmentId, projectId },
-      select: { id: true, type: true, url: true },
+      select: { id: true, type: true, url: true, defaultRunMode: true },
     });
 
     if (!environment) {
@@ -185,7 +185,7 @@ export async function POST(
         environmentId,
         testPlanId,
         status: "queued",
-        mode: body.mode ?? "full",
+        mode: body.mode ?? (environment.defaultRunMode as "full" | "smoke" | "regression" | "targeted") ?? "full",
         trigger: "manual",
         triggeredById: session.user.id,
         branch: body.branch,

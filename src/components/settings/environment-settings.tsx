@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Trash2, Globe } from "lucide-react";
+import { Plus, Trash2, Globe, Star } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface Environment {
@@ -14,6 +14,7 @@ interface Environment {
   type: string;
   url: string;
   isDefault: boolean;
+  defaultRunMode: string;
 }
 
 interface EnvironmentSettingsProps {
@@ -31,7 +32,7 @@ const typeColors: Record<string, string> = {
 export function EnvironmentSettings({ projectId, environments: initial }: EnvironmentSettingsProps) {
   const [environments, setEnvironments] = useState(initial);
   const [showAdd, setShowAdd] = useState(false);
-  const [newEnv, setNewEnv] = useState({ name: "", type: "staging", url: "" });
+  const [newEnv, setNewEnv] = useState({ name: "", type: "staging", url: "", defaultRunMode: "full" });
   const [adding, setAdding] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
@@ -56,7 +57,7 @@ export function EnvironmentSettings({ projectId, environments: initial }: Enviro
       if (res.ok) {
         const env = await res.json();
         setEnvironments((prev) => [...prev, env]);
-        setNewEnv({ name: "", type: "staging", url: "" });
+        setNewEnv({ name: "", type: "staging", url: "", defaultRunMode: "full" });
         setShowAdd(false);
       }
     } finally {
@@ -80,6 +81,36 @@ export function EnvironmentSettings({ projectId, environments: initial }: Enviro
     }
   }
 
+  async function handleSetDefault(envId: string) {
+    try {
+      const res = await fetch(`/api/projects/${projectId}/environments`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: envId, isDefault: true }),
+      });
+      if (res.ok) {
+        setEnvironments((prev) =>
+          prev.map((e) => ({ ...e, isDefault: e.id === envId }))
+        );
+      }
+    } catch { /* no-op */ }
+  }
+
+  async function handleRunModeChange(envId: string, mode: string) {
+    try {
+      const res = await fetch(`/api/projects/${projectId}/environments`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: envId, defaultRunMode: mode }),
+      });
+      if (res.ok) {
+        setEnvironments((prev) =>
+          prev.map((e) => (e.id === envId ? { ...e, defaultRunMode: mode } : e))
+        );
+      }
+    } catch { /* no-op */ }
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -99,7 +130,7 @@ export function EnvironmentSettings({ projectId, environments: initial }: Enviro
 
       {showAdd && (
         <div className="rounded-xl surface-1 p-4 space-y-3">
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-4 gap-3">
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">Name</Label>
               <Input
@@ -131,6 +162,18 @@ export function EnvironmentSettings({ projectId, environments: initial }: Enviro
                 className="bg-muted/40"
               />
             </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Default Run Mode</Label>
+              <select
+                value={newEnv.defaultRunMode}
+                onChange={(e) => setNewEnv({ ...newEnv, defaultRunMode: e.target.value })}
+                className="w-full h-9 rounded-md border border-transparent bg-muted/40 px-3 text-sm focus:border-orbit-accent/30 focus:outline-none"
+              >
+                <option value="full">Full Suite</option>
+                <option value="smoke">Smoke (Critical Path)</option>
+                <option value="regression">Regression</option>
+              </select>
+            </div>
           </div>
           <div className="flex gap-2">
             <Button size="sm" onClick={handleAdd} disabled={adding || !newEnv.name || !newEnv.url} className="bg-orbit-accent hover:bg-orbit-accent/90 text-white">
@@ -153,34 +196,61 @@ export function EnvironmentSettings({ projectId, environments: initial }: Enviro
           environments.map((env) => (
             <div
               key={env.id}
-              className="flex items-center justify-between px-4 py-3 rounded-xl surface-1"
+              className="rounded-xl surface-1 px-4 py-3 space-y-2"
             >
-              <div className="flex items-center gap-3">
-                <div className={cn("h-2 w-2 rounded-full", env.isDefault ? "bg-orbit-accent" : "bg-muted")} />
-                <div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-medium text-foreground">{env.name}</span>
-                    <Badge variant="outline" className={cn("text-[10px]", typeColors[env.type])}>
-                      {env.type}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <div className={cn("h-2 w-2 rounded-full", env.isDefault ? "bg-orbit-accent" : "bg-muted")} />
+                  <span className="text-sm font-medium text-foreground">{env.name}</span>
+                  <Badge variant="outline" className={cn("text-[10px]", typeColors[env.type])}>
+                    {env.type}
+                  </Badge>
+                  {env.isDefault && (
+                    <Badge variant="outline" className="text-[10px] text-orbit-accent">
+                      default
                     </Badge>
-                    {env.isDefault && (
-                      <Badge variant="outline" className="text-[10px] text-orbit-accent">
-                        default
-                      </Badge>
-                    )}
-                  </div>
-                  <span className="text-xs text-muted-foreground font-mono">{env.url}</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-1">
+                  {!env.isDefault && (
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-muted-foreground hover:text-orbit-accent gap-1 text-xs"
+                      onClick={() => handleSetDefault(env.id)}
+                    >
+                      <Star className="h-3 w-3" />
+                      Set Default
+                    </Button>
+                  )}
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    className="text-muted-foreground hover:text-red-400"
+                    onClick={() => handleDelete(env.id)}
+                    disabled={deletingId === env.id}
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
                 </div>
               </div>
-              <Button
-                size="sm"
-                variant="ghost"
-                className="text-muted-foreground hover:text-red-400"
-                onClick={() => handleDelete(env.id)}
-                disabled={deletingId === env.id}
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </Button>
+              <div className="flex items-center justify-between pl-4">
+                <span className="text-xs text-muted-foreground font-mono truncate max-w-[60%]">
+                  {env.url}
+                </span>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] text-muted-foreground">Run mode:</span>
+                  <select
+                    value={env.defaultRunMode ?? "full"}
+                    onChange={(e) => handleRunModeChange(env.id, e.target.value)}
+                    className="h-7 rounded-md border border-transparent bg-muted/40 px-2 text-xs focus:border-orbit-accent/30 focus:outline-none"
+                  >
+                    <option value="full">Full Suite</option>
+                    <option value="smoke">Smoke</option>
+                    <option value="regression">Regression</option>
+                  </select>
+                </div>
+              </div>
             </div>
           ))
         )}

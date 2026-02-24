@@ -83,6 +83,7 @@ interface UpdateProjectBody {
   defaultBranch?: string;
   onboardingCompleted?: boolean;
   settings?: Record<string, unknown>;
+  status?: "active" | "archived";
 }
 
 export async function PATCH(
@@ -120,6 +121,12 @@ export async function PATCH(
     if (body.settings !== undefined) {
       data.settings = body.settings;
     }
+    if (body.status !== undefined) {
+      data.status = body.status;
+      if (body.status === "active") {
+        data.deletedAt = null;
+      }
+    }
 
     const updated = await prisma.project.update({
       where: { id: projectId },
@@ -155,9 +162,12 @@ export async function DELETE(
       return apiError("Project not found", "NOT_FOUND", 404);
     }
 
-    await prisma.project.delete({ where: { id: projectId } });
+    await prisma.project.update({
+      where: { id: projectId },
+      data: { status: "archived", deletedAt: new Date() },
+    });
 
-    return apiSuccess({ deleted: true });
+    return apiSuccess({ archived: true });
   } catch (error) {
     return handleApiError(error);
   }

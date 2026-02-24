@@ -11,12 +11,20 @@ import {
 } from "@/lib/utils/api";
 import { generateSlug } from "@/lib/utils/slug";
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const { workspaceId } = await requireWorkspace();
 
+    const { searchParams } = new URL(request.url);
+    const status = searchParams.get("status") ?? "active";
+
+    const where: Record<string, unknown> = { workspaceId };
+    if (status !== "all") {
+      where.status = status;
+    }
+
     const projectList = await prisma.project.findMany({
-      where: { workspaceId },
+      where,
     });
 
     return apiSuccess(projectList);

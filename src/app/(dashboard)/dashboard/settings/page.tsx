@@ -26,6 +26,7 @@ export default async function SettingsPage() {
     type: string;
     url: string;
     isDefault: boolean;
+    defaultRunMode: string;
   }> = [];
 
   let secrets: Array<{
@@ -38,7 +39,7 @@ export default async function SettingsPage() {
   if (project) {
     environments = await prisma.environment.findMany({
       where: { projectId: project.id },
-      select: { id: true, name: true, type: true, url: true, isDefault: true },
+      select: { id: true, name: true, type: true, url: true, isDefault: true, defaultRunMode: true },
       orderBy: { createdAt: "asc" },
     });
 

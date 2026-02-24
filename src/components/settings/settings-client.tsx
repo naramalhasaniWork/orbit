@@ -48,6 +48,7 @@ interface SettingsClientProps {
     type: string;
     url: string;
     isDefault: boolean;
+    defaultRunMode: string;
   }>;
   secrets: Array<{
     id: string;

@@ -9,6 +9,8 @@ interface HeaderProject {
   slug: string;
   framework: string | null;
   healthStatus: string;
+  onboardingCompleted: boolean;
+  status: string;
 }
 
 interface DashboardHeaderProps {

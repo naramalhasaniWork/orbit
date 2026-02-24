@@ -21,6 +21,8 @@ export default async function DashboardLayout({
     slug: string;
     framework: string | null;
     healthStatus: string;
+    onboardingCompleted: boolean;
+    status: string;
   }[] = [];
 
   const session = await getServerSession(authOptions);
@@ -39,6 +41,8 @@ export default async function DashboardLayout({
           slug: true,
           framework: true,
           healthStatus: true,
+          onboardingCompleted: true,
+          status: true,
         },
       }),
       getActiveOperations(workspaceId),

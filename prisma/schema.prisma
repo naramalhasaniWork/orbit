@@ -437,6 +437,7 @@ model Environment {
   url            String
   teardownHookUrl String?        @map("teardown_hook_url")
   isDefault      Boolean         @default(false) @map("is_default")
+  defaultRunMode String          @default("full") @map("default_run_mode")
   source         String?
   sourceId       String?         @map("source_id")
   createdAt      DateTime        @default(now()) @map("created_at")

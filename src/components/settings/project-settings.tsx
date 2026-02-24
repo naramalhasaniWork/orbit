@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,8 +13,19 @@ interface ProjectSettingsProps {
 export function ProjectSettings({ project }: ProjectSettingsProps) {
   const [name, setName] = useState(project?.name ?? "");
   const [saving, setSaving] = useState(false);
-  const [deleting, setDeleting] = useState(false);
+  const [archiving, setArchiving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [archivedProjects, setArchivedProjects] = useState<Array<{ id: string; name: string; slug: string }>>([]);
+  const [restoring, setRestoring] = useState<string | null>(null);
+
+  useEffect(() => {
+    fetch("/api/projects?status=archived")
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.success) setArchivedProjects(json.data);
+      })
+      .catch(() => {});
+  }, []);
 
   if (!project) {
     return (
@@ -44,22 +55,37 @@ export function ProjectSettings({ project }: ProjectSettingsProps) {
     }
   }
 
-  async function handleDelete() {
-    if (!confirm("Are you sure you want to delete this project? This action cannot be undone.")) return;
-    setDeleting(true);
+  async function handleArchive() {
+    setArchiving(true);
     setError(null);
     try {
       const res = await fetch(`/api/projects/${project?.id}`, { method: "DELETE" });
       if (res.ok) {
-        window.location.href = "/dashboard/projects";
+        window.location.href = "/dashboard";
       } else {
         const json = await res.json().catch(() => null);
-        setError(json?.error?.message ?? "Failed to delete project");
+        setError(json?.error?.message ?? "Failed to archive project");
       }
     } catch {
-      setError("Network error — could not delete");
+      setError("Network error — could not archive");
     } finally {
-      setDeleting(false);
+      setArchiving(false);
+    }
+  }
+
+  async function handleRestore(id: string) {
+    setRestoring(id);
+    try {
+      const res = await fetch(`/api/projects/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "active" }),
+      });
+      if (res.ok) {
+        setArchivedProjects((prev) => prev.filter((p) => p.id !== id));
+      }
+    } finally {
+      setRestoring(null);
     }
   }
 
@@ -121,15 +147,46 @@ export function ProjectSettings({ project }: ProjectSettingsProps) {
         </div>
       </div>
 
-      <div className="rounded-xl bg-orbit-fail/[0.04] p-6 space-y-4">
-        <h3 className="text-sm font-medium text-red-400">Danger Zone</h3>
+      <div className="rounded-xl bg-orbit-flaky/[0.04] p-6 space-y-4">
+        <h3 className="text-sm font-medium text-orbit-flaky">Archive Project</h3>
         <p className="text-xs text-muted-foreground">
-          Deleting this project will remove all test plans, runs, and associated data. This action cannot be undone.
+          Archiving hides this project from your dashboard. All data is preserved and you can restore it anytime from settings.
         </p>
-        <Button variant="destructive" size="sm" onClick={handleDelete} disabled={deleting}>
-          {deleting ? "Deleting..." : "Delete Project"}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleArchive}
+          disabled={archiving}
+          className="border-orbit-flaky/30 text-orbit-flaky hover:bg-orbit-flaky/10"
+        >
+          {archiving ? "Archiving..." : "Archive Project"}
         </Button>
       </div>
+
+      {archivedProjects.length > 0 && (
+        <div className="rounded-xl surface-1 p-6 space-y-4">
+          <h3 className="text-sm font-medium text-foreground">Archived Projects</h3>
+          <div className="space-y-2">
+            {archivedProjects.map((ap) => (
+              <div key={ap.id} className="flex items-center justify-between px-3 py-2 rounded-lg bg-white/[0.02]">
+                <div>
+                  <span className="text-sm text-foreground">{ap.name}</span>
+                  <span className="text-xs text-muted-foreground ml-2 font-mono">{ap.slug}</span>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => handleRestore(ap.id)}
+                  disabled={restoring === ap.id}
+                  className="text-xs"
+                >
+                  {restoring === ap.id ? "Restoring..." : "Restore"}
+                </Button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

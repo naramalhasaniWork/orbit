@@ -34,30 +34,31 @@ const pageTransition = {
 };
 
 /**
- * Detect onboarding progress by checking what data already exists for the
- * most recently created project. Returns the step to resume from and the
- * project context needed to render it.
+ * Detect onboarding progress for a specific project. Returns the step to
+ * resume from and the project context needed to render it.
  */
-async function detectOnboardingProgress(): Promise<{
+async function detectOnboardingProgress(
+  targetProjectId: string | null
+): Promise<{
   step: number;
   projectId: string | null;
   repo: RepoItem | null;
   enabledTestCount: number;
 }> {
-  try {
-    const res = await fetch("/api/projects");
-    if (!res.ok) return { step: 1, projectId: null, repo: null, enabledTestCount: 0 };
-    const json = await res.json();
-    if (!json.success || !json.data?.length) {
-      return { step: 1, projectId: null, repo: null, enabledTestCount: 0 };
-    }
+  const empty = { step: 1, projectId: null, repo: null, enabledTestCount: 0 };
 
-    // Use the most recently updated project
-    const sorted = [...json.data].sort(
-      (a: { updatedAt: string }, b: { updatedAt: string }) =>
-        new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
-    );
-    const project = sorted[0];
+  // No project specified — start fresh at step 1
+  if (!targetProjectId) return empty;
+
+  try {
+    // Fetch the specific project
+    const res = await fetch(`/api/projects/${targetProjectId}`);
+    if (!res.ok) return empty;
+
+    const json = await res.json();
+    if (!json.success) return empty;
+
+    const project = json.data;
     const pid = project.id as string;
     const repo: RepoItem = {
       id: pid,
@@ -79,25 +80,27 @@ async function detectOnboardingProgress(): Promise<{
       const testCases = planJson.data?.testCases ?? [];
       if (testCases.length > 0) {
         const enabled = testCases.filter((t: { isEnabled: boolean }) => t.isEnabled).length;
-        // Has plan -> go to plan preview (step 5) or launch (step 6)
         return { step: 5, projectId: pid, repo, enabledTestCount: enabled };
       }
     }
 
-    // Check if indexed (has system map nodes)
+    // Indexed but no plan -> map preview
     if (project.lastIndexedAt) {
-      // Indexed -> go to map preview (step 3)
       return { step: 3, projectId: pid, repo, enabledTestCount: 0 };
     }
 
-    // Project exists but not yet indexed -> go to indexing (step 2)
+    // Project exists but not indexed -> indexing step
     return { step: 2, projectId: pid, repo, enabledTestCount: 0 };
   } catch {
-    return { step: 1, projectId: null, repo: null, enabledTestCount: 0 };
+    return empty;
   }
 }
 
-export function OnboardingWizard() {
+interface OnboardingWizardProps {
+  initialProjectId?: string | null;
+}
+
+export function OnboardingWizard({ initialProjectId }: OnboardingWizardProps) {
   const [step, setStep] = useState(0); // 0 = detecting
   const [direction, setDirection] = useState(1);
   const [selectedRepo, setSelectedRepo] = useState<RepoItem | null>(null);
@@ -106,7 +109,7 @@ export function OnboardingWizard() {
 
   // On mount, detect where the user left off
   useEffect(() => {
-    detectOnboardingProgress().then((result) => {
+    detectOnboardingProgress(initialProjectId ?? null).then((result) => {
       if (result.projectId) {
         setProjectId(result.projectId);
         setSelectedRepo(result.repo);
@@ -114,7 +117,7 @@ export function OnboardingWizard() {
       }
       setStep(result.step);
     });
-  }, []);
+  }, [initialProjectId]);
 
   const goTo = useCallback((nextStep: number) => {
     setDirection(nextStep > step ? 1 : -1);
@@ -125,6 +128,10 @@ export function OnboardingWizard() {
     (repo: RepoItem, newProjectId: string) => {
       setSelectedRepo(repo);
       setProjectId(newProjectId);
+      // Update URL so page refresh resumes correctly
+      const url = new URL(window.location.href);
+      url.searchParams.set("project", newProjectId);
+      window.history.replaceState({}, "", url.toString());
       goTo(2);
     },
     [goTo]

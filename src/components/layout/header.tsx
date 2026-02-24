@@ -24,6 +24,8 @@ interface HeaderProject {
   slug: string;
   framework: string | null;
   healthStatus: string;
+  onboardingCompleted: boolean;
+  status: string;
 }
 
 interface HeaderProps {
@@ -93,29 +95,41 @@ export function Header({ projects = [], activeProjectId, healthStatus }: HeaderP
             <DropdownMenuLabel className="text-xs text-muted-foreground">
               Projects
             </DropdownMenuLabel>
-            {projects.map((project) => (
-              <DropdownMenuItem
-                key={project.id}
-                onClick={() => handleSelectProject(project.id)}
-                className={cn(
-                  "gap-2 cursor-pointer",
-                  project.id === activeProjectId && "bg-accent"
-                )}
-              >
-                <span
+            {projects
+              .filter((p) => p.status === "active")
+              .map((project) => (
+                <DropdownMenuItem
+                  key={project.id}
+                  onClick={() => {
+                    if (!project.onboardingCompleted) {
+                      router.push(`/dashboard/onboarding?project=${project.id}`);
+                    } else {
+                      handleSelectProject(project.id);
+                    }
+                  }}
                   className={cn(
-                    "h-1.5 w-1.5 rounded-full shrink-0",
-                    healthDot[project.healthStatus] ?? "bg-muted-foreground"
+                    "gap-2 cursor-pointer",
+                    project.id === activeProjectId && "bg-accent"
                   )}
-                />
-                <span className="truncate flex-1">{project.name}</span>
-                {project.framework && (
-                  <span className="text-xs text-muted-foreground">
-                    {project.framework}
-                  </span>
-                )}
-              </DropdownMenuItem>
-            ))}
+                >
+                  <span
+                    className={cn(
+                      "h-1.5 w-1.5 rounded-full shrink-0",
+                      !project.onboardingCompleted
+                        ? "bg-orbit-accent animate-pulse"
+                        : healthDot[project.healthStatus] ?? "bg-muted-foreground"
+                    )}
+                  />
+                  <span className="truncate flex-1">{project.name}</span>
+                  {!project.onboardingCompleted ? (
+                    <span className="text-[10px] text-orbit-accent">Setting up...</span>
+                  ) : project.framework ? (
+                    <span className="text-xs text-muted-foreground">
+                      {project.framework}
+                    </span>
+                  ) : null}
+                </DropdownMenuItem>
+              ))}
             {projects.length > 0 && <DropdownMenuSeparator />}
             <DropdownMenuItem
               className="text-muted-foreground cursor-pointer"
