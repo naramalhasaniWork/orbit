@@ -10,6 +10,7 @@ import {
   Loader2,
   Cpu,
 } from "lucide-react";
+import { springs } from "@/lib/motion";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useScreenshotStream } from "@/hooks/use-screenshot-stream";
@@ -106,10 +107,10 @@ export function LiveExecutionViewer({
                   src={`data:image/jpeg;base64,${displayedFrame.imageBase64}`}
                   alt="Live browser screenshot"
                   className="absolute inset-0 w-full h-full object-contain"
-                  initial={{ opacity: 0, scale: 0.98 }}
+                  initial={{ opacity: 0, scale: 0.985 }}
                   animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.2 }}
+                  exit={{ opacity: 0, scale: 1.005 }}
+                  transition={springs.snappy}
                 />
               ) : (
                 <motion.div
@@ -131,9 +132,15 @@ export function LiveExecutionViewer({
             </AnimatePresence>
 
             {frameCount > 0 && (
-              <div className="absolute bottom-2 right-2 text-[10px] tabular-nums text-white/50 bg-black/40 rounded px-1.5 py-0.5 backdrop-blur-sm">
+              <motion.div
+                key={frameCount}
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={springs.snappy}
+                className="absolute bottom-2 right-2 text-[10px] tabular-nums text-white/50 bg-black/40 rounded px-1.5 py-0.5 backdrop-blur-sm"
+              >
                 {frameCount} frames
-              </div>
+              </motion.div>
             )}
           </div>
 
@@ -179,21 +186,30 @@ export function LiveExecutionViewer({
 
 function PreparationOrbit({ runStatus }: { runStatus: string }) {
   return (
-    <div className="relative w-16 h-16">
+    <div className="relative w-20 h-20">
+      {/* Outer ring — slow clockwise */}
       <motion.div
-        className="absolute inset-0 rounded-full border-2 border-orbit-accent/20"
+        className="absolute inset-0 rounded-full border-2 border-orbit-accent/15"
         animate={{ rotate: 360 }}
-        transition={{ duration: 8, repeat: Infinity, ease: "linear" }}
+        transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
       />
+      {/* Middle ring — medium counter-clockwise, dashed */}
       <motion.div
-        className="absolute inset-1 rounded-full border border-dashed border-orbit-accent/10"
+        className="absolute inset-2 rounded-full border border-dashed border-orbit-accent/10"
         animate={{ rotate: -360 }}
-        transition={{ duration: 12, repeat: Infinity, ease: "linear" }}
+        transition={{ duration: 14, repeat: Infinity, ease: "linear" }}
       />
+      {/* Inner ring — fast clockwise, subtle */}
+      <motion.div
+        className="absolute inset-4 rounded-full border border-orbit-accent/[0.07]"
+        animate={{ rotate: 360 }}
+        transition={{ duration: 6, repeat: Infinity, ease: "linear" }}
+      />
+      {/* Center icon — breathing scale */}
       <motion.div
         className="absolute inset-0 flex items-center justify-center"
-        animate={{ scale: [1, 1.05, 1] }}
-        transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+        animate={{ scale: [1, 1.08, 1] }}
+        transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
       >
         {runStatus === "queued" ? (
           <Loader2 className="h-6 w-6 text-orbit-accent animate-spin" />
@@ -201,11 +217,19 @@ function PreparationOrbit({ runStatus }: { runStatus: string }) {
           <Cpu className="h-6 w-6 text-orbit-accent" />
         )}
       </motion.div>
+      {/* Orbiting dot — primary */}
       <motion.div
-        className="absolute w-1.5 h-1.5 rounded-full bg-orbit-accent shadow-[0_0_6px_rgba(var(--orbit-accent-rgb,255_140_50),0.6)]"
-        style={{ top: -3, left: "calc(50% - 3px)" }}
+        className="absolute w-1.5 h-1.5 rounded-full bg-orbit-accent shadow-[0_0_8px_hsl(var(--orbit-accent)/0.6)]"
+        style={{ top: -3, left: "calc(50% - 3px)", transformOrigin: "3px 43px" }}
         animate={{ rotate: 360 }}
         transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
+      />
+      {/* Orbiting dot — secondary, offset */}
+      <motion.div
+        className="absolute w-1 h-1 rounded-full bg-orbit-accent/40 shadow-[0_0_4px_hsl(var(--orbit-accent)/0.3)]"
+        style={{ bottom: -2, left: "calc(50% - 2px)", transformOrigin: "2px -38px" }}
+        animate={{ rotate: -360 }}
+        transition={{ duration: 4.5, repeat: Infinity, ease: "linear" }}
       />
     </div>
   );

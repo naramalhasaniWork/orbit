@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { springs } from "@/lib/motion";
 
 const STEPS = [
   {
@@ -28,7 +29,7 @@ export function HowItWorks() {
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-100px" }}
-          transition={{ duration: 0.5 }}
+          transition={springs.smooth}
           className="mb-20"
         >
           <p className="text-[13px] font-medium text-primary tracking-widest uppercase mb-4">
@@ -43,14 +44,20 @@ export function HowItWorks() {
           {STEPS.map((step, i) => (
             <motion.div
               key={step.number}
-              initial={{ opacity: 0, y: 30 }}
+              initial={{ opacity: 0, y: 24 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: "-50px" }}
-              transition={{ duration: 0.5, delay: i * 0.1 }}
+              transition={{ ...springs.smooth, delay: i * 0.1 }}
             >
-              <span className="text-5xl font-bold text-primary/[0.12] block mb-4 select-none">
+              <motion.span
+                initial={{ opacity: 0, scale: 0.8 }}
+                whileInView={{ opacity: 1, scale: 1 }}
+                viewport={{ once: true }}
+                transition={{ ...springs.bounce, delay: i * 0.1 + 0.1 }}
+                className="text-5xl font-bold text-primary/[0.12] block mb-4 select-none"
+              >
                 {step.number}
-              </span>
+              </motion.span>
               <h3 className="text-lg font-semibold mb-2">{step.title}</h3>
               <p className="text-sm text-muted-foreground leading-relaxed">
                 {step.description}

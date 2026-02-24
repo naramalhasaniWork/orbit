@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronRight, ShieldAlert, Image as ImageIcon } from "lucide-react";
+import { springs, expandCollapse } from "@/lib/motion";
 import { Badge } from "@/components/ui/badge";
 import { StatusDot } from "@/components/shared/status-dot";
 import { StepLog } from "@/components/runs/step-log";
@@ -51,10 +52,15 @@ export function TestResultCard({ result, projectId, runId }: TestResultCardProps
   const { screenshots } = parseArtifacts(result.artifacts);
 
   return (
-    <div className={cn(
-      "rounded-xl surface-1 border border-border overflow-hidden transition-colors",
-      result.verdict === "fail" && "border-orbit-fail/20"
-    )}>
+    <motion.div
+      className={cn(
+        "rounded-xl surface-1 border border-border overflow-hidden",
+        result.verdict === "fail" && "border-orbit-fail/20"
+      )}
+      whileHover={{ scale: 1.003, boxShadow: "0 2px 12px rgba(0,0,0,0.08)" }}
+      whileTap={{ scale: 0.998 }}
+      transition={{ duration: 0.15 }}
+    >
       <button
         onClick={() => setExpanded(!expanded)}
         className="w-full flex items-center gap-3 px-4 py-3.5 hover:bg-muted/20 transition-colors text-left"
@@ -111,24 +117,30 @@ export function TestResultCard({ result, projectId, runId }: TestResultCardProps
           <span className="text-xs text-muted-foreground tabular-nums">
             {formatDuration(result.durationMs)}
           </span>
-          <Badge
-            className={cn(
-              "text-[10px] px-1.5 py-0 font-medium border",
-              verdictBadge[result.verdict] ?? verdictBadge.skipped
-            )}
+          <motion.div
+            initial={(result.verdict === "fail" || result.verdict === "flaky") ? { scale: 0.8, opacity: 0 } : false}
+            animate={(result.verdict === "fail" || result.verdict === "flaky") ? { scale: 1, opacity: 1 } : undefined}
+            transition={springs.bounce}
           >
-            {result.verdict}
-          </Badge>
+            <Badge
+              className={cn(
+                "text-[10px] px-1.5 py-0 font-medium border",
+                verdictBadge[result.verdict] ?? verdictBadge.skipped
+              )}
+            >
+              {result.verdict}
+            </Badge>
+          </motion.div>
         </div>
       </button>
 
       <AnimatePresence initial={false}>
         {expanded && hasDetails && (
           <motion.div
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2, ease: "easeInOut" }}
+            variants={expandCollapse}
+            initial="initial"
+            animate="animate"
+            exit="exit"
             className="overflow-hidden"
           >
             <div className="px-4 pb-4 pt-1 border-t border-border space-y-4">
@@ -152,7 +164,7 @@ export function TestResultCard({ result, projectId, runId }: TestResultCardProps
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
+    </motion.div>
   );
 }
 

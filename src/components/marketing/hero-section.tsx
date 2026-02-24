@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { motion } from "framer-motion";
+import { springs } from "@/lib/motion";
 
 const ease = [0.21, 0.47, 0.32, 0.98];
 
@@ -105,18 +106,18 @@ export function HeroSection() {
         <div className="grid lg:grid-cols-2 gap-16 lg:gap-20 items-center">
           <div>
             <motion.p
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.6, ease }}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ ...springs.smooth, delay: 0 }}
               className="text-[13px] font-medium text-primary tracking-widest uppercase mb-6"
             >
               AI-Native Testing Platform
             </motion.p>
 
             <motion.h1
-              initial={{ opacity: 0, y: 30 }}
+              initial={{ opacity: 0, y: 24 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, delay: 0.05, ease }}
+              transition={{ ...springs.gentle, delay: 0.06 }}
               className="text-4xl sm:text-5xl lg:text-[3.5rem] font-bold tracking-tight leading-[1.08]"
             >
               Ship faster.
@@ -125,9 +126,9 @@ export function HeroSection() {
             </motion.h1>
 
             <motion.p
-              initial={{ opacity: 0, y: 30 }}
+              initial={{ opacity: 0, y: 24 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, delay: 0.12, ease }}
+              transition={{ ...springs.gentle, delay: 0.12 }}
               className="mt-6 text-lg text-muted-foreground leading-relaxed max-w-lg"
             >
               Orbit connects to your repo, understands your code, and runs tests
@@ -135,9 +136,9 @@ export function HeroSection() {
             </motion.p>
 
             <motion.div
-              initial={{ opacity: 0, y: 30 }}
+              initial={{ opacity: 0, y: 24 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.8, delay: 0.2, ease }}
+              transition={{ ...springs.gentle, delay: 0.2 }}
               className="mt-10 flex flex-wrap items-center gap-4"
             >
               <Link
@@ -157,7 +158,7 @@ export function HeroSection() {
             <motion.p
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              transition={{ duration: 0.6, delay: 0.4, ease }}
+              transition={{ ...springs.smooth, delay: 0.35 }}
               className="mt-6 text-xs text-muted-foreground/50"
             >
               Free for up to 100 test runs/month. No credit card required.
@@ -165,9 +166,9 @@ export function HeroSection() {
           </div>
 
           <motion.div
-            initial={{ opacity: 0, scale: 0.96 }}
+            initial={{ opacity: 0, scale: 0.94 }}
             animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 1, delay: 0.3, ease }}
+            transition={{ ...springs.gentle, delay: 0.25 }}
             className="relative hidden lg:block"
           >
             <SystemMapMockup />

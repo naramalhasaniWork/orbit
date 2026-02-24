@@ -110,6 +110,10 @@ const config: Config = {
           from: { opacity: "0", transform: "translateY(4px)" },
           to: { opacity: "1", transform: "translateY(0)" },
         },
+        "slide-in-left": {
+          from: { opacity: "0", transform: "translateX(-8px)" },
+          to: { opacity: "1", transform: "translateX(0)" },
+        },
         "slide-in-right": {
           from: { opacity: "0", transform: "translateX(8px)" },
           to: { opacity: "1", transform: "translateX(0)" },
@@ -138,6 +142,14 @@ const config: Config = {
           "0%, 100%": { borderColor: "hsl(var(--primary) / 0.2)" },
           "50%": { borderColor: "hsl(var(--primary) / 0.5)" },
         },
+        "dot-pulse": {
+          "0%, 100%": { opacity: "0.3", transform: "scale(0.8)" },
+          "50%": { opacity: "1", transform: "scale(1)" },
+        },
+        "progress-glow": {
+          "0%, 100%": { boxShadow: "2px 0 4px currentColor" },
+          "50%": { boxShadow: "2px 0 12px currentColor" },
+        },
       },
       animation: {
         "accordion-down": "accordion-down 0.2s ease-out",
@@ -145,6 +157,7 @@ const config: Config = {
         "pulse-glow": "pulse-glow 2s ease-in-out infinite",
         "node-appear": "node-appear 0.3s ease-out",
         "fade-in": "fade-in 0.3s ease-out",
+        "slide-in-left": "slide-in-left 0.2s ease-out",
         "slide-in-right": "slide-in-right 0.2s ease-out",
         "glow-pulse": "glow-pulse 2s ease-in-out infinite",
         shimmer: "shimmer 3s ease-in-out infinite",
@@ -152,6 +165,14 @@ const config: Config = {
         "scale-in": "scale-in 0.2s ease-out",
         "slide-up": "slide-up 0.3s ease-out",
         "border-glow": "border-glow 3s ease-in-out infinite",
+        "dot-pulse": "dot-pulse 1s ease-in-out infinite",
+        "progress-glow": "progress-glow 2s ease-in-out infinite",
+      },
+      transitionDuration: {
+        "150": "150ms",
+        "200": "200ms",
+        "300": "300ms",
+        "500": "500ms",
       },
     },
   },

@@ -6,7 +6,7 @@ interface StatusDotProps {
   pulse?: boolean;
 }
 
-const statusColors = {
+const statusColors: Record<string, string> = {
   pass: "bg-orbit-pass",
   fail: "bg-orbit-fail",
   flaky: "bg-orbit-flaky",
@@ -15,31 +15,47 @@ const statusColors = {
   skipped: "bg-muted-foreground",
 };
 
-const glowColors: Record<string, string> = {
-  pass: "shadow-[0_0_6px_hsl(var(--orbit-pass)/0.5)]",
-  fail: "shadow-[0_0_6px_hsl(var(--orbit-fail)/0.5)]",
-  flaky: "shadow-[0_0_6px_hsl(var(--orbit-flaky)/0.5)]",
-  running: "shadow-[0_0_6px_hsl(var(--orbit-accent)/0.5)]",
+const glowIntensity: Record<string, string> = {
+  pass: "shadow-[0_0_6px_hsl(var(--orbit-pass)/0.4)]",
+  fail: "shadow-[0_0_8px_hsl(var(--orbit-fail)/0.6)]",
+  flaky: "shadow-[0_0_7px_hsl(var(--orbit-flaky)/0.5)]",
+  running: "shadow-[0_0_8px_hsl(var(--orbit-accent)/0.6)]",
 };
 
 export function StatusDot({ status, size = "sm", pulse }: StatusDotProps) {
+  const isRunning = status === "running";
+  const shouldPulse = pulse || isRunning;
+  const dim = size === "sm" ? "h-2 w-2" : "h-3 w-3";
+
   return (
     <span className="relative inline-flex shrink-0">
       <span
         className={cn(
           "inline-block rounded-full",
           statusColors[status],
-          glowColors[status],
-          size === "sm" ? "h-2 w-2" : "h-3 w-3",
+          glowIntensity[status],
+          dim,
         )}
       />
-      {pulse && (
+      {/* Primary ping ring */}
+      {shouldPulse && (
         <span
           className={cn(
             "absolute inset-0 rounded-full animate-ping opacity-75",
             statusColors[status],
-            size === "sm" ? "h-2 w-2" : "h-3 w-3",
+            dim,
           )}
+        />
+      )}
+      {/* Secondary ring — offset timing for running state */}
+      {isRunning && (
+        <span
+          className={cn(
+            "absolute inset-0 rounded-full animate-ping opacity-40",
+            statusColors[status],
+            dim,
+          )}
+          style={{ animationDelay: "0.5s" }}
         />
       )}
     </span>

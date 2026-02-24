@@ -10,6 +10,7 @@ import {
   SkipForward,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { springs, progressSpring } from "@/lib/motion";
 import type { TestItem } from "@/hooks/use-run-events";
 
 interface TestTimelinePanelProps {
@@ -50,12 +51,12 @@ export function TestTimelinePanel({
 
       {/* Progress micro-bar */}
       {totalTests > 0 && (
-        <div className="h-0.5 bg-white/[0.04] shrink-0">
+        <div className="h-0.5 bg-white/[0.04] shrink-0 overflow-hidden">
           <motion.div
-            className="h-full bg-orbit-accent"
+            className="h-full bg-orbit-accent shadow-[2px_0_6px_hsl(var(--orbit-accent)/0.5)]"
             initial={{ width: 0 }}
             animate={{ width: `${(completed / totalTests) * 100}%` }}
-            transition={{ duration: 0.4, ease: "easeOut" }}
+            transition={progressSpring}
           />
         </div>
       )}
@@ -87,9 +88,9 @@ function TestEntry({ test, index }: { test: TestItem; index: number }) {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 6 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.2 }}
+      initial={{ opacity: 0, x: -12 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={springs.smooth}
       className={cn(
         "flex items-center gap-2 px-2 py-1.5 rounded-md transition-colors group",
         isRunning && "bg-orbit-accent/[0.06]",
@@ -123,13 +124,21 @@ function TestEntry({ test, index }: { test: TestItem; index: number }) {
       )}
 
       {isRunning && (
-        <motion.div className="h-0.5 w-5 rounded-full bg-orbit-accent/20 overflow-hidden shrink-0">
-          <motion.div
-            className="h-full bg-orbit-accent rounded-full"
-            animate={{ x: ["-100%", "100%"] }}
-            transition={{ duration: 1.2, repeat: Infinity, ease: "easeInOut" }}
-          />
-        </motion.div>
+        <div className="flex items-center gap-0.5 shrink-0">
+          {[0, 1, 2].map((dot) => (
+            <motion.div
+              key={dot}
+              className="h-1 w-1 rounded-full bg-orbit-accent"
+              animate={{ opacity: [0.3, 1, 0.3], scale: [0.8, 1, 0.8] }}
+              transition={{
+                duration: 1,
+                repeat: Infinity,
+                delay: dot * 0.15,
+                ease: "easeInOut",
+              }}
+            />
+          ))}
+        </div>
       )}
     </motion.div>
   );

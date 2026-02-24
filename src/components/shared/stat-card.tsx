@@ -1,8 +1,11 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
+import { motion, useSpring, useTransform } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { Sparkline } from "@/components/shared/sparkline";
+import { springs } from "@/lib/motion";
 
 interface StatCardProps {
   label: string;
@@ -13,6 +16,41 @@ interface StatCardProps {
   sparklineColor?: string;
   suffix?: string;
   className?: string;
+}
+
+/** Animated number display — smoothly ticks between numeric values */
+function AnimatedValue({ value, suffix }: { value: string | number; suffix?: string }) {
+  const isNumeric = typeof value === "number";
+  const spring = useSpring(isNumeric ? value : 0, { stiffness: 200, damping: 30 });
+  const display = useTransform(spring, (v) => Math.round(v));
+  const [displayStr, setDisplayStr] = useState(String(value));
+  const prevValueRef = useRef(value);
+
+  useEffect(() => {
+    if (isNumeric) {
+      spring.set(value);
+    } else {
+      setDisplayStr(String(value));
+    }
+    prevValueRef.current = value;
+  }, [value, isNumeric, spring]);
+
+  useEffect(() => {
+    if (!isNumeric) return;
+    const unsubscribe = display.on("change", (v) => setDisplayStr(String(v)));
+    return unsubscribe;
+  }, [display, isNumeric]);
+
+  return (
+    <span className="text-2xl font-semibold tabular-nums text-foreground tracking-tight">
+      {displayStr}
+      {suffix && (
+        <span className="text-sm font-normal text-muted-foreground ml-0.5">
+          {suffix}
+        </span>
+      )}
+    </span>
+  );
 }
 
 export function StatCard({
@@ -29,12 +67,13 @@ export function StatCard({
   const trendNegative = trendInverted ? (trend ?? 0) > 0 : (trend ?? 0) < 0;
 
   return (
-    <div
+    <motion.div
       className={cn(
         "flex flex-col gap-1.5 p-4 rounded-xl surface-1 border border-border",
-        "hover:border-border/80 dark:hover:border-white/[0.12] transition-all duration-200",
+        "hover:border-border/80 dark:hover:border-white/[0.12] transition-colors",
         className
       )}
+      whileHover={{ y: -1, transition: { duration: 0.15 } }}
     >
       <div className="flex items-center justify-between">
         <span className="text-[11px] text-muted-foreground font-medium uppercase tracking-wider">
@@ -51,16 +90,12 @@ export function StatCard({
         )}
       </div>
       <div className="flex items-end gap-2">
-        <span className="text-2xl font-semibold tabular-nums text-foreground tracking-tight">
-          {value}
-          {suffix && (
-            <span className="text-sm font-normal text-muted-foreground ml-0.5">
-              {suffix}
-            </span>
-          )}
-        </span>
+        <AnimatedValue value={value} suffix={suffix} />
         {trend !== undefined && (
-          <span
+          <motion.span
+            initial={{ opacity: 0, x: -4 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={springs.snappy}
             className={cn(
               "flex items-center gap-0.5 text-xs font-medium pb-1",
               trendPositive && "text-orbit-pass",
@@ -72,9 +107,9 @@ export function StatCard({
             {trend < 0 && <TrendingDown className="h-3 w-3" />}
             {trend === 0 && <Minus className="h-3 w-3" />}
             {Math.abs(trend).toFixed(1)}%
-          </span>
+          </motion.span>
         )}
       </div>
-    </div>
+    </motion.div>
   );
 }

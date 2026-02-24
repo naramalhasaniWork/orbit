@@ -1,33 +1,55 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { springs } from "@/lib/motion";
 
 interface FadeInProps {
   children: React.ReactNode;
   delay?: number;
-  direction?: "up" | "none";
+  direction?: "up" | "down" | "left" | "right" | "none";
   className?: string;
+  /** Trigger on mount instead of scroll */
+  onMount?: boolean;
 }
+
+const directionOffset = {
+  up: { y: 20 },
+  down: { y: -20 },
+  left: { x: -20 },
+  right: { x: 20 },
+  none: {},
+} as const;
 
 export function FadeIn({
   children,
   delay = 0,
   direction = "up",
   className,
+  onMount = false,
 }: FadeInProps) {
+  const initial = { opacity: 0, ...directionOffset[direction] };
+  const target = { opacity: 1, x: 0, y: 0 };
+  const transition = { ...springs.smooth, delay };
+
+  if (onMount) {
+    return (
+      <motion.div
+        initial={initial}
+        animate={target}
+        transition={transition}
+        className={className}
+      >
+        {children}
+      </motion.div>
+    );
+  }
+
   return (
     <motion.div
-      initial={{
-        opacity: 0,
-        y: direction === "up" ? 24 : 0,
-      }}
-      whileInView={{ opacity: 1, y: 0 }}
+      initial={initial}
+      whileInView={target}
       viewport={{ once: true, margin: "-80px" }}
-      transition={{
-        duration: 0.7,
-        delay,
-        ease: [0.21, 0.47, 0.32, 0.98],
-      }}
+      transition={transition}
       className={className}
     >
       {children}

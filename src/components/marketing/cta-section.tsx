@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { motion } from "framer-motion";
+import { springs } from "@/lib/motion";
 
 export function CtaSection() {
   return (
@@ -14,16 +15,28 @@ export function CtaSection() {
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-100px" }}
-          transition={{ duration: 0.5 }}
+          transition={springs.smooth}
           className="text-center"
         >
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight">
             Ready to ship with confidence?
           </h2>
-          <p className="mt-6 text-lg text-muted-foreground max-w-md mx-auto">
+          <motion.p
+            initial={{ opacity: 0, y: 12 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ ...springs.smooth, delay: 0.08 }}
+            className="mt-6 text-lg text-muted-foreground max-w-md mx-auto"
+          >
             Get started in under 2 minutes. Connect your repo and let Orbit handle the rest.
-          </p>
-          <div className="mt-10 flex flex-col items-center gap-3">
+          </motion.p>
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ ...springs.smooth, delay: 0.16 }}
+            className="mt-10 flex flex-col items-center gap-3"
+          >
             <Link
               href="/login"
               className="inline-flex items-center justify-center font-medium bg-primary text-primary-foreground px-8 py-4 rounded-full text-base hover:bg-primary/90 transition-all duration-300 hover:shadow-glow"
@@ -33,7 +46,7 @@ export function CtaSection() {
             <p className="text-xs text-muted-foreground/50">
               No credit card required. 100 free test runs/month.
             </p>
-          </div>
+          </motion.div>
         </motion.div>
       </div>
     </section>

@@ -1,39 +1,40 @@
 {
   "headline": "Testing should evolve with your code",
-  "subheadline": "Orbit was born from a simple frustration: AI helps you write code 10x faster, but testing hasn't kept up. We're fixing that.",
+  "subheadline": "AI coding tools let you ship features in hours. But testing is still the bottleneck — manual scripts, brittle selectors, a QA backlog that grows faster than you can clear it. Orbit was built to fix that.",
   "story": {
     "paragraphs": [
-      "Every development team faces the same problem. AI coding tools let you ship features in hours instead of days. But testing? That's still manual scripts, brittle selectors, and a QA bottleneck that gets worse the faster you build.",
-      "Orbit takes a fundamentally different approach. Instead of recording tests or crawling URLs, we read your codebase at the AST level — understanding routes, components, auth flows, and business logic the way a senior engineer would. Then we generate and execute comprehensive test plans automatically.",
-      "The result is a testing system that doesn't just find bugs — it understands your application deeply enough to anticipate where bugs will appear. And it updates itself every time you push code."
+      "Here's the reality of building software in 2026: AI coding assistants let a two-person team ship what used to take ten. But every feature that goes out untested is a bet against your users. And the faster you ship, the more those bets stack up.",
+      "Existing testing tools weren't built for this world. Record-and-replay breaks every time your UI changes. Scriptless tools crawl URLs without understanding what they're looking at. Enterprise platforms cost six figures and take months to deploy. None of them actually understand your codebase.",
+      "Orbit takes a fundamentally different approach. It reads your code at the AST level — understanding routes, components, auth flows, and business logic the way a senior engineer would. Then it generates and executes comprehensive test plans automatically, updating them every time you push.",
+      "The result is a testing system that doesn't just find bugs — it understands your application deeply enough to anticipate where bugs will appear. No test scripts to write. No selectors to maintain. No QA bottleneck. Just connect your repo, point it at staging, and ship with confidence."
     ]
   },
   "values": [
     {
       "title": "One Connection, Full Coverage",
-      "description": "Connect your repo once. Orbit handles indexing, planning, generating, and running. You focus on building.",
+      "description": "Connect your repo once. Orbit handles indexing, planning, generating, and running. You focus on building — not babysitting test suites.",
       "icon": "Plug"
     },
     {
       "title": "The AI Works in the Open",
-      "description": "Every decision Orbit makes is visible and explainable. See what it found, why it prioritized it, and how it reached its conclusions.",
+      "description": "Every decision Orbit makes is visible and explainable. See what it found in your code, why it prioritized a test case, and how it reached its verdict. No black boxes.",
       "icon": "Eye"
     },
     {
       "title": "You Stay in Control",
-      "description": "Autonomous by default, configurable at every level. Set the model, override prompts, approve plans, exclude paths. Autonomy is a dial.",
+      "description": "Autonomous by default, configurable at every level. Choose the AI model, override prompts, approve plans before execution, exclude paths. Autonomy is a dial, not a switch.",
       "icon": "Sliders"
     },
     {
       "title": "Cost is a First-Class Concern",
-      "description": "Prompt caching, semantic dedup, smart batching, model routing. We obsess over keeping per-run costs low enough to test every PR.",
+      "description": "Prompt caching, semantic dedup, smart batching, model routing per task. We obsess over keeping per-run costs low enough to test every single PR.",
       "icon": "DollarSign"
     }
   ],
   "stats": [
     { "value": "90s", "label": "Average time to index a repo" },
     { "value": "47", "label": "Test cases generated on first run" },
-    { "value": "3 min", "label": "PR regression run time" },
+    { "value": "3 min", "label": "Average PR regression run" },
     { "value": "0", "label": "Lines of test code you write" }
   ]
 }

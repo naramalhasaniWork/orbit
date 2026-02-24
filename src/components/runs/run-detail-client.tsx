@@ -3,8 +3,15 @@
 import { useState, useMemo, useCallback, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { ArrowLeft, GitBranch, Clock, Hash, XCircle, Loader2 } from "lucide-react";
+import {
+  staggerContainer,
+  staggerScaleItem,
+  springs,
+  progressSpring,
+  crossfade,
+} from "@/lib/motion";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -112,9 +119,9 @@ export function RunDetailClient({ run, projectId }: RunDetailClientProps) {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 8 }}
+      initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.35, ease: "easeOut" }}
+      transition={springs.smooth}
       className="space-y-6"
     >
       {/* Header */}
@@ -159,13 +166,18 @@ export function RunDetailClient({ run, projectId }: RunDetailClientProps) {
       </div>
 
       {/* Live stat cards */}
-      <div className="grid grid-cols-5 gap-3">
-        <StatCard label="Pass Rate" value={passRate} />
-        <StatCard label="Passed" value={livePassed} />
-        <StatCard label="Failed" value={liveFailed} />
-        <StatCard label="Flaky" value={liveFlaky} />
-        <StatCard label="Duration" value={formatDuration(elapsed)} />
-      </div>
+      <motion.div
+        variants={staggerContainer(0.04)}
+        initial="hidden"
+        animate="show"
+        className="grid grid-cols-5 gap-3"
+      >
+        <motion.div variants={staggerScaleItem}><StatCard label="Pass Rate" value={passRate} /></motion.div>
+        <motion.div variants={staggerScaleItem}><StatCard label="Passed" value={livePassed} /></motion.div>
+        <motion.div variants={staggerScaleItem}><StatCard label="Failed" value={liveFailed} /></motion.div>
+        <motion.div variants={staggerScaleItem}><StatCard label="Flaky" value={liveFlaky} /></motion.div>
+        <motion.div variants={staggerScaleItem}><StatCard label="Duration" value={formatDuration(elapsed)} /></motion.div>
+      </motion.div>
 
       <LiveResultsBar passed={livePassed} failed={liveFailed} flaky={liveFlaky} total={liveTotal} />
 
@@ -189,38 +201,51 @@ export function RunDetailClient({ run, projectId }: RunDetailClientProps) {
 
         {isLive && (
           <TabsContent value="live" className="mt-4">
-            {projectId ? (
-              <LiveExecutionViewer
-                projectId={projectId}
-                runId={run.id}
-                runStatus={liveStatus}
-                enabled={isLive}
-                progress={progress}
-                steps={steps}
-                tests={tests}
-              />
-            ) : (
-              <p className="text-sm text-muted-foreground">Project context required for live view.</p>
-            )}
+            <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={springs.snappy}>
+              {projectId ? (
+                <LiveExecutionViewer
+                  projectId={projectId}
+                  runId={run.id}
+                  runStatus={liveStatus}
+                  enabled={isLive}
+                  progress={progress}
+                  steps={steps}
+                  tests={tests}
+                />
+              ) : (
+                <p className="text-sm text-muted-foreground">Project context required for live view.</p>
+              )}
+            </motion.div>
           </TabsContent>
         )}
 
         <TabsContent value="results" className="mt-4 space-y-4">
-          <VerdictFilterBar results={run.results} selected={verdictFilter} onSelect={setVerdictFilter} />
-          <div className="space-y-2">
-            {filteredResults.map((result) => (
-              <TestResultCard key={result.id} result={result} projectId={projectId} runId={run.id} />
-            ))}
-          </div>
-          {projectId && run.failed > 0 && <FailurePatternsPanel projectId={projectId} />}
+          <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={springs.snappy} className="space-y-4">
+            <VerdictFilterBar results={run.results} selected={verdictFilter} onSelect={setVerdictFilter} />
+            <div className="space-y-2">
+              {filteredResults.map((result, i) => (
+                <motion.div
+                  key={result.id}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ ...springs.smooth, delay: Math.min(i * 0.03, 0.3) }}
+                >
+                  <TestResultCard result={result} projectId={projectId} runId={run.id} />
+                </motion.div>
+              ))}
+            </div>
+            {projectId && run.failed > 0 && <FailurePatternsPanel projectId={projectId} />}
+          </motion.div>
         </TabsContent>
 
         <TabsContent value="traces" className="mt-4">
-          {projectId ? (
-            <TraceViewer projectId={projectId} runId={run.id} />
-          ) : (
-            <p className="text-sm text-muted-foreground">Project context required to view traces.</p>
-          )}
+          <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={springs.snappy}>
+            {projectId ? (
+              <TraceViewer projectId={projectId} runId={run.id} />
+            ) : (
+              <p className="text-sm text-muted-foreground">Project context required to view traces.</p>
+            )}
+          </motion.div>
         </TabsContent>
       </Tabs>
     </motion.div>
@@ -263,10 +288,12 @@ function LiveResultsBar({
   if (total === 0) return null;
 
   const segments = [
-    { count: passed, color: "bg-orbit-pass" },
-    { count: failed, color: "bg-orbit-fail" },
-    { count: flaky, color: "bg-orbit-flaky" },
+    { count: passed, color: "bg-orbit-pass", glow: "shadow-[2px_0_8px_hsl(var(--orbit-pass)/0.4)]" },
+    { count: failed, color: "bg-orbit-fail", glow: "shadow-[2px_0_8px_hsl(var(--orbit-fail)/0.4)]" },
+    { count: flaky, color: "bg-orbit-flaky", glow: "shadow-[2px_0_8px_hsl(var(--orbit-flaky)/0.4)]" },
   ];
+
+  const isProgressing = completed < total && completed > 0;
 
   return (
     <div className="flex h-1.5 rounded-full overflow-hidden bg-muted/30">
@@ -274,10 +301,15 @@ function LiveResultsBar({
         seg.count > 0 && (
           <motion.div
             key={i}
-            className={cn("h-full", seg.color)}
+            className={cn(
+              "h-full",
+              seg.color,
+              // Add glow to the last visible segment's leading edge
+              isProgressing && i === segments.filter(s => s.count > 0).length - 1 && seg.glow
+            )}
             initial={{ width: 0 }}
             animate={{ width: `${(seg.count / total) * 100}%` }}
-            transition={{ duration: 0.4, ease: "easeOut" }}
+            transition={progressSpring}
           />
         )
       )}

@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { springs } from "@/lib/motion";
 
 function DashboardMockup() {
   return (
@@ -72,7 +73,7 @@ export function ProductShowcase() {
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-100px" }}
-          transition={{ duration: 0.5 }}
+          transition={springs.smooth}
           className="text-center mb-16"
         >
           <p className="text-[13px] font-medium text-primary tracking-widest uppercase mb-4">
@@ -87,10 +88,10 @@ export function ProductShowcase() {
         </motion.div>
 
         <motion.div
-          initial={{ opacity: 0, y: 40 }}
-          whileInView={{ opacity: 1, y: 0 }}
+          initial={{ opacity: 0, y: 32, scale: 0.97 }}
+          whileInView={{ opacity: 1, y: 0, scale: 1 }}
           viewport={{ once: true, margin: "-100px" }}
-          transition={{ duration: 0.7, ease: [0.21, 0.47, 0.32, 0.98] }}
+          transition={springs.gentle}
         >
           <DashboardMockup />
         </motion.div>

@@ -3,6 +3,12 @@
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
+import {
+  staggerContainer,
+  staggerItem,
+  staggerScaleItem,
+  scaleIn,
+} from "@/lib/motion";
 import { StatCard } from "@/components/shared/stat-card";
 import { EmptyState } from "@/components/shared/empty-state";
 import { RunsTimeline } from "@/components/dashboard/runs-timeline";
@@ -89,18 +95,9 @@ interface DashboardClientProps {
   indexingInfo?: IndexingInfo;
 }
 
-const stagger = {
-  hidden: { opacity: 0 },
-  show: {
-    opacity: 1,
-    transition: { staggerChildren: 0.06 },
-  },
-};
-
-const fadeUp = {
-  hidden: { opacity: 0, y: 8 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.35, ease: "easeOut" } },
-};
+const stagger = staggerContainer(0.06);
+const fadeUp = staggerItem;
+const cardItem = staggerScaleItem;
 
 export function DashboardClient({
   projects,
@@ -197,40 +194,51 @@ export function DashboardClient({
         </motion.div>
       )}
 
-      <motion.div variants={fadeUp} className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <StatCard
-          label="Pass Rate"
-          value={stats.passRate}
-          suffix="%"
-          trend={stats.trends?.passRate}
-          sparklineData={stats.sparklines?.passRate}
-          sparklineColor="hsl(var(--orbit-pass))"
-        />
-        <StatCard
-          label="Flaky Tests"
-          value={stats.flakyCount}
-          trend={stats.trends?.flakyCount}
-          trendInverted
-          sparklineData={stats.sparklines?.flakyCount}
-          sparklineColor="hsl(var(--orbit-flaky))"
-        />
-        <StatCard
-          label="Coverage"
-          value={stats.coverage}
-          suffix="%"
-          trend={stats.trends?.coverage}
-          sparklineData={stats.sparklines?.coverage}
-          sparklineColor="hsl(var(--orbit-accent))"
-        />
-        <StatCard
-          label="Last Duration"
-          value={stats.lastDuration > 0 ? `${(stats.lastDuration / 1000).toFixed(1)}` : "--"}
-          suffix={stats.lastDuration > 0 ? "s" : ""}
-          trend={stats.trends?.duration}
-          trendInverted
-          sparklineData={stats.sparklines?.duration}
-          sparklineColor="hsl(var(--orbit-untested))"
-        />
+      <motion.div
+        variants={{ hidden: { opacity: 0 }, show: { opacity: 1, transition: { staggerChildren: 0.05 } } }}
+        className="grid grid-cols-2 md:grid-cols-4 gap-3"
+      >
+        <motion.div variants={cardItem}>
+          <StatCard
+            label="Pass Rate"
+            value={stats.passRate}
+            suffix="%"
+            trend={stats.trends?.passRate}
+            sparklineData={stats.sparklines?.passRate}
+            sparklineColor="hsl(var(--orbit-pass))"
+          />
+        </motion.div>
+        <motion.div variants={cardItem}>
+          <StatCard
+            label="Flaky Tests"
+            value={stats.flakyCount}
+            trend={stats.trends?.flakyCount}
+            trendInverted
+            sparklineData={stats.sparklines?.flakyCount}
+            sparklineColor="hsl(var(--orbit-flaky))"
+          />
+        </motion.div>
+        <motion.div variants={cardItem}>
+          <StatCard
+            label="Coverage"
+            value={stats.coverage}
+            suffix="%"
+            trend={stats.trends?.coverage}
+            sparklineData={stats.sparklines?.coverage}
+            sparklineColor="hsl(var(--orbit-accent))"
+          />
+        </motion.div>
+        <motion.div variants={cardItem}>
+          <StatCard
+            label="Last Duration"
+            value={stats.lastDuration > 0 ? `${(stats.lastDuration / 1000).toFixed(1)}` : "--"}
+            suffix={stats.lastDuration > 0 ? "s" : ""}
+            trend={stats.trends?.duration}
+            trendInverted
+            sparklineData={stats.sparklines?.duration}
+            sparklineColor="hsl(var(--orbit-untested))"
+          />
+        </motion.div>
       </motion.div>
 
       {indexingInfo && (
@@ -245,7 +253,10 @@ export function DashboardClient({
         </motion.div>
       )}
 
-      <motion.div variants={fadeUp} className="grid grid-cols-1 lg:grid-cols-5 gap-4">
+      <motion.div
+        variants={scaleIn}
+        className="grid grid-cols-1 lg:grid-cols-5 gap-4"
+      >
         <div className="lg:col-span-3 rounded-xl surface-1 border border-border p-5">
           <div className="flex items-center justify-between mb-3">
             <h2 className="text-[13px] font-medium text-foreground">System Map</h2>
