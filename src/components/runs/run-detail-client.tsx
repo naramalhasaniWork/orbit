@@ -154,7 +154,7 @@ function VerdictFilterBar({
   );
 }
 
-const EXECUTING_STATUSES = new Set(["executing", "indexing", "planning", "reporting"]);
+const LIVE_STATUSES = new Set(["queued", "executing", "indexing", "planning", "reporting"]);
 
 export function RunDetailClient({ run, projectId }: RunDetailClientProps) {
   const router = useRouter();
@@ -167,8 +167,8 @@ export function RunDetailClient({ run, projectId }: RunDetailClientProps) {
   }, [run.results, verdictFilter]);
 
   const statusConfig = RUN_STATUS_CONFIG[run.status];
-  const isExecuting = EXECUTING_STATUSES.has(run.status);
-  const defaultTab = isExecuting ? "live" : "results";
+  const isLive = LIVE_STATUSES.has(run.status);
+  const defaultTab = isLive ? "live" : "results";
 
   const handleCancelRun = useCallback(async () => {
     if (!projectId || cancelling) return;
@@ -222,7 +222,7 @@ export function RunDetailClient({ run, projectId }: RunDetailClientProps) {
           </div>
           <RunMeta run={run} />
         </div>
-        {isExecuting && projectId && (
+        {isLive && projectId && (
           <Button
             variant="outline"
             size="sm"
@@ -255,8 +255,14 @@ export function RunDetailClient({ run, projectId }: RunDetailClientProps) {
 
       <Tabs defaultValue={defaultTab} className="w-full">
         <TabsList>
-          {isExecuting && (
-            <TabsTrigger value="live">Live</TabsTrigger>
+          {isLive && (
+            <TabsTrigger value="live" className="gap-1.5">
+              <span className="relative flex h-1.5 w-1.5">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-orbit-accent opacity-75" />
+                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-orbit-accent" />
+              </span>
+              Live
+            </TabsTrigger>
           )}
           <TabsTrigger value="results">
             Results ({run.totalTests})
@@ -264,13 +270,14 @@ export function RunDetailClient({ run, projectId }: RunDetailClientProps) {
           <TabsTrigger value="traces">Traces</TabsTrigger>
         </TabsList>
 
-        {isExecuting && (
+        {isLive && (
           <TabsContent value="live" className="mt-4">
             {projectId ? (
               <LiveExecutionViewer
                 projectId={projectId}
                 runId={run.id}
-                enabled={isExecuting}
+                runStatus={run.status}
+                enabled={isLive}
               />
             ) : (
               <p className="text-sm text-muted-foreground">
