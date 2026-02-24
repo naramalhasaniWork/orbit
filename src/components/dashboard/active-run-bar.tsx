@@ -16,6 +16,7 @@ interface ActiveRun {
   totalTests: number;
   passed: number;
   failed: number;
+  flaky: number;
   projectId: string;
 }
 
@@ -56,7 +57,7 @@ export function ActiveRunBar({ initialRun, projectId }: ActiveRunBarProps) {
 
   const completed = progress
     ? progress.completed
-    : run.passed + run.failed;
+    : run.passed + run.failed + run.flaky;
   const total = progress ? progress.totalTests : run.totalTests;
   const pct = total > 0 ? Math.round((completed / total) * 100) : 0;
   const currentTest = progress?.currentTest;

@@ -33,6 +33,13 @@ export default function AcceptInvitationPage() {
         const json = await res.json();
         if (json.success) {
           setInvitation(json.data);
+        } else if (
+          json.error?.code === "INVITATION_INVALID" &&
+          session
+        ) {
+          // Invitation was already accepted (e.g. auto-accepted during login)
+          setSuccess(true);
+          setTimeout(() => router.push("/dashboard"), 2000);
         } else {
           setError(json.error?.message ?? "Invalid invitation");
         }
@@ -43,7 +50,7 @@ export default function AcceptInvitationPage() {
       }
     }
     if (token) fetchInvitation();
-  }, [token]);
+  }, [token, session, router]);
 
   async function handleAccept() {
     if (!session) {

@@ -104,6 +104,7 @@ export async function executeTestCase(
     }
 
     // Handle retry for flaky detection
+    // environment_error: skip retry — retrying against a broken environment wastes time
     let finalVerdict: string = result.verdict;
     if (result.verdict === "fail") {
       const retryResult = await retryTestCase(

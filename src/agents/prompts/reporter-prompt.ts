@@ -3,7 +3,7 @@ import { buildPrompt, type UserLayerInput } from "@/agents/prompts/prompt-builde
 interface TestResultInput {
   testId: string;
   testName: string;
-  verdict: "pass" | "fail" | "flaky" | "skipped" | "healed";
+  verdict: "pass" | "fail" | "flaky" | "skipped" | "healed" | "environment_error";
   durationMs: number;
   steps: Array<{
     action: string;

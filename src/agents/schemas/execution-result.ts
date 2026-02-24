@@ -13,6 +13,7 @@ export const VERDICTS = {
   flaky: "flaky",
   skipped: "skipped",
   healed: "healed",
+  environment_error: "environment_error",
 } as const;
 
 export const StepResultSchema = z.object({
@@ -34,7 +35,7 @@ export const StepResultSchema = z.object({
 
 export const ExecutionResultSchema = z.object({
   testId: z.string().describe("The test case ID that was executed"),
-  verdict: z.enum(["pass", "fail", "flaky", "skipped", "healed"]),
+  verdict: z.enum(["pass", "fail", "flaky", "skipped", "healed", "environment_error"]),
   durationMs: z.number().int().min(0).describe("Total execution time in ms"),
   steps: z.array(StepResultSchema),
   artifacts: z.object({
@@ -80,7 +81,7 @@ export const ExecutorActionSchema = z.object({
       selector: z.string().optional(),
     })
     .optional(),
-  verdict: z.enum(["pass", "fail"]).optional(),
+  verdict: z.enum(["pass", "fail", "environment_error"]).optional(),
   reason: z.string().describe("Explanation for the action or verdict rationale").optional(),
 }).refine(
   (data) => {

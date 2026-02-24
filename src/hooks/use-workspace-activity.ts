@@ -1,7 +1,9 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
+import useSWR from "swr";
 import type { ActiveOperation } from "@/lib/dashboard/active-operations";
+import { fetcher } from "@/lib/swr";
 
 interface UseWorkspaceActivityOptions {
   /** Initial operations from server render */
@@ -30,74 +32,62 @@ const COMPLETED_DISPLAY_DURATION = 4000;
 
 /**
  * Polls the workspace activity API to track active background operations.
+ * Uses SWR for deduplication and smart polling.
  * Lives in the layout so it persists across page navigation.
  */
 export function useWorkspaceActivity({
   initialOperations = [],
   pollInterval = DEFAULT_POLL_INTERVAL,
 }: UseWorkspaceActivityOptions = {}): UseWorkspaceActivityReturn {
-  const [operations, setOperations] = useState<ActiveOperation[]>(initialOperations);
   const [recentlyCompleted, setRecentlyCompleted] = useState<CompletedOperation[]>([]);
   const prevOpsRef = useRef<Map<string, ActiveOperation>>(new Map());
-  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const mountedRef = useRef(true);
 
-  // Track previous operations to detect completions
+  // Seed prevOpsRef with initial operations on first render
   useEffect(() => {
-    const map = new Map<string, ActiveOperation>();
-    for (const op of operations) map.set(op.id, op);
-    prevOpsRef.current = map;
-  }, [operations]);
-
-  const fetchActivity = useCallback(async () => {
-    try {
-      const res = await fetch("/api/workspace/activity");
-      if (!res.ok) return;
-      const json = await res.json();
-      if (!json.success || !mountedRef.current) return;
-
-      const newOps: ActiveOperation[] = json.data;
-
-      // Detect operations that disappeared (completed/failed)
-      const newIds = new Set(newOps.map((o) => o.id));
-      const completed: CompletedOperation[] = [];
-
-      prevOpsRef.current.forEach((prev, id) => {
-        if (!newIds.has(id)) {
-          completed.push({
-            id,
-            projectName: prev.projectName,
-            label: prev.label.replace("ing", "ed").replace("Queu", "Process"),
-            completedAt: Date.now(),
-          });
-        }
-      });
-
-      if (completed.length > 0) {
-        setRecentlyCompleted((prev) => [...prev, ...completed]);
-      }
-
-      setOperations(newOps);
-    } catch {
-      // Network error — keep existing state
+    if (initialOperations.length > 0 && prevOpsRef.current.size === 0) {
+      const map = new Map<string, ActiveOperation>();
+      for (const op of initialOperations) map.set(op.id, op);
+      prevOpsRef.current = map;
     }
-  }, []);
+  }, [initialOperations]);
 
-  // Start/stop polling based on whether there's activity
-  useEffect(() => {
-    mountedRef.current = true;
+  const { data } = useSWR<ActiveOperation[]>(
+    "/api/workspace/activity",
+    fetcher,
+    {
+      refreshInterval: pollInterval,
+      revalidateOnFocus: false,
+      dedupingInterval: 3000,
+      fallbackData: initialOperations,
+      onSuccess: (newOps) => {
+        // Detect operations that disappeared (completed/failed)
+        const newIds = new Set(newOps.map((o) => o.id));
+        const completed: CompletedOperation[] = [];
 
-    // Always do an initial fetch
-    fetchActivity();
+        prevOpsRef.current.forEach((prev, id) => {
+          if (!newIds.has(id)) {
+            completed.push({
+              id,
+              projectName: prev.projectName,
+              label: prev.label.replace("ing", "ed").replace("Queu", "Process"),
+              completedAt: Date.now(),
+            });
+          }
+        });
 
-    // Poll at the configured interval
-    pollRef.current = setInterval(fetchActivity, pollInterval);
+        if (completed.length > 0) {
+          setRecentlyCompleted((prev) => [...prev, ...completed]);
+        }
 
-    return () => {
-      mountedRef.current = false;
-      if (pollRef.current) clearInterval(pollRef.current);
-    };
-  }, [fetchActivity, pollInterval]);
+        // Update prevOpsRef for next comparison
+        const map = new Map<string, ActiveOperation>();
+        for (const op of newOps) map.set(op.id, op);
+        prevOpsRef.current = map;
+      },
+    }
+  );
+
+  const operations = data ?? initialOperations;
 
   // Auto-dismiss completed operations after a delay
   useEffect(() => {

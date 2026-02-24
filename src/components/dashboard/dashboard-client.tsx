@@ -74,6 +74,7 @@ interface ActiveRun {
   totalTests: number;
   passed: number;
   failed: number;
+  flaky: number;
   projectId: string;
 }
 
@@ -121,6 +122,7 @@ export function DashboardClient({
       totalTests: run.totalTests,
       passed: 0,
       failed: 0,
+      flaky: 0,
       projectId: run.projectId,
     });
   }, []);

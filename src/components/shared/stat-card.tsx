@@ -70,7 +70,7 @@ export function StatCard({
     <motion.div
       className={cn(
         "flex flex-col gap-1.5 p-4 rounded-xl surface-1 border border-border",
-        "hover:border-border/80 dark:hover:border-white/[0.12] transition-colors",
+        "hover:border-border/80 dark:hover:border-white/[0.12] transition-colors duration-150",
         className
       )}
       whileHover={{ y: -1, transition: { duration: 0.15 } }}

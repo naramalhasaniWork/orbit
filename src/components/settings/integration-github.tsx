@@ -25,21 +25,10 @@ export function GitHubCard({ workspaceId, config, onUpdate }: GitHubCardProps) {
   const connected = config?.connected ?? false;
   const webhookUrl = `${typeof window !== "undefined" ? window.location.origin : ""}/api/webhooks/github`;
 
-  async function handleConnect() {
+  function handleConnect() {
     setConnecting(true);
-    try {
-      const res = await fetch(`/api/workspaces/${workspaceId}/integrations/github`, {
-        method: "POST",
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data.authUrl) {
-          window.location.href = data.authUrl;
-        }
-      }
-    } finally {
-      setConnecting(false);
-    }
+    // Redirect to the GitHub App installation flow
+    window.location.href = `/api/github/install?return_to=${encodeURIComponent("/dashboard/settings")}`;
   }
 
   async function handleDisconnect() {

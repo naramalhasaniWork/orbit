@@ -120,13 +120,16 @@ export function LiveExecutionViewer({
                   animate={{ opacity: 1 }}
                 >
                   <PreparationOrbit runStatus={runStatus} />
-                  <p className="text-xs text-muted-foreground">
-                    {progress?.currentTest
-                      ? `Testing: ${progress.currentTest}`
-                      : runStatus === "queued"
-                        ? "Waiting for worker..."
-                        : "Connecting to browser..."}
-                  </p>
+                  {progress?.currentTest ? (
+                    <div className="flex flex-col items-center gap-1">
+                      <p className="text-xs font-medium text-foreground/70">Running test</p>
+                      <p className="text-xs text-muted-foreground max-w-[300px] truncate">{progress.currentTest}</p>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground">
+                      {STATUS_MESSAGES[runStatus] ?? "Connecting to browser..."}
+                    </p>
+                  )}
                 </motion.div>
               )}
             </AnimatePresence>
@@ -180,64 +183,28 @@ export function LiveExecutionViewer({
   );
 }
 
-// ============================================================
-// Preparation animation — shown before screenshots arrive
-// ============================================================
-
 function PreparationOrbit({ runStatus }: { runStatus: string }) {
   return (
     <div className="relative w-20 h-20">
-      {/* Outer ring — slow clockwise */}
-      <motion.div
-        className="absolute inset-0 rounded-full border-2 border-orbit-accent/15"
-        animate={{ rotate: 360 }}
-        transition={{ duration: 10, repeat: Infinity, ease: "linear" }}
-      />
-      {/* Middle ring — medium counter-clockwise, dashed */}
-      <motion.div
-        className="absolute inset-2 rounded-full border border-dashed border-orbit-accent/10"
-        animate={{ rotate: -360 }}
-        transition={{ duration: 14, repeat: Infinity, ease: "linear" }}
-      />
-      {/* Inner ring — fast clockwise, subtle */}
-      <motion.div
-        className="absolute inset-4 rounded-full border border-orbit-accent/[0.07]"
-        animate={{ rotate: 360 }}
-        transition={{ duration: 6, repeat: Infinity, ease: "linear" }}
-      />
-      {/* Center icon — breathing scale */}
-      <motion.div
-        className="absolute inset-0 flex items-center justify-center"
-        animate={{ scale: [1, 1.08, 1] }}
-        transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}
-      >
-        {runStatus === "queued" ? (
-          <Loader2 className="h-6 w-6 text-orbit-accent animate-spin" />
-        ) : (
-          <Cpu className="h-6 w-6 text-orbit-accent" />
-        )}
+      <motion.div className="absolute inset-0 rounded-full border-2 border-orbit-accent/15" animate={{ rotate: 360 }} transition={{ duration: 10, repeat: Infinity, ease: "linear" }} />
+      <motion.div className="absolute inset-2 rounded-full border border-dashed border-orbit-accent/10" animate={{ rotate: -360 }} transition={{ duration: 14, repeat: Infinity, ease: "linear" }} />
+      <motion.div className="absolute inset-4 rounded-full border border-orbit-accent/[0.07]" animate={{ rotate: 360 }} transition={{ duration: 6, repeat: Infinity, ease: "linear" }} />
+      <motion.div className="absolute inset-0 flex items-center justify-center" animate={{ scale: [1, 1.08, 1] }} transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}>
+        {runStatus === "queued" ? <Loader2 className="h-6 w-6 text-orbit-accent animate-spin" /> : <Cpu className="h-6 w-6 text-orbit-accent" />}
       </motion.div>
-      {/* Orbiting dot — primary */}
-      <motion.div
-        className="absolute w-1.5 h-1.5 rounded-full bg-orbit-accent shadow-[0_0_8px_hsl(var(--orbit-accent)/0.6)]"
-        style={{ top: -3, left: "calc(50% - 3px)", transformOrigin: "3px 43px" }}
-        animate={{ rotate: 360 }}
-        transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
-      />
-      {/* Orbiting dot — secondary, offset */}
-      <motion.div
-        className="absolute w-1 h-1 rounded-full bg-orbit-accent/40 shadow-[0_0_4px_hsl(var(--orbit-accent)/0.3)]"
-        style={{ bottom: -2, left: "calc(50% - 2px)", transformOrigin: "2px -38px" }}
-        animate={{ rotate: -360 }}
-        transition={{ duration: 4.5, repeat: Infinity, ease: "linear" }}
-      />
+      <motion.div className="absolute w-1.5 h-1.5 rounded-full bg-orbit-accent shadow-[0_0_8px_hsl(var(--orbit-accent)/0.6)]" style={{ top: -3, left: "calc(50% - 3px)", transformOrigin: "3px 43px" }} animate={{ rotate: 360 }} transition={{ duration: 3, repeat: Infinity, ease: "linear" }} />
+      <motion.div className="absolute w-1 h-1 rounded-full bg-orbit-accent/40 shadow-[0_0_4px_hsl(var(--orbit-accent)/0.3)]" style={{ bottom: -2, left: "calc(50% - 2px)", transformOrigin: "2px -38px" }} animate={{ rotate: -360 }} transition={{ duration: 4.5, repeat: Infinity, ease: "linear" }} />
     </div>
   );
 }
 
-// ============================================================
-// Sub-components
-// ============================================================
+
+const STATUS_MESSAGES: Record<string, string> = {
+  queued: "Waiting for worker...",
+  indexing: "Indexing repository...",
+  planning: "Generating test plan...",
+  reporting: "Analyzing results...",
+};
 
 function ViewportHeader({
   pageUrl,
@@ -274,7 +241,7 @@ function ViewportHeader({
           </>
         ) : (
           <span className="text-xs text-muted-foreground truncate">
-            {currentTest ?? (runStatus === "queued" ? "Waiting for worker..." : "Preparing browser...")}
+            {currentTest ?? (STATUS_MESSAGES[runStatus] ?? "Connecting to browser...")}
           </span>
         )}
       </div>

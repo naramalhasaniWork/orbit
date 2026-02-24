@@ -1,11 +1,30 @@
 "use client";
 
+import { Suspense } from "react";
 import { signIn } from "next-auth/react";
+import { useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Orbit } from "lucide-react";
 
+function isRelativePath(url: string): boolean {
+  return url.startsWith("/") && !url.startsWith("//");
+}
+
 export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginContent />
+    </Suspense>
+  );
+}
+
+function LoginContent() {
+  const searchParams = useSearchParams();
+  const rawCallback = searchParams.get("callbackUrl");
+  const callbackUrl =
+    rawCallback && isRelativePath(rawCallback) ? rawCallback : "/dashboard";
+
   return (
     <div className="flex min-h-screen items-center justify-center surface-0 relative overflow-hidden">
       {/* Background gradient layers */}
@@ -59,7 +78,7 @@ export default function LoginPage() {
           className="flex flex-col gap-3 w-full"
         >
           <Button
-            onClick={() => signIn("github", { callbackUrl: "/dashboard" })}
+            onClick={() => signIn("github", { callbackUrl })}
             size="lg"
             className="w-full bg-orbit-accent text-white hover:bg-orbit-accent/90 gap-2 h-11 text-sm font-medium shadow-lg shadow-orbit-accent/20"
           >

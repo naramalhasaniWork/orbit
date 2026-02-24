@@ -208,7 +208,7 @@ async function publishRunProgress(
 ) {
   const run = await prisma.testRun.findUnique({
     where: { id: runId },
-    select: { totalTests: true, passed: true, failed: true },
+    select: { totalTests: true, passed: true, failed: true, flaky: true },
   });
 
   await emitRunProgress(runId, {
@@ -218,5 +218,6 @@ async function publishRunProgress(
     totalTests: run?.totalTests ?? 0,
     passed: run?.passed ?? 0,
     failed: run?.failed ?? 0,
+    flaky: run?.flaky ?? 0,
   });
 }

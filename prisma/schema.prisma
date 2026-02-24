@@ -53,6 +53,7 @@ enum TestVerdict {
   flaky
   skipped
   healed
+  environment_error
 }
 
 enum TestType {

@@ -127,6 +127,9 @@ export function useSSE({
       "test:completed",
       "test:screenshot",
       "test:result",
+      // Screenshot stream events
+      "screenshot:frame",
+      "screenshots:complete",
     ];
 
     for (const type of eventTypes) {

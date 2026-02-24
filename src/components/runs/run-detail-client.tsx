@@ -62,14 +62,15 @@ export function RunDetailClient({ run, projectId }: RunDetailClientProps) {
   const liveFlaky = progress?.flaky ?? run.flaky;
   const liveTotal = progress?.totalTests ?? run.totalTests;
   const liveCompleted = progress?.completed
-    ?? (run.passed + run.failed + run.flaky + run.skipped);
+    ?? (run.passed + run.failed + run.flaky);
+  const liveExecuted = livePassed + liveFailed + liveFlaky;
 
   const isLive = LIVE_STATUSES.has(liveStatus);
   const statusConfig = RUN_STATUS_CONFIG[liveStatus];
   const defaultTab = isLive ? "live" : "results";
 
-  const passRate = liveCompleted > 0
-    ? `${Math.round((livePassed / liveCompleted) * 100)}%`
+  const passRate = liveExecuted > 0
+    ? `${Math.round((livePassed / liveExecuted) * 100)}%`
     : "--";
 
   const statusLabel = liveStatus === "executing" && liveTotal > 0

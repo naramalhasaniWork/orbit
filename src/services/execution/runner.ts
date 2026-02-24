@@ -77,7 +77,7 @@ async function executeRunInner(options: RunOptions): Promise<void> {
       where: { id: runId },
       data: { status: "completed", summary: "No test cases to execute", completedAt: new Date(), totalTests: 0 },
     });
-    await emitRunProgress(runId, { runId, status: "completed", currentTest: "", totalTests: 0, passed: 0, failed: 0 });
+    await emitRunProgress(runId, { runId, status: "completed", currentTest: "", totalTests: 0, passed: 0, failed: 0, flaky: 0 });
     return;
   }
 
@@ -109,7 +109,7 @@ async function executeRunInner(options: RunOptions): Promise<void> {
       await prisma.testRun.update({ where: { id: runId }, data: { status: "cancelled", completedAt: new Date() } });
       await emitRunProgress(runId, {
         runId, status: "cancelled", currentTest: "", totalTests: testCases.length,
-        passed: counters.passed, failed: counters.failed,
+        passed: counters.passed, failed: counters.failed, flaky: counters.flaky,
       });
       return;
     }
@@ -125,7 +125,7 @@ async function executeRunInner(options: RunOptions): Promise<void> {
     await emitTestStarted(runId, { runId, testCaseId: testCase.id, testCaseName: testCase.name });
     await emitRunProgress(runId, {
       runId, status: "executing", currentTest: testCase.name,
-      totalTests: testCases.length, passed: counters.passed, failed: counters.failed,
+      totalTests: testCases.length, passed: counters.passed, failed: counters.failed, flaky: counters.flaky,
     });
 
     try {
@@ -143,9 +143,14 @@ async function executeRunInner(options: RunOptions): Promise<void> {
 
       const verdictMap: Record<string, keyof typeof counters> = {
         pass: "passed", fail: "failed", flaky: "flaky", healed: "passed",
+        environment_error: "failed",
       };
       counters[verdictMap[result.verdict] ?? "failed"]++;
-      log(`  -> ${result.verdict.toUpperCase()} (${result.durationMs}ms)`);
+      if (result.verdict === "environment_error") {
+        log(`  -> ENVIRONMENT_ERROR (${result.durationMs}ms) — not a test bug, environment issue`);
+      } else {
+        log(`  -> ${result.verdict.toUpperCase()} (${result.durationMs}ms)`);
+      }
 
       // Fail-fast: if consecutive browser connection failures, abort the run
       if (result.verdict === "fail" && result.steps?.[0]) {
@@ -171,7 +176,7 @@ async function executeRunInner(options: RunOptions): Promise<void> {
       await emitTestResult(runId, testCase.id, result.verdict as TestVerdict, result.durationMs);
       await emitTestCompleted(runId, {
         runId, testCaseId: testCase.id, testCaseName: testCase.name,
-        verdict: result.verdict as "pass" | "fail" | "flaky" | "skipped" | "healed",
+        verdict: result.verdict as "pass" | "fail" | "flaky" | "skipped" | "healed" | "environment_error",
         durationMs: result.durationMs,
       });
       await prisma.testCase.update({
@@ -211,7 +216,7 @@ async function failRun(runId: string, summary: string): Promise<void> {
     where: { id: runId },
     data: { status: "failed", summary, completedAt: new Date() },
   });
-  await emitRunProgress(runId, { runId, status: "failed", currentTest: "", totalTests: 0, passed: 0, failed: 0 });
+  await emitRunProgress(runId, { runId, status: "failed", currentTest: "", totalTests: 0, passed: 0, failed: 0, flaky: 0 });
 }
 
 async function completeRun(
@@ -234,7 +239,7 @@ async function completeRun(
   });
 
   await emitRunProgress(runId, {
-    runId, status: "completed", currentTest: "", totalTests, passed: counters.passed, failed: counters.failed,
+    runId, status: "completed", currentTest: "", totalTests, passed: counters.passed, failed: counters.failed, flaky: counters.flaky,
   });
 
   const completedRun = await prisma.testRun.findUnique({ where: { id: runId }, select: { projectId: true } });

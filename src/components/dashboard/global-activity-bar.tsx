@@ -1,25 +1,41 @@
 "use client";
 
 import { useWorkspaceActivity } from "@/hooks/use-workspace-activity";
-import type { ActiveOperation } from "@/lib/dashboard/active-operations";
+import type { ActiveOperation, OperationKind } from "@/lib/dashboard/active-operations";
 import { StatusDot } from "@/components/shared/status-dot";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import {
   Loader2, ChevronRight, CheckCircle2,
   GitBranch, FlaskConical, FileSearch, FileText,
+  ShieldCheck, Eye,
 } from "lucide-react";
 
 interface GlobalActivityBarProps {
   initialOperations?: ActiveOperation[];
 }
 
+/** Default icon per run status */
 const statusIcons: Record<string, typeof Loader2> = {
   queued: Loader2,
   indexing: GitBranch,
   planning: FileSearch,
   executing: FlaskConical,
   reporting: FileText,
+};
+
+/** Override icon by operation kind (used during executing phase) */
+const kindIcons: Partial<Record<OperationKind, typeof Loader2>> = {
+  security_audit: ShieldCheck,
+  visual_test: Eye,
+};
+
+/** Human-readable mode badge labels */
+const modeBadgeLabels: Record<string, string> = {
+  full: "Full",
+  smoke: "Smoke",
+  regression: "Regression",
+  targeted: "Targeted",
 };
 
 function getOperationLink(op: ActiveOperation): string {
@@ -29,10 +45,23 @@ function getOperationLink(op: ActiveOperation): string {
   return `/dashboard?project=${op.projectId}`;
 }
 
+function resolveIcon(op: ActiveOperation): typeof Loader2 {
+  // Use kind-specific icon for active phases (executing, planning)
+  if (op.kind !== "test" && op.kind !== "indexing") {
+    const kindIcon = kindIcons[op.kind];
+    if (kindIcon && (op.status === "executing" || op.status === "planning")) {
+      return kindIcon;
+    }
+  }
+  return statusIcons[op.status] ?? Loader2;
+}
+
 function OperationItem({ op }: { op: ActiveOperation }) {
-  const Icon = statusIcons[op.status] ?? Loader2;
+  const Icon = resolveIcon(op);
   const link = getOperationLink(op);
   const progress = op.progress;
+  const modeBadge = op.mode ? modeBadgeLabels[op.mode] : null;
+  const isSecurityAudit = op.kind === "security_audit";
 
   return (
     <Link
@@ -42,11 +71,22 @@ function OperationItem({ op }: { op: ActiveOperation }) {
       <StatusDot status="running" pulse size="sm" />
 
       <Icon className={cn(
-        "h-3.5 w-3.5 text-orbit-accent shrink-0",
+        "h-3.5 w-3.5 shrink-0",
+        isSecurityAudit ? "text-amber-400" : "text-orbit-accent",
         op.status !== "queued" && "animate-pulse"
       )} />
 
       <div className="flex items-center gap-1.5 min-w-0 flex-1">
+        {modeBadge && (
+          <span className={cn(
+            "text-[10px] font-medium px-1.5 py-0.5 rounded shrink-0",
+            isSecurityAudit
+              ? "bg-amber-400/10 text-amber-400"
+              : "bg-orbit-accent/10 text-orbit-accent"
+          )}>
+            {isSecurityAudit ? "Audit" : modeBadge}
+          </span>
+        )}
         <span className="text-xs font-medium text-foreground truncate">
           {op.projectName}
         </span>
@@ -59,7 +99,10 @@ function OperationItem({ op }: { op: ActiveOperation }) {
         <div className="flex items-center gap-1.5 shrink-0">
           <div className="w-16 h-1 rounded-full bg-muted overflow-hidden">
             <div
-              className="h-full rounded-full bg-orbit-accent transition-all duration-700 ease-out"
+              className={cn(
+                "h-full rounded-full transition-all duration-700 ease-out",
+                isSecurityAudit ? "bg-amber-400" : "bg-orbit-accent"
+              )}
               style={{ width: `${Math.max(progress, 3)}%` }}
             />
           </div>

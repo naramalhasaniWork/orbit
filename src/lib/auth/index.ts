@@ -93,25 +93,60 @@ export const authOptions: AuthOptions = {
             token.role = membership.role;
             token.workspaceSlug = membership.workspace.slug;
           } else {
-            const slug = generateSlug(
-              user.name || user.email || "workspace"
-            );
+            // Check for pending invitations before auto-creating a workspace
+            const pendingInvitation =
+              await prisma.workspaceInvitation.findFirst({
+                where: {
+                  email: user.email!,
+                  status: "pending",
+                  expiresAt: { gt: new Date() },
+                },
+                include: {
+                  workspace: { select: { id: true, slug: true } },
+                },
+              });
 
-            const workspace = await prisma.workspace.create({
-              data: { name: user.name || "My Workspace", slug },
-            });
+            if (pendingInvitation) {
+              // Auto-accept the invitation within a transaction
+              await prisma.$transaction([
+                prisma.workspaceMember.create({
+                  data: {
+                    workspaceId: pendingInvitation.workspaceId,
+                    userId: user.id,
+                    role: pendingInvitation.role,
+                  },
+                }),
+                prisma.workspaceInvitation.update({
+                  where: { id: pendingInvitation.id },
+                  data: { status: "accepted", acceptedAt: new Date() },
+                }),
+              ]);
 
-            await prisma.workspaceMember.create({
-              data: {
-                workspaceId: workspace.id,
-                userId: user.id,
-                role: "owner",
-              },
-            });
+              token.workspaceId = pendingInvitation.workspaceId;
+              token.workspaceSlug = pendingInvitation.workspace.slug;
+              token.role = pendingInvitation.role;
+            } else {
+              // No pending invitations — create a fresh workspace
+              const slug = generateSlug(
+                user.name || user.email || "workspace"
+              );
 
-            token.workspaceId = workspace.id;
-            token.workspaceSlug = workspace.slug;
-            token.role = "owner";
+              const workspace = await prisma.workspace.create({
+                data: { name: user.name || "My Workspace", slug },
+              });
+
+              await prisma.workspaceMember.create({
+                data: {
+                  workspaceId: workspace.id,
+                  userId: user.id,
+                  role: "owner",
+                },
+              });
+
+              token.workspaceId = workspace.id;
+              token.workspaceSlug = workspace.slug;
+              token.role = "owner";
+            }
           }
         }
       }

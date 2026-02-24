@@ -4,10 +4,17 @@ import type { WebSocketEvent } from "@/lib/websocket/channels";
 const HEARTBEAT_INTERVAL_MS = 15_000;
 const MAX_STREAM_DURATION_MS = 10 * 60 * 1000; // 10 minutes
 
+interface SSEInitialEvent {
+  type: string;
+  payload: unknown;
+}
+
 interface SSEStreamOptions {
   channel: string;
   lastEventId?: string | null;
   onEvent?: (event: WebSocketEvent) => boolean | void;
+  /** Events to send immediately on connection, before pub/sub messages arrive. */
+  initialEvents?: SSEInitialEvent[];
 }
 
 /**
@@ -18,7 +25,7 @@ interface SSEStreamOptions {
  * The stream auto-closes after MAX_STREAM_DURATION_MS or when the
  * client disconnects.
  */
-export function createSSEStream({ channel, lastEventId, onEvent }: SSEStreamOptions): Response {
+export function createSSEStream({ channel, lastEventId, onEvent, initialEvents }: SSEStreamOptions): Response {
   const encoder = new TextEncoder();
   let eventCounter = parseInt(lastEventId ?? "0", 10) || 0;
   let unsubscribe: (() => Promise<void>) | null = null;
@@ -89,6 +96,13 @@ export function createSSEStream({ channel, lastEventId, onEvent }: SSEStreamOpti
 
       // Send initial connected event
       send("connected", { channel, timestamp: Date.now() });
+
+      // Send any buffered initial events (e.g., latest screenshot for late-joining clients)
+      if (initialEvents) {
+        for (const evt of initialEvents) {
+          send(evt.type, evt.payload);
+        }
+      }
 
       // Heartbeat to keep connection alive
       heartbeatTimer = setInterval(sendHeartbeat, HEARTBEAT_INTERVAL_MS);

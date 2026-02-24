@@ -32,6 +32,7 @@ interface ActiveRun {
   totalTests: number;
   passed: number;
   failed: number;
+  flaky: number;
   projectId: string;
 }
 
@@ -60,8 +61,11 @@ export async function computeDashboardStats(projectId: string): Promise<Dashboar
 
   // Current stats from most recent run
   const latestRun = recentCompletedRuns[recentCompletedRuns.length - 1];
-  const passRate = latestRun && latestRun.totalTests > 0
-    ? Math.round((latestRun.passed / latestRun.totalTests) * 100)
+  const latestExecuted = latestRun
+    ? latestRun.passed + latestRun.failed + latestRun.flaky
+    : 0;
+  const passRate = latestExecuted > 0
+    ? Math.round((latestRun.passed / latestExecuted) * 100)
     : 0;
   const lastDuration = latestRun?.durationMs ?? 0;
 
@@ -83,9 +87,10 @@ export async function computeDashboardStats(projectId: string): Promise<Dashboar
   // Compute sparklines (last 14 data points from runs)
   const sparklineRuns = recentCompletedRuns.slice(-14);
   const sparklines: SparklineData = {
-    passRate: sparklineRuns.map((r) =>
-      r.totalTests > 0 ? Math.round((r.passed / r.totalTests) * 100) : 0
-    ),
+    passRate: sparklineRuns.map((r) => {
+      const executed = r.passed + r.failed + r.flaky;
+      return executed > 0 ? Math.round((r.passed / executed) * 100) : 0;
+    }),
     flakyCount: sparklineRuns.map((r) => r.flaky),
     coverage: sparklineRuns.length > 0 ? sparklineRuns.map(() => coverage) : [],
     duration: sparklineRuns.map((r) => r.durationMs ? r.durationMs / 1000 : 0),
@@ -112,13 +117,16 @@ export async function computeDashboardStats(projectId: string): Promise<Dashboar
 }
 
 function computeTrends(
-  thisWeek: { passed: number; totalTests: number; flaky: number; durationMs: number | null }[],
-  lastWeek: { passed: number; totalTests: number; flaky: number; durationMs: number | null }[]
+  thisWeek: { passed: number; failed: number; totalTests: number; flaky: number; durationMs: number | null }[],
+  lastWeek: { passed: number; failed: number; totalTests: number; flaky: number; durationMs: number | null }[]
 ): TrendData {
   const avgPassRate = (runs: typeof thisWeek) => {
-    const valid = runs.filter((r) => r.totalTests > 0);
+    const valid = runs.filter((r) => (r.passed + r.failed + r.flaky) > 0);
     if (valid.length === 0) return 0;
-    return valid.reduce((sum, r) => sum + (r.passed / r.totalTests) * 100, 0) / valid.length;
+    return valid.reduce((sum, r) => {
+      const executed = r.passed + r.failed + r.flaky;
+      return sum + (r.passed / executed) * 100;
+    }, 0) / valid.length;
   };
 
   const avgFlaky = (runs: typeof thisWeek) => {
@@ -162,6 +170,7 @@ export async function getActiveRun(projectId: string): Promise<ActiveRun | null>
       totalTests: true,
       passed: true,
       failed: true,
+      flaky: true,
       projectId: true,
     },
   });

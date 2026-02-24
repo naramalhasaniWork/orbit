@@ -1,5 +1,6 @@
 import type { Page } from "playwright";
 import { publish } from "@/lib/redis/pubsub";
+import { getRedis } from "@/lib/redis";
 import { getStorage } from "@/lib/storage";
 import { prisma } from "@/lib/db";
 
@@ -27,12 +28,20 @@ interface CaptureOptions {
 }
 
 // ============================================================
-// Channel Helper
+// Channel + Key Helpers
 // ============================================================
 
 export function screenshotChannel(runId: string): string {
   return `run:${runId}:screenshots`;
 }
+
+/** Redis key for the latest screenshot frame (buffered for late-joining clients). */
+export function latestScreenshotKey(runId: string): string {
+  return `run:${runId}:latest-screenshot`;
+}
+
+/** TTL for the buffered latest screenshot (5 minutes). */
+const LATEST_SCREENSHOT_TTL_SECONDS = 300;
 
 // ============================================================
 // Screenshot Capture + Stream
@@ -44,7 +53,10 @@ const JPEG_QUALITY = 60;
 /**
  * Captures a JPEG screenshot from the Playwright page,
  * publishes it to Redis pub/sub for live streaming,
+ * buffers the latest frame in Redis for late-joining clients,
  * and persists it as a RunArtifact for later gallery viewing.
+ *
+ * Returns the storage key of the persisted screenshot, or null on failure.
  */
 export async function captureAndStream(
   page: Page,
@@ -53,8 +65,8 @@ export async function captureAndStream(
   stepIndex: number,
   projectId?: string,
   label?: string
-): Promise<void> {
-  await captureScreenshotFrame({
+): Promise<string | null> {
+  return captureScreenshotFrame({
     page,
     runId,
     testCaseId,
@@ -64,7 +76,7 @@ export async function captureAndStream(
   });
 }
 
-async function captureScreenshotFrame(options: CaptureOptions): Promise<void> {
+async function captureScreenshotFrame(options: CaptureOptions): Promise<string | null> {
   const { page, runId, testCaseId, stepIndex, projectId, label } = options;
 
   try {
@@ -107,18 +119,21 @@ async function captureScreenshotFrame(options: CaptureOptions): Promise<void> {
       viewport: viewportSize,
     };
 
-    // Publish to Redis for live streaming
+    // Publish to Redis for live streaming + buffer for late-joining clients
     await publishFrame(runId, frame);
 
     // Persist to storage for gallery
-    await persistScreenshot(
+    const storageKey = await persistScreenshot(
       buffer, runId, testCaseId, stepIndex, timestamp, projectId, label
     );
+
+    return storageKey;
   } catch (err) {
     console.error(
       `[ScreenshotStreamer] Failed to capture screenshot for run=${runId} step=${stepIndex}:`,
       err instanceof Error ? err.message : err
     );
+    return null;
   }
 }
 
@@ -134,7 +149,19 @@ async function publishFrame(
   const event = { type: "screenshot:frame", payload: frame };
 
   try {
+    // Publish to pub/sub for actively connected clients
     await publish(channel, event);
+
+    // Buffer the latest frame in a Redis key for late-joining clients.
+    // This ensures clients that connect after the first screenshots are
+    // published still get the current frame immediately.
+    const redis = getRedis();
+    await redis.set(
+      latestScreenshotKey(runId),
+      JSON.stringify(event),
+      "EX",
+      LATEST_SCREENSHOT_TTL_SECONDS
+    );
   } catch (err) {
     console.error(
       `[ScreenshotStreamer] Failed to publish frame for run=${runId}:`,
@@ -155,7 +182,7 @@ async function persistScreenshot(
   timestamp: number,
   projectId?: string,
   label?: string
-): Promise<void> {
+): Promise<string | null> {
   const storage = getStorage();
   const fileName = `${label ?? "step"}-${stepIndex}-${timestamp}.jpg`;
   const key = `runs/${runId}/${testCaseId}/${fileName}`;
@@ -177,11 +204,14 @@ async function persistScreenshot(
         },
       });
     }
+
+    return key;
   } catch (err) {
     console.error(
       `[ScreenshotStreamer] Failed to persist screenshot:`,
       err instanceof Error ? err.message : err
     );
+    return null;
   }
 }
 

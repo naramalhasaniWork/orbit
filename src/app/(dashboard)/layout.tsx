@@ -4,9 +4,11 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { Sidebar } from "@/components/layout/sidebar";
 import { DashboardHeader } from "@/components/layout/dashboard-header";
+import { ContentTransition } from "@/components/layout/content-transition";
 import { ChatPanelWrapper } from "@/components/chat/chat-panel-wrapper";
 import { GlobalActivityBar } from "@/components/dashboard/global-activity-bar";
 import { getActiveOperations } from "@/lib/dashboard/active-operations";
+import { SWRProvider } from "@/components/layout/swr-provider";
 
 export const dynamic = "force-dynamic";
 
@@ -50,20 +52,26 @@ export default async function DashboardLayout({
   }
 
   return (
-    <div className="flex h-screen surface-0 overflow-hidden">
-      <Sidebar />
-      <div className="flex flex-col flex-1 min-w-0">
+    <SWRProvider fallback={{ "/api/projects": projects }}>
+      <div className="flex h-screen surface-0 overflow-hidden">
+        <Sidebar />
+        <div className="flex flex-col flex-1 min-w-0">
+          <Suspense>
+            <DashboardHeader projects={projects} />
+          </Suspense>
+          <GlobalActivityBar initialOperations={initialOperations} />
+          <main className="flex-1 overflow-auto p-6 border-t border-white/[0.04]">
+            <Suspense>
+              <ContentTransition>
+                {children}
+              </ContentTransition>
+            </Suspense>
+          </main>
+        </div>
         <Suspense>
-          <DashboardHeader projects={projects} />
+          <ChatPanelWrapper projects={projects} />
         </Suspense>
-        <GlobalActivityBar initialOperations={initialOperations} />
-        <main className="flex-1 overflow-auto p-6 animate-fade-in border-t border-white/[0.04]">
-          {children}
-        </main>
       </div>
-      <Suspense>
-        <ChatPanelWrapper projects={projects} />
-      </Suspense>
-    </div>
+    </SWRProvider>
   );
 }

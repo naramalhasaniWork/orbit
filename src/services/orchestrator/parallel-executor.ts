@@ -145,6 +145,7 @@ export async function executeParallel(
         totalTests,
         passed: counters.passed,
         failed: counters.failed,
+        flaky: counters.flaky,
       });
     }
   }

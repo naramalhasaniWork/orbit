@@ -34,7 +34,7 @@ export async function POST(
 
     const run = await prisma.testRun.findFirst({
       where: { id: runId, projectId },
-      select: { id: true, status: true, totalTests: true, passed: true, failed: true },
+      select: { id: true, status: true, totalTests: true, passed: true, failed: true, flaky: true },
     });
 
     if (!run) {
@@ -65,6 +65,7 @@ export async function POST(
       totalTests: run.totalTests,
       passed: run.passed,
       failed: run.failed,
+      flaky: run.flaky,
     });
 
     return apiSuccess(updated);

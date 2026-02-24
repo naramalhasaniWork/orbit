@@ -73,6 +73,7 @@ export interface RunProgressEvent {
   totalTests: number;
   passed: number;
   failed: number;
+  flaky: number;
 }
 
 export interface RunCompletedEvent {
@@ -107,7 +108,7 @@ export interface TestCompletedEvent {
   runId: string;
   testCaseId: string;
   testCaseName: string;
-  verdict: "pass" | "fail" | "flaky" | "skipped" | "healed";
+  verdict: "pass" | "fail" | "flaky" | "skipped" | "healed" | "environment_error";
   durationMs: number;
 }
 
@@ -122,7 +123,7 @@ export interface TestScreenshotEvent {
 export interface TestResultEvent {
   runId: string;
   testCaseId: string;
-  verdict: "pass" | "fail" | "flaky" | "skipped" | "healed";
+  verdict: "pass" | "fail" | "flaky" | "skipped" | "healed" | "environment_error";
   durationMs: number;
 }
 

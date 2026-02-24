@@ -7,13 +7,12 @@ import { buildExecutorPrompt } from "@/agents/prompts/executor-prompt";
 import type { ExecutorContext } from "@/agents/prompts/executor-prompt";
 import { getPageState } from "@/services/execution/browser-manager";
 import type { PageState } from "@/services/execution/browser-manager";
-import { healSelector, persistHealing } from "@/services/execution/self-healer";
-import { performAction } from "@/services/execution/action-performer";
+import { executeAction } from "@/services/execution/action-executor";
 import { prisma } from "@/lib/db";
 import type { EvidenceCollectorInstance } from "@/services/execution/evidence-collector";
 import { isStagehandEnabled } from "@/services/execution/stagehand-adapter";
 import { parseLlmJson } from "@/lib/utils/json-parse";
-import { emitTestStep, emitTestScreenshot } from "@/lib/websocket";
+import { emitTestStep } from "@/lib/websocket";
 import {
   captureAndStream,
   captureInitialState,
@@ -46,7 +45,7 @@ interface StepExecutorOptions {
 
 interface StepExecutionResult {
   steps: StepResult[];
-  verdict: "pass" | "fail" | "flaky" | "healed";
+  verdict: "pass" | "fail" | "flaky" | "healed" | "environment_error";
   healedSelectors: string[];
 }
 
@@ -77,7 +76,7 @@ function stripNulls(obj: unknown): unknown {
   return obj;
 }
 
-const VALID_VERDICTS = new Set(["pass", "fail"]);
+const VALID_VERDICTS = new Set(["pass", "fail", "environment_error"]);
 
 function normalizeAction(raw: Record<string, unknown>): Record<string, unknown> {
   if (raw.verdict && !VALID_VERDICTS.has(raw.verdict as string)) {
@@ -197,9 +196,12 @@ export async function executeTestSteps(
     const action = await getNextAction(context, billing);
 
     if (action.action === "verdict") {
+      const verdictValue = action.verdict === "pass" ? "pass"
+        : action.verdict === "environment_error" ? "environment_error"
+        : "fail";
       return {
         steps: stepResults,
-        verdict: action.verdict === "pass" ? "pass" : "fail",
+        verdict: verdictValue,
         healedSelectors,
       };
     }
@@ -230,18 +232,20 @@ export async function executeTestSteps(
       healedSelector: result.wasHealed ? result.healedSelector : undefined,
     });
 
-    // Emit real-time step event
+    // Capture screenshot first so we can include the storage key in the step event
     if (runId) {
+      const screenshotKey = await captureAndStream(
+        page, runId, testCaseId, currentStepIndex, projectId
+      );
+
       await emitTestStep(runId, {
         runId,
         testCaseId,
         stepIndex: currentStepIndex,
         action: `${action.action}${action.selector ? ` on ${action.selector}` : ""}`,
         status: result.succeeded ? "passed" : "failed",
+        ...(screenshotKey ? { screenshotUrl: screenshotKey } : {}),
       });
-
-      // Stream screenshot after each action for live viewer
-      await captureAndStream(page, runId, testCaseId, currentStepIndex, projectId);
     }
 
     previousActions.push({
@@ -269,113 +273,6 @@ export async function executeTestSteps(
 
   // Hit the action limit without a verdict — treat as fail
   return { steps: stepResults, verdict: "fail", healedSelectors };
-}
-
-// ============================================================
-// Selector Memory Pre-Application
-// ============================================================
-
-async function resolveSelector(
-  projectId: string,
-  originalSelector: string
-): Promise<string> {
-  const mapping = await prisma.selectorMapping.findFirst({
-    where: {
-      projectId,
-      originalSelector,
-      confidence: { gte: 0.85 },
-    },
-    orderBy: { healCount: "desc" },
-  });
-
-  return mapping?.healedSelector ?? originalSelector;
-}
-
-// ============================================================
-// Action Execution with Retry + Self-Healing
-// ============================================================
-
-interface ActionResult {
-  succeeded: boolean;
-  actualResult: string;
-  durationMs: number;
-  wasHealed: boolean;
-  healedSelector: string;
-}
-
-async function executeAction(
-  page: Page,
-  projectId: string,
-  action: ExecutorAction,
-  maxRetries: number,
-  _evidenceCollector: EvidenceCollectorInstance,
-  runId?: string
-): Promise<ActionResult> {
-  const startTime = Date.now();
-  let retries = 0;
-  let succeeded = false;
-  let actualResult = "";
-  let wasHealed = false;
-  let healedSelector = "";
-
-  // Pre-apply known-good selector from history before attempting action
-  if (action.selector) {
-    const resolved = await resolveSelector(projectId, action.selector);
-    if (resolved !== action.selector) {
-      action = { ...action, selector: resolved };
-      wasHealed = true;
-      healedSelector = resolved;
-    }
-  }
-
-  while (retries <= maxRetries) {
-    try {
-      actualResult = await performAction(page, action);
-      succeeded = true;
-      break;
-    } catch (err) {
-      const errorMsg = err instanceof Error ? err.message : String(err);
-
-      if (action.selector && errorMsg.includes("not found")) {
-        const healing = await healSelector(
-          page, projectId, action.selector, action.reason ?? action.action, runId
-        );
-
-        if (healing.found) {
-          try {
-            const healedAction = { ...action, selector: healing.healedSelector };
-            actualResult = await performAction(page, healedAction);
-            const pageUrl = page.url();
-            await persistHealing(
-              projectId, action.selector, healing.healedSelector, healing.confidence,
-              runId, pageUrl
-            );
-            healedSelector = healing.healedSelector;
-            wasHealed = true;
-            succeeded = true;
-            break;
-          } catch {
-            // Healed selector also failed
-          }
-        }
-      }
-
-      retries++;
-      if (retries <= maxRetries) {
-        await page.waitForTimeout(1000);
-      } else {
-        actualResult = errorMsg;
-      }
-    }
-  }
-
-  return {
-    succeeded,
-    actualResult,
-    durationMs: Date.now() - startTime,
-    wasHealed,
-    healedSelector,
-  };
 }
 
 // Stagehand-powered execution lives in stagehand-adapter.ts

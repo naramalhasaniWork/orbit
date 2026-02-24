@@ -38,7 +38,7 @@ export default async function RunsPage({
 
   if (!project) {
     return (
-      <RunsClient projectId={null} projectName={null} runs={[]} />
+      <RunsClient projectId={null} projectName={null} initialRuns={[]} />
     );
   }
 
@@ -94,7 +94,7 @@ export default async function RunsPage({
     <RunsClient
       projectId={project.id}
       projectName={project.name}
-      runs={serializedRuns}
+      initialRuns={serializedRuns}
       hasEnvironment={envCount > 0}
       hasActivePlan={activePlan !== null}
     />

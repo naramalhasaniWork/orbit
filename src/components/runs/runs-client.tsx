@@ -3,7 +3,9 @@
 import { useState, useMemo, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { motion } from "framer-motion";
 import { Play, ArrowRight, Loader2 } from "lucide-react";
+import { staggerContainer, staggerItem } from "@/lib/motion";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { StatusDot } from "@/components/shared/status-dot";
@@ -11,6 +13,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { cn } from "@/lib/utils";
 import { RunsFilter } from "@/components/runs/runs-filter";
 import { RunsSummaryBar } from "@/components/runs/runs-summary-bar";
+import { RunsListSkeleton } from "@/components/runs/runs-skeleton";
 import {
   type RunListItem,
   RUN_STATUS_CONFIG,
@@ -20,15 +23,19 @@ import {
   getRunVerdictStatus,
 } from "@/components/runs/run-types";
 import { formatDistanceToNow } from "date-fns";
+import { useRuns } from "@/hooks/use-runs";
 
 interface RunsClientProps {
   projectId: string | null;
   projectName: string | null;
-  runs: RunListItem[];
+  /** Server-fetched runs used as SWR fallback for instant first paint */
+  initialRuns: RunListItem[];
   /** Whether the project has at least one non-production environment configured */
   hasEnvironment?: boolean;
   /** Whether the project has an active test plan */
   hasActivePlan?: boolean;
+  /** Show skeleton loading state */
+  loading?: boolean;
 }
 
 interface Filters {
@@ -40,11 +47,15 @@ interface Filters {
 export function RunsClient({
   projectId,
   projectName,
-  runs,
+  initialRuns,
   hasEnvironment = true,
   hasActivePlan = true,
+  loading = false,
 }: RunsClientProps) {
   const router = useRouter();
+  // SWR keeps data fresh across navigations; initialRuns provides instant first paint
+  const { runs: swrRuns, mutate: mutateRuns } = useRuns(projectId);
+  const runs = swrRuns.length > 0 ? swrRuns : initialRuns;
   const [filters, setFilters] = useState<Filters>({
     status: null,
     mode: null,
@@ -72,11 +83,12 @@ export function RunsClient({
       });
       const json = await res.json().catch(() => ({}));
       if (res.ok) {
+        // Revalidate SWR cache so runs list updates
+        mutateRuns();
         if ((json as { data?: { id?: string } }).data?.id) {
           router.push(`/dashboard/runs/${(json as { data: { id: string } }).data.id}`);
           return;
         }
-        router.refresh();
         return;
       }
       // Surface the server error message to the user
@@ -89,7 +101,7 @@ export function RunsClient({
     } finally {
       setStartingRun(false);
     }
-  }, [projectId, startingRun, router]);
+  }, [projectId, startingRun, router, mutateRuns]);
 
   const filteredRuns = useMemo(() => {
     return runs.filter((run) => {
@@ -108,6 +120,10 @@ export function RunsClient({
         description="Connect a repository first to run tests."
       />
     );
+  }
+
+  if (loading) {
+    return <RunsListSkeleton />;
   }
 
   return (
@@ -162,11 +178,18 @@ export function RunsClient({
           }
         />
       ) : (
-        <div className="rounded-xl surface-1 border border-border overflow-hidden divide-y divide-border">
+        <motion.div
+          variants={staggerContainer(0.04)}
+          initial="hidden"
+          animate="show"
+          className="rounded-xl surface-1 border border-border overflow-hidden divide-y divide-border"
+        >
           {filteredRuns.map((run) => (
-            <RunRow key={run.id} run={run} />
+            <motion.div key={run.id} variants={staggerItem}>
+              <RunRow run={run} />
+            </motion.div>
           ))}
-        </div>
+        </motion.div>
       )}
     </div>
   );
@@ -180,7 +203,7 @@ function RunRow({ run }: { run: RunListItem }) {
   return (
     <Link
       href={`/dashboard/runs/${run.id}`}
-      className="flex items-center gap-4 px-5 py-3.5 hover:bg-muted/20 transition-colors group"
+      className="flex items-center gap-4 px-5 py-3.5 hover:bg-white/[0.04] transition-colors duration-150 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orbit-accent/50 focus-visible:ring-inset"
     >
       <StatusDot
         status={statusConfig?.dot ?? "untested"}
@@ -233,7 +256,7 @@ function RunRow({ run }: { run: RunListItem }) {
         {formatDuration(run.durationMs)}
       </span>
 
-      <ArrowRight className="h-4 w-4 text-muted-foreground/50 group-hover:text-foreground transition-colors shrink-0" />
+      <ArrowRight className="h-4 w-4 text-muted-foreground/50 group-hover:text-foreground transition-colors duration-150 shrink-0" />
     </Link>
   );
 }
@@ -252,3 +275,5 @@ function TestCountsDisplay({ run }: { run: RunListItem }) {
     </div>
   );
 }
+
+export { RunsListSkeleton } from "@/components/runs/runs-skeleton";
