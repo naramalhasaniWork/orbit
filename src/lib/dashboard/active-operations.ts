@@ -26,13 +26,17 @@ export async function getActiveOperations(
 ): Promise<ActiveOperation[]> {
   const operations: ActiveOperation[] = [];
 
-  // Active test runs (queued, indexing, planning, executing, reporting)
+  // Only show runs created in the last 2 hours — anything older is stale/stuck
+  const cutoff = new Date(Date.now() - 2 * 60 * 60 * 1000);
+
   const activeRuns = await prisma.testRun.findMany({
     where: {
       project: { workspaceId },
       status: { in: ["queued", "indexing", "planning", "executing", "reporting"] },
+      createdAt: { gte: cutoff },
     },
     orderBy: { createdAt: "desc" },
+    take: 5,
     select: {
       id: true,
       status: true,
@@ -46,6 +50,19 @@ export async function getActiveOperations(
       project: {
         select: { id: true, name: true, slug: true },
       },
+    },
+  });
+
+  // Auto-fail runs older than 2 hours that are still in non-terminal status
+  await prisma.testRun.updateMany({
+    where: {
+      project: { workspaceId },
+      status: { in: ["queued", "indexing", "planning", "executing", "reporting"] },
+      createdAt: { lt: cutoff },
+    },
+    data: {
+      status: "failed",
+      completedAt: new Date(),
     },
   });
 
