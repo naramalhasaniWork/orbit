@@ -48,19 +48,25 @@ export async function executeTestCase(
   let browserInstance: BrowserInstance | null = null;
   const startTime = Date.now();
 
+  const log = (msg: string) => console.log(`[TestCase:${testCase.id.slice(0, 8)}] ${msg}`);
+
   try {
+    log(`Launching browser (remote: ${!!process.env.PLAYWRIGHT_WS_ENDPOINT})...`);
     browserInstance = await launchBrowser({
       headless: true,
       recordVideo: !process.env.PLAYWRIGHT_WS_ENDPOINT,
       storagePath: `/tmp/orbit-videos/${runId}`,
       viewport: options?.viewport,
     });
+    log("Browser connected");
     const { page, context } = browserInstance;
 
+    log(`Navigating to ${environmentUrl}...`);
     await page.goto(environmentUrl, {
       waitUntil: "domcontentloaded",
       timeout: 30_000,
     });
+    log(`Page loaded: ${page.url()}`);
 
     const evidenceCollector = createEvidenceCollector(
       page, runId, testCase.id, context, testCase.projectId
@@ -151,6 +157,7 @@ export async function executeTestCase(
     };
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : "Unknown execution error";
+    log(`EXECUTION ERROR: ${errorMsg}`);
     return {
       verdict: "fail",
       durationMs: Date.now() - startTime,

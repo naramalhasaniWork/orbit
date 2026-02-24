@@ -46,6 +46,9 @@ export async function executeRun(options: RunOptions): Promise<void> {
 
 async function executeRunInner(options: RunOptions): Promise<void> {
   const { runId, environmentId } = options;
+  const log = (msg: string) => console.log(`[Runner:${runId.slice(0, 8)}] ${msg}`);
+
+  log(`Starting execution (env: ${environmentId})`);
 
   await prisma.testRun.update({
     where: { id: runId },
@@ -57,13 +60,17 @@ async function executeRunInner(options: RunOptions): Promise<void> {
     select: { projectId: true, testPlanId: true, mode: true },
   });
 
+  log(`Validating environment...`);
   const validation = await validateEnvironment(environmentId);
   if (!validation.valid) {
+    log(`Environment validation FAILED: ${validation.errors.join("; ")}`);
     await failRun(runId, `Environment validation failed: ${validation.errors.join("; ")}`);
     return;
   }
+  log(`Environment OK: ${validation.environmentUrl} (warnings: ${validation.warnings.length})`);
 
   const testCases = await loadTestCases(run.projectId, run.testPlanId, run.mode);
+  log(`Loaded ${testCases.length} test cases (mode: ${run.mode})`);
   if (testCases.length === 0) {
     await prisma.testRun.update({
       where: { id: runId },
@@ -103,6 +110,7 @@ async function executeRunInner(options: RunOptions): Promise<void> {
       continue;
     }
 
+    log(`[${counters.passed + counters.failed + counters.skipped + 1}/${testCases.length}] Starting: ${testCase.name}`);
     await emitTestStarted(runId, { runId, testCaseId: testCase.id, testCaseName: testCase.name });
     await emitRunProgress(runId, {
       runId, status: "executing", currentTest: testCase.name,
@@ -116,6 +124,7 @@ async function executeRunInner(options: RunOptions): Promise<void> {
         pass: "passed", fail: "failed", flaky: "flaky", healed: "passed",
       };
       counters[verdictMap[result.verdict] ?? "failed"]++;
+      log(`  -> ${result.verdict.toUpperCase()} (${result.durationMs}ms)`);
 
       await saveTestResult(
         runId, testCase.id, result.verdict as TestVerdict,
@@ -134,6 +143,7 @@ async function executeRunInner(options: RunOptions): Promise<void> {
     } catch (err) {
       counters.failed++;
       const errorMsg = err instanceof Error ? err.message : "Unknown error";
+      log(`  -> CRASH: ${errorMsg}`);
       await saveTestResult(runId, testCase.id, "fail", 0, [{
         stepIndex: 0, action: "execution", expected: "Test executes",
         actual: `Uncaught error: ${errorMsg}`, status: "failed", durationMs: 0,

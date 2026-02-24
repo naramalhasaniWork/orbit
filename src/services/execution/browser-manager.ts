@@ -60,14 +60,19 @@ export async function launchBrowser(
   let isRemote = false;
 
   if (wsEndpoint) {
+    console.log(`[Browser] Connecting via CDP to ${wsEndpoint}...`);
+    const cdpStart = Date.now();
     browser = await chromium.connectOverCDP(wsEndpoint, {
       timeout: DEFAULT_TIMEOUT,
     });
+    console.log(`[Browser] CDP connected in ${Date.now() - cdpStart}ms`);
     isRemote = true;
   } else {
+    console.log("[Browser] Launching local chromium...");
     browser = await chromium.launch({
       headless: options.headless ?? true,
     });
+    console.log("[Browser] Local browser launched");
   }
 
   const context = await browser.newContext(contextOptions);
