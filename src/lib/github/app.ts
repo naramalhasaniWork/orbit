@@ -1,15 +1,15 @@
-import { SignJWT, importPKCS8 } from "jose";
+import { SignJWT } from "jose";
+import { createPrivateKey } from "crypto";
 
 const GITHUB_API = "https://api.github.com";
 
 function getAppConfig() {
   const appId = process.env.GITHUB_APP_ID;
-  const privateKey = process.env.GITHUB_APP_PRIVATE_KEY?.replace(/\\n/g, "\n");
+  const raw = process.env.GITHUB_APP_PRIVATE_KEY;
 
-  if (!appId || !privateKey) {
-    return null;
-  }
+  if (!appId || !raw) return null;
 
+  const privateKey = raw.replace(/\\n/g, "\n");
   return { appId, privateKey };
 }
 
@@ -26,7 +26,8 @@ async function generateAppJwt(): Promise<string> {
   const config = getAppConfig();
   if (!config) throw new Error("GitHub App not configured");
 
-  const key = await importPKCS8(config.privateKey, "RS256");
+  // createPrivateKey handles both PKCS#1 (RSA PRIVATE KEY) and PKCS#8 (PRIVATE KEY)
+  const key = createPrivateKey(config.privateKey);
 
   const now = Math.floor(Date.now() / 1000);
   return new SignJWT({})
