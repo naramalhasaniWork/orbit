@@ -7,36 +7,36 @@ export interface ActiveOperation {
   projectId: string;
   projectName: string;
   projectSlug: string;
-  /** Human-friendly label like "Indexing", "Planning", "Executing tests" */
   label: string;
-  /** 0-100 progress if available */
   progress: number | null;
-  /** When the operation started */
   startedAt: string | null;
-  /** Additional context (trigger, mode, etc.) */
   meta: Record<string, unknown>;
 }
 
+/** How long a run can sit in each status before we consider it dead */
+const STALE_THRESHOLDS_MS: Record<string, number> = {
+  queued: 10 * 60 * 1000,      // 10 min — should start within seconds
+  indexing: 30 * 60 * 1000,    // 30 min
+  planning: 20 * 60 * 1000,    // 20 min
+  executing: 60 * 60 * 1000,   // 60 min
+  reporting: 15 * 60 * 1000,   // 15 min
+};
+
 /**
- * Get all active operations across the workspace.
- * Called server-side on layout render and via polling API.
+ * Get active operations and clean up stale runs in one pass.
  */
 export async function getActiveOperations(
   workspaceId: string
 ): Promise<ActiveOperation[]> {
-  const operations: ActiveOperation[] = [];
+  const now = Date.now();
 
-  // Only show runs created in the last 2 hours — anything older is stale/stuck
-  const cutoff = new Date(Date.now() - 2 * 60 * 60 * 1000);
-
-  const activeRuns = await prisma.testRun.findMany({
+  // Fetch all non-terminal runs
+  const allPending = await prisma.testRun.findMany({
     where: {
       project: { workspaceId },
       status: { in: ["queued", "indexing", "planning", "executing", "reporting"] },
-      createdAt: { gte: cutoff },
     },
     orderBy: { createdAt: "desc" },
-    take: 5,
     select: {
       id: true,
       status: true,
@@ -53,69 +53,77 @@ export async function getActiveOperations(
     },
   });
 
-  // Auto-fail runs older than 2 hours that are still in non-terminal status
-  await prisma.testRun.updateMany({
-    where: {
-      project: { workspaceId },
-      status: { in: ["queued", "indexing", "planning", "executing", "reporting"] },
-      createdAt: { lt: cutoff },
-    },
-    data: {
-      status: "failed",
-      completedAt: new Date(),
-    },
-  });
+  // Split into alive vs stale
+  const alive: typeof allPending = [];
+  const staleIds: string[] = [];
 
-  for (const run of activeRuns) {
-    operations.push({
-      id: run.id,
-      type: "run",
-      status: run.status,
-      projectId: run.project.id,
-      projectName: run.project.name,
-      projectSlug: run.project.slug,
-      label: runStatusLabel(run.status),
-      progress: computeRunProgress(run),
-      startedAt: (run.startedAt ?? run.createdAt).toISOString(),
-      meta: {
-        trigger: run.trigger,
-        mode: run.mode,
-        passed: run.passed,
-        failed: run.failed,
-        totalTests: run.totalTests,
-      },
-    });
+  for (const run of allPending) {
+    const threshold = STALE_THRESHOLDS_MS[run.status] ?? 60 * 60 * 1000;
+    const age = now - run.createdAt.getTime();
+
+    if (age > threshold) {
+      staleIds.push(run.id);
+    } else {
+      alive.push(run);
+    }
   }
 
-  // Active indexing jobs — check for projects recently updated without lastIndexedAt
-  // or with active BullMQ jobs (checked via the queue in the API route)
+  // Auto-fail stale runs in the background
+  if (staleIds.length > 0) {
+    prisma.testRun
+      .updateMany({
+        where: { id: { in: staleIds } },
+        data: { status: "failed", completedAt: new Date() },
+      })
+      .catch((err) => console.error("[active-ops] Failed to clean stale runs:", err));
+  }
+
+  // Build operations from alive runs only (cap at 5)
+  const operations: ActiveOperation[] = alive.slice(0, 5).map((run) => ({
+    id: run.id,
+    type: "run" as const,
+    status: run.status,
+    projectId: run.project.id,
+    projectName: run.project.name,
+    projectSlug: run.project.slug,
+    label: runStatusLabel(run.status),
+    progress: computeRunProgress(run),
+    startedAt: (run.startedAt ?? run.createdAt).toISOString(),
+    meta: {
+      trigger: run.trigger,
+      mode: run.mode,
+      passed: run.passed,
+      failed: run.failed,
+      totalTests: run.totalTests,
+    },
+  }));
+
+  // Active indexing — only very recent projects without index data
+  const fiveMinAgo = new Date(now - 5 * 60 * 1000);
   const indexingProjects = await prisma.project.findMany({
     where: {
       workspaceId,
       status: "active",
       lastIndexedAt: null,
       systemMapNodes: { none: {} },
+      createdAt: { gte: fiveMinAgo },
     },
     select: { id: true, name: true, slug: true, createdAt: true },
   });
 
-  // Only include if they were created recently (likely being indexed now)
-  const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000);
   for (const proj of indexingProjects) {
-    if (proj.createdAt > fiveMinAgo) {
-      operations.push({
-        id: `indexing-${proj.id}`,
-        type: "indexing",
-        status: "indexing",
-        projectId: proj.id,
-        projectName: proj.name,
-        projectSlug: proj.slug,
-        label: "Indexing repository",
-        progress: null,
-        startedAt: proj.createdAt.toISOString(),
-        meta: {},
-      });
-    }
+    operations.push({
+      id: `indexing-${proj.id}`,
+      type: "indexing",
+      status: "indexing",
+      projectId: proj.id,
+      projectName: proj.name,
+      projectSlug: proj.slug,
+      label: "Indexing repository",
+      progress: null,
+      startedAt: proj.createdAt.toISOString(),
+      meta: {},
+    });
   }
 
   return operations;
