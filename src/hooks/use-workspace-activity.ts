@@ -62,7 +62,7 @@ export function useWorkspaceActivity({
       const newIds = new Set(newOps.map((o) => o.id));
       const completed: CompletedOperation[] = [];
 
-      for (const [id, prev] of prevOpsRef.current) {
+      prevOpsRef.current.forEach((prev, id) => {
         if (!newIds.has(id)) {
           completed.push({
             id,
@@ -71,7 +71,7 @@ export function useWorkspaceActivity({
             completedAt: Date.now(),
           });
         }
-      }
+      });
 
       if (completed.length > 0) {
         setRecentlyCompleted((prev) => [...prev, ...completed]);
