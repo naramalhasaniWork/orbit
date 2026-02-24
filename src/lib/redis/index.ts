@@ -8,9 +8,12 @@ function createRedisConnection(label = "default"): Redis {
     throw new Error("REDIS_URL environment variable is not set");
   }
 
+  // Subscriber connections must not run INFO on reconnect (not allowed in subscriber mode)
+  const isSub = label === "sub";
+
   const connection = new Redis(url, {
     maxRetriesPerRequest: null,
-    enableReadyCheck: true,
+    enableReadyCheck: !isSub,
     retryStrategy(times) {
       const delay = Math.min(times * 200, 5000);
       console.log(`[Redis:${label}] Retry attempt ${times}, delay ${delay}ms`);
