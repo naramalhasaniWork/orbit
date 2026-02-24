@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { getStorage } from "@/lib/storage";
+import { resolveGitHubToken } from "@/lib/github/token";
 import { cloneGitLabRepository } from "@/services/indexing/adapters/gitlab-clone";
 import { cloneBitbucketRepository } from "@/services/indexing/adapters/bitbucket-clone";
 
@@ -61,27 +62,14 @@ export function detectProvider(repoUrl: string): RepoProvider {
 // ============================================================
 
 async function getGitHubAccessToken(projectId: string): Promise<string> {
-  const project = await prisma.project.findUniqueOrThrow({
-    where: { id: projectId },
-    include: {
-      workspace: {
-        include: {
-          members: {
-            include: { user: true },
-            where: { role: "admin" },
-            take: 1,
-          },
-        },
-      },
-    },
-  });
-
-  const admin = project.workspace.members[0]?.user;
-  if (!admin?.githubAccessToken) {
-    throw new Error("No GitHub access token found for workspace admin");
+  // Prefer GitHub App installation token (works for org repos with restricted OAuth)
+  const resolved = await resolveGitHubToken(projectId);
+  if (resolved) {
+    console.log(`[clone] Using ${resolved.source} token for project ${projectId}`);
+    return resolved.token;
   }
 
-  return admin.githubAccessToken;
+  throw new Error("No GitHub access token found for project");
 }
 
 async function fetchDirectoryContents(

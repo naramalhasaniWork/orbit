@@ -7,6 +7,7 @@ import { emitRunStarted } from "@/lib/websocket";
 import { dispatchRunStarted } from "@/services/reporting/integrations/outbound-webhooks";
 import { handleMention, ORBIT_MENTION_PATTERN } from "@/services/mention-handler";
 import type { PRContext } from "@/services/mention-handler";
+import { handleInstallationEvent } from "@/services/github-installation-sync";
 
 function verifySignature(payload: string, signature: string | null, secret: string): boolean {
   if (!signature) return false;
@@ -37,6 +38,12 @@ export async function POST(req: NextRequest) {
     payload = JSON.parse(body);
   } catch {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  }
+
+  // Handle installation events (no repository context needed)
+  if (event === "installation" || event === "installation_repositories") {
+    const result = await handleInstallationEvent(event, payload);
+    return NextResponse.json(result);
   }
 
   // Find the project by repository URL

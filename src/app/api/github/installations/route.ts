@@ -6,6 +6,7 @@ import {
   handleApiError,
 } from "@/lib/utils/api";
 import { isGitHubAppConfigured, getInstallUrl } from "@/lib/github/app";
+import { syncInstallations } from "@/services/github-installation-sync";
 
 export const dynamic = "force-dynamic";
 
@@ -39,6 +40,21 @@ export async function GET() {
       installUrl: getInstallUrl(),
       installations,
     });
+  } catch (error) {
+    return handleApiError(error);
+  }
+}
+
+export async function POST() {
+  try {
+    const { workspaceId } = await requireWorkspace();
+
+    if (!isGitHubAppConfigured()) {
+      return apiError("GitHub App not configured", "NOT_CONFIGURED", 400);
+    }
+
+    const synced = await syncInstallations(workspaceId);
+    return apiSuccess({ synced });
   } catch (error) {
     return handleApiError(error);
   }

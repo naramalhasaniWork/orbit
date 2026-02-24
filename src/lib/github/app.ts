@@ -139,3 +139,26 @@ export async function listInstallationRepos(
   const data = await res.json();
   return data.repositories ?? [];
 }
+
+/**
+ * List all installations for this GitHub App.
+ * Useful for syncing installations that were created outside of Orbit's callback.
+ */
+export async function listAllAppInstallations(): Promise<GitHubInstallationInfo[]> {
+  const jwt = await generateAppJwt();
+
+  const res = await fetch(`${GITHUB_API}/app/installations`, {
+    headers: {
+      Authorization: `Bearer ${jwt}`,
+      Accept: "application/vnd.github+json",
+      "X-GitHub-Api-Version": "2022-11-28",
+    },
+  });
+
+  if (!res.ok) {
+    const text = await res.text();
+    throw new Error(`Failed to list app installations: ${res.status} ${text}`);
+  }
+
+  return res.json();
+}

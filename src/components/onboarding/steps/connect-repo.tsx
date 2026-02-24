@@ -96,6 +96,9 @@ export function ConnectRepo({ onSelect }: ConnectRepoProps) {
 
   const fetchOrgs = useCallback(async () => {
     try {
+      // Sync any installations made outside Orbit's callback flow
+      await fetch("/api/github/installations", { method: "POST" }).catch(() => {});
+
       const res = await fetch("/api/user/orgs");
       const json = await res.json();
       if (res.ok && json.success) {
