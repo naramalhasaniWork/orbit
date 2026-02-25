@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, FormEvent } from "react";
+import { useSession } from "next-auth/react";
 import { Check, ChevronsUpDown, Plus, Loader2 } from "lucide-react";
 import {
   DropdownMenu,
@@ -40,8 +41,10 @@ export function WorkspaceSwitcher({
   currentWorkspaceId,
   currentWorkspaceName,
 }: WorkspaceSwitcherProps) {
+  const { update: updateSession } = useSession();
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [loading, setLoading] = useState(true);
+  const [switching, setSwitching] = useState<string | null>(null);
   const [showCreateDialog, setShowCreateDialog] = useState(false);
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState("");
@@ -60,10 +63,18 @@ export function WorkspaceSwitcher({
     fetchWorkspaces();
   }, []);
 
-  function handleSwitch(workspace: Workspace) {
+  async function handleSwitch(workspace: Workspace) {
     if (workspace.id === currentWorkspaceId) return;
-    document.cookie = `orbit_workspace=${workspace.id};path=/;max-age=${30 * 24 * 60 * 60}`;
-    window.location.href = "/dashboard";
+    setSwitching(workspace.id);
+    try {
+      // Update the JWT with the new workspace via NextAuth's built-in mechanism
+      await updateSession({ workspaceId: workspace.id });
+      // Persist preference in cookie for cross-session persistence
+      document.cookie = `orbit_workspace=${workspace.id};path=/;max-age=${30 * 24 * 60 * 60}`;
+      window.location.href = "/dashboard";
+    } catch {
+      setSwitching(null);
+    }
   }
 
   async function handleCreate(e: FormEvent) {
@@ -87,7 +98,8 @@ export function WorkspaceSwitcher({
         return;
       }
 
-      // Set the new workspace as active and reload
+      // Update JWT with the new workspace, persist cookie, and reload
+      await updateSession({ workspaceId: json.data.id });
       document.cookie = `orbit_workspace=${json.data.id};path=/;max-age=${30 * 24 * 60 * 60}`;
       window.location.href = "/dashboard";
     } catch {
@@ -127,18 +139,23 @@ export function WorkspaceSwitcher({
               <DropdownMenuItem
                 key={ws.id}
                 onClick={() => handleSwitch(ws)}
+                disabled={switching === ws.id}
                 className={cn("gap-2 cursor-pointer")}
               >
                 <div className="h-5 w-5 rounded bg-muted/50 flex items-center justify-center shrink-0">
-                  <span className="text-[9px] font-bold text-muted-foreground">
-                    {ws.name.charAt(0).toUpperCase()}
-                  </span>
+                  {switching === ws.id ? (
+                    <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                  ) : (
+                    <span className="text-[9px] font-bold text-muted-foreground">
+                      {ws.name.charAt(0).toUpperCase()}
+                    </span>
+                  )}
                 </div>
                 <span className="flex-1 truncate">{ws.name}</span>
                 <span className="text-[10px] text-muted-foreground capitalize">
                   {ws.role}
                 </span>
-                {ws.id === currentWorkspaceId && (
+                {ws.id === currentWorkspaceId && !switching && (
                   <Check className="h-3.5 w-3.5 text-orbit-accent shrink-0" />
                 )}
               </DropdownMenuItem>

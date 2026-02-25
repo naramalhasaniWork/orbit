@@ -1,5 +1,11 @@
 import { prisma } from "@/lib/db";
 import type { SystemMapNode as PrismaNode, SystemMapEdge as PrismaEdge } from "@/generated/prisma/client";
+import type { OperationsMap } from "@/agents/schemas/operations-map";
+import {
+  enrichJourneysWithOperations,
+  buildOperationSteps,
+  buildFlowDependencyMap,
+} from "@/services/planning/journey-operations";
 
 export interface Journey {
   name: string;
@@ -7,6 +13,9 @@ export interface Journey {
   steps: JourneyStep[];
   entryNodeId: string;
   nodeIds: string[];
+  dependsOn?: string[];
+  operationIds?: string[];
+  isCriticalPath?: boolean;
 }
 
 interface JourneyStep {
@@ -99,7 +108,10 @@ function describeJourney(name: string, steps: JourneyStep[]): string {
   return `User navigates: ${routeNames}`;
 }
 
-export async function reconstructJourneys(projectId: string): Promise<Journey[]> {
+export async function reconstructJourneys(
+  projectId: string,
+  operationsMap?: OperationsMap
+): Promise<Journey[]> {
   const [nodes, edges] = await Promise.all([
     prisma.systemMapNode.findMany({ where: { projectId } }),
     prisma.systemMapEdge.findMany({ where: { projectId } }),
@@ -109,9 +121,82 @@ export async function reconstructJourneys(projectId: string): Promise<Journey[]>
   for (const node of nodes) nodeMap.set(node.id, node);
 
   const adjacency = buildAdjacencyMap(edges);
+
+  // Standard keyword-based journeys
+  const journeys = buildKeywordJourneys(nodes, nodeMap, adjacency);
+
+  // Enrich with operations map data if available
+  if (operationsMap) {
+    enrichJourneysWithOperations(journeys, operationsMap);
+  }
+
+  return journeys;
+}
+
+/**
+ * Build journeys from OperationsMap flows instead of keyword matching.
+ * Each OperationalFlow becomes a journey, with steps ordered by
+ * the operation sequence defined in the flow.
+ */
+export function reconstructFlowJourneys(
+  nodes: PrismaNode[],
+  edges: PrismaEdge[],
+  operationsMap: OperationsMap
+): Journey[] {
+  const nodeMap = new Map<string, PrismaNode>();
+  for (const node of nodes) nodeMap.set(node.id, node);
+
+  const adjacency = buildAdjacencyMap(edges);
+  const operationById = new Map(operationsMap.operations.map((op) => [op.id, op]));
+
+  // Map flow IDs to dependent flow IDs (for journey-level dependsOn)
+  const flowDepMap = buildFlowDependencyMap(operationsMap);
+
+  const journeys: Journey[] = [];
+
+  for (const flow of operationsMap.flows) {
+    const steps: JourneyStep[] = [];
+    const allNodeIds: string[] = [];
+
+    // Walk operations in flow order
+    for (const opId of flow.operations) {
+      const operation = operationById.get(opId);
+      if (!operation) continue;
+
+      const opSteps = buildOperationSteps(operation.nodeIds, nodeMap, adjacency);
+      steps.push(...opSteps);
+      allNodeIds.push(...operation.nodeIds);
+    }
+
+    if (steps.length === 0) continue;
+
+    const entryNodeId = steps[0].nodeId;
+    const uniqueNodeIds = Array.from(new Set(allNodeIds));
+
+    journeys.push({
+      name: flow.name,
+      description: flow.description,
+      steps,
+      entryNodeId,
+      nodeIds: uniqueNodeIds,
+      dependsOn: flowDepMap.get(flow.id),
+      operationIds: flow.operations,
+      isCriticalPath: flow.criticalPath,
+    });
+  }
+
+  return journeys;
+}
+
+// --- Internal helpers ---
+
+function buildKeywordJourneys(
+  nodes: PrismaNode[],
+  nodeMap: Map<string, PrismaNode>,
+  adjacency: AdjacencyMap
+): Journey[] {
   const journeyGroups = new Map<string, PrismaNode[]>();
 
-  // Group nodes by journey classification
   for (const node of nodes) {
     const journeyName = classifyNode(node);
     if (journeyName) {
@@ -120,7 +205,6 @@ export async function reconstructJourneys(projectId: string): Promise<Journey[]>
     }
   }
 
-  // For unclassified route/endpoint nodes, group as "core"
   const classifiedIds = new Set<string>();
   Array.from(journeyGroups.values()).forEach((group) => {
     group.forEach((node) => classifiedIds.add(node.id));
@@ -133,12 +217,10 @@ export async function reconstructJourneys(projectId: string): Promise<Journey[]>
     journeyGroups.set("core", unclassifiedRoutes);
   }
 
-  // Build journeys by walking the graph from entry points
   const journeys: Journey[] = [];
   const MAX_WALK_DEPTH = 8;
 
   for (const [name, groupNodes] of Array.from(journeyGroups.entries())) {
-    // Pick the best entry point: prefer routes, then endpoints
     const entryNode = groupNodes.find((n: PrismaNode) => n.type === "route")
       ?? groupNodes.find((n: PrismaNode) => n.type === "endpoint")
       ?? groupNodes[0];

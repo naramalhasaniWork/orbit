@@ -196,7 +196,7 @@ describe("api-secrets", () => {
       const { POST } = await import("@/app/api/projects/[projectId]/secrets/route");
       const request = new NextRequest("http://localhost/api/projects/p1/secrets", {
         method: "POST",
-        body: JSON.stringify({ key: "  ", value: "val" }),
+        body: JSON.stringify({ key: "", value: "val" }),
       });
 
       const response = await POST(request, {

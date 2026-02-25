@@ -4,7 +4,7 @@ import { useState, useMemo, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Play, ArrowRight, Loader2 } from "lucide-react";
+import { Play, ArrowRight, Loader2, Filter } from "lucide-react";
 import { staggerContainer, staggerItem } from "@/lib/motion";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -168,15 +168,29 @@ export function RunsClient({
       <RunsFilter filters={filters} onFiltersChange={setFilters} runs={runs} />
 
       {filteredRuns.length === 0 ? (
-        <EmptyState
-          icon={Play}
-          title="No runs found"
-          description={
-            runs.length > 0
-              ? "No runs match the current filters."
-              : "Trigger your first test run to see results here."
-          }
-        />
+        runs.length > 0 ? (
+          <EmptyState
+            icon={Filter}
+            title="No runs match your filters"
+            description="Try adjusting or clearing your filters to see runs."
+            action={
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setFilters({ status: null, mode: null, trigger: null })}
+                className="text-orbit-accent hover:text-orbit-accent/80"
+              >
+                Clear filters
+              </Button>
+            }
+          />
+        ) : (
+          <EmptyState
+            icon={Play}
+            title="No runs yet"
+            description="Trigger your first test run to see results here."
+          />
+        )
       ) : (
         <motion.div
           variants={staggerContainer(0.04)}

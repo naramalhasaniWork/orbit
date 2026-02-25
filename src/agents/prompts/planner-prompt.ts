@@ -1,4 +1,5 @@
 import { buildPrompt, type UserLayerInput } from "@/agents/prompts/prompt-builder";
+import type { OperationsMap } from "@/agents/schemas/operations-map";
 
 interface SystemMapExcerpt {
   framework: string;
@@ -44,6 +45,7 @@ export interface PlannerContext {
   failurePatterns?: FailurePatternInput[];
   projectId: string;
   workspaceName?: string;
+  operationsMap?: OperationsMap;
 }
 
 function buildAdversarialThinking(): string {
@@ -59,6 +61,39 @@ For every user-facing form, input, or action, consider:
 - **Concurrent access:** Two users editing the same resource simultaneously
 - **Permission escalation:** Can a regular user access admin-only routes by changing the URL?
 - **Rate limiting:** What happens with 100 rapid requests to the same endpoint?`;
+}
+
+function buildOperationsMapSection(operationsMap?: OperationsMap): string {
+  if (!operationsMap || operationsMap.operations.length === 0) return "";
+
+  const opsStr = operationsMap.operations
+    .map((op) => `  - [${op.type}] ${op.id}: ${op.name} (entry: ${op.entryPoint}, inputs: ${op.requiredInputs.join(", ") || "none"}, outputs: ${op.producedOutputs.join(", ") || "none"})`)
+    .join("\n");
+
+  const flowsStr = operationsMap.flows
+    .map((f) => `  - ${f.criticalPath ? "[CRITICAL] " : ""}${f.id}: ${f.name} — ${f.operations.join(" → ")}`)
+    .join("\n");
+
+  const depsStr = operationsMap.dependencies
+    .map((d) => `  - ${d.operationId} depends on [${d.dependsOn.join(", ")}]: ${d.reason}`)
+    .join("\n");
+
+  return `
+## Operations Map (dependency-aware test ordering)
+The following business operations and their dependencies have been identified. Use this to:
+1. **Order tests by dependency chain** — test prerequisite operations before dependent ones (e.g., "Create Invoice" before "Submit Invoice for Approval").
+2. **Create flow-based test sequences** — for each critical flow, generate an end-to-end journey test that walks through the operations in order.
+3. **Boost critical path scores** — operations in critical flows should have higher criticality and priorityScore values.
+4. **Test dependency violations** — generate edge case tests that attempt dependent operations without their prerequisites (e.g., submit without creating first).
+
+**Operations (${operationsMap.metadata.totalOperations} total):**
+${opsStr}
+
+**Flows (${operationsMap.metadata.totalFlows} total, ${operationsMap.metadata.criticalFlows} critical):**
+${flowsStr}
+
+**Dependencies (max depth: ${operationsMap.metadata.maxDependencyDepth}):**
+${depsStr || "  (none)"}`;
 }
 
 function buildFewShotExample(): string {
@@ -130,6 +165,7 @@ export function buildPlannerPrompt(
     gitHistory,
     failurePatterns,
     projectId,
+    operationsMap,
   } = context;
 
   const nodesStr = systemMap.nodes
@@ -177,6 +213,8 @@ export function buildPlannerPrompt(
           .map((fp) => `  - [${fp.category}] (${fp.occurrences}x) ${fp.pattern}`)
           .join("\n")
       : "  (none)";
+
+  const operationsMapStr = buildOperationsMapSection(operationsMap);
 
   const configStr = [
     `- Test mode: ${userConfig.testMode}`,
@@ -247,7 +285,7 @@ ${gitStr}
 
 ## Known Failure Patterns (prioritize testing these areas)
 ${failurePatternsStr}
-
+${operationsMapStr}
 ${buildFewShotExample()}
 
 ${buildOutputSchema(projectId)}

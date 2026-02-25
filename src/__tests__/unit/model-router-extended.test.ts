@@ -10,11 +10,12 @@ const mockPrisma = vi.hoisted(() => ({
 
 vi.mock("@/lib/ai", () => ({
   MODELS: {
-    HAIKU: "claude-3-5-haiku-20241022",
-    SONNET: "claude-sonnet-4-20250514",
-    OPUS: "claude-opus-4-20250514",
-    GPT4O: "gpt-4o",
-    GPT4O_MINI: "gpt-4o-mini",
+    HAIKU: "claude-haiku-4-5-20251001",
+    SONNET: "claude-sonnet-4-6",
+    OPUS: "claude-opus-4-6",
+    GPT_5_2: "gpt-5.2",
+    GPT_4_1: "gpt-4.1",
+    O4_MINI: "o4-mini",
   },
 }));
 
@@ -48,7 +49,7 @@ describe("model-router extended", () => {
 
   describe("getProviderForModel", () => {
     it("returns anthropic for claude models", async () => {
-      expect(await getProviderForModel("claude-sonnet-4-20250514")).toBe("anthropic");
+      expect(await getProviderForModel("claude-sonnet-4-6")).toBe("anthropic");
     });
 
     it("returns openai for gpt models", async () => {
@@ -157,15 +158,15 @@ describe("model-router extended", () => {
       });
 
       const model = await getModelForTask("test_generation", "ws-empty");
-      expect(model).toBe("claude-sonnet-4-20250514");
+      expect(model).toBe("claude-sonnet-4-6");
     });
   });
 
   describe("getFallbackModels", () => {
     it("returns fallbacks for Opus", () => {
-      const fallbacks = getFallbackModels("claude-opus-4-20250514");
-      expect(fallbacks).toContain("claude-sonnet-4-20250514");
-      expect(fallbacks).toContain("gpt-4o");
+      const fallbacks = getFallbackModels("claude-opus-4-6");
+      expect(fallbacks).toContain("claude-sonnet-4-6");
+      expect(fallbacks).toContain("gpt-5.2");
     });
 
     it("returns empty array for unknown model", () => {
@@ -176,7 +177,7 @@ describe("model-router extended", () => {
   describe("getModelWithFallback", () => {
     it("returns primary and fallbacks with auto strategy", async () => {
       const result = await getModelWithFallback("security_testing");
-      expect(result.primary).toBe("claude-opus-4-20250514");
+      expect(result.primary).toBe("claude-opus-4-6");
       expect(result.fallbacks.length).toBeGreaterThan(0);
     });
 
@@ -217,7 +218,7 @@ describe("model-router extended", () => {
 
   describe("getModelCosts", () => {
     it("returns costs for known model", () => {
-      const costs = getModelCosts("claude-3-5-haiku-20241022");
+      const costs = getModelCosts("claude-haiku-4-5-20251001");
       expect(costs).not.toBeNull();
       expect(costs!.input).toBeGreaterThan(0);
     });
@@ -243,8 +244,8 @@ describe("model-router extended", () => {
       const models = await getAvailableModels();
       expect(models.length).toBeGreaterThan(0);
       const ids = models.map((m) => m.modelId);
-      expect(ids).toContain("claude-3-5-haiku-20241022");
-      expect(ids).toContain("gpt-4o");
+      expect(ids).toContain("claude-haiku-4-5-20251001");
+      expect(ids).toContain("gpt-5.2");
     });
 
     it("merges dynamic models without duplicates", async () => {
@@ -269,7 +270,7 @@ describe("model-router extended", () => {
       mockPrisma.modelRegistry.findMany.mockResolvedValueOnce([]);
       mockPrisma.globalModelPolicy.findMany.mockResolvedValueOnce([
         {
-          modelId: "gpt-4o",
+          modelId: "gpt-5.2",
           provider: "openai",
           isAllowed: false,
           requiredTier: null,
@@ -278,7 +279,7 @@ describe("model-router extended", () => {
 
       const models = await getAvailableModels();
       const ids = models.map((m) => m.modelId);
-      expect(ids).not.toContain("gpt-4o");
+      expect(ids).not.toContain("gpt-5.2");
     });
 
     it("filters models by tier requirement", async () => {
@@ -286,7 +287,7 @@ describe("model-router extended", () => {
       mockPrisma.modelRegistry.findMany.mockResolvedValueOnce([]);
       mockPrisma.globalModelPolicy.findMany.mockResolvedValueOnce([
         {
-          modelId: "claude-opus-4-20250514",
+          modelId: "claude-opus-4-6",
           provider: "anthropic",
           isAllowed: true,
           requiredTier: "enterprise",
@@ -295,7 +296,7 @@ describe("model-router extended", () => {
 
       const models = await getAvailableModels("ws-free");
       const ids = models.map((m) => m.modelId);
-      expect(ids).not.toContain("claude-opus-4-20250514");
+      expect(ids).not.toContain("claude-opus-4-6");
     });
   });
 });

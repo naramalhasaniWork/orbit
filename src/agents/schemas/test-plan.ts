@@ -8,6 +8,8 @@ export const TEST_TYPES = {
   edge_case: "edge_case",
   regression: "regression",
   visual_regression: "visual_regression",
+  operational_flow: "operational_flow",
+  prerequisite_chain: "prerequisite_chain",
 } as const;
 
 export const CRITICALITY_LEVELS = {
@@ -41,6 +43,8 @@ export const TestCaseSchema = z.object({
     "edge_case",
     "regression",
     "visual_regression",
+    "operational_flow",
+    "prerequisite_chain",
   ]),
   journey: z
     .string()
@@ -73,6 +77,18 @@ export const TestCaseSchema = z.object({
     .array(z.string())
     .default([])
     .describe("Edge cases this test should consider"),
+  prerequisites: z
+    .array(z.string())
+    .optional()
+    .describe("Test case IDs that must pass before this test can run"),
+  flowId: z
+    .string()
+    .optional()
+    .describe("Reference to OperationalFlow.id this test covers"),
+  operationIds: z
+    .array(z.string())
+    .optional()
+    .describe("Operation IDs this test exercises"),
 });
 
 const MetadataSchema = z.object({

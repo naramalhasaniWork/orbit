@@ -7,6 +7,7 @@ import { motion } from "framer-motion";
 import {
   LayoutDashboard,
   Map,
+  Workflow,
   ClipboardList,
   Play,
   ShieldCheck,
@@ -27,6 +28,7 @@ const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "Projects", href: "/dashboard/projects", icon: FolderGit2 },
   { name: "System Map", href: "/dashboard/map", icon: Map },
+  { name: "Operations", href: "/dashboard/operations", icon: Workflow },
   { name: "Test Plans", href: "/dashboard/plans", icon: ClipboardList },
   { name: "Runs", href: "/dashboard/runs", icon: Play },
   { name: "Code Audit", href: "/dashboard/audit", icon: ShieldCheck },

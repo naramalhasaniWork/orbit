@@ -8,10 +8,12 @@ vi.mock("@/lib/db", () => ({
       findFirst: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
+      count: vi.fn(),
     },
     environment: { findFirst: vi.fn() },
     testPlan: { findFirst: vi.fn() },
-    testCase: { findMany: vi.fn() },
+    testCase: { findMany: vi.fn(), count: vi.fn() },
+    workspace: { findUnique: vi.fn() },
   },
 }));
 
@@ -42,6 +44,19 @@ vi.mock("@/lib/utils/api", async () => {
   };
 });
 
+vi.mock("@/lib/auth/rbac", () => ({
+  requirePermission: vi.fn().mockResolvedValue({}),
+}));
+
+vi.mock("@/lib/auth/tenant", () => ({
+  TIER_LIMITS: {
+    free: { projects: 3, runsPerMonth: 50 },
+    starter: { projects: 10, runsPerMonth: 200 },
+    professional: { projects: 50, runsPerMonth: 1000 },
+    enterprise: { projects: 999, runsPerMonth: 9999 },
+  },
+}));
+
 vi.mock("@/services/execution/environment-validator", () => ({
   getDefaultEnvironment: vi.fn(),
 }));
@@ -58,7 +73,6 @@ vi.mock("@/lib/websocket", () => ({
 import { prisma } from "@/lib/db";
 import { requireWorkspace } from "@/lib/utils/api";
 import { getDefaultEnvironment } from "@/services/execution/environment-validator";
-import { emitRunProgress } from "@/lib/websocket";
 import { NextRequest } from "next/server";
 
 const mockPrisma = prisma as unknown as {
@@ -68,10 +82,12 @@ const mockPrisma = prisma as unknown as {
     findFirst: ReturnType<typeof vi.fn>;
     create: ReturnType<typeof vi.fn>;
     update: ReturnType<typeof vi.fn>;
+    count: ReturnType<typeof vi.fn>;
   };
   environment: { findFirst: ReturnType<typeof vi.fn> };
   testPlan: { findFirst: ReturnType<typeof vi.fn> };
-  testCase: { findMany: ReturnType<typeof vi.fn> };
+  testCase: { findMany: ReturnType<typeof vi.fn>; count: ReturnType<typeof vi.fn> };
+  workspace: { findUnique: ReturnType<typeof vi.fn> };
 };
 const mockRequireWorkspace = requireWorkspace as ReturnType<typeof vi.fn>;
 const mockGetDefaultEnv = getDefaultEnvironment as ReturnType<typeof vi.fn>;
@@ -83,6 +99,10 @@ describe("api-runs", () => {
       session: { user: { id: "user-1" }, workspaceId: "ws-1" },
       workspaceId: "ws-1",
     });
+    // Default workspace and count mocks
+    mockPrisma.workspace.findUnique.mockResolvedValue({ tier: "free", runLimit: 50 });
+    mockPrisma.testRun.count.mockResolvedValue(0);
+    mockPrisma.testCase.count.mockResolvedValue(2);
   });
 
   describe("GET /api/projects/[projectId]/runs", () => {
@@ -124,6 +144,7 @@ describe("api-runs", () => {
         id: "env-1",
         type: "staging",
         url: "https://staging.example.com",
+        defaultRunMode: null,
       });
       mockPrisma.testPlan.findFirst.mockResolvedValue({ id: "plan-1" });
       mockPrisma.testRun.create.mockResolvedValue({
@@ -131,7 +152,7 @@ describe("api-runs", () => {
         status: "queued",
         mode: "full",
       });
-      mockPrisma.testCase.findMany.mockResolvedValue([{ id: "tc-1" }, { id: "tc-2" }]);
+      mockPrisma.testCase.count.mockResolvedValue(2);
       mockPrisma.testRun.update.mockResolvedValue({});
 
       const { POST } = await import("@/app/api/projects/[projectId]/runs/route");
@@ -157,6 +178,7 @@ describe("api-runs", () => {
         id: "env-prod",
         type: "production",
         url: "https://prod.example.com",
+        defaultRunMode: null,
       });
 
       const { POST } = await import("@/app/api/projects/[projectId]/runs/route");

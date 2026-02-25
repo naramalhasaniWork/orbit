@@ -8,7 +8,13 @@ vi.mock("@/lib/db", () => ({
       findFirst: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
+      count: vi.fn(),
     },
+    workspace: {
+      findUnique: vi.fn(),
+    },
+    systemMapNode: { count: vi.fn() },
+    systemMapEdge: { count: vi.fn() },
   },
 }));
 
@@ -44,6 +50,27 @@ vi.mock("@/lib/utils/slug", () => ({
   generateSlug: vi.fn(() => "test-slug-abc123"),
 }));
 
+vi.mock("@/lib/auth/rbac", () => ({
+  requirePermission: vi.fn().mockResolvedValue({}),
+}));
+
+vi.mock("@/lib/auth/tenant", () => ({
+  TIER_LIMITS: {
+    free: { projects: 3, runsPerMonth: 50 },
+    starter: { projects: 10, runsPerMonth: 200 },
+    professional: { projects: 50, runsPerMonth: 1000 },
+    enterprise: { projects: 999, runsPerMonth: 9999 },
+  },
+}));
+
+vi.mock("@/lib/queue/queues", () => ({
+  getIndexingQueue: vi.fn(() => ({
+    getActive: vi.fn().mockResolvedValue([]),
+    getWaiting: vi.fn().mockResolvedValue([]),
+    getFailed: vi.fn().mockResolvedValue([]),
+  })),
+}));
+
 import { prisma } from "@/lib/db";
 import { requireWorkspace } from "@/lib/utils/api";
 import { NextRequest } from "next/server";
@@ -54,7 +81,13 @@ const mockPrisma = prisma as unknown as {
     findFirst: ReturnType<typeof vi.fn>;
     create: ReturnType<typeof vi.fn>;
     update: ReturnType<typeof vi.fn>;
+    count: ReturnType<typeof vi.fn>;
   };
+  workspace: {
+    findUnique: ReturnType<typeof vi.fn>;
+  };
+  systemMapNode: { count: ReturnType<typeof vi.fn> };
+  systemMapEdge: { count: ReturnType<typeof vi.fn> };
 };
 const mockRequireWorkspace = requireWorkspace as ReturnType<typeof vi.fn>;
 
@@ -65,6 +98,12 @@ describe("api-projects", () => {
       session: { user: { id: "user-1" }, workspaceId: "ws-1" },
       workspaceId: "ws-1",
     });
+    // Default: workspace exists with free tier, under project limit
+    mockPrisma.workspace.findUnique.mockResolvedValue({ tier: "free", projectLimit: 3 });
+    mockPrisma.project.count.mockResolvedValue(0);
+    // Default mocks for enrichment in GET /projects/[projectId]
+    mockPrisma.systemMapNode.count.mockResolvedValue(0);
+    mockPrisma.systemMapEdge.count.mockResolvedValue(0);
   });
 
   describe("GET /api/projects", () => {

@@ -12,6 +12,7 @@ import {
 } from "./run-manager";
 import { checkBudgetLimit } from "@/lib/billing/usage-aggregator";
 import { startTrace, completeTrace, failTrace } from "@/services/tracing";
+import type { OperationsMap } from "@/agents/schemas/operations-map";
 
 interface PipelineInput {
   projectId: string;
@@ -106,13 +107,22 @@ export async function executePipeline(
       await runAuditPhase(run.id, input.projectId);
     }
 
+    // Phase 1.75: Operations Analysis (full/manual runs only)
+    let operationsMap: OperationsMap | undefined;
+    if (mode === "full") {
+      await checkCancellation(run.id);
+      operationsMap = await runOperationsAnalysisPhase(
+        run.id, input.projectId, tokenBudget
+      );
+    }
+
     // Phase 2: Planning
     await checkCancellation(run.id);
 
     let testPlanId = context.activePlan?.id;
     if (!skipPlanning || !testPlanId) {
       testPlanId = await runPlanningPhase(
-        run.id, input.projectId, mode, testPlanId, tokenBudget
+        run.id, input.projectId, mode, testPlanId, tokenBudget, operationsMap
       );
     }
 
@@ -214,12 +224,52 @@ async function runAuditPhase(runId: string, projectId: string): Promise<void> {
   }
 }
 
+async function runOperationsAnalysisPhase(
+  runId: string,
+  projectId: string,
+  tokenBudget: TokenBudget
+): Promise<OperationsMap | undefined> {
+  const traceId = await startTrace({
+    runId,
+    projectId,
+    agentPhase: "planner",
+    inputSummary: "Analyze business operations and dependencies",
+  });
+
+  try {
+    const { analyzeOperations } = await import("@/services/planning/operations-analyzer");
+    const result = await analyzeOperations(projectId);
+
+    tokenBudget.record(
+      result.tokensUsed.input,
+      result.tokensUsed.output,
+      0,
+      "planner"
+    );
+
+    await completeTrace(traceId, {
+      outputSummary: `Identified ${result.operationsMap.metadata.totalOperations} operations in ${result.operationsMap.metadata.totalFlows} flows`,
+      inputTokens: result.tokensUsed.input,
+      outputTokens: result.tokensUsed.output,
+    });
+
+    return result.operationsMap;
+  } catch (error) {
+    // Operations analysis is non-blocking — log and continue without it
+    const msg = error instanceof Error ? error.message : "Unknown operations analysis error";
+    console.warn("[Pipeline] Operations analysis failed, continuing:", msg);
+    await failTrace(traceId, msg);
+    return undefined;
+  }
+}
+
 async function runPlanningPhase(
   runId: string,
   projectId: string,
   mode: RunMode,
   existingPlanId: string | undefined,
-  tokenBudget: TokenBudget
+  tokenBudget: TokenBudget,
+  operationsMap?: OperationsMap
 ): Promise<string> {
   // If we already have a plan and mode doesn't require regeneration, use it
   if (existingPlanId && mode !== "full") {
@@ -236,7 +286,7 @@ async function runPlanningPhase(
   try {
     await updateRunStatus(runId, "planning", "Generating test plan");
     const { generatePlan } = await import("@/services/planning/planner");
-    const planResult = await generatePlan({ projectId, mode });
+    const planResult = await generatePlan({ projectId, mode, operationsMap });
 
     tokenBudget.record(
       planResult.tokensUsed.input,

@@ -47,6 +47,16 @@ function adjustCriticalityForJourney(
     score = Math.min(100, score + 10);
   }
 
+  // Boost for operational_flow tests on critical paths (have a flowId)
+  if (testCase.type === "operational_flow" && testCase.flowId) {
+    score = Math.min(100, score + 20);
+  }
+
+  // Boost for prerequisite_chain tests
+  if (testCase.type === "prerequisite_chain") {
+    score = Math.min(100, score + 15);
+  }
+
   return score;
 }
 
@@ -111,8 +121,23 @@ export function filterByMode(
   maxCases?: number
 ): TestCase[] {
   switch (mode) {
-    case "smoke":
-      return testCases.filter((tc) => tc.priorityScore >= 80).slice(0, 10);
+    case "smoke": {
+      // In smoke mode, always include prerequisite_chain tests (they catch
+      // the most impactful failures) even if they fall below the score threshold
+      const highPriority = testCases.filter((tc) => tc.priorityScore >= 80);
+      const prerequisiteTests = testCases.filter(
+        (tc) => tc.type === "prerequisite_chain" && tc.priorityScore < 80
+      );
+      const combined = [...highPriority, ...prerequisiteTests];
+      // Deduplicate (prerequisite tests might already be in highPriority)
+      const seen = new Set<string>();
+      const unique = combined.filter((tc) => {
+        if (seen.has(tc.id)) return false;
+        seen.add(tc.id);
+        return true;
+      });
+      return unique.slice(0, 10);
+    }
 
     case "regression":
       return testCases.filter((tc) => tc.type === "regression");

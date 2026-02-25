@@ -36,7 +36,26 @@ export const authOptions: AuthOptions = {
       return true;
     },
 
-    async jwt({ token, user, trigger, account }) {
+    async jwt({ token, user, trigger, account, session: updateData }) {
+      // Handle workspace switching via update() from the client
+      if (trigger === "update" && updateData?.workspaceId) {
+        const requestedId = updateData.workspaceId as string;
+        // Verify the user is actually a member of this workspace
+        const membership = await prisma.workspaceMember.findFirst({
+          where: {
+            userId: token.userId as string,
+            workspaceId: requestedId,
+          },
+          include: { workspace: { select: { slug: true } } },
+        });
+        if (membership) {
+          token.workspaceId = membership.workspaceId;
+          token.role = membership.role;
+          token.workspaceSlug = membership.workspace.slug;
+        }
+        return token;
+      }
+
       if (trigger === "signIn" || trigger === "signUp") {
         // Store provider-specific access tokens
         if (account?.access_token) {

@@ -224,11 +224,15 @@ export function useRunEvents({
   const url = `/api/projects/${projectId}/runs/${runId}/progress`;
   const isEnabled = enabled && !!runId && !!projectId && !isTerminal;
 
-  const { connected, error } = useSSE({
+  const { connected, error, retryCount } = useSSE({
     url,
     enabled: isEnabled,
     onEvent: handleEvent,
+    maxRetries: 3,
+    retryDelay: 3000,
   });
+
+  const reconnecting = !connected && retryCount > 0 && retryCount <= 3;
 
   useEffect(() => {
     if (isTerminal) {
@@ -236,5 +240,5 @@ export function useRunEvents({
     }
   }, [isTerminal]);
 
-  return { progress, steps, tests, connected, error };
+  return { progress, steps, tests, connected, error, reconnecting, retryCount };
 }

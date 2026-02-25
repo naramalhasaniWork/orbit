@@ -17,6 +17,19 @@ vi.mock("@/lib/websocket", () => ({
   emitRunStarted: vi.fn(),
 }));
 
+vi.mock("@/services/reporting/integrations/outbound-webhooks", () => ({
+  dispatchRunStarted: vi.fn(),
+}));
+
+vi.mock("@/services/mention-handler", () => ({
+  handleMention: vi.fn(),
+  ORBIT_MENTION_PATTERN: /@orbit(?:-testing)?(?:\[bot\])?\s*/i,
+}));
+
+vi.mock("@/services/github-installation-sync", () => ({
+  handleInstallationEvent: vi.fn(),
+}));
+
 import { prisma } from "@/lib/db";
 import { NextRequest } from "next/server";
 

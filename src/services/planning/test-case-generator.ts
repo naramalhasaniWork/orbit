@@ -13,6 +13,7 @@ import type { CoverageReport } from "@/services/planning/coverage-analyzer";
 import type { Journey } from "@/services/planning/journey-reconstructor";
 import { spawnSubAgent, type SubAgentResult } from "@/services/agents/executor";
 import { parseLlmJson } from "@/lib/utils/json-parse";
+import type { OperationsMap } from "@/agents/schemas/operations-map";
 
 interface GenerationInput {
   projectId: string;
@@ -23,6 +24,7 @@ interface GenerationInput {
   focusAreas?: string[];
   excludePaths?: string[];
   maxTestCases?: number;
+  operationsMap?: OperationsMap;
 }
 
 interface GenerationResult {
@@ -258,14 +260,20 @@ export async function generateTestCases(input: GenerationInput): Promise<Generat
     failurePatterns,
     projectId,
     workspaceName,
+    operationsMap: input.operationsMap,
   };
 
   const prompt = buildPlannerPrompt(context, userLayer);
 
   // Append journey analysis insights to the prompt if available
-  const enrichedPrompt = journeyInsights.length > 0
+  let enrichedPrompt = journeyInsights.length > 0
     ? `${prompt}\n\n## Sub-Agent Journey Analysis\nThe following complex journeys were pre-analyzed by a specialist sub-agent. Use these insights to generate more targeted test cases:\n\n${journeyInsights.join("\n\n")}`
     : prompt;
+
+  // Append operations map if available — enables dependency-aware test ordering
+  if (input.operationsMap && input.operationsMap.operations.length > 0) {
+    enrichedPrompt = `${enrichedPrompt}\n\n## Operations Map\nThe following operations and dependencies were identified by the Operations Analyst. Use this to:\n- Generate tests that follow operational flow ordering (prerequisite operations first)\n- Create prerequisite-aware test sequences (e.g., "Create Invoice" before "Submit Invoice")\n- Prioritize critical path flows with higher priority scores\n\n${JSON.stringify(input.operationsMap, null, 2)}`;
+  }
 
   const completion = await createTrackedCompletion(
     {

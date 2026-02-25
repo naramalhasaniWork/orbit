@@ -7,6 +7,7 @@ import type { CoverageReport } from "@/services/planning/coverage-analyzer";
 import type { Journey } from "@/services/planning/journey-reconstructor";
 import type { TestCase } from "@/agents/schemas/test-plan";
 import type { TestPlan as PrismaTestPlan, TestCase as PrismaTestCase } from "@/generated/prisma/client";
+import type { OperationsMap } from "@/agents/schemas/operations-map";
 
 interface PlannerInput {
   projectId: string;
@@ -14,6 +15,7 @@ interface PlannerInput {
   focusAreas?: string[];
   excludePaths?: string[];
   maxTestCases?: number;
+  operationsMap?: OperationsMap;
 }
 
 interface PlannerResult {
@@ -31,6 +33,7 @@ export async function generatePlan(input: PlannerInput): Promise<PlannerResult> 
     focusAreas,
     excludePaths,
     maxTestCases,
+    operationsMap,
   } = input;
 
   // Step 1: Analyze coverage and reconstruct journeys in parallel
@@ -52,6 +55,7 @@ export async function generatePlan(input: PlannerInput): Promise<PlannerResult> 
     focusAreas,
     excludePaths,
     maxTestCases,
+    operationsMap,
   });
 
   // Step 4: Prioritize and filter

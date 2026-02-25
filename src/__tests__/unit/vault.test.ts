@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 
 // Set env var before importing vault
 const TEST_KEY = "a".repeat(64); // 64 hex chars = 32 bytes
-process.env.VAULT_ENCRYPTION_KEY = TEST_KEY;
+process.env.ENCRYPTION_KEY = TEST_KEY;
 
 // We need to reset the module between tests because derivedKey is cached
 let encrypt: typeof import("@/lib/vault")["encrypt"];
@@ -75,26 +75,26 @@ describe("vault encrypt/decrypt", () => {
     expect(() => decrypt(encrypted, wrongIv)).toThrow();
   });
 
-  it("throws when VAULT_ENCRYPTION_KEY is not set", async () => {
+  it("throws when ENCRYPTION_KEY is not set", async () => {
     vi.resetModules();
-    delete process.env.VAULT_ENCRYPTION_KEY;
+    delete process.env.ENCRYPTION_KEY;
 
     const vault = await import("@/lib/vault");
-    expect(() => vault.encrypt("test")).toThrow("VAULT_ENCRYPTION_KEY");
+    expect(() => vault.encrypt("test")).toThrow("ENCRYPTION_KEY");
 
     // Restore for other tests
-    process.env.VAULT_ENCRYPTION_KEY = TEST_KEY;
+    process.env.ENCRYPTION_KEY = TEST_KEY;
   });
 
   it("derives key from non-hex passphrase via scrypt", async () => {
     vi.resetModules();
-    process.env.VAULT_ENCRYPTION_KEY = "my-passphrase-not-hex";
+    process.env.ENCRYPTION_KEY = "my-passphrase-not-hex";
 
     const vault = await import("@/lib/vault");
     const { encrypted, iv } = vault.encrypt("scrypt-test");
     expect(vault.decrypt(encrypted, iv)).toBe("scrypt-test");
 
     // Restore
-    process.env.VAULT_ENCRYPTION_KEY = TEST_KEY;
+    process.env.ENCRYPTION_KEY = TEST_KEY;
   });
 });

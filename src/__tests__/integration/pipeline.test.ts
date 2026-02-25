@@ -31,10 +31,34 @@ vi.mock("@/services/orchestrator/context-manager", () => ({
   getProjectContext: vi.fn(),
 }));
 
+vi.mock("@/services/orchestrator/mode-selector", () => ({
+  selectRunMode: vi.fn().mockReturnValue({
+    mode: "full",
+    reason: "First run for this project",
+    skipIndexing: false,
+    skipPlanning: false,
+  }),
+}));
+
 vi.mock("@/services/orchestrator/run-manager", () => ({
   createRun: vi.fn(),
   updateRunStatus: vi.fn(),
   updateRunStats: vi.fn(),
+  isRunCancelled: vi.fn().mockResolvedValue(false),
+}));
+
+vi.mock("@/lib/billing/usage-aggregator", () => ({
+  checkBudgetLimit: vi.fn().mockResolvedValue({ isOverLimit: false }),
+}));
+
+vi.mock("@/services/tracing", () => ({
+  startTrace: vi.fn().mockResolvedValue("trace-1"),
+  completeTrace: vi.fn().mockResolvedValue(undefined),
+  failTrace: vi.fn().mockResolvedValue(undefined),
+}));
+
+vi.mock("@/services/auditing/auditor", () => ({
+  runCodeAudit: vi.fn().mockResolvedValue(undefined),
 }));
 
 // Mock dynamically imported modules
@@ -52,6 +76,7 @@ vi.mock("@/services/planning/planner", () => ({
 
 vi.mock("@/services/execution/runner", () => ({
   runTestSuite: vi.fn(),
+  runTestSuiteParallel: vi.fn(),
 }));
 
 vi.mock("@/services/reporting/reporter", () => ({
@@ -89,7 +114,7 @@ describe("orchestrator pipeline", () => {
     mockGetContext.mockImplementation(async () => {
       callOrder.push("context");
       return {
-        project: { id: "p1", defaultBranch: "main" },
+        project: { id: "p1", defaultBranch: "main", workspaceId: "ws-1" },
         defaultEnvironment: { id: "env-1" },
         systemMapStats: { nodes: 0, edges: 0 },
         activePlan: null,
@@ -119,15 +144,16 @@ describe("orchestrator pipeline", () => {
       callOrder.push("planning");
       return {
         plan: { id: "plan-1" },
+        testCases: [{ id: "tc-1" }, { id: "tc-2" }],
         tokensUsed: { input: 1000, output: 500 },
       };
     });
 
     mockPrisma.testRun.update.mockResolvedValue({});
 
-    // Mock runner
-    const { runTestSuite } = await import("@/services/execution/runner");
-    (runTestSuite as ReturnType<typeof vi.fn>).mockImplementation(async () => {
+    // Mock runner (full mode uses runTestSuiteParallel)
+    const { runTestSuiteParallel } = await import("@/services/execution/runner");
+    (runTestSuiteParallel as ReturnType<typeof vi.fn>).mockImplementation(async () => {
       callOrder.push("execution");
     });
 
@@ -182,7 +208,7 @@ describe("orchestrator pipeline", () => {
 
   it("returns failed status when pipeline throws", async () => {
     mockGetContext.mockResolvedValue({
-      project: { id: "p1", defaultBranch: "main" },
+      project: { id: "p1", defaultBranch: "main", workspaceId: "ws-1" },
       defaultEnvironment: { id: "env-1" },
       systemMapStats: { nodes: 0, edges: 0 },
       activePlan: { id: "plan-1", version: 1, testCaseCount: 5 },
@@ -224,7 +250,7 @@ describe("orchestrator pipeline", () => {
 
   it("tracks token usage through the pipeline", async () => {
     mockGetContext.mockResolvedValue({
-      project: { id: "p1", defaultBranch: "main" },
+      project: { id: "p1", defaultBranch: "main", workspaceId: "ws-1" },
       defaultEnvironment: { id: "env-1" },
       systemMapStats: { nodes: 5, edges: 3 },
       activePlan: null,
@@ -241,13 +267,15 @@ describe("orchestrator pipeline", () => {
     const { generatePlan } = await import("@/services/planning/planner");
     (generatePlan as ReturnType<typeof vi.fn>).mockResolvedValue({
       plan: { id: "plan-1" },
+      testCases: [{ id: "tc-1" }],
       tokensUsed: { input: 50000, output: 10000 },
     });
 
     mockPrisma.testRun.update.mockResolvedValue({});
 
-    const { runTestSuite } = await import("@/services/execution/runner");
-    (runTestSuite as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
+    // Full mode uses runTestSuiteParallel
+    const { runTestSuiteParallel } = await import("@/services/execution/runner");
+    (runTestSuiteParallel as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
 
     const { generateReport } = await import("@/services/reporting/reporter");
     (generateReport as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
