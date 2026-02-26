@@ -64,6 +64,8 @@ enum TestType {
   edge_case
   regression
   visual_regression
+  operational_flow
+  prerequisite_chain
 }
 
 enum MemberRole {
