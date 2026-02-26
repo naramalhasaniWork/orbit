@@ -10,7 +10,7 @@ import { prisma } from "./index";
  * Ensures the pgvector extension and HNSW index exist.
  * Call once during migration or app startup.
  *
- * Prisma's driver adapter stores Unsupported("vector(1536)") columns
+ * Prisma's driver adapter stores Unsupported("vector(384)") columns
  * as jsonb. We need to ALTER them to the proper vector type before
  * creating HNSW indexes.
  */
@@ -46,7 +46,7 @@ export async function ensureVectorSetup(): Promise<void> {
           // Data exists — convert jsonb to vector using USING clause to preserve data
           // jsonb values like '[0.1, 0.2, ...]' can be cast to text then to vector
           await prisma.$executeRawUnsafe(
-            `ALTER TABLE ${table} ALTER COLUMN ${column} TYPE vector(1536) USING (${column}::text)::vector(1536)`
+            `ALTER TABLE ${table} ALTER COLUMN ${column} TYPE vector(384) USING (${column}::text)::vector(384)`
           );
         } else {
           // No data — safe to drop and re-add
@@ -54,7 +54,7 @@ export async function ensureVectorSetup(): Promise<void> {
             `ALTER TABLE ${table} DROP COLUMN IF EXISTS ${column}`
           );
           await prisma.$executeRawUnsafe(
-            `ALTER TABLE ${table} ADD COLUMN ${column} vector(1536)`
+            `ALTER TABLE ${table} ADD COLUMN ${column} vector(384)`
           );
         }
       }
