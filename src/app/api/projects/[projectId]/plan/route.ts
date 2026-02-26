@@ -162,10 +162,17 @@ function streamPlanGeneration(projectId: string, body: PlanRequestBody) {
 
   const readable = new ReadableStream({
     async start(controller) {
+      let closed = false;
+
       function emit(event: string, data: unknown) {
-        controller.enqueue(
-          encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
-        );
+        if (closed) return;
+        try {
+          controller.enqueue(
+            encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
+          );
+        } catch {
+          closed = true;
+        }
       }
 
       try {
@@ -234,7 +241,10 @@ function streamPlanGeneration(projectId: string, body: PlanRequestBody) {
         const msg = sanitizeErrorMessage(error);
         emit("plan:error", { message: msg });
       } finally {
-        controller.close();
+        if (!closed) {
+          closed = true;
+          controller.close();
+        }
       }
     },
   });

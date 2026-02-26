@@ -26,7 +26,6 @@ interface CompletionResult {
 const MAX_RETRIES = 3;
 const BASE_DELAY_MS = 1000;
 const EMBEDDING_MODEL = "text-embedding-3-small";
-const EMBEDDING_DIMENSIONS = 384;
 const EMBEDDING_BATCH_SIZE = 100;
 
 function getClient(): OpenAI {
@@ -115,7 +114,6 @@ export async function createEmbedding(text: string): Promise<number[]> {
   const response = await client.embeddings.create({
     model: EMBEDDING_MODEL,
     input: text,
-    dimensions: EMBEDDING_DIMENSIONS,
   });
 
   const embedding = response.data[0]?.embedding;
@@ -140,7 +138,6 @@ export async function createEmbeddings(
     const response = await client.embeddings.create({
       model: EMBEDDING_MODEL,
       input: batch,
-      dimensions: EMBEDDING_DIMENSIONS,
     });
 
     const sorted = response.data.sort((a, b) => a.index - b.index);

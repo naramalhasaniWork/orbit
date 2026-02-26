@@ -48,6 +48,72 @@ export interface PlannerContext {
   operationsMap?: OperationsMap;
 }
 
+// ~4 chars/token avg; keep prompt under ~120k tokens for the system map portion
+const MAX_NODE_CHARS = 300_000;
+const MAX_EDGE_CHARS = 100_000;
+
+// Priority tiers: routes/endpoints first, then auth/forms, then the rest
+const NODE_PRIORITY: Record<string, number> = {
+  route: 0,
+  endpoint: 0,
+  middleware: 1,
+  component: 2,
+  model: 3,
+  utility: 4,
+  config: 5,
+};
+
+interface TruncatedMap {
+  nodes: SystemMapExcerpt["nodes"];
+  edges: SystemMapExcerpt["edges"];
+  truncated: boolean;
+}
+
+function truncateSystemMap(map: SystemMapExcerpt): TruncatedMap {
+  if (map.nodes.length === 0) {
+    return { nodes: [], edges: [], truncated: false };
+  }
+
+  // Sort nodes by priority: routes/endpoints first, then auth-required, then by type
+  const sorted = [...map.nodes].sort((a, b) => {
+    const pa = NODE_PRIORITY[a.type] ?? 3;
+    const pb = NODE_PRIORITY[b.type] ?? 3;
+    if (pa !== pb) return pa - pb;
+    const aAuth = a.metadata?.authRequired ? 0 : 1;
+    const bAuth = b.metadata?.authRequired ? 0 : 1;
+    return aAuth - bAuth;
+  });
+
+  // Keep adding nodes until we hit the char budget
+  const kept: typeof sorted = [];
+  let chars = 0;
+  for (const node of sorted) {
+    const line = `  - [${node.type}] ${node.id}: ${node.name} (${node.filePath})`;
+    if (chars + line.length > MAX_NODE_CHARS) break;
+    chars += line.length;
+    kept.push(node);
+  }
+
+  const keptIds = new Set(kept.map((n) => n.id));
+
+  // Filter edges to only reference kept nodes, within char budget
+  const filteredEdges: typeof map.edges = [];
+  let edgeChars = 0;
+  for (const edge of map.edges) {
+    if (!keptIds.has(edge.source) || !keptIds.has(edge.target)) continue;
+    const line = `  - ${edge.source} --${edge.relationship}--> ${edge.target}`;
+    if (edgeChars + line.length > MAX_EDGE_CHARS) break;
+    edgeChars += line.length;
+    filteredEdges.push(edge);
+  }
+
+  return {
+    nodes: kept,
+    edges: filteredEdges,
+    truncated: kept.length < map.nodes.length,
+  };
+}
+
 function buildAdversarialThinking(): string {
   return `## Adversarial Thinking — What Would Break This?
 For every user-facing form, input, or action, consider:
@@ -168,7 +234,9 @@ export function buildPlannerPrompt(
     operationsMap,
   } = context;
 
-  const nodesStr = systemMap.nodes
+  const truncatedMap = truncateSystemMap(systemMap);
+
+  const nodesStr = truncatedMap.nodes
     .map((n) => {
       const uiElements = n.metadata?.uiElements as
         | Array<{
@@ -180,24 +248,30 @@ export function buildPlannerPrompt(
         | undefined;
       const uiStr = uiElements?.length
         ? ` [UI: ${uiElements
-            .slice(0, 5)
+            .slice(0, 3)
             .map(
               (el) =>
                 `<${el.tag}${el.type ? ` type="${el.type}"` : ""}${el.name ? ` name="${el.name}"` : ""}${el.text ? ` "${el.text}"` : ""}`
             )
-            .join(", ")}${uiElements.length > 5 ? ` +${uiElements.length - 5} more` : ""}]`
+            .join(", ")}${uiElements.length > 3 ? ` +${uiElements.length - 3} more` : ""}]`
         : "";
       return `  - [${n.type}] ${n.id}: ${n.name} (${n.filePath})${n.metadata?.authRequired ? " [AUTH]" : ""}${n.metadata?.httpMethod ? ` [${n.metadata.httpMethod}]` : ""}${uiStr}`;
     })
     .join("\n");
 
-  const edgesStr = systemMap.edges
+  const edgesStr = truncatedMap.edges
     .map((e) => `  - ${e.source} --${e.relationship}--> ${e.target}`)
     .join("\n");
 
+  const truncationNote = truncatedMap.truncated
+    ? `\n  (Showing ${truncatedMap.nodes.length} of ${systemMap.nodes.length} nodes, prioritized by testability)`
+    : "";
+
+  const cappedExistingNames = existingTestNames.slice(0, 200);
   const existingStr =
-    existingTestNames.length > 0
-      ? existingTestNames.map((n) => `  - ${n}`).join("\n")
+    cappedExistingNames.length > 0
+      ? cappedExistingNames.map((n) => `  - ${n}`).join("\n") +
+        (existingTestNames.length > 200 ? `\n  ... and ${existingTestNames.length - 200} more` : "")
       : "  (none)";
 
   const gitStr =
@@ -269,7 +343,7 @@ ${buildAdversarialThinking()}
 **Framework:** ${systemMap.framework}
 
 **Nodes:**
-${nodesStr}
+${nodesStr}${truncationNote}
 
 **Edges:**
 ${edgesStr}

@@ -5,6 +5,7 @@
 
 import { prisma } from "@/lib/db";
 import { createEmbeddings, createEmbedding } from "@/lib/ai/providers/openai";
+import { ensureDimension } from "@/lib/db/vector";
 import type { Chunk } from "./chunker";
 import type { Prisma } from "@/generated/prisma/client";
 
@@ -45,7 +46,11 @@ export async function embedChunks(
       });
     }
 
-    // Then update embeddings via raw SQL (Prisma doesn't support vector type)
+    // Ensure column dimension matches before writing
+    if (embeddings.length > 0 && embeddings[0]) {
+      await ensureDimension("knowledge_chunks", "embedding", embeddings[0].length);
+    }
+
     const createdChunks = await tx.knowledgeChunk.findMany({
       where: { knowledgeFileId },
       orderBy: { chunkIndex: "asc" },
