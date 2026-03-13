@@ -74,7 +74,7 @@ export function SecretSettings({ projectId, secrets: initial, environments }: Se
       });
 
       if (res.ok) {
-        const secret = await res.json();
+        const { data: secret } = await res.json();
         setSecrets((prev) => {
           const idx = prev.findIndex((s) => s.id === secret.id);
           if (idx >= 0) {

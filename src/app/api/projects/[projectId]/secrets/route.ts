@@ -76,7 +76,7 @@ export async function POST(
       where: {
         projectId,
         key,
-        environmentId: environmentId ?? { equals: null },
+        environmentId: environmentId ?? null,
       },
     });
 

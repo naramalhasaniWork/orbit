@@ -55,7 +55,7 @@ export function EnvironmentSettings({ projectId, environments: initial }: Enviro
       });
 
       if (res.ok) {
-        const env = await res.json();
+        const { data: env } = await res.json();
         setEnvironments((prev) => [...prev, env]);
         setNewEnv({ name: "", type: "staging", url: "", defaultRunMode: "full" });
         setShowAdd(false);
