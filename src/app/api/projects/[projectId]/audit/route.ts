@@ -82,7 +82,12 @@ export async function POST(
       return apiError("Project not found", "NOT_FOUND", 404);
     }
 
-    const body = (await request.json()) as TriggerAuditBody;
+    let body: TriggerAuditBody = {};
+    try {
+      body = (await request.json()) as TriggerAuditBody;
+    } catch {
+      // Empty or malformed body — use defaults
+    }
 
     const result = await runCodeAudit({
       projectId,

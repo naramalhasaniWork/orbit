@@ -15,7 +15,7 @@ import { RunsTimeline } from "@/components/dashboard/runs-timeline";
 import { ActiveRunBar } from "@/components/dashboard/active-run-bar";
 import { SystemMap } from "@/components/dashboard/system-map";
 import { Button } from "@/components/ui/button";
-import { FolderGit2, Play, Plus, GitBranch, RefreshCw } from "lucide-react";
+import { FolderGit2, Play, Plus, GitBranch, RefreshCw, CheckCircle2, AlertCircle } from "lucide-react";
 import Link from "next/link";
 import type { MapNode, MapEdge } from "@/components/dashboard/map-types";
 import { useProjectEvents, type ProjectRunUpdate } from "@/hooks/use-project-events";
@@ -89,6 +89,8 @@ interface SyncInfo {
   commitsBehind: number;
   lastCommitSha: string | null;
   lastCommitMessage: string | null;
+  lastCommitAt: string | null;
+  autoSync: boolean;
   syncDiff: { added: number; modified: number; removed: number } | null;
 }
 
@@ -121,6 +123,8 @@ export function DashboardClient({
 }: DashboardClientProps) {
   const router = useRouter();
   const [liveActiveRun, setLiveActiveRun] = useState<ActiveRun | null>(null);
+  const [checkingSync, setCheckingSync] = useState(false);
+  const [syncCheckResult, setSyncCheckResult] = useState<{ commitsBehind: number; sha: string | null } | null>(null);
 
   const handleRunStarted = useCallback((run: ProjectRunUpdate) => {
     setLiveActiveRun({
@@ -138,9 +142,23 @@ export function DashboardClient({
 
   const handleRunCompleted = useCallback(() => {
     setLiveActiveRun(null);
-    // Refresh server data to update stats and timeline
     router.refresh();
   }, [router]);
+
+  const handleCheckSync = useCallback(() => {
+    if (!activeProject || checkingSync) return;
+    setCheckingSync(true);
+    fetch(`/api/projects/${activeProject.id}/sync/check`)
+      .then((res) => res.ok ? res.json() : null)
+      .then((json: { data: { commitsBehind: number; lastCommitSha: string | null } } | null) => {
+        if (json?.data) {
+          setSyncCheckResult({ commitsBehind: json.data.commitsBehind, sha: json.data.lastCommitSha });
+          router.refresh();
+        }
+      })
+      .catch(() => null)
+      .finally(() => setCheckingSync(false));
+  }, [activeProject, checkingSync, router]);
 
   useProjectEvents({
     projectId: activeProject?.id ?? "",
@@ -186,39 +204,67 @@ export function DashboardClient({
           >
             View details
           </Link>
-          {syncInfo && syncInfo.commitsBehind > 0 && (
-            <Link
-              href={`/dashboard/map?project=${activeProject.id}`}
-              className="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 hover:bg-yellow-500/15 transition-colors"
-            >
-              <GitBranch className="h-3 w-3" />
-              {syncInfo.commitsBehind} commit{syncInfo.commitsBehind !== 1 ? "s" : ""} ahead on GitHub
-              {syncInfo.lastCommitSha && (
-                <span className="font-mono opacity-70">{syncInfo.lastCommitSha.slice(0, 7)}</span>
-              )}
-            </Link>
-          )}
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Sync status — always visible */}
+          {syncInfo && (() => {
+            const behind = syncCheckResult?.commitsBehind ?? syncInfo.commitsBehind;
+            const sha = syncCheckResult?.sha ?? syncInfo.lastCommitSha;
+            if (behind > 0) {
+              return (
+                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-yellow-500/10 border border-yellow-500/20 text-[11px]">
+                  <AlertCircle className="h-3 w-3 text-yellow-400 shrink-0" />
+                  <span className="text-yellow-400 font-medium">{behind} commit{behind !== 1 ? "s" : ""} behind</span>
+                  {sha && <span className="font-mono text-yellow-400/60">{sha.slice(0, 7)}</span>}
+                  {syncInfo.lastCommitMessage && (
+                    <span className="text-yellow-400/50 hidden sm:inline truncate max-w-[160px]">— {syncInfo.lastCommitMessage}</span>
+                  )}
+                  <button
+                    onClick={() => {
+                      fetch(`/api/projects/${activeProject.id}/sync`, { method: "POST", body: JSON.stringify({}) });
+                      router.refresh();
+                    }}
+                    className="ml-1 flex items-center gap-1 text-yellow-400 hover:text-yellow-300 font-medium transition-colors"
+                  >
+                    <RefreshCw className="h-3 w-3" />
+                    Re-index
+                  </button>
+                </div>
+              );
+            }
+            if (sha) {
+              return (
+                <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                  <CheckCircle2 className="h-3 w-3 text-green-500/70" />
+                  <span>Synced</span>
+                  <span className="font-mono opacity-50">{sha.slice(0, 7)}</span>
+                </div>
+              );
+            }
+            return (
+              <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                <GitBranch className="h-3 w-3" />
+                <span>{syncInfo.autoSync ? "Auto-sync on" : "Auto-sync off"}</span>
+              </div>
+            );
+          })()}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 px-2 text-[11px] gap-1 text-muted-foreground hover:text-foreground"
+            onClick={handleCheckSync}
+            disabled={checkingSync}
+          >
+            <RefreshCw className={`h-3 w-3 ${checkingSync ? "animate-spin" : ""}`} />
+            {checkingSync ? "Checking…" : "Check"}
+          </Button>
           {syncInfo?.syncDiff && (syncInfo.syncDiff.added > 0 || syncInfo.syncDiff.modified > 0 || syncInfo.syncDiff.removed > 0) && (
             <span className="flex items-center gap-1 text-[11px]">
               {syncInfo.syncDiff.added > 0 && <span className="text-blue-400">+{syncInfo.syncDiff.added}</span>}
               {syncInfo.syncDiff.modified > 0 && <span className="text-purple-400">~{syncInfo.syncDiff.modified}</span>}
               {syncInfo.syncDiff.removed > 0 && <span className="text-red-400">-{syncInfo.syncDiff.removed}</span>}
-              <span className="text-muted-foreground">since last sync</span>
+              <span className="text-muted-foreground/60">vs last sync</span>
             </span>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          {syncInfo && syncInfo.commitsBehind > 0 && activeProject && (
-            <Link href={`/dashboard/settings?project=${activeProject.id}&tab=general`}>
-              <Button
-                variant="outline"
-                size="sm"
-                className="h-7 px-3 text-xs gap-1.5 border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/10"
-              >
-                <RefreshCw className="h-3 w-3" />
-                Sync Now
-              </Button>
-            </Link>
           )}
           <Link href="/dashboard/onboarding">
             <Button

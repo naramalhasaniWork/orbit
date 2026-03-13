@@ -83,8 +83,10 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     commitsBehind: number;
     lastCommitSha: string | null;
     lastCommitMessage: string | null;
+    lastCommitAt: string | null;
+    autoSync: boolean;
     syncDiff: { added: number; modified: number; removed: number } | null;
-  } = { commitsBehind: 0, lastCommitSha: null, lastCommitMessage: null, syncDiff: null };
+  } = { commitsBehind: 0, lastCommitSha: null, lastCommitMessage: null, lastCommitAt: null, autoSync: false, syncDiff: null };
 
   if (activeProject) {
     const proj = await prisma.project.findUnique({
@@ -96,6 +98,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       commitsBehind: (settings.commitsBehind as number | undefined) ?? 0,
       lastCommitSha: (settings.lastCommitSha as string | undefined) ?? null,
       lastCommitMessage: (settings.lastCommitMessage as string | undefined) ?? null,
+      lastCommitAt: (settings.lastCommitAt as string | undefined) ?? null,
+      autoSync: (settings.autoSync as boolean | undefined) ?? false,
       syncDiff: (settings.lastSyncDiff as { added: number; modified: number; removed: number } | undefined) ?? null,
     };
   }

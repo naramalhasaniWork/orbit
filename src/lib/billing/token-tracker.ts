@@ -57,17 +57,22 @@ export async function recordTokenUsage(params: TokenTrackingParams) {
     return { cost, inputTokens, outputTokens, cachedTokens };
   }
 
+  // Sanitize IDs — Prisma expects valid UUIDs; sub-agent parent IDs may have
+  // timestamp suffixes appended (e.g. "plan-<uuid>-<ts>") which are not valid UUIDs.
+  const safeRunId = runId && UUID_RE.test(runId) ? runId : null;
+  const safeProjectId = projectId && UUID_RE.test(projectId) ? projectId : (projectId ?? null);
+
   await prisma.tokenUsage.create({
     data: {
       workspaceId,
-      projectId: projectId ?? null,
+      projectId: safeProjectId,
       model,
       inputTokens,
       outputTokens,
       cachedTokens,
       cost: parseFloat(cost.toFixed(6)),
       agentPhase,
-      runId: runId ?? null,
+      runId: safeRunId,
     },
   });
 
@@ -80,20 +85,23 @@ export async function recordTokenUsage(params: TokenTrackingParams) {
 export async function recordTokenUsageBatch(
   records: TokenTrackingParams[]
 ) {
-  const data = records.map((r) => {
-    const cost = calculateTokenCost(r.model, r.inputTokens, r.outputTokens, r.cachedTokens);
-    return {
-      workspaceId: r.workspaceId,
-      projectId: r.projectId ?? null,
-      model: r.model,
-      inputTokens: r.inputTokens,
-      outputTokens: r.outputTokens,
-      cachedTokens: r.cachedTokens ?? 0,
-      cost: parseFloat(cost.toFixed(6)),
-      agentPhase: r.agentPhase,
-      runId: r.runId ?? null,
-    };
-  });
+  const data = records
+    .filter((r) => UUID_RE.test(r.workspaceId))
+    .map((r) => {
+      const cost = calculateTokenCost(r.model, r.inputTokens, r.outputTokens, r.cachedTokens);
+      return {
+        workspaceId: r.workspaceId,
+        projectId: r.projectId && UUID_RE.test(r.projectId) ? r.projectId : (r.projectId ?? null),
+        model: r.model,
+        inputTokens: r.inputTokens,
+        outputTokens: r.outputTokens,
+        cachedTokens: r.cachedTokens ?? 0,
+        cost: parseFloat(cost.toFixed(6)),
+        agentPhase: r.agentPhase,
+        runId: r.runId && UUID_RE.test(r.runId) ? r.runId : null,
+      };
+    });
 
+  if (data.length === 0) return;
   await prisma.tokenUsage.createMany({ data });
 }
