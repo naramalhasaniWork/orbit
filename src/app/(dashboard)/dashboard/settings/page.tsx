@@ -32,6 +32,7 @@ export default async function SettingsPage() {
   let secrets: Array<{
     id: string;
     key: string;
+    environmentId: string | null;
     createdAt: Date;
     updatedAt: Date;
   }> = [];
@@ -45,7 +46,7 @@ export default async function SettingsPage() {
 
     secrets = await prisma.secret.findMany({
       where: { projectId: project.id },
-      select: { id: true, key: true, createdAt: true, updatedAt: true },
+      select: { id: true, key: true, environmentId: true, createdAt: true, updatedAt: true },
       orderBy: { key: "asc" },
     });
   }

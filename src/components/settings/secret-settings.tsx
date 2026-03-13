@@ -4,29 +4,40 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
 import { Plus, Trash2, Eye, EyeOff, KeyRound } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 interface Secret {
   id: string;
   key: string;
+  environmentId: string | null;
   createdAt: Date;
   updatedAt: Date;
+}
+
+interface Environment {
+  id: string;
+  name: string;
+  type: string;
 }
 
 interface SecretSettingsProps {
   projectId: string | null;
   secrets: Secret[];
+  environments: Environment[];
 }
 
-export function SecretSettings({ projectId, secrets: initial }: SecretSettingsProps) {
+export function SecretSettings({ projectId, secrets: initial, environments }: SecretSettingsProps) {
   const [secrets, setSecrets] = useState(initial);
   const [showAdd, setShowAdd] = useState(false);
   const [newKey, setNewKey] = useState("");
   const [newValue, setNewValue] = useState("");
+  const [newEnvId, setNewEnvId] = useState("");
   const [showValue, setShowValue] = useState(false);
   const [adding, setAdding] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [filterEnvId, setFilterEnvId] = useState<string>("all");
 
   if (!projectId) {
     return (
@@ -36,21 +47,46 @@ export function SecretSettings({ projectId, secrets: initial }: SecretSettingsPr
     );
   }
 
+  const envMap = new Map(environments.map((e) => [e.id, e]));
+
+  function getEnvLabel(environmentId: string | null) {
+    if (!environmentId) return null;
+    return envMap.get(environmentId)?.name ?? "Unknown";
+  }
+
+  const filtered = filterEnvId === "all"
+    ? secrets
+    : filterEnvId === "global"
+      ? secrets.filter((s) => !s.environmentId)
+      : secrets.filter((s) => s.environmentId === filterEnvId);
+
   async function handleAdd() {
     if (!newKey || !newValue || adding) return;
     setAdding(true);
     try {
+      const payload: Record<string, string> = { key: newKey, value: newValue };
+      if (newEnvId) payload.environmentId = newEnvId;
+
       const res = await fetch(`/api/projects/${projectId}/secrets`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ key: newKey, value: newValue }),
+        body: JSON.stringify(payload),
       });
 
       if (res.ok) {
         const secret = await res.json();
-        setSecrets((prev) => [...prev, secret]);
+        setSecrets((prev) => {
+          const idx = prev.findIndex((s) => s.id === secret.id);
+          if (idx >= 0) {
+            const next = [...prev];
+            next[idx] = secret;
+            return next;
+          }
+          return [...prev, secret];
+        });
         setNewKey("");
         setNewValue("");
+        setNewEnvId("");
         setShowValue(false);
         setShowAdd(false);
       }
@@ -96,11 +132,11 @@ export function SecretSettings({ projectId, secrets: initial }: SecretSettingsPr
 
       {showAdd && (
         <div className="rounded-xl surface-1 p-4 space-y-3">
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-3 gap-3">
             <div className="space-y-1.5">
               <Label className="text-xs text-muted-foreground">Key</Label>
               <Input
-                placeholder="API_KEY"
+                placeholder="TEST_EMAIL"
                 value={newKey}
                 onChange={(e) => setNewKey(e.target.value.toUpperCase().replace(/[^A-Z0-9_]/g, ""))}
                 className="bg-muted/40 font-mono"
@@ -125,7 +161,25 @@ export function SecretSettings({ projectId, secrets: initial }: SecretSettingsPr
                 </button>
               </div>
             </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs text-muted-foreground">Environment</Label>
+              <select
+                value={newEnvId}
+                onChange={(e) => setNewEnvId(e.target.value)}
+                className="w-full h-9 rounded-md border border-transparent bg-muted/40 px-3 text-sm focus:border-orbit-accent/30 focus:outline-none"
+              >
+                <option value="">All environments (global)</option>
+                {environments.map((env) => (
+                  <option key={env.id} value={env.id}>
+                    {env.name} ({env.type})
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
+          <p className="text-[11px] text-muted-foreground">
+            Common auth keys: <code className="text-foreground/70">TEST_EMAIL</code>, <code className="text-foreground/70">TEST_PASSWORD</code>, <code className="text-foreground/70">TEST_API_KEY</code>
+          </p>
           <div className="flex gap-2">
             <Button size="sm" onClick={handleAdd} disabled={adding || !newKey || !newValue} className="bg-orbit-accent hover:bg-orbit-accent/90 text-white">
               {adding ? "Saving..." : "Encrypt & Save"}
@@ -137,14 +191,58 @@ export function SecretSettings({ projectId, secrets: initial }: SecretSettingsPr
         </div>
       )}
 
+      {environments.length > 0 && secrets.length > 0 && (
+        <div className="flex items-center gap-1.5">
+          <span className="text-[11px] text-muted-foreground mr-1">Filter:</span>
+          <button
+            type="button"
+            onClick={() => setFilterEnvId("all")}
+            className={`px-2.5 py-1 text-[11px] rounded-md transition-colors ${
+              filterEnvId === "all"
+                ? "bg-white/[0.08] text-foreground"
+                : "text-muted-foreground hover:text-foreground hover:bg-white/[0.04]"
+            }`}
+          >
+            All
+          </button>
+          <button
+            type="button"
+            onClick={() => setFilterEnvId("global")}
+            className={`px-2.5 py-1 text-[11px] rounded-md transition-colors ${
+              filterEnvId === "global"
+                ? "bg-white/[0.08] text-foreground"
+                : "text-muted-foreground hover:text-foreground hover:bg-white/[0.04]"
+            }`}
+          >
+            Global
+          </button>
+          {environments.map((env) => (
+            <button
+              key={env.id}
+              type="button"
+              onClick={() => setFilterEnvId(env.id)}
+              className={`px-2.5 py-1 text-[11px] rounded-md transition-colors ${
+                filterEnvId === env.id
+                  ? "bg-white/[0.08] text-foreground"
+                  : "text-muted-foreground hover:text-foreground hover:bg-white/[0.04]"
+              }`}
+            >
+              {env.name}
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="space-y-2">
-        {secrets.length === 0 ? (
+        {filtered.length === 0 ? (
           <div className="rounded-xl surface-1 p-8 text-center">
             <KeyRound className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-            <p className="text-sm text-muted-foreground">No secrets configured yet.</p>
+            <p className="text-sm text-muted-foreground">
+              {secrets.length === 0 ? "No secrets configured yet." : "No secrets match this filter."}
+            </p>
           </div>
         ) : (
-          secrets.map((secret) => (
+          filtered.map((secret) => (
             <div
               key={secret.id}
               className="flex items-center justify-between px-4 py-3 rounded-xl surface-1"
@@ -152,7 +250,18 @@ export function SecretSettings({ projectId, secrets: initial }: SecretSettingsPr
               <div className="flex items-center gap-3">
                 <KeyRound className="h-4 w-4 text-muted-foreground" />
                 <div>
-                  <span className="text-sm font-mono font-medium text-foreground">{secret.key}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-mono font-medium text-foreground">{secret.key}</span>
+                    {secret.environmentId ? (
+                      <Badge variant="outline" className="text-[10px] text-orbit-accent">
+                        {getEnvLabel(secret.environmentId)}
+                      </Badge>
+                    ) : (
+                      <Badge variant="outline" className="text-[10px] text-muted-foreground">
+                        global
+                      </Badge>
+                    )}
+                  </div>
                   <div className="flex items-center gap-2 mt-0.5">
                     <span className="text-xs text-muted-foreground font-mono">{"••••••••"}</span>
                     <span className="text-xs text-muted-foreground">

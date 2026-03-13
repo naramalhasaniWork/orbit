@@ -8,6 +8,7 @@ import { dispatchRunStarted } from "@/services/reporting/integrations/outbound-w
 import { handleMention, ORBIT_MENTION_PATTERN } from "@/services/mention-handler";
 import type { PRContext } from "@/services/mention-handler";
 import { handleInstallationEvent } from "@/services/github-installation-sync";
+import { resolveGitHubToken } from "@/lib/github/token";
 
 function verifySignature(payload: string, signature: string | null, secret: string): boolean {
   if (!signature) return false;
@@ -228,9 +229,16 @@ export async function POST(req: NextRequest) {
         name: string;
       };
 
-      // Fetch PR details for branch/sha context
+      // Fetch PR details — use project token for private repo access
+      const resolved = await resolveGitHubToken(project.id);
+      const prHeaders: Record<string, string> = {
+        Accept: "application/vnd.github+json",
+      };
+      if (resolved) {
+        prHeaders.Authorization = `Bearer ${resolved.token}`;
+      }
       const prDetailsRes = await fetch(issue.pull_request.url, {
-        headers: { Accept: "application/vnd.github+json" },
+        headers: prHeaders,
       });
 
       let branch = "unknown";

@@ -56,7 +56,33 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    // Clear the return cookie
+    // Sync workspace.settings.github so the UI shows connected status
+    const workspace = await prisma.workspace.findUnique({
+      where: { id: workspaceId },
+      select: { settings: true },
+    });
+    const currentSettings = (workspace?.settings as Record<string, unknown>) ?? {};
+
+    // Gather all installation accounts for this workspace
+    const allInstalls = await prisma.gitHubInstallation.findMany({
+      where: { workspaceId },
+      select: { installationId: true, accountLogin: true },
+    });
+
+    await prisma.workspace.update({
+      where: { id: workspaceId },
+      data: {
+        settings: {
+          ...currentSettings,
+          github: {
+            connected: true,
+            installationId: String(numericId),
+            repos: allInstalls.map((i) => i.accountLogin),
+          },
+        },
+      },
+    });
+
     cookieStore.delete("orbit_install_return");
 
     redirect(`${returnTo}?org_connected=${info.account.login}`);

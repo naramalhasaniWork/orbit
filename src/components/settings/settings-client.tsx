@@ -53,6 +53,7 @@ interface SettingsClientProps {
   secrets: Array<{
     id: string;
     key: string;
+    environmentId: string | null;
     createdAt: Date;
     updatedAt: Date;
   }>;
@@ -137,7 +138,7 @@ export function SettingsClient({
             <ScheduleSettings projectId={project?.id ?? null} />
           )}
           {activeTab === "secrets" && (
-            <SecretSettings projectId={project?.id ?? null} secrets={secrets} />
+            <SecretSettings projectId={project?.id ?? null} secrets={secrets} environments={environments} />
           )}
           {activeTab === "agents" && workspace && (
             <AgentSettingsList workspaceId={workspace.id} />

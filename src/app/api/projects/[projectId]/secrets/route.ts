@@ -26,10 +26,9 @@ export async function GET(
       return apiError("Project not found", "NOT_FOUND", 404);
     }
 
-    // Only return key names, never values
     const secrets = await prisma.secret.findMany({
       where: { projectId },
-      select: { id: true, key: true, createdAt: true, updatedAt: true },
+      select: { id: true, key: true, environmentId: true, createdAt: true, updatedAt: true },
       orderBy: { key: "asc" },
     });
 
@@ -82,16 +81,17 @@ export async function POST(
     });
 
     let secret;
+    const selectFields = { id: true, key: true, environmentId: true, createdAt: true, updatedAt: true };
     if (existing) {
       secret = await prisma.secret.update({
         where: { id: existing.id },
         data: { encryptedValue: encrypted, iv },
-        select: { id: true, key: true, createdAt: true, updatedAt: true },
+        select: selectFields,
       });
     } else {
       secret = await prisma.secret.create({
         data: { projectId, key, encryptedValue: encrypted, iv, environmentId },
-        select: { id: true, key: true, createdAt: true, updatedAt: true },
+        select: selectFields,
       });
     }
 

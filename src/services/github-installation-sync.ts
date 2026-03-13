@@ -41,9 +41,20 @@ export async function handleInstallationEvent(
     }
 
     if (action === "deleted") {
+      // Find workspaces affected before deleting
+      const affected = await prisma.gitHubInstallation.findMany({
+        where: { installationId: installation.id },
+        select: { workspaceId: true },
+      });
+
       await prisma.gitHubInstallation
         .deleteMany({ where: { installationId: installation.id } })
         .catch(() => {});
+
+      for (const { workspaceId } of affected) {
+        await syncWorkspaceGitHubSettings(workspaceId);
+      }
+
       return { status: "installation_removed" };
     }
   }
@@ -91,6 +102,8 @@ async function registerInstallation(
     },
   });
 
+  await syncWorkspaceGitHubSettings(workspace.id);
+
   console.log(
     `[install-sync] Registered installation ${installationId} (${accountLogin}) for workspace ${workspace.id}`
   );
@@ -124,6 +137,35 @@ export async function syncInstallations(workspaceId: string): Promise<number> {
   }
 
   return synced;
+}
+
+async function syncWorkspaceGitHubSettings(workspaceId: string): Promise<void> {
+  const workspace = await prisma.workspace.findUnique({
+    where: { id: workspaceId },
+    select: { settings: true },
+  });
+  const currentSettings = (workspace?.settings as Record<string, unknown>) ?? {};
+
+  const installs = await prisma.gitHubInstallation.findMany({
+    where: { workspaceId },
+    select: { installationId: true, accountLogin: true },
+  });
+
+  await prisma.workspace.update({
+    where: { id: workspaceId },
+    data: {
+      settings: {
+        ...currentSettings,
+        github: installs.length > 0
+          ? {
+              connected: true,
+              installationId: String(installs[0].installationId),
+              repos: installs.map((i) => i.accountLogin),
+            }
+          : { connected: false },
+      },
+    },
+  });
 }
 
 async function findWorkspaceForGitHubUser(
