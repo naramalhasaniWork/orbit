@@ -15,7 +15,7 @@ import { RunsTimeline } from "@/components/dashboard/runs-timeline";
 import { ActiveRunBar } from "@/components/dashboard/active-run-bar";
 import { SystemMap } from "@/components/dashboard/system-map";
 import { Button } from "@/components/ui/button";
-import { FolderGit2, Play, Plus } from "lucide-react";
+import { FolderGit2, Play, Plus, GitBranch, RefreshCw } from "lucide-react";
 import Link from "next/link";
 import type { MapNode, MapEdge } from "@/components/dashboard/map-types";
 import { useProjectEvents, type ProjectRunUpdate } from "@/hooks/use-project-events";
@@ -85,6 +85,13 @@ interface IndexingInfo {
   isIndexing: boolean;
 }
 
+interface SyncInfo {
+  commitsBehind: number;
+  lastCommitSha: string | null;
+  lastCommitMessage: string | null;
+  syncDiff: { added: number; modified: number; removed: number } | null;
+}
+
 interface DashboardClientProps {
   projects: Project[];
   activeProject: Project | null;
@@ -94,6 +101,7 @@ interface DashboardClientProps {
   mapNodes?: MapNode[];
   mapEdges?: MapEdge[];
   indexingInfo?: IndexingInfo;
+  syncInfo?: SyncInfo;
 }
 
 const stagger = staggerContainer(0.06);
@@ -109,6 +117,7 @@ export function DashboardClient({
   mapNodes = [],
   mapEdges = [],
   indexingInfo,
+  syncInfo,
 }: DashboardClientProps) {
   const router = useRouter();
   const [liveActiveRun, setLiveActiveRun] = useState<ActiveRun | null>(null);
@@ -168,8 +177,8 @@ export function DashboardClient({
       animate="show"
       className="space-y-6"
     >
-      <motion.div variants={fadeUp} className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
+      <motion.div variants={fadeUp} className="flex items-center justify-between flex-wrap gap-2">
+        <div className="flex items-center gap-3 flex-wrap">
           <h1 className="text-lg font-semibold text-foreground">{activeProject.name}</h1>
           <Link
             href={`/dashboard/projects/${activeProject.id}`}
@@ -177,17 +186,51 @@ export function DashboardClient({
           >
             View details
           </Link>
+          {syncInfo && syncInfo.commitsBehind > 0 && (
+            <Link
+              href={`/dashboard/map?project=${activeProject.id}`}
+              className="flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-medium bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 hover:bg-yellow-500/15 transition-colors"
+            >
+              <GitBranch className="h-3 w-3" />
+              {syncInfo.commitsBehind} commit{syncInfo.commitsBehind !== 1 ? "s" : ""} ahead on GitHub
+              {syncInfo.lastCommitSha && (
+                <span className="font-mono opacity-70">{syncInfo.lastCommitSha.slice(0, 7)}</span>
+              )}
+            </Link>
+          )}
+          {syncInfo?.syncDiff && (syncInfo.syncDiff.added > 0 || syncInfo.syncDiff.modified > 0 || syncInfo.syncDiff.removed > 0) && (
+            <span className="flex items-center gap-1 text-[11px]">
+              {syncInfo.syncDiff.added > 0 && <span className="text-blue-400">+{syncInfo.syncDiff.added}</span>}
+              {syncInfo.syncDiff.modified > 0 && <span className="text-purple-400">~{syncInfo.syncDiff.modified}</span>}
+              {syncInfo.syncDiff.removed > 0 && <span className="text-red-400">-{syncInfo.syncDiff.removed}</span>}
+              <span className="text-muted-foreground">since last sync</span>
+            </span>
+          )}
         </div>
-        <Link href="/dashboard/onboarding">
-          <Button
-            variant="outline"
-            size="sm"
-            className="h-7 px-3 text-xs gap-1.5 border-border hover:bg-white/[0.06]"
-          >
-            <Plus className="h-3 w-3" />
-            New Project
-          </Button>
-        </Link>
+        <div className="flex items-center gap-2">
+          {syncInfo && syncInfo.commitsBehind > 0 && activeProject && (
+            <Link href={`/dashboard/settings?project=${activeProject.id}&tab=general`}>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-7 px-3 text-xs gap-1.5 border-yellow-500/30 text-yellow-400 hover:bg-yellow-500/10"
+              >
+                <RefreshCw className="h-3 w-3" />
+                Sync Now
+              </Button>
+            </Link>
+          )}
+          <Link href="/dashboard/onboarding">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-7 px-3 text-xs gap-1.5 border-border hover:bg-white/[0.06]"
+            >
+              <Plus className="h-3 w-3" />
+              New Project
+            </Button>
+          </Link>
+        </div>
       </motion.div>
 
       {currentActiveRun && (

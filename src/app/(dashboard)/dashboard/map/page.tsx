@@ -2,7 +2,7 @@ import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { SystemMap } from "@/components/dashboard/system-map";
+import { SystemMap3D } from "@/components/dashboard/system-map-3d";
 import type { MapNode, MapEdge, TestStatus, ChangeStatus } from "@/components/dashboard/map-types";
 
 export default async function MapPage({
@@ -130,7 +130,7 @@ export default async function MapPage({
         </div>
       </div>
       <div className="flex-1 min-h-0 rounded-xl surface-1 overflow-hidden">
-        <SystemMap nodes={nodes} edges={edges} />
+        <SystemMap3D nodes={nodes} edges={edges} />
       </div>
     </div>
   );

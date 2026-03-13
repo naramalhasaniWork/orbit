@@ -62,6 +62,10 @@ function OperationItem({ op }: { op: ActiveOperation }) {
   const progress = op.progress;
   const modeBadge = op.mode ? modeBadgeLabels[op.mode] : null;
   const isSecurityAudit = op.kind === "security_audit";
+  const isExecuting = op.status === "executing";
+  const passed = (op.meta?.passed as number | undefined) ?? 0;
+  const failed = (op.meta?.failed as number | undefined) ?? 0;
+  const total = (op.meta?.totalTests as number | undefined) ?? 0;
 
   return (
     <Link
@@ -93,18 +97,43 @@ function OperationItem({ op }: { op: ActiveOperation }) {
         <span className="text-xs text-muted-foreground truncate">
           {op.label}
         </span>
+        {isExecuting && total > 0 && (
+          <span className="text-[10px] text-muted-foreground shrink-0 tabular-nums">
+            {passed + failed}/{total}
+          </span>
+        )}
       </div>
+
+      {isExecuting && total > 0 && (passed > 0 || failed > 0) && (
+        <div className="flex items-center gap-1 shrink-0 text-[10px] tabular-nums">
+          {passed > 0 && <span className="text-green-400">{passed}✓</span>}
+          {failed > 0 && <span className="text-red-400">{failed}✗</span>}
+        </div>
+      )}
 
       {progress !== null && (
         <div className="flex items-center gap-1.5 shrink-0">
-          <div className="w-16 h-1 rounded-full bg-muted overflow-hidden">
-            <div
-              className={cn(
-                "h-full rounded-full transition-all duration-700 ease-out",
-                isSecurityAudit ? "bg-amber-400" : "bg-orbit-accent"
-              )}
-              style={{ width: `${Math.max(progress, 3)}%` }}
-            />
+          <div className="w-20 h-1.5 rounded-full bg-muted overflow-hidden">
+            {isExecuting && total > 0 ? (
+              <div className="h-full rounded-full flex overflow-hidden">
+                <div
+                  className="h-full bg-green-500 transition-all duration-500"
+                  style={{ width: `${Math.round((passed / total) * 100)}%` }}
+                />
+                <div
+                  className="h-full bg-red-500 transition-all duration-500"
+                  style={{ width: `${Math.round((failed / total) * 100)}%` }}
+                />
+              </div>
+            ) : (
+              <div
+                className={cn(
+                  "h-full rounded-full transition-all duration-700 ease-out",
+                  isSecurityAudit ? "bg-amber-400" : "bg-orbit-accent"
+                )}
+                style={{ width: `${Math.max(progress, 3)}%` }}
+              />
+            )}
           </div>
           <span className="text-[10px] tabular-nums text-muted-foreground w-7 text-right">
             {progress}%

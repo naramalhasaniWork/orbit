@@ -27,7 +27,7 @@ interface CompletedOperation {
   completedAt: number;
 }
 
-const DEFAULT_POLL_INTERVAL = 5000;
+const DEFAULT_POLL_INTERVAL = 2500;
 const COMPLETED_DISPLAY_DURATION = 4000;
 
 /**

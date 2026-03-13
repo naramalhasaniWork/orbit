@@ -78,6 +78,28 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     );
   }
 
+  // Fetch sync/diff info for the active project
+  let syncInfo: {
+    commitsBehind: number;
+    lastCommitSha: string | null;
+    lastCommitMessage: string | null;
+    syncDiff: { added: number; modified: number; removed: number } | null;
+  } = { commitsBehind: 0, lastCommitSha: null, lastCommitMessage: null, syncDiff: null };
+
+  if (activeProject) {
+    const proj = await prisma.project.findUnique({
+      where: { id: activeProject.id },
+      select: { settings: true },
+    });
+    const settings = (proj?.settings as Record<string, unknown>) ?? {};
+    syncInfo = {
+      commitsBehind: (settings.commitsBehind as number | undefined) ?? 0,
+      lastCommitSha: (settings.lastCommitSha as string | undefined) ?? null,
+      lastCommitMessage: (settings.lastCommitMessage as string | undefined) ?? null,
+      syncDiff: (settings.lastSyncDiff as { added: number; modified: number; removed: number } | undefined) ?? null,
+    };
+  }
+
   // Fetch indexing status for IndexingStatus component
   let indexingInfo = {
     lastIndexedAt: null as string | null,
@@ -149,6 +171,7 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       mapNodes={mapNodes}
       mapEdges={mapEdges}
       indexingInfo={indexingInfo}
+      syncInfo={syncInfo}
     />
   );
 }
