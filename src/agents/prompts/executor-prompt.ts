@@ -19,6 +19,11 @@ interface PageState {
   }>;
 }
 
+interface TestingNoteInput {
+  content: string;
+  category: "context" | "instruction" | "known-issue" | "credential-hint";
+}
+
 export interface ExecutorContext {
   testCaseId: string;
   testCaseName: string;
@@ -32,6 +37,7 @@ export interface ExecutorContext {
   }>;
   testCredentials?: Record<string, string>;
   workspaceName?: string;
+  testingNotes?: TestingNoteInput[];
 }
 
 function buildWaitStrategy(): string {
@@ -86,6 +92,7 @@ export function buildExecutorPrompt(
     screenshotDescription,
     previousActions,
     testCredentials,
+    testingNotes,
   } = context;
 
   const stepsStr = steps
@@ -117,6 +124,10 @@ export function buildExecutorPrompt(
         .map(([k, v]) => `  - ${k}: ${v}`)
         .join("\n")
     : "  (none provided)";
+
+  const notesStr = testingNotes && testingNotes.length > 0
+    ? testingNotes.map((n) => `  - [${n.category}] ${n.content}`).join("\n")
+    : "";
 
   const agentInstructions = `## Agent Role: Executor
 You control a browser to execute test steps one at a time. You observe the current page state, decide the next browser action, and output it as structured JSON. You are methodical, precise, and never guess.
@@ -169,7 +180,11 @@ ${historyStr}
 
 ## Test Credentials
 ${credStr}
-
+${notesStr ? `
+## Project Testing Notes (from the user — high priority)
+${notesStr}
+Respect these notes. If an "instruction" note says to skip something, skip it. If a "known-issue" note describes a broken feature, expect it to be broken. If a "context" note gives navigation hints, use them.
+` : ""}
 ## Output Schema
 Your response MUST be valid JSON with exactly these fields:
 {

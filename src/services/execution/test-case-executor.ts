@@ -9,6 +9,7 @@ import {
 import { detectFlakyFromRetry } from "@/services/execution/flaky-registry";
 import { analyzeVisualQuality } from "@/agents/prompts/sub-agents/visual-analyzer";
 import { detectAuthState } from "@/services/execution/auth-detector";
+import { loadTestingNotes } from "@/agents/prompts/context-loader";
 
 // ============================================================
 // Types
@@ -86,6 +87,8 @@ export async function executeTestCase(
     );
     evidenceCollector.startCapture();
 
+    const testingNotes = await loadTestingNotes(testCase.projectId);
+
     const result = await executeTestSteps({
       page,
       projectId: testCase.projectId,
@@ -100,6 +103,7 @@ export async function executeTestCase(
       credentials,
       evidenceCollector,
       maxRetries: 1,
+      testingNotes: testingNotes.length > 0 ? testingNotes : undefined,
     });
 
     evidenceCollector.stopCapture();

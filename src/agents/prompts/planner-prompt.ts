@@ -37,6 +37,11 @@ interface FailurePatternInput {
   occurrences: number;
 }
 
+interface TestingNoteInput {
+  content: string;
+  category: "context" | "instruction" | "known-issue" | "credential-hint";
+}
+
 export interface PlannerContext {
   systemMap: SystemMapExcerpt;
   userConfig: UserConfig;
@@ -46,6 +51,7 @@ export interface PlannerContext {
   projectId: string;
   workspaceName?: string;
   operationsMap?: OperationsMap;
+  testingNotes?: TestingNoteInput[];
 }
 
 // ~4 chars/token avg; keep prompt under ~120k tokens for the system map portion
@@ -127,6 +133,33 @@ For every user-facing form, input, or action, consider:
 - **Concurrent access:** Two users editing the same resource simultaneously
 - **Permission escalation:** Can a regular user access admin-only routes by changing the URL?
 - **Rate limiting:** What happens with 100 rapid requests to the same endpoint?`;
+}
+
+function buildTestingNotesSection(notes?: TestingNoteInput[]): string {
+  if (!notes || notes.length === 0) return "";
+
+  const categoryLabels: Record<string, string> = {
+    context: "Context",
+    instruction: "Instruction",
+    "known-issue": "Known Issue",
+    "credential-hint": "Credential Hint",
+  };
+
+  const formatted = notes
+    .map((n) => `  - [${categoryLabels[n.category] ?? "Note"}] ${n.content}`)
+    .join("\n");
+
+  return `
+## Project Testing Notes (from the user)
+The project owner has provided these notes. Treat them as high-priority context:
+${formatted}
+
+**Rules for interpreting notes:**
+- "Instruction" notes override default behavior (e.g., "skip login tests" means do NOT generate login tests)
+- "Known Issue" notes should be excluded from test failure expectations (don't test broken features unless the note says to)
+- "Context" notes provide information the system map might not capture (e.g., "admin panel is at /admin")
+- "Credential Hint" notes inform which credentials or roles are available
+`;
 }
 
 function buildOperationsMapSection(operationsMap?: OperationsMap): string {
@@ -290,6 +323,7 @@ export function buildPlannerPrompt(
       : "  (none)";
 
   const operationsMapStr = buildOperationsMapSection(operationsMap);
+  const testingNotesStr = buildTestingNotesSection(context.testingNotes);
 
   const configStr = [
     `- Test mode: ${userConfig.testMode}`,
@@ -361,7 +395,7 @@ ${gitStr}
 
 ## Known Failure Patterns (prioritize testing these areas)
 ${failurePatternsStr}
-${operationsMapStr}
+${testingNotesStr}${operationsMapStr}
 ${buildFewShotExample()}
 
 ${buildOutputSchema(projectId)}

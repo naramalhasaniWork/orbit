@@ -6,7 +6,7 @@ import {
   computeMaxTestCasesForTokenBudget,
 } from "@/lib/ai/model-router";
 import { buildPlannerPrompt, type PlannerContext } from "@/agents/prompts/planner-prompt";
-import { loadUserLayerForProject, getWorkspaceName } from "@/agents/prompts/context-loader";
+import { loadUserLayerForProject, getWorkspaceName, loadTestingNotes } from "@/agents/prompts/context-loader";
 import { TestPlanSchema, type TestCase } from "@/agents/schemas/test-plan";
 import { prisma } from "@/lib/db";
 import type { CoverageReport } from "@/services/planning/coverage-analyzer";
@@ -246,6 +246,8 @@ export async function generateTestCases(input: GenerationInput): Promise<Generat
   const effectiveMaxTokens = getMaxOutputTokensForModel(model, agentConfig?.maxOutputTokens);
   const effectiveMaxTestCases = maxTestCases ?? computeMaxTestCasesForTokenBudget(effectiveMaxTokens);
 
+  const testingNotes = await loadTestingNotes(projectId);
+
   const context: PlannerContext = {
     systemMap,
     userConfig: {
@@ -261,6 +263,7 @@ export async function generateTestCases(input: GenerationInput): Promise<Generat
     projectId,
     workspaceName,
     operationsMap: input.operationsMap,
+    testingNotes: testingNotes.length > 0 ? testingNotes : undefined,
   };
 
   const prompt = buildPlannerPrompt(context, userLayer);

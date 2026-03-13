@@ -15,6 +15,7 @@ import { WebhookSettings } from "@/components/settings/webhook-settings";
 import { PluginSettings } from "@/components/settings/plugin-settings";
 import { KnowledgeUpload } from "@/components/settings/knowledge-upload";
 import { AgentSettingsList } from "@/components/settings/agent-settings-list";
+import { TestingNotes } from "@/components/settings/testing-notes";
 
 interface IntegrationConfig {
   github?: { connected: boolean; installationId?: string; repos?: string[] };
@@ -66,6 +67,7 @@ const tabs = [
   { id: "environments", label: "Environments" },
   { id: "schedules", label: "Schedules" },
   { id: "secrets", label: "Secrets" },
+  { id: "notes", label: "Notes" },
   { id: "agents", label: "Agents" },
   { id: "knowledge", label: "Knowledge" },
   { id: "integrations", label: "Integrations" },
@@ -139,6 +141,9 @@ export function SettingsClient({
           )}
           {activeTab === "secrets" && (
             <SecretSettings projectId={project?.id ?? null} secrets={secrets} environments={environments} />
+          )}
+          {activeTab === "notes" && (
+            <TestingNotes projectId={project?.id ?? null} />
           )}
           {activeTab === "agents" && workspace && (
             <AgentSettingsList workspaceId={workspace.id} />

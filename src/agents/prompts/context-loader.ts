@@ -74,3 +74,30 @@ export async function getWorkspaceName(
   });
   return project?.workspace?.name;
 }
+
+/**
+ * Loads active testing notes for a project.
+ * These are user-supplied context injected into planner/executor prompts.
+ */
+export interface TestingNote {
+  id: string;
+  content: string;
+  category: "context" | "instruction" | "known-issue" | "credential-hint";
+  active: boolean;
+}
+
+export async function loadTestingNotes(
+  projectId: string
+): Promise<TestingNote[]> {
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: { settings: true },
+  });
+
+  if (!project) return [];
+
+  const settings = (project.settings ?? {}) as Record<string, unknown>;
+  const notes = (settings.testingNotes ?? []) as TestingNote[];
+
+  return notes.filter((n) => n.active);
+}

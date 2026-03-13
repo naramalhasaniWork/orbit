@@ -30,6 +30,11 @@ interface TestStep {
   selectorHint?: string;
 }
 
+interface TestingNoteInput {
+  content: string;
+  category: "context" | "instruction" | "known-issue" | "credential-hint";
+}
+
 interface StepExecutorOptions {
   page: Page;
   projectId: string;
@@ -42,6 +47,7 @@ interface StepExecutorOptions {
   maxRetries?: number;
   /** When true and USE_STAGEHAND env is set, uses Stagehand for action execution */
   useStagehand?: boolean;
+  testingNotes?: TestingNoteInput[];
 }
 
 interface StepExecutionResult {
@@ -132,6 +138,7 @@ export async function executeTestSteps(
     evidenceCollector,
     maxRetries = 1,
     useStagehand = isStagehandEnabled(),
+    testingNotes,
   } = options;
 
   // When Stagehand is enabled, delegate to Stagehand-powered execution
@@ -209,6 +216,7 @@ export async function executeTestSteps(
       screenshotDescription: `Step ${currentStepIndex + 1} of ${steps.length}`,
       previousActions,
       testCredentials: credentials,
+      testingNotes,
     };
 
     const action = await getNextAction(context, billing);
