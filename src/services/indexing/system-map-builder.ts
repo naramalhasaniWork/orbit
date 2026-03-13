@@ -195,6 +195,15 @@ export async function buildSystemMap(
   astResults: ASTResult[],
   framework: FrameworkDetection
 ): Promise<SystemMapStats> {
+  // Snapshot existing nodes for diff detection
+  const previousNodes = await prisma.systemMapNode.findMany({
+    where: { projectId },
+    select: { name: true, filePath: true, type: true },
+  });
+  const previousNodeMap = new Map(
+    previousNodes.map((n) => [n.name, { filePath: n.filePath, type: n.type }])
+  );
+
   // Clear existing system map for this project
   await prisma.systemMapEdge.deleteMany({ where: { projectId } });
   await prisma.systemMapNode.deleteMany({ where: { projectId } });
@@ -214,17 +223,53 @@ export async function buildSystemMap(
     }
   }
 
-  // Create nodes in DB
+  // Compute diff: added, modified, removed
+  const diff: { added: string[]; modified: string[]; removed: string[] } = {
+    added: [],
+    modified: [],
+    removed: [],
+  };
+
+  Array.from(uniqueNodes.entries()).forEach(([name, node]) => {
+    const prev = previousNodeMap.get(name);
+    if (!prev) {
+      diff.added.push(name);
+    } else if (prev.filePath !== node.filePath || prev.type !== node.type) {
+      diff.modified.push(name);
+    }
+  });
+
+  Array.from(previousNodeMap.keys()).forEach((name) => {
+    if (!uniqueNodes.has(name)) {
+      diff.removed.push(name);
+    }
+  });
+
+  // Create nodes in DB with change status in metadata
   const nodeNameToId = new Map<string, string>();
 
   for (const [name, node] of Array.from(uniqueNodes.entries())) {
+    const changeStatus = diff.added.includes(name)
+      ? "added"
+      : diff.modified.includes(name)
+      ? "modified"
+      : previousNodeMap.size > 0
+      ? "unchanged"
+      : undefined;
+
+    const metaObj = {
+      ...node.metadata,
+      framework: framework.name,
+      ...(changeStatus ? { changeStatus } : {}),
+    };
+
     const created = await prisma.systemMapNode.create({
       data: {
         projectId,
         type: node.type,
         name,
         filePath: node.filePath,
-        metadata: { ...node.metadata, framework: framework.name },
+        metadata: JSON.parse(JSON.stringify(metaObj)),
       },
     });
     nodeNameToId.set(name, created.id);
@@ -237,6 +282,35 @@ export async function buildSystemMap(
       nodeName: name,
       filePath: node.filePath,
     });
+  }
+
+  // Store diff summary in project.settings for UI consumption
+  if (previousNodeMap.size > 0) {
+    const hasChanges = diff.added.length > 0 || diff.modified.length > 0 || diff.removed.length > 0;
+    if (hasChanges) {
+      const project = await prisma.project.findUnique({
+        where: { id: projectId },
+        select: { settings: true },
+      });
+      const currentSettings = (project?.settings as Record<string, unknown>) ?? {};
+      await prisma.project.update({
+        where: { id: projectId },
+        data: {
+          settings: {
+            ...currentSettings,
+            lastSyncDiff: {
+              added: diff.added.length,
+              modified: diff.modified.length,
+              removed: diff.removed.length,
+              addedNodes: diff.added.slice(0, 50),
+              modifiedNodes: diff.modified.slice(0, 50),
+              removedNodes: diff.removed.slice(0, 50),
+              syncedAt: new Date().toISOString(),
+            },
+          },
+        },
+      });
+    }
   }
 
   // Collect all edges

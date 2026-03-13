@@ -99,12 +99,21 @@ async function executeRunInner(options: RunOptions): Promise<void> {
   const UNAUTH_PATTERNS = [
     "unauth", "redirect", "logout", "log out", "session expir",
     "without auth", "no auth", "sign out", "not logged in",
+    "invalid credentials", "invalid login", "wrong password", "incorrect password",
+    "without token", "no token", "expired session", "expired token",
+  ];
+
+  const AUTH_PATTERNS = [
+    "login with valid", "log in with valid", "sign in with valid",
+    "successful login", "successful sign", "authenticate with valid",
+    "login with correct", "log in with correct",
   ];
 
   for (const testCase of testCases) {
-    const needsFreshBrowser = UNAUTH_PATTERNS.some(
-      (p) => testCase.name.toLowerCase().includes(p)
-    );
+    const nameLower = testCase.name.toLowerCase();
+    const needsFreshBrowser = UNAUTH_PATTERNS.some((p) => nameLower.includes(p));
+    const isLoginTest = AUTH_PATTERNS.some((p) => nameLower.includes(p));
+
     if (await isRunCancelled(runId)) {
       await prisma.testRun.update({ where: { id: runId }, data: { status: "cancelled", completedAt: new Date() } });
       await emitRunProgress(runId, {
@@ -129,16 +138,23 @@ async function executeRunInner(options: RunOptions): Promise<void> {
     });
 
     try {
-      const useAuth = !needsFreshBrowser && authState ? authState : undefined;
+      // Login tests always start fresh so they can test the full login flow
+      const useAuth = !needsFreshBrowser && !isLoginTest && authState ? authState : undefined;
+      const roleCredentials = resolveRoleCredentials(validation.credentials, testCase.requiredRole);
       const result = await executeTestCase(
-        runId, testCase, validation.environmentUrl, validation.credentials,
+        runId, testCase, validation.environmentUrl, roleCredentials,
         { storageState: useAuth }
       );
 
-      // Capture auth state from the first passing test
-      if (result.storageState && !authState) {
-        authState = result.storageState;
-        log("Auth state captured — subsequent tests will start authenticated");
+      // Always update auth state from passing tests (not just first time)
+      if (result.storageState) {
+        if (needsFreshBrowser) {
+          authState = undefined;
+          log("Auth state cleared after unauthenticated flow test");
+        } else {
+          authState = result.storageState;
+          log("Auth state updated from passing test");
+        }
       }
 
       const verdictMap: Record<string, keyof typeof counters> = {
@@ -282,6 +298,7 @@ async function loadTestCases(
     id: tc.id, name: tc.name,
     steps: tc.steps as Array<{ action: string; expected: string; selector?: string }>,
     projectId: tc.projectId, isCritical: tc.isCritical,
+    requiredRole: tc.requiredRole ?? undefined,
   }));
 }
 
@@ -327,4 +344,30 @@ async function saveTestResult(
       healedSelectors: JSON.parse(JSON.stringify(healedSelectors)),
     },
   });
+}
+
+/**
+ * Resolve credentials for a specific user role.
+ * Looks for role-prefixed keys (e.g. ADMIN_EMAIL, ADMIN_PASSWORD) first,
+ * then falls back to generic TEST_* keys.
+ */
+function resolveRoleCredentials(
+  allCredentials: Record<string, string>,
+  requiredRole?: string
+): Record<string, string> {
+  if (!requiredRole) return allCredentials;
+
+  const prefix = requiredRole.toUpperCase();
+  const roleCredentials: Record<string, string> = { ...allCredentials };
+  const suffixes = ["EMAIL", "PASSWORD", "API_KEY", "TOKEN", "USERNAME"];
+
+  for (const suffix of suffixes) {
+    const roleKey = `${prefix}_${suffix}`;
+    const genericKey = `TEST_${suffix}`;
+    if (allCredentials[roleKey]) {
+      roleCredentials[genericKey] = allCredentials[roleKey];
+    }
+  }
+
+  return roleCredentials;
 }

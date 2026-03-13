@@ -11,6 +11,8 @@ export type NodeType =
 
 export type TestStatus = "pass" | "fail" | "flaky" | "untested";
 
+export type ChangeStatus = "added" | "modified" | "unchanged";
+
 export interface MapNode {
   id: string;
   type: NodeType;
@@ -18,6 +20,7 @@ export interface MapNode {
   filePath: string | null;
   metadata: Record<string, unknown> | null;
   testStatus?: TestStatus;
+  changeStatus?: ChangeStatus;
 }
 
 export interface MapEdge {
@@ -68,6 +71,12 @@ export const STATUS_CONFIG: Record<TestStatus, StatusConfig> = {
   fail: { label: "Failing", color: "#ef4444" },
   flaky: { label: "Flaky", color: "#f59e0b" },
   untested: { label: "Untested", color: "#6b7280" },
+};
+
+export const CHANGE_STATUS_CONFIG: Record<ChangeStatus, { label: string; color: string }> = {
+  added: { label: "New", color: "#3b82f6" },
+  modified: { label: "Changed", color: "#a855f7" },
+  unchanged: { label: "Unchanged", color: "" },
 };
 
 export const ACCENT_COLOR = "#ff6000";

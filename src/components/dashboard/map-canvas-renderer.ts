@@ -5,6 +5,7 @@ import {
   type TestStatus,
   NODE_TYPE_CONFIG,
   STATUS_CONFIG,
+  CHANGE_STATUS_CONFIG,
   ACCENT_COLOR,
 } from "./map-types";
 
@@ -131,6 +132,20 @@ export function renderNode(
   const color = getNodeColor(node.testStatus);
   const draw = shapeDrawers[node.type] ?? drawCircle;
 
+  // Change status ring (added = blue, modified = purple)
+  const changeColor = node.changeStatus
+    ? CHANGE_STATUS_CONFIG[node.changeStatus]?.color
+    : undefined;
+  if (changeColor) {
+    ctx.beginPath();
+    ctx.arc(x, y, size + 3, 0, 2 * Math.PI);
+    ctx.strokeStyle = changeColor;
+    ctx.lineWidth = 2;
+    ctx.setLineDash([3, 3]);
+    ctx.stroke();
+    ctx.setLineDash([]);
+  }
+
   // Glow effect
   ctx.shadowColor = color;
   ctx.shadowBlur = 8;
@@ -147,6 +162,21 @@ export function renderNode(
     ctx.textBaseline = "top";
     ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
     ctx.fillText(label, x, y + size + 2);
+
+    // Show change badge
+    if (changeColor && node.changeStatus) {
+      const badgeLabel = node.changeStatus === "added" ? "NEW" : "CHANGED";
+      const badgeFontSize = Math.max(7 / globalScale, 2);
+      ctx.font = `bold ${badgeFontSize}px "Geist", Inter, system-ui, sans-serif`;
+      const badgeWidth = ctx.measureText(badgeLabel).width + 4;
+      ctx.fillStyle = changeColor;
+      ctx.beginPath();
+      ctx.roundRect(x - badgeWidth / 2, y - size - badgeFontSize - 4, badgeWidth, badgeFontSize + 3, 2);
+      ctx.fill();
+      ctx.fillStyle = "#fff";
+      ctx.textBaseline = "top";
+      ctx.fillText(badgeLabel, x, y - size - badgeFontSize - 3);
+    }
   }
 }
 

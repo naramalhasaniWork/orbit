@@ -70,6 +70,10 @@ export const TestCaseSchema = z.object({
     .max(100)
     .describe("How much coverage this test adds (0-100)"),
   steps: z.array(TestStepSchema).min(1),
+  requiredRole: z
+    .string()
+    .optional()
+    .describe("User role required to execute this test (e.g. 'admin', 'user', 'manager'). Omit for unauthenticated tests."),
   rationale: z
     .string()
     .describe("Why this test case exists and what risk it mitigates"),

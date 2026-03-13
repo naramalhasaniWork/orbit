@@ -18,6 +18,7 @@ import {
   captureInitialState,
   captureFailureState,
 } from "@/services/execution/screenshot-streamer";
+import { maybeSkipAuthSteps } from "@/services/execution/auth-detector";
 
 // ============================================================
 // Types
@@ -160,6 +161,23 @@ export async function executeTestSteps(
     await captureInitialState(page, runId, testCaseId, projectId);
   }
 
+  // Pre-flight: skip login steps if page is already authenticated
+  const skipResult = await maybeSkipAuthSteps(page, steps, testCaseName);
+  if (skipResult.skipCount > 0) {
+    console.log(`[StepExecutor] Skipping ${skipResult.skipCount} auth steps — page already authenticated`);
+    for (let i = 0; i < skipResult.skipCount; i++) {
+      stepResults.push({
+        stepIndex: i,
+        action: steps[i].action,
+        expected: steps[i].expected,
+        actual: "Skipped — page already authenticated",
+        status: "passed",
+        durationMs: 0,
+      });
+    }
+    currentStepIndex = skipResult.skipCount;
+  }
+
   while (actionCount < MAX_ACTIONS_PER_TEST) {
     actionCount++;
 
@@ -196,9 +214,13 @@ export async function executeTestSteps(
     const action = await getNextAction(context, billing);
 
     if (action.action === "verdict") {
-      const verdictValue = action.verdict === "pass" ? "pass"
+      let verdictValue: StepExecutionResult["verdict"] =
+        action.verdict === "pass" ? "pass"
         : action.verdict === "environment_error" ? "environment_error"
         : "fail";
+      if (verdictValue === "pass" && healedSelectors.length > 0) {
+        verdictValue = "healed";
+      }
       return {
         steps: stepResults,
         verdict: verdictValue,
@@ -264,9 +286,9 @@ export async function executeTestSteps(
 
     if (action.action !== "wait" && action.action !== "screenshot") {
       currentStepIndex++;
-      // All steps completed without a verdict action — treat as pass
       if (currentStepIndex >= steps.length) {
-        return { steps: stepResults, verdict: "pass", healedSelectors };
+        const verdict = healedSelectors.length > 0 ? "healed" : "pass";
+        return { steps: stepResults, verdict, healedSelectors };
       }
     }
   }
@@ -282,3 +304,4 @@ async function executeWithStagehand(
   const { executeStagehandSteps } = await import("./stagehand-adapter");
   return executeStagehandSteps(options.steps, options.evidenceCollector);
 }
+

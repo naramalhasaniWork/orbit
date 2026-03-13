@@ -71,7 +71,8 @@ export function Header({ projects = [], activeProjectId, healthStatus }: HeaderP
   function handleSelectProject(projectId: string) {
     const params = new URLSearchParams(searchParams.toString());
     params.set("project", projectId);
-    router.push(`/dashboard?${params.toString()}`);
+    const basePath = pathname ?? "/dashboard";
+    router.push(`${basePath}?${params.toString()}`);
   }
 
   return (

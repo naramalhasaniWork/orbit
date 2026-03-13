@@ -82,6 +82,7 @@ export async function storePlan(
         rationale: tc.rationale,
         edgeCases: toJsonValue(tc.edgeCases),
         isCritical: tc.priorityScore >= 80,
+        requiredRole: (tc as Record<string, unknown>).requiredRole as string | undefined,
       })),
     });
 

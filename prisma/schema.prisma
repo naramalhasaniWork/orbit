@@ -557,6 +557,7 @@ model TestCase {
   steps        Json
   rationale    String?
   edgeCases    Json        @default("[]") @map("edge_cases")
+  requiredRole String?     @map("required_role")
   isEnabled    Boolean     @default(true) @map("is_enabled")
   isCritical   Boolean     @default(false) @map("is_critical")
   lastVerdict  TestVerdict? @map("last_verdict")

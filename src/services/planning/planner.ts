@@ -63,7 +63,7 @@ export async function generatePlan(input: PlannerInput): Promise<PlannerResult> 
   const filtered = filterByMode(prioritized, mode, maxTestCases);
 
   // Step 5: Build summary metadata
-  const summary = buildSummary(filtered, generationResult.metadata);
+  const summary = buildSummary(filtered, generationResult.metadata, operationsMap);
 
   // Step 6: Store plan in database
   const { plan, testCases } = await storePlan(projectId, version, filtered, summary);
@@ -100,7 +100,8 @@ function buildSummary(
     coverageByJourney: Record<string, number>;
     coverageByType: Record<string, number>;
     estimatedCredits: number;
-  }
+  },
+  operationsMap?: OperationsMap
 ): Record<string, unknown> {
   const coverageByJourney: Record<string, number> = {};
   const coverageByType: Record<string, number> = {};
@@ -110,11 +111,17 @@ function buildSummary(
     coverageByType[tc.type] = (coverageByType[tc.type] ?? 0) + 1;
   }
 
-  return {
+  const summary: Record<string, unknown> = {
     totalTests: testCases.length,
     coverageByJourney,
     coverageByType,
-    estimatedCredits: testCases.length, // ~1 credit per test case
+    estimatedCredits: testCases.length,
     generatedMetadata,
   };
+
+  if (operationsMap) {
+    summary.operationsMap = operationsMap;
+  }
+
+  return summary;
 }

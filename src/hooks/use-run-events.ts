@@ -80,9 +80,10 @@ export function useRunEvents({
 
     switch (event.type) {
       case "run:started": {
-        setProgress({
+        const serverTotal = (payload.totalTests as number) ?? 0;
+        setProgress((prev) => ({
           status: "executing",
-          totalTests: (payload.totalTests as number) ?? 0,
+          totalTests: serverTotal > 0 ? serverTotal : (prev?.totalTests ?? 0),
           passed: 0,
           failed: 0,
           flaky: 0,
@@ -90,27 +91,39 @@ export function useRunEvents({
           currentTest: null,
           lastVerdict: null,
           durationMs: null,
-        });
+        }));
         break;
       }
 
       case "run:progress": {
         const status = payload.status as string;
-        setProgress((prev) => ({
-          ...(prev ?? {
-            totalTests: 0, passed: 0, failed: 0, flaky: 0,
-            completed: 0, currentTest: null, lastVerdict: null, durationMs: null,
-          }),
-          status,
-          currentTest: (payload.currentTest as string) ?? prev?.currentTest ?? null,
-          totalTests: (payload.totalTests as number) ?? prev?.totalTests ?? 0,
-          passed: (payload.passed as number) ?? prev?.passed ?? 0,
-          failed: (payload.failed as number) ?? prev?.failed ?? 0,
-          flaky: (payload.flaky as number) ?? prev?.flaky ?? 0,
-          completed: ((payload.passed as number) ?? 0) + ((payload.failed as number) ?? 0) + ((payload.flaky as number) ?? 0),
-          lastVerdict: prev?.lastVerdict ?? null,
-          durationMs: prev?.durationMs ?? null,
-        }));
+        const serverTotal = (payload.totalTests as number) ?? 0;
+        const serverPassed = (payload.passed as number) ?? 0;
+        const serverFailed = (payload.failed as number) ?? 0;
+        const serverFlaky = (payload.flaky as number) ?? 0;
+
+        setProgress((prev) => {
+          const prevTotal = prev?.totalTests ?? 0;
+          const newTotal = serverTotal > 0 ? serverTotal : prevTotal;
+          const newPassed = Math.max(serverPassed, prev?.passed ?? 0);
+          const newFailed = Math.max(serverFailed, prev?.failed ?? 0);
+          const newFlaky = Math.max(serverFlaky, prev?.flaky ?? 0);
+
+          return {
+            ...(prev ?? {
+              completed: 0, currentTest: null, lastVerdict: null, durationMs: null,
+            }),
+            status,
+            currentTest: (payload.currentTest as string) || prev?.currentTest || null,
+            totalTests: newTotal,
+            passed: newPassed,
+            failed: newFailed,
+            flaky: newFlaky,
+            completed: newPassed + newFailed + newFlaky,
+            lastVerdict: prev?.lastVerdict ?? null,
+            durationMs: prev?.durationMs ?? null,
+          };
+        });
 
         if (TERMINAL_STATUSES.has(status)) {
           setIsTerminal(true);
@@ -179,18 +192,7 @@ export function useRunEvents({
         const data = payload as unknown as TestCompletedEvent;
         setProgress((prev) => {
           if (!prev) return prev;
-          const passed = prev.passed + (data.verdict === "pass" || data.verdict === "healed" ? 1 : 0);
-          const failed = prev.failed + (data.verdict === "fail" ? 1 : 0);
-          const flaky = prev.flaky + (data.verdict === "flaky" ? 1 : 0);
-          return {
-            ...prev,
-            passed,
-            failed,
-            flaky,
-            completed: passed + failed + flaky,
-            lastVerdict: data.verdict,
-            currentTest: data.testCaseName,
-          };
+          return { ...prev, lastVerdict: data.verdict, currentTest: data.testCaseName };
         });
         setTests((prev) => {
           const exists = prev.some((t) => t.testCaseId === data.testCaseId);

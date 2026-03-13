@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { motion } from "framer-motion";
 import {
@@ -41,8 +41,10 @@ const navigation = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const { data: session } = useSession();
   const workspaceId = (session as { workspaceId?: string } | null)?.workspaceId;
+  const projectParam = searchParams.get("project");
 
   return (
     <aside className="flex flex-col w-[52px] hover:w-52 transition-all duration-300 ease-in-out surface-1 border-r border-border group overflow-hidden">
@@ -61,10 +63,14 @@ export function Sidebar() {
             pathname === item.href ||
             (item.href !== "/dashboard" && pathname?.startsWith(item.href));
 
+          const href = projectParam && !item.href.includes("/settings")
+            ? `${item.href}?project=${projectParam}`
+            : item.href;
+
           return (
             <Link
               key={item.name}
-              href={item.href}
+              href={href}
               className={cn(
                 "relative flex items-center gap-3 px-2 py-2 rounded-lg text-[13px] font-medium transition-all duration-200",
                 isActive

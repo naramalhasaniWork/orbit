@@ -178,7 +178,8 @@ export function SecretSettings({ projectId, secrets: initial, environments }: Se
             </div>
           </div>
           <p className="text-[11px] text-muted-foreground">
-            Common auth keys: <code className="text-foreground/70">TEST_EMAIL</code>, <code className="text-foreground/70">TEST_PASSWORD</code>, <code className="text-foreground/70">TEST_API_KEY</code>
+            Default credentials: <code className="text-foreground/70">TEST_EMAIL</code>, <code className="text-foreground/70">TEST_PASSWORD</code>.
+            For role-specific auth, prefix with the role: <code className="text-foreground/70">ADMIN_EMAIL</code>, <code className="text-foreground/70">ADMIN_PASSWORD</code>, <code className="text-foreground/70">USER_EMAIL</code>, etc.
           </p>
           <div className="flex gap-2">
             <Button size="sm" onClick={handleAdd} disabled={adding || !newKey || !newValue} className="bg-orbit-accent hover:bg-orbit-accent/90 text-white">

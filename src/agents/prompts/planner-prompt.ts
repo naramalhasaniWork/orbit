@@ -203,6 +203,7 @@ Your response MUST be valid JSON matching this exact structure:
     "risk": 0-100,
     "coverageGap": 0-100,
     "confidence": 0-100,
+    "requiredRole": "User role needed (e.g. 'admin', 'user', 'manager'). Omit for unauthenticated flows.",
     "steps": [{
       "action": "Specific action (e.g. 'Click the Sign Up button in the top nav')",
       "expected": "Specific expected outcome (e.g. 'Registration form appears with email, password, and name fields')",
@@ -318,8 +319,9 @@ You are the Planner agent. Your job is to generate a comprehensive, prioritized 
 4. **Prioritize by risk and impact.** Auth, payment, and data integrity score highest. Cosmetic or low-traffic features score lower. Recently changed code scores higher (regression risk).
 5. **Deduplicate.** Check existing test names below. Do not regenerate tests that already exist. If an existing test partially covers a scenario, create a complementary test covering the gap.
 6. **Generate test cases.** For each case: clear, specific steps with concrete actions, concrete expected outcomes, and selector hints when available. No vague steps.
-7. **Regression targeting.** If git history shows recent changes, generate tests targeting those exact code paths with elevated risk scores.
-8. **Learn from failures.** If failure patterns are listed, increase priority/risk for tests covering those areas. Create additional tests specifically targeting recurring failure categories.
+7. **Detect user roles.** Analyze the System Map for role-based routes (e.g. admin panel, user dashboard, manager views), auth middleware with role checks, and different user types. Set the "requiredRole" field for each test to the role needed (e.g. "admin", "user", "manager"). Omit for unauthenticated tests. Group related tests by role so they can share credentials.
+8. **Regression targeting.** If git history shows recent changes, generate tests targeting those exact code paths with elevated risk scores.
+9. **Learn from failures.** If failure patterns are listed, increase priority/risk for tests covering those areas. Create additional tests specifically targeting recurring failure categories.
 
 ## Anti-Hallucination Rules
 - NEVER invent test cases for features not present in the System Map. Every test must trace back to at least one node.

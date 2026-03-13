@@ -85,15 +85,24 @@ function recoverTruncatedJson(s: string): string {
   // Not truncated — nothing to do
   if (!inString && stack.length === 0) return s;
 
-  // No complete array element found — can't recover meaningfully
-  if (lastSafeEnd < 0) return s;
+  if (lastSafeEnd >= 0) {
+    // Truncate to the last complete element, strip any trailing comma, close open structures
+    const truncated = s.slice(0, lastSafeEnd + 1).replace(/,\s*$/, "");
+    return truncated + "]}";
+  }
 
-  // Truncate to the last complete element, strip any trailing comma, close open structures
-  const truncated = s.slice(0, lastSafeEnd + 1).replace(/,\s*$/, "");
+  // Flat object recovery: truncated mid-value in a simple {...} object.
+  // Find the last complete "key": "value" pair and close the object.
+  if (stack.length >= 1 && stack[0] === "{") {
+    const lastCompleteProperty = s.lastIndexOf('",');
+    if (lastCompleteProperty > 0) {
+      const truncated = s.slice(0, lastCompleteProperty + 1).replace(/,\s*$/, "");
+      const closers = stack.map((b) => (b === "{" ? "}" : "]")).reverse().join("");
+      return truncated + closers;
+    }
+  }
 
-  // Rebuild the stack state at the truncation point (always [{, [] here)
-  // and close: ]} closes the array then the outer object
-  return truncated + "]}";
+  return s;
 }
 
 /**

@@ -8,6 +8,7 @@ import {
 } from "@/services/execution/evidence-collector";
 import { detectFlakyFromRetry } from "@/services/execution/flaky-registry";
 import { analyzeVisualQuality } from "@/agents/prompts/sub-agents/visual-analyzer";
+import { detectAuthState } from "@/services/execution/auth-detector";
 
 // ============================================================
 // Types
@@ -24,6 +25,7 @@ interface TestCaseForExecution {
   }>;
   projectId: string;
   isCritical: boolean;
+  requiredRole?: string;
 }
 
 interface TestCaseResult {
@@ -69,6 +71,15 @@ export async function executeTestCase(
       timeout: 30_000,
     });
     log(`Page loaded: ${page.url()}`);
+
+    // Detect and handle auth state mismatches before test execution
+    const authState = await detectAuthState(page, testCase.name, log);
+    if (authState.needsLogout) {
+      log("Page is authenticated but test needs fresh state — clearing cookies");
+      await context.clearCookies();
+      await page.goto(environmentUrl, { waitUntil: "domcontentloaded", timeout: 30_000 });
+      log(`Reloaded after clearing cookies: ${page.url()}`);
+    }
 
     const evidenceCollector = createEvidenceCollector(
       page, runId, testCase.id, context, testCase.projectId

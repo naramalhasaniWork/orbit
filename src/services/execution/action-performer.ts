@@ -14,6 +14,10 @@ export async function performAction(
   switch (action.action) {
     case "navigate": {
       if (!action.url) throw new Error("Navigate action requires a url");
+      const lower = action.url.toLowerCase().trim();
+      if (lower.startsWith("javascript:") || lower.startsWith("data:") || lower.startsWith("about:")) {
+        throw new Error(`Blocked unsafe navigation to ${action.url.slice(0, 50)} — use UI elements instead`);
+      }
       const response = await page.goto(action.url, {
         waitUntil: "domcontentloaded",
         timeout: ACTION_TIMEOUT,

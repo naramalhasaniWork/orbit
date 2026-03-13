@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useCallback, useEffect } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
@@ -43,14 +43,54 @@ export function RunDetailClient({ run, projectId }: RunDetailClientProps) {
   const [verdictFilter, setVerdictFilter] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState(false);
   const [localStatus, setLocalStatus] = useState<string | null>(null);
+  const [liveResults, setLiveResults] = useState<RunDetailData["results"]>([]);
+  const hasRefreshedRef = useRef(false);
 
   const initialLive = LIVE_STATUSES.has(run.status);
+
+  const handleRunComplete = useCallback(() => {
+    if (hasRefreshedRef.current) return;
+    hasRefreshedRef.current = true;
+    setTimeout(() => router.refresh(), 1500);
+  }, [router]);
+
+  const handleTestCompleted = useCallback(
+    (data: { testCaseId: string; testCaseName: string; verdict: string; durationMs: number }) => {
+      if (!projectId) return;
+      setLiveResults((prev) => {
+        if (prev.some((r) => r.testCase?.id === data.testCaseId)) return prev;
+        return [
+          ...prev,
+          {
+            id: `live-${data.testCaseId}`,
+            verdict: data.verdict,
+            durationMs: data.durationMs,
+            steps: [],
+            artifacts: {},
+            healedSelectors: [],
+            createdAt: new Date(),
+            testCase: {
+              id: data.testCaseId,
+              name: data.testCaseName,
+              type: "functional",
+              journey: "",
+              priorityScore: 0,
+              isCritical: false,
+            },
+          } as unknown as RunDetailData["results"][number],
+        ];
+      });
+    },
+    [projectId]
+  );
 
   // SSE-driven live data — lifted here so stat cards + badge + viewer all share it
   const { progress, steps, tests } = useRunEvents({
     projectId: projectId ?? "",
     runId: run.id,
     enabled: initialLive && !!projectId,
+    onComplete: handleRunComplete,
+    onTestCompleted: handleTestCompleted,
   });
 
   // Merge: local cancellation > SSE > server static
@@ -91,10 +131,16 @@ export function RunDetailClient({ run, projectId }: RunDetailClientProps) {
     return () => clearInterval(id);
   }, [isLive, run.createdAt, run.durationMs]);
 
+  const mergedResults = useMemo(() => {
+    const serverIds = new Set(run.results.map((r) => r.testCase?.id));
+    const newLive = liveResults.filter((r) => !serverIds.has(r.testCase?.id));
+    return [...run.results, ...newLive];
+  }, [run.results, liveResults]);
+
   const filteredResults = useMemo(() => {
-    if (!verdictFilter) return run.results;
-    return run.results.filter((r) => r.verdict === verdictFilter);
-  }, [run.results, verdictFilter]);
+    if (!verdictFilter) return mergedResults;
+    return mergedResults.filter((r) => r.verdict === verdictFilter);
+  }, [mergedResults, verdictFilter]);
 
   const handleCancelRun = useCallback(async () => {
     if (!projectId || cancelling) return;
@@ -195,7 +241,7 @@ export function RunDetailClient({ run, projectId }: RunDetailClientProps) {
             </TabsTrigger>
           )}
           <TabsTrigger value="results">
-            Results{run.results.length > 0 ? ` (${run.results.length})` : ""}
+            Results{mergedResults.length > 0 ? ` (${mergedResults.length})` : ""}
           </TabsTrigger>
           <TabsTrigger value="traces">Traces</TabsTrigger>
         </TabsList>
@@ -222,7 +268,7 @@ export function RunDetailClient({ run, projectId }: RunDetailClientProps) {
 
         <TabsContent value="results" className="mt-4 space-y-4">
           <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={springs.snappy} className="space-y-4">
-            <VerdictFilterBar results={run.results} selected={verdictFilter} onSelect={setVerdictFilter} />
+            <VerdictFilterBar results={mergedResults} selected={verdictFilter} onSelect={setVerdictFilter} />
             <div className="space-y-2">
               {filteredResults.map((result, i) => (
                 <motion.div
@@ -235,7 +281,7 @@ export function RunDetailClient({ run, projectId }: RunDetailClientProps) {
                 </motion.div>
               ))}
             </div>
-            {projectId && run.failed > 0 && <FailurePatternsPanel projectId={projectId} />}
+            {projectId && liveFailed > 0 && <FailurePatternsPanel projectId={projectId} />}
           </motion.div>
         </TabsContent>
 

@@ -147,6 +147,17 @@ ${stepsStr}
 - **Title:** ${pageState.title}
 - **Visible Text (excerpt):** ${pageState.visibleText.slice(0, 500)}
 
+## Authentication State Analysis
+Read the Current Page State above carefully. Determine:
+- Are there login/signin form elements (email input, password input, sign-in button)? → You are on a LOGIN PAGE (unauthenticated)
+- Are there dashboard/navigation/profile/logout elements? → You are on an AUTHENTICATED PAGE (already logged in)
+- Does the URL contain "/login", "/signin", "/auth"? → Likely login page
+- Does the URL contain "/dashboard", "/home", "/projects", "/settings"? → Likely authenticated
+
+**IMPORTANT:** Base your FIRST action on what the page ACTUALLY shows, not what the test step says.
+- If the current step says "click the login button" but you see a dashboard → You're already logged in. Skip to the first NON-auth step, or log out first if this IS a login test.
+- If the current step says "navigate to dashboard" but you see a login form → You need to authenticate first using the test credentials below.
+
 ## Screenshot Description
 ${screenshotDescription}
 
@@ -179,16 +190,24 @@ Your response MUST be valid JSON with exactly these fields:
 }
 
 ## Decision Rules
-1. Execute the CURRENT step (marked with <-- CURRENT). Choose the single action that best accomplishes it.
-2. If the step requires interacting with an element, find the best match from Interactive Elements using the selector cascade above.
-3. If the expected outcome needs verification, output an "assert" action before moving to the next step.
-4. If the page is loading or transitioning, output "wait" — prefer signal-based waits over fixed timeouts.
-5. If all steps are completed and verified, output "verdict" with verdict "pass".
-6. If a step fails (element not found, assertion fails, unexpected error), output "verdict" with verdict "fail" and a detailed reason including what was tried.
-7. If the page appears broken (blank, error screen, no interactive elements), output "verdict" with verdict "environment_error".
-8. When filling forms, use ONLY the test credentials provided. Never invent credentials.
-9. After form submission, wait for navigation or confirmation before asserting success.
-10. One action per response. Never batch multiple actions.
+1. **READ THE PAGE FIRST.** Before deciding an action, analyze the Current Page State and Interactive Elements. What page are you actually on? Is the user authenticated or not?
+2. Execute the CURRENT step (marked with <-- CURRENT). Choose the single action that best accomplishes it.
+3. If the step requires interacting with an element, find the best match from Interactive Elements using the selector cascade above.
+4. If the expected outcome needs verification, output an "assert" action before moving to the next step.
+5. If the page is loading or transitioning, output "wait" — prefer signal-based waits over fixed timeouts.
+6. If all steps are completed and verified, output "verdict" with verdict "pass".
+7. If a step fails (element not found, assertion fails, unexpected error), output "verdict" with verdict "fail" and a detailed reason including what was tried.
+8. If the page appears broken (blank, error screen, no interactive elements), output "verdict" with verdict "environment_error".
+9. When filling forms, use ONLY the test credentials provided. Never invent credentials.
+10. After form submission, wait for navigation or confirmation before asserting success.
+11. One action per response. Never batch multiple actions.
+12. **AUTH STATE AWARENESS (CRITICAL):**
+    - If the page shows an authenticated state (dashboard, nav menu, user avatar, "Sign Out" link) and the current step involves clicking login/signin → **SKIP to the next non-login step**. You are already past authentication.
+    - If the test IS specifically a login test (e.g., "Login with valid credentials") and you're already logged in → **FIRST log out** by finding and clicking a sign-out/logout link, THEN proceed with the login steps.
+    - If the page shows a login form but the test expects an authenticated state → **LOG IN FIRST** using test credentials before proceeding with the test steps.
+    - If redirected to login unexpectedly mid-flow → **RE-AUTHENTICATE** using test credentials before failing.
+    - **NEVER** try to clear cookies via JavaScript, navigate to javascript:void(0), or use any programmatic workaround. Use the actual UI elements (logout buttons, sign out links) to change auth state.
+13. **NEVER navigate to javascript: URLs.** This is invalid and will always fail.
 
 ## Assertion Usage Guide
 - **attribute_equals**: Use to verify aria-label, role, type, or other attributes. Set assertion.selector to target element, assertion.attribute to attribute name, expected to the expected value.
