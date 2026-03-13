@@ -48,6 +48,9 @@ export default async function MapPage({
     removed: number;
     syncedAt: string;
   } | undefined;
+  const commitsBehind = (settings.commitsBehind as number | undefined) ?? 0;
+  const lastCommitSha = settings.lastCommitSha as string | undefined;
+  const lastCommitMessage = settings.lastCommitMessage as string | undefined;
 
   const [dbNodes, dbEdges] = await Promise.all([
     prisma.systemMapNode.findMany({
@@ -100,15 +103,27 @@ export default async function MapPage({
       <div className="flex items-center justify-between px-1 pb-3">
         <div>
           <h1 className="text-lg font-semibold text-foreground">System Map</h1>
-          <p className="text-xs text-muted-foreground">
-            {project.name} -- {nodes.length} nodes, {edges.length} edges
+          <p className="text-xs text-muted-foreground flex items-center gap-2 flex-wrap">
+            <span>{project.name} — {nodes.length} nodes, {edges.length} edges</span>
             {syncDiff && (syncDiff.added > 0 || syncDiff.modified > 0 || syncDiff.removed > 0) && (
-              <span className="ml-2">
+              <span className="flex items-center gap-1">
+                <span className="text-muted-foreground/40">·</span>
                 {syncDiff.added > 0 && <span className="text-blue-400">+{syncDiff.added} new</span>}
-                {syncDiff.added > 0 && syncDiff.modified > 0 && <span> · </span>}
+                {syncDiff.added > 0 && syncDiff.modified > 0 && <span className="text-muted-foreground/40"> · </span>}
                 {syncDiff.modified > 0 && <span className="text-purple-400">~{syncDiff.modified} changed</span>}
-                {(syncDiff.added > 0 || syncDiff.modified > 0) && syncDiff.removed > 0 && <span> · </span>}
+                {(syncDiff.added > 0 || syncDiff.modified > 0) && syncDiff.removed > 0 && <span className="text-muted-foreground/40"> · </span>}
                 {syncDiff.removed > 0 && <span className="text-red-400">-{syncDiff.removed} removed</span>}
+              </span>
+            )}
+            {commitsBehind > 0 && (
+              <span className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 text-[10px]">
+                ↑ {commitsBehind} commit{commitsBehind !== 1 ? "s" : ""} ahead on GitHub
+                {lastCommitSha && (
+                  <span className="font-mono opacity-70">{lastCommitSha.slice(0, 7)}</span>
+                )}
+                {lastCommitMessage && (
+                  <span className="hidden sm:inline opacity-70 truncate max-w-[200px]">— {lastCommitMessage}</span>
+                )}
               </span>
             )}
           </p>

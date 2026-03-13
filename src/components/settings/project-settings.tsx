@@ -4,10 +4,19 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, GitCompare, RefreshCw, CircleDot } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 interface ProjectSettingsProps {
   project: { id: string; name: string; slug: string; repoUrl: string | null } | null;
+}
+
+interface ProjectSyncInfo {
+  autoSync: boolean;
+  lastCommitSha?: string;
+  lastCommitMessage?: string;
+  lastCommitAt?: string;
+  commitsBehind?: number;
 }
 
 export function ProjectSettings({ project }: ProjectSettingsProps) {
@@ -17,6 +26,10 @@ export function ProjectSettings({ project }: ProjectSettingsProps) {
   const [error, setError] = useState<string | null>(null);
   const [archivedProjects, setArchivedProjects] = useState<Array<{ id: string; name: string; slug: string }>>([]);
   const [restoring, setRestoring] = useState<string | null>(null);
+  const [syncInfo, setSyncInfo] = useState<ProjectSyncInfo>({ autoSync: false });
+  const [syncInfoLoaded, setSyncInfoLoaded] = useState(false);
+  const [togglingAutoSync, setTogglingAutoSync] = useState(false);
+  const [manualPolling, setManualPolling] = useState(false);
 
   useEffect(() => {
     fetch("/api/projects?status=archived")
@@ -26,6 +39,26 @@ export function ProjectSettings({ project }: ProjectSettingsProps) {
       })
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (!project?.id) return;
+    fetch(`/api/projects/${project.id}`)
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.success && json.data?.settings) {
+          const s = json.data.settings as Record<string, unknown>;
+          setSyncInfo({
+            autoSync: Boolean(s.autoSync),
+            lastCommitSha: s.lastCommitSha as string | undefined,
+            lastCommitMessage: s.lastCommitMessage as string | undefined,
+            lastCommitAt: s.lastCommitAt as string | undefined,
+            commitsBehind: s.commitsBehind as number | undefined,
+          });
+        }
+        setSyncInfoLoaded(true);
+      })
+      .catch(() => setSyncInfoLoaded(true));
+  }, [project?.id]);
 
   if (!project) {
     return (
@@ -89,6 +122,59 @@ export function ProjectSettings({ project }: ProjectSettingsProps) {
     }
   }
 
+  async function handleToggleAutoSync() {
+    if (!project?.id) return;
+    setTogglingAutoSync(true);
+    const newValue = !syncInfo.autoSync;
+    try {
+      // Load current settings first to merge
+      const res = await fetch(`/api/projects/${project.id}`);
+      const json = await res.json();
+      const currentSettings = (json.data?.settings as Record<string, unknown>) ?? {};
+
+      await fetch(`/api/projects/${project.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          settings: { ...currentSettings, autoSync: newValue },
+        }),
+      });
+      setSyncInfo((prev) => ({ ...prev, autoSync: newValue }));
+    } finally {
+      setTogglingAutoSync(false);
+    }
+  }
+
+  async function handleManualPoll() {
+    if (!project?.id) return;
+    setManualPolling(true);
+    try {
+      const res = await fetch(`/api/projects/${project.id}/sync`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ branch: undefined }),
+      });
+      if (res.ok) {
+        // Re-fetch to get the updated sync info after re-indexing is queued
+        setTimeout(async () => {
+          const info = await fetch(`/api/projects/${project.id}`).then((r) => r.json());
+          if (info.data?.settings) {
+            const s = info.data.settings as Record<string, unknown>;
+            setSyncInfo({
+              autoSync: Boolean(s.autoSync),
+              lastCommitSha: s.lastCommitSha as string | undefined,
+              lastCommitMessage: s.lastCommitMessage as string | undefined,
+              lastCommitAt: s.lastCommitAt as string | undefined,
+              commitsBehind: s.commitsBehind as number | undefined,
+            });
+          }
+        }, 2000);
+      }
+    } finally {
+      setManualPolling(false);
+    }
+  }
+
   return (
     <div className="space-y-6">
       <div className="rounded-xl surface-1 p-6 space-y-4">
@@ -146,6 +232,82 @@ export function ProjectSettings({ project }: ProjectSettingsProps) {
           </Button>
         </div>
       </div>
+
+      {syncInfoLoaded && (
+        <div className="rounded-xl surface-1 p-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-sm font-medium text-foreground flex items-center gap-2">
+                <GitCompare className="h-4 w-4 text-muted-foreground" />
+                Auto-Sync
+              </h3>
+              <p className="text-[11px] text-muted-foreground mt-1">
+                Orbit checks GitHub for new commits every minute and automatically
+                re-indexes when changes are detected.
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={handleToggleAutoSync}
+              disabled={togglingAutoSync}
+              className={cn(
+                "relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none",
+                syncInfo.autoSync ? "bg-emerald-500" : "bg-white/10"
+              )}
+            >
+              <span
+                className={cn(
+                  "inline-block h-4 w-4 transform rounded-full bg-white shadow transition-transform",
+                  syncInfo.autoSync ? "translate-x-4" : "translate-x-0"
+                )}
+              />
+            </button>
+          </div>
+
+          {syncInfo.lastCommitSha && (
+            <div className="space-y-1 border border-white/[0.06] rounded-lg px-3 py-2.5 bg-white/[0.02]">
+              <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                <CircleDot className={cn(
+                  "h-3 w-3",
+                  (syncInfo.commitsBehind ?? 0) > 0 ? "text-yellow-400" : "text-emerald-400"
+                )} />
+                {(syncInfo.commitsBehind ?? 0) > 0
+                  ? `${syncInfo.commitsBehind} new commit${syncInfo.commitsBehind === 1 ? "" : "s"} since last sync`
+                  : "Up to date with GitHub"}
+              </div>
+              <p className="text-[12px] text-foreground/70 font-mono truncate">
+                {syncInfo.lastCommitSha.slice(0, 7)}
+                {syncInfo.lastCommitMessage && (
+                  <span className="font-sans text-muted-foreground ml-2 not-italic">
+                    {syncInfo.lastCommitMessage}
+                  </span>
+                )}
+              </p>
+              {syncInfo.lastCommitAt && (
+                <p className="text-[10px] text-muted-foreground/60">
+                  {new Date(syncInfo.lastCommitAt).toLocaleString()}
+                </p>
+              )}
+            </div>
+          )}
+
+          <div className="flex items-center gap-2">
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={handleManualPoll}
+              disabled={manualPolling}
+              className="h-7 text-xs gap-1.5"
+            >
+              <RefreshCw className={cn("h-3 w-3", manualPolling && "animate-spin")} />
+              {manualPolling ? "Syncing..." : "Sync Now"}
+            </Button>
+            <span className="text-[11px] text-muted-foreground">
+              Manually trigger a re-index against the latest commit
+            </span>
+          </div>
+        </div>
+      )}
 
       <div className="rounded-xl bg-orbit-flaky/[0.04] p-6 space-y-4">
         <h3 className="text-sm font-medium text-orbit-flaky">Archive Project</h3>
