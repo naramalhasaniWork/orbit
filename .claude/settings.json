@@ -1,4 +1,7 @@
 {
+  "env": {
+    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
+  },
   "permissions": {
     "allow": [
       "Bash(npm:*)",
@@ -21,10 +24,15 @@
       "Bash(rm -rf ~)"
     ]
   },
-  "env": {
-    "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS": "1"
-  },
   "preferences": {
     "tmuxSplitPanes": true
+  },
+  "enabledPlugins": {
+    "chrome-devtools-mcp@claude-plugins-official": true,
+    "context7":true,
+    "claude-code-setup":true,
+    "code-review":true,
+    "agent-sdk-dev":true,
+    "feature-dev":true
   }
 }
