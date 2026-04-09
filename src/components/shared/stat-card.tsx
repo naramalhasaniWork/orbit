@@ -69,7 +69,7 @@ export function StatCard({
   return (
     <motion.div
       className={cn(
-        "flex flex-col gap-1.5 p-4 rounded-xl surface-1 border border-border",
+        "flex flex-col gap-1.5 p-4 rounded-lg min-h-[88px] surface-1 border border-white/[0.06]",
         "hover:border-border/80 dark:hover:border-white/[0.12] transition-colors duration-150",
         className
       )}

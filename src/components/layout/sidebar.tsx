@@ -47,7 +47,7 @@ export function Sidebar() {
   const projectParam = searchParams.get("project");
 
   return (
-    <aside className="flex flex-col w-[52px] hover:w-52 transition-all duration-300 ease-in-out surface-1 border-r border-border group overflow-hidden">
+    <aside className="flex flex-col w-14 hover:w-60 transition-all duration-300 ease-in-out surface-1 border-r border-border group overflow-hidden">
       {/* Logo */}
       <div className="flex items-center h-14 px-3">
         <Logo size="sm" showText={false} className="shrink-0" />
@@ -57,7 +57,7 @@ export function Sidebar() {
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 py-3 px-2 space-y-0.5">
+      <nav className="flex-1 py-3 px-2 space-y-1">
         {navigation.map((item) => {
           const isActive =
             pathname === item.href ||
@@ -72,7 +72,7 @@ export function Sidebar() {
               key={item.name}
               href={href}
               className={cn(
-                "relative flex items-center gap-3 px-2 py-2 rounded-lg text-[13px] font-medium transition-all duration-200",
+                "relative flex items-center gap-2.5 px-2 py-2 rounded-lg text-[13px] font-medium transition-all duration-200",
                 isActive
                   ? "text-foreground bg-orbit-accent/[0.08] border border-orbit-accent/[0.12]"
                   : "text-muted-foreground hover:text-foreground hover:bg-white/[0.06]"
@@ -105,7 +105,7 @@ export function Sidebar() {
             <WorkspaceSwitcher currentWorkspaceId={workspaceId} />
           </div>
         ) : (
-          <div className="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-white/[0.06] transition-colors cursor-pointer">
+          <div className="flex items-center gap-2.5 px-2 py-2 rounded-lg hover:bg-white/[0.06] transition-colors cursor-pointer">
             <div className="h-6 w-6 rounded-md bg-orbit-accent/15 flex items-center justify-center shrink-0">
               <span className="text-[10px] font-semibold text-orbit-accent">
                 O

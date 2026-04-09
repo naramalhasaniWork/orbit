@@ -6,8 +6,8 @@ import Link from "next/link";
 function StatCardSkeleton() {
   return (
     <div className="rounded-xl surface-1 border border-border p-4 animate-pulse">
-      <div className="h-3 w-16 rounded bg-orbit-surface-3 mb-3" />
-      <div className="h-7 w-12 rounded bg-orbit-surface-3" />
+      <div className="h-3 w-16 rounded-lg surface-2 mb-3" />
+      <div className="h-7 w-12 rounded-lg surface-2" />
     </div>
   );
 }
@@ -15,12 +15,12 @@ function StatCardSkeleton() {
 function TimelineItemSkeleton() {
   return (
     <div className="flex items-start gap-3 px-4 py-3 animate-pulse">
-      <div className="h-2.5 w-2.5 rounded-full bg-orbit-surface-3 mt-1" />
+      <div className="h-2.5 w-2.5 rounded-full surface-2 mt-1" />
       <div className="flex-1 space-y-2">
-        <div className="h-3.5 w-40 rounded bg-orbit-surface-3" />
-        <div className="h-3 w-64 rounded bg-orbit-surface-3" />
+        <div className="h-3.5 w-40 rounded-lg surface-2" />
+        <div className="h-3 w-64 rounded-lg surface-2" />
       </div>
-      <div className="h-5 w-14 rounded bg-orbit-surface-3" />
+      <div className="h-5 w-14 rounded-lg surface-2" />
     </div>
   );
 }
@@ -38,13 +38,13 @@ export function RunDetailSkeleton() {
         </Link>
         <div className="flex-1 space-y-2">
           <div className="flex items-center gap-2">
-            <div className="h-5 w-28 rounded bg-orbit-surface-3 animate-pulse" />
-            <div className="h-4 w-16 rounded bg-orbit-surface-3 animate-pulse" />
+            <div className="h-5 w-28 rounded-lg surface-2 animate-pulse" />
+            <div className="h-4 w-16 rounded-lg surface-2 animate-pulse" />
           </div>
           <div className="flex items-center gap-4">
-            <div className="h-3 w-12 rounded bg-orbit-surface-3 animate-pulse" />
-            <div className="h-3 w-14 rounded bg-orbit-surface-3 animate-pulse" />
-            <div className="h-3 w-20 rounded bg-orbit-surface-3 animate-pulse" />
+            <div className="h-3 w-12 rounded-lg surface-2 animate-pulse" />
+            <div className="h-3 w-14 rounded-lg surface-2 animate-pulse" />
+            <div className="h-3 w-20 rounded-lg surface-2 animate-pulse" />
           </div>
         </div>
       </div>
@@ -57,13 +57,13 @@ export function RunDetailSkeleton() {
       </div>
 
       {/* Progress bar skeleton */}
-      <div className="h-1.5 rounded-full bg-orbit-surface-3/30 animate-pulse" />
+      <div className="h-1.5 rounded-full surface-2 animate-pulse" />
 
       {/* Tab bar skeleton */}
       <div className="space-y-4">
-        <div className="flex gap-1 bg-orbit-surface-2 rounded-lg p-1 w-fit">
-          <div className="h-7 w-20 rounded-md bg-orbit-surface-3 animate-pulse" />
-          <div className="h-7 w-20 rounded-md bg-orbit-surface-3/50 animate-pulse" />
+        <div className="flex gap-1 surface-2 rounded-lg p-1 w-fit">
+          <div className="h-7 w-20 rounded-md surface-3 animate-pulse" />
+          <div className="h-7 w-20 rounded-md surface-2 animate-pulse" />
         </div>
 
         {/* Timeline skeleton */}

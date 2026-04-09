@@ -195,15 +195,18 @@ export function DashboardClient({
       animate="show"
       className="space-y-6"
     >
-      <motion.div variants={fadeUp} className="flex items-center justify-between flex-wrap gap-2">
-        <div className="flex items-center gap-3 flex-wrap">
+      <motion.div variants={fadeUp} className="flex items-center justify-between flex-wrap gap-2 mb-6">
+        <div>
           <h1 className="text-lg font-semibold text-foreground">{activeProject.name}</h1>
-          <Link
-            href={`/dashboard/projects/${activeProject.id}`}
-            className="text-xs text-muted-foreground hover:text-foreground transition-colors"
-          >
-            View details
-          </Link>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            Overview and health status{" "}
+            <Link
+              href={`/dashboard/projects/${activeProject.id}`}
+              className="text-orbit-accent hover:text-orbit-accent/80 transition-colors"
+            >
+              View details
+            </Link>
+          </p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
           {/* Sync status — always visible */}

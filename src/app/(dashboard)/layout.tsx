@@ -60,12 +60,14 @@ export default async function DashboardLayout({
             <DashboardHeader projects={projects} />
           </Suspense>
           <GlobalActivityBar initialOperations={initialOperations} />
-          <main className="flex-1 overflow-auto p-6 border-t border-white/[0.04]">
-            <Suspense>
-              <ContentTransition>
-                {children}
-              </ContentTransition>
-            </Suspense>
+          <main className="flex-1 overflow-auto px-6 py-5 lg:px-8 xl:px-10 border-t border-white/[0.04]">
+            <div className="max-w-[1440px] mx-auto">
+              <Suspense>
+                <ContentTransition>
+                  {children}
+                </ContentTransition>
+              </Suspense>
+            </div>
           </main>
         </div>
         <Suspense>
