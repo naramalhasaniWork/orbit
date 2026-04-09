@@ -14,6 +14,7 @@ import { extractRoutes } from "@/services/indexing/route-extractor";
 import { buildComponentMap } from "@/services/indexing/component-mapper";
 import { generateAndStoreEmbeddings } from "@/services/indexing/embedding-generator";
 import { buildSystemMap } from "@/services/indexing/system-map-builder";
+import { collectAndStoreGitHistory } from "@/services/indexing/git-history";
 import { getStorage } from "@/lib/storage";
 import type { SystemMapStats } from "@/services/indexing/system-map-builder";
 import type { IndexingPhase } from "@/lib/websocket/channels";
@@ -255,6 +256,33 @@ export async function runIndexingPipeline(
   });
 
   const embeddingsGenerated = await generateAndStoreEmbeddings(projectId);
+
+  // Phase 7: Git History Collection
+  await emitProgress(projectId, {
+    phase: "git_history",
+    message: "Collecting recent git history...",
+    nodesFound: stats.totalNodes,
+    progress: 93,
+  });
+
+  let gitHistoryMsg = "Git history collection failed, continuing...";
+  try {
+    gitHistoryMsg = await collectAndStoreGitHistory(
+      projectId,
+      project.repoOwner,
+      project.repoName,
+      branch
+    );
+  } catch (gitErr) {
+    console.warn("[pipeline] Git history collection failed:", gitErr);
+  }
+
+  await emitProgress(projectId, {
+    phase: "git_history",
+    message: gitHistoryMsg,
+    nodesFound: stats.totalNodes,
+    progress: 96,
+  });
 
   const durationMs = Date.now() - startTime;
 
