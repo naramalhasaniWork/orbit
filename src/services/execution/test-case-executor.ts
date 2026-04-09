@@ -10,6 +10,8 @@ import { detectFlakyFromRetry } from "@/services/execution/flaky-registry";
 import { analyzeVisualQuality } from "@/agents/prompts/sub-agents/visual-analyzer";
 import { detectAuthState } from "@/services/execution/auth-detector";
 import { loadTestingNotes } from "@/agents/prompts/context-loader";
+import { runAllInvariants, collectPageState } from "@/services/execution/invariant-checker";
+import type { InvariantResult } from "@/services/execution/invariant-checker";
 
 // ============================================================
 // Types
@@ -36,6 +38,7 @@ interface TestCaseResult {
   artifacts: Record<string, string>;
   healedSelectors: string[];
   storageState?: StorageState;
+  invariants?: InvariantResult;
 }
 
 // ============================================================
@@ -176,6 +179,16 @@ export async function executeTestCase(
       artifacts.domSnapshot = evidence.domSnapshot;
     }
 
+    // Run system invariants (informational — does not affect verdict)
+    let invariants: InvariantResult | undefined;
+    try {
+      invariants = runAllInvariants(await collectPageState(page, evidence, startTime));
+      if (!invariants.passed) {
+        for (const v of invariants.violations) log(`  [${v.severity}] ${v.description}`);
+      }
+      artifacts.invariants = JSON.stringify(invariants);
+    } catch { /* non-blocking */ }
+
     return {
       verdict: finalVerdict,
       durationMs: Date.now() - startTime,
@@ -183,6 +196,7 @@ export async function executeTestCase(
       artifacts,
       healedSelectors: result.healedSelectors,
       storageState: capturedState,
+      invariants,
     };
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : "Unknown execution error";
