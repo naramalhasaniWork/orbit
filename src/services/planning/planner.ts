@@ -3,11 +3,20 @@ import { reconstructJourneys } from "@/services/planning/journey-reconstructor";
 import { generateTestCases } from "@/services/planning/test-case-generator";
 import { prioritizeTestCases, filterByMode } from "@/services/planning/prioritizer";
 import { getActivePlan, getNextVersion, storePlan } from "@/services/planning/plan-cache";
+import { findSimilarNodes } from "@/lib/db/vector";
+import { createEmbedding } from "@/lib/ai";
 import type { CoverageReport } from "@/services/planning/coverage-analyzer";
 import type { Journey } from "@/services/planning/journey-reconstructor";
 import type { TestCase } from "@/agents/schemas/test-plan";
 import type { TestPlan as PrismaTestPlan, TestCase as PrismaTestCase } from "@/generated/prisma/client";
 import type { OperationsMap } from "@/agents/schemas/operations-map";
+
+interface SemanticNode {
+  name: string;
+  type: string;
+  filePath: string;
+  similarity: number;
+}
 
 interface PlannerInput {
   projectId: string;
@@ -36,10 +45,49 @@ export async function generatePlan(input: PlannerInput): Promise<PlannerResult> 
     operationsMap,
   } = input;
 
+  // Retrieve semantic context for focus areas (non-blocking)
+  let semanticContext: SemanticNode[] = [];
+  if (focusAreas && focusAreas.length > 0) {
+    try {
+      const focusText = focusAreas.join(" ");
+      const embedding = await createEmbedding(focusText);
+      const similar = await findSimilarNodes(projectId, embedding, 20);
+      semanticContext = similar.map((n) => ({
+        name: n.name,
+        type: n.type,
+        filePath: n.file_path,
+        similarity: n.similarity,
+      }));
+    } catch {
+      // Semantic retrieval unavailable — proceed without it
+    }
+  }
+
+  // Retrieve git history (non-blocking)
+  let gitHistory: Array<{ filePath: string; commitCount: number; totalChanges: number; lastChanged: string }> = [];
+  try {
+    const gitModule = await import("@/services/indexing/git-history") as {
+      getGitHistoryForProject: (projectId: string, daysSince?: number) => Promise<Array<{ filePath: string; commitHash: string; date: string; message: string; changeCount: number }>>;
+      aggregateChangeFrequency: (changes: Array<{ filePath: string; commitHash: string; date: string; message: string; changeCount: number }>) => Map<string, { commitCount: number; totalChanges: number; lastChanged: string; recentCommitMessages: string[] }>;
+    };
+    const changes = await gitModule.getGitHistoryForProject(projectId, 30);
+    const frequency = gitModule.aggregateChangeFrequency(changes);
+    gitHistory = Array.from(frequency.entries())
+      .map(([path, freq]) => ({
+        filePath: path,
+        commitCount: freq.commitCount,
+        totalChanges: freq.totalChanges,
+        lastChanged: freq.lastChanged,
+      }))
+      .sort((a, b) => b.totalChanges - a.totalChanges)
+      .slice(0, 50);
+  } catch { /* git history unavailable */ }
+
   // Step 1: Analyze coverage and reconstruct journeys in parallel
+  const useSemanticMatching = semanticContext.length > 0;
   const [coverage, journeys] = await Promise.all([
-    analyzeCoverage(projectId),
-    reconstructJourneys(projectId),
+    analyzeCoverage(projectId, operationsMap, useSemanticMatching),
+    reconstructJourneys(projectId, operationsMap, useSemanticMatching),
   ]);
 
   // Step 2: Determine next version

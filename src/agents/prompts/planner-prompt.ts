@@ -52,6 +52,7 @@ export interface PlannerContext {
   workspaceName?: string;
   operationsMap?: OperationsMap;
   testingNotes?: TestingNoteInput[];
+  semanticContext?: Array<{ name: string; type: string; filePath: string; similarity: number }>;
 }
 
 // ~4 chars/token avg; keep prompt under ~120k tokens for the system map portion
@@ -162,6 +163,25 @@ ${formatted}
 `;
 }
 
+function buildSemanticContextSection(
+  semanticContext?: PlannerContext["semanticContext"]
+): string {
+  if (!semanticContext || semanticContext.length === 0) return "";
+
+  const items = semanticContext
+    .map(
+      (n) =>
+        `  - [${n.type}] ${n.name} (${n.filePath}) — relevance: ${Math.round(n.similarity * 100)}%`
+    )
+    .join("\n");
+
+  return `
+## Semantically Related Code
+The following code elements are semantically related to the focus areas:
+${items}
+`;
+}
+
 function buildOperationsMapSection(operationsMap?: OperationsMap): string {
   if (!operationsMap || operationsMap.operations.length === 0) return "";
 
@@ -266,6 +286,7 @@ export function buildPlannerPrompt(
     failurePatterns,
     projectId,
     operationsMap,
+    semanticContext,
   } = context;
 
   const truncatedMap = truncateSystemMap(systemMap);
@@ -324,6 +345,7 @@ export function buildPlannerPrompt(
 
   const operationsMapStr = buildOperationsMapSection(operationsMap);
   const testingNotesStr = buildTestingNotesSection(context.testingNotes);
+  const semanticContextStr = buildSemanticContextSection(semanticContext);
 
   const configStr = [
     `- Test mode: ${userConfig.testMode}`,
@@ -395,7 +417,7 @@ ${gitStr}
 
 ## Known Failure Patterns (prioritize testing these areas)
 ${failurePatternsStr}
-${testingNotesStr}${operationsMapStr}
+${semanticContextStr}${testingNotesStr}${operationsMapStr}
 ${buildFewShotExample()}
 
 ${buildOutputSchema(projectId)}

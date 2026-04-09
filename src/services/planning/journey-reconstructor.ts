@@ -1,4 +1,6 @@
 import { prisma } from "@/lib/db";
+import { findSimilarNodes } from "@/lib/db/vector";
+import { createEmbedding } from "@/lib/ai";
 import type { SystemMapNode as PrismaNode, SystemMapEdge as PrismaEdge } from "@/generated/prisma/client";
 import type { OperationsMap } from "@/agents/schemas/operations-map";
 import {
@@ -65,6 +67,30 @@ function classifyNode(node: PrismaNode): string | null {
   return null;
 }
 
+const SEMANTIC_CLASSIFICATION_THRESHOLD = 0.8;
+
+async function classifyNodeSemantic(
+  node: PrismaNode,
+  projectId: string,
+  classifiedNodes: Map<string, string>
+): Promise<string | null> {
+  try {
+    const text = `${node.name} ${node.filePath}`;
+    const embedding = await createEmbedding(text);
+    const similar = await findSimilarNodes(projectId, embedding, 5);
+
+    for (const match of similar) {
+      if (match.similarity < SEMANTIC_CLASSIFICATION_THRESHOLD) continue;
+      if (match.id === node.id) continue;
+      const classification = classifiedNodes.get(match.id);
+      if (classification) return classification;
+    }
+  } catch {
+    // Semantic classification unavailable, return null
+  }
+  return null;
+}
+
 function walkGraph(
   startNodeId: string,
   adjacency: AdjacencyMap,
@@ -110,7 +136,8 @@ function describeJourney(name: string, steps: JourneyStep[]): string {
 
 export async function reconstructJourneys(
   projectId: string,
-  operationsMap?: OperationsMap
+  operationsMap?: OperationsMap,
+  useSemanticClassification = false
 ): Promise<Journey[]> {
   const [nodes, edges] = await Promise.all([
     prisma.systemMapNode.findMany({ where: { projectId } }),
@@ -122,8 +149,13 @@ export async function reconstructJourneys(
 
   const adjacency = buildAdjacencyMap(edges);
 
-  // Standard keyword-based journeys
-  const journeys = buildKeywordJourneys(nodes, nodeMap, adjacency);
+  // Standard keyword-based journeys, optionally enhanced with semantic classification
+  const journeys = await buildKeywordJourneysAsync(
+    nodes,
+    nodeMap,
+    adjacency,
+    useSemanticClassification ? projectId : undefined
+  );
 
   // Enrich with operations map data if available
   if (operationsMap) {
@@ -205,10 +237,58 @@ function buildKeywordJourneys(
     }
   }
 
+  return assembleJourneys(nodes, journeyGroups, nodeMap, adjacency);
+}
+
+async function buildKeywordJourneysAsync(
+  nodes: PrismaNode[],
+  nodeMap: Map<string, PrismaNode>,
+  adjacency: AdjacencyMap,
+  semanticProjectId?: string
+): Promise<Journey[]> {
+  const journeyGroups = new Map<string, PrismaNode[]>();
+  const classifiedNodes = new Map<string, string>();
+
+  // First pass: keyword classification
+  for (const node of nodes) {
+    const journeyName = classifyNode(node);
+    if (journeyName) {
+      if (!journeyGroups.has(journeyName)) journeyGroups.set(journeyName, []);
+      journeyGroups.get(journeyName)!.push(node);
+      classifiedNodes.set(node.id, journeyName);
+    }
+  }
+
+  // Second pass: semantic classification for unclassified nodes
+  if (semanticProjectId && classifiedNodes.size > 0) {
+    const unclassified = nodes.filter((n) => !classifiedNodes.has(n.id));
+    for (const node of unclassified) {
+      const journeyName = await classifyNodeSemantic(
+        node,
+        semanticProjectId,
+        classifiedNodes
+      );
+      if (journeyName) {
+        if (!journeyGroups.has(journeyName)) journeyGroups.set(journeyName, []);
+        journeyGroups.get(journeyName)!.push(node);
+        classifiedNodes.set(node.id, journeyName);
+      }
+    }
+  }
+
+  return assembleJourneys(nodes, journeyGroups, nodeMap, adjacency);
+}
+
+function assembleJourneys(
+  nodes: PrismaNode[],
+  journeyGroups: Map<string, PrismaNode[]>,
+  nodeMap: Map<string, PrismaNode>,
+  adjacency: AdjacencyMap
+): Journey[] {
   const classifiedIds = new Set<string>();
-  Array.from(journeyGroups.values()).forEach((group) => {
-    group.forEach((node) => classifiedIds.add(node.id));
-  });
+  for (const group of Array.from(journeyGroups.values())) {
+    for (const node of group) classifiedIds.add(node.id);
+  }
 
   const unclassifiedRoutes = nodes.filter(
     (n) => !classifiedIds.has(n.id) && (n.type === "route" || n.type === "endpoint")

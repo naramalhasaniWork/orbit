@@ -1,4 +1,6 @@
 import { prisma } from "@/lib/db";
+import { findSimilarNodes } from "@/lib/db/vector";
+import { createEmbedding } from "@/lib/ai";
 import type { SystemMapNode as PrismaNode, TestCase as PrismaTestCase } from "@/generated/prisma/client";
 import type { OperationsMap } from "@/agents/schemas/operations-map";
 
@@ -184,9 +186,53 @@ function computeFlowCoverage(
   });
 }
 
+function fallbackTextMatch(
+  testCases: Pick<PrismaTestCase, "name" | "journey">[],
+  nodes: PrismaNode[]
+): Set<string> {
+  const coveredNodeNames = new Set<string>();
+  for (const tc of testCases) {
+    const tcNameLower = tc.name.toLowerCase();
+    const tcJourney = tc.journey?.toLowerCase() ?? "";
+
+    for (const node of nodes) {
+      const nodeNameLower = node.name.toLowerCase();
+      const nodePathLower = node.filePath.toLowerCase();
+
+      const journeyMatch =
+        tcJourney.length >= 3 &&
+        (nodeNameLower.includes(tcJourney) || nodePathLower.includes(tcJourney));
+
+      const nameMatch =
+        nodeNameLower.length >= MIN_NODE_NAME_MATCH_LENGTH &&
+        tcNameLower.includes(nodeNameLower);
+
+      if (journeyMatch || nameMatch) {
+        coveredNodeNames.add(node.name);
+      }
+    }
+  }
+  return coveredNodeNames;
+}
+
+const SEMANTIC_SIMILARITY_THRESHOLD = 0.75;
+
+async function semanticMatchForTestCase(
+  projectId: string,
+  tc: Pick<PrismaTestCase, "name" | "journey">
+): Promise<string[]> {
+  const text = `${tc.name} ${tc.journey ?? ""}`.trim();
+  const embedding = await createEmbedding(text);
+  const similar = await findSimilarNodes(projectId, embedding, 5);
+  return similar
+    .filter((n) => n.similarity >= SEMANTIC_SIMILARITY_THRESHOLD)
+    .map((n) => n.name);
+}
+
 export async function analyzeCoverage(
   projectId: string,
-  operationsMap?: OperationsMap
+  operationsMap?: OperationsMap,
+  useSemanticMatching = false
 ): Promise<CoverageReport> {
   const [nodes, existingTestCases] = await Promise.all([
     prisma.systemMapNode.findMany({ where: { projectId } }),
@@ -203,31 +249,17 @@ export async function analyzeCoverage(
   const nodeMap = new Map<string, PrismaNode>();
   for (const node of nodes) nodeMap.set(node.id, node);
 
-  // Build set of "covered" node names using a multi-signal approach:
-  //  1. Journey match — test case's journey field matches the node's file path / name
-  //  2. Name match — test case name includes the full node name (min 5 chars to avoid
-  //     short tokens like "id", "new", "list" matching everything)
-  const coveredNodeNames = new Set<string>();
-  for (const tc of existingTestCases) {
-    const tcNameLower = tc.name.toLowerCase();
-    const tcJourney = tc.journey?.toLowerCase() ?? "";
+  // Start with text-based matching as baseline
+  const coveredNodeNames = fallbackTextMatch(existingTestCases, nodes);
 
-    for (const node of nodes) {
-      const nodeNameLower = node.name.toLowerCase();
-      const nodePathLower = node.filePath.toLowerCase();
-
-      // Signal 1: journey field matches a path segment in the node
-      const journeyMatch =
-        tcJourney.length >= 3 &&
-        (nodeNameLower.includes(tcJourney) || nodePathLower.includes(tcJourney));
-
-      // Signal 2: test case name contains the full node name (with length guard)
-      const nameMatch =
-        nodeNameLower.length >= MIN_NODE_NAME_MATCH_LENGTH &&
-        tcNameLower.includes(nodeNameLower);
-
-      if (journeyMatch || nameMatch) {
-        coveredNodeNames.add(node.name);
+  // Augment with semantic matching when enabled
+  if (useSemanticMatching) {
+    for (const tc of existingTestCases) {
+      try {
+        const semanticNames = await semanticMatchForTestCase(projectId, tc);
+        for (const name of semanticNames) coveredNodeNames.add(name);
+      } catch {
+        // Per-test-case fallback: text matching already applied above
       }
     }
   }
