@@ -193,4 +193,4 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md) for development setup, coding standards
 
 ## License
 
-Proprietary. Copyright Sunrise Systems. All rights reserved.
+Proprietary. Copyright Naram Alhasani. All rights reserved.
