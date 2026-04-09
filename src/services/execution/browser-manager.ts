@@ -69,23 +69,38 @@ export async function launchBrowser(
   let browser: Browser;
   let isRemote = false;
 
+  const CONNECT_MAX_RETRIES = 3;
+  const CONNECT_BASE_DELAY_MS = 2000;
+
   if (wsEndpoint) {
     const startMs = Date.now();
     const usePlaywrightProtocol = wsEndpoint.includes("/playwright");
+    const protocol = usePlaywrightProtocol ? "Playwright" : "CDP";
 
-    if (usePlaywrightProtocol) {
-      console.log(`[Browser] Connecting via Playwright protocol to ${wsEndpoint.split("?")[0]}...`);
-      browser = await chromium.connect(wsEndpoint, {
-        timeout: DEFAULT_TIMEOUT,
-      });
-    } else {
-      console.log(`[Browser] Connecting via CDP to ${wsEndpoint.split("?")[0]}...`);
-      browser = await chromium.connectOverCDP(wsEndpoint, {
-        timeout: DEFAULT_TIMEOUT,
-      });
+    for (let attempt = 1; attempt <= CONNECT_MAX_RETRIES; attempt++) {
+      try {
+        console.log(`[Browser] Connecting via ${protocol} to ${wsEndpoint.split("?")[0]} (attempt ${attempt}/${CONNECT_MAX_RETRIES})...`);
+        if (usePlaywrightProtocol) {
+          browser = await chromium.connect(wsEndpoint, { timeout: DEFAULT_TIMEOUT });
+        } else {
+          browser = await chromium.connectOverCDP(wsEndpoint, { timeout: DEFAULT_TIMEOUT });
+        }
+        console.log(`[Browser] Connected in ${Date.now() - startMs}ms`);
+        break;
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        if (attempt === CONNECT_MAX_RETRIES) {
+          console.error(`[Browser] Connection failed after ${CONNECT_MAX_RETRIES} attempts: ${msg}`);
+          throw err;
+        }
+        const delay = CONNECT_BASE_DELAY_MS * Math.pow(2, attempt - 1);
+        console.warn(`[Browser] Connection attempt ${attempt} failed (${msg}) — retrying in ${delay}ms`);
+        await new Promise((r) => setTimeout(r, delay));
+      }
     }
 
-    console.log(`[Browser] Connected in ${Date.now() - startMs}ms`);
+    // TypeScript: browser is guaranteed assigned by the loop (throws on all failures)
+    browser = browser!;
     isRemote = true;
   } else {
     console.log("[Browser] Launching local chromium...");
@@ -106,14 +121,14 @@ export async function launchBrowser(
 export async function closeBrowser(instance: BrowserInstance): Promise<void> {
   try {
     await instance.page.close();
-  } catch {
-    // Page may already be closed
+  } catch (err) {
+    console.warn("[Browser] Page close failed:", err instanceof Error ? err.message : String(err));
   }
 
   try {
     await instance.context.close();
-  } catch {
-    // Context may already be closed
+  } catch (err) {
+    console.warn("[Browser] Context close failed:", err instanceof Error ? err.message : String(err));
   }
 
   try {
@@ -123,8 +138,8 @@ export async function closeBrowser(instance: BrowserInstance): Promise<void> {
     } else {
       await instance.browser.close();
     }
-  } catch {
-    // Browser may already be closed
+  } catch (err) {
+    console.warn("[Browser] Browser close failed:", err instanceof Error ? err.message : String(err));
   }
 }
 

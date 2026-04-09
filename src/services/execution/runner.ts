@@ -15,11 +15,11 @@ import type { StorageState } from "@/services/execution/browser-manager";
 import { isRunCancelled } from "@/services/orchestrator/run-manager";
 import { executeParallel } from "@/services/orchestrator/parallel-executor";
 import { dispatchRunStarted, dispatchRunCompleted } from "@/services/reporting/integrations/outbound-webhooks";
-import { getRedis } from "@/lib/redis";
+import { acquireLock, releaseLock } from "@/lib/redis/lock";
 import type { TestVerdict } from "@/generated/prisma/enums";
 import type { TestResultEvent } from "@/lib/websocket/channels";
 
-const RUN_LOCK_TTL_SECONDS = 3600; // 1 hour max lock
+const RUN_LOCK_TTL_SECONDS = 300; // 5 min lock with auto-refresh
 
 interface RunOptions {
   runId: string;
@@ -27,13 +27,10 @@ interface RunOptions {
 }
 
 export async function executeRun(options: RunOptions): Promise<void> {
-  const { runId, environmentId } = options;
+  const { runId } = options;
 
-  // Distributed lock: prevent two workers from executing the same run
-  const redis = getRedis();
-  const lockKey = `orbit:run-lock:${runId}`;
-  const lockAcquired = await redis.set(lockKey, "locked", "EX", RUN_LOCK_TTL_SECONDS, "NX");
-  if (!lockAcquired) {
+  const lock = await acquireLock(`run-lock:${runId}`, RUN_LOCK_TTL_SECONDS);
+  if (!lock.acquired) {
     console.warn(`[Runner] Run ${runId} is already being executed by another worker — skipping`);
     return;
   }
@@ -41,7 +38,7 @@ export async function executeRun(options: RunOptions): Promise<void> {
   try {
     await executeRunInner(options);
   } finally {
-    await redis.del(lockKey);
+    await releaseLock(lock);
   }
 }
 
@@ -332,18 +329,39 @@ export async function runTestSuiteParallel(
   await completeRun(runId, totalTests, result);
 }
 
+const SAVE_RESULT_MAX_RETRIES = 3;
+const SAVE_RESULT_BASE_DELAY_MS = 500;
+
 async function saveTestResult(
   runId: string, testCaseId: string, verdict: TestVerdict, durationMs: number,
   steps: Array<Record<string, unknown>>, artifacts: Record<string, string>, healedSelectors: string[]
 ): Promise<void> {
-  await prisma.testResult.create({
-    data: {
-      testRunId: runId, testCaseId, verdict, durationMs,
-      steps: JSON.parse(JSON.stringify(steps)),
-      artifacts: JSON.parse(JSON.stringify(artifacts)),
-      healedSelectors: JSON.parse(JSON.stringify(healedSelectors)),
-    },
-  });
+  const data = {
+    testRunId: runId, testCaseId, verdict, durationMs,
+    steps: JSON.parse(JSON.stringify(steps)),
+    artifacts: JSON.parse(JSON.stringify(artifacts)),
+    healedSelectors: JSON.parse(JSON.stringify(healedSelectors)),
+  };
+
+  for (let attempt = 1; attempt <= SAVE_RESULT_MAX_RETRIES; attempt++) {
+    try {
+      await prisma.testResult.create({ data });
+      return;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (attempt < SAVE_RESULT_MAX_RETRIES) {
+        const delay = SAVE_RESULT_BASE_DELAY_MS * Math.pow(2, attempt - 1);
+        console.warn(`[Runner] saveTestResult attempt ${attempt}/${SAVE_RESULT_MAX_RETRIES} failed: ${msg} — retrying in ${delay}ms`);
+        await new Promise((r) => setTimeout(r, delay));
+      } else {
+        console.error(
+          `[Runner] CRITICAL: saveTestResult failed after ${SAVE_RESULT_MAX_RETRIES} attempts. ` +
+          `Data lost for run=${runId} test=${testCaseId} verdict=${verdict}. Error: ${msg}. ` +
+          `Full result: ${JSON.stringify(data)}`
+        );
+      }
+    }
+  }
 }
 
 /**

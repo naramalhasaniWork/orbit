@@ -10,6 +10,8 @@
  * connects through Browserbase cloud browsers instead of local Playwright.
  */
 
+import { getModelForTask } from "@/lib/ai/model-router";
+
 interface StagehandConfig {
   apiKey?: string;
   projectId?: string;
@@ -36,17 +38,25 @@ export interface StagehandInstance {
 export async function createStagehandSession(
   config: StagehandConfig = {}
 ): Promise<StagehandInstance> {
+  const browserbaseApiKey = config.apiKey ?? process.env.BROWSERBASE_API_KEY;
+  if (!browserbaseApiKey) {
+    throw new Error(
+      "[Stagehand] BROWSERBASE_API_KEY is not set. " +
+      "Stagehand requires a Browserbase API key. Set BROWSERBASE_API_KEY in your environment or pass it via config.apiKey."
+    );
+  }
+
   const { Stagehand } = await import("@browserbasehq/stagehand");
 
-  const browserbaseApiKey = config.apiKey ?? process.env.BROWSERBASE_API_KEY;
   const projectId = config.projectId ?? process.env.BROWSERBASE_PROJECT_ID;
+  const model = config.modelName ?? (await getModelForTask("browser_execution"));
 
   const stagehand = new Stagehand({
-    env: browserbaseApiKey ? "BROWSERBASE" : "LOCAL",
+    env: "BROWSERBASE",
     apiKey: browserbaseApiKey,
     projectId,
     verbose: (config.verbose ? 1 : 0) as 0 | 1 | 2,
-    model: (config.modelName ?? "gpt-4.1") as "gpt-4.1",
+    model: model as "gpt-4.1",
   });
 
   await stagehand.init();
