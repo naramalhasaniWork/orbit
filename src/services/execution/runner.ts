@@ -156,11 +156,13 @@ async function executeRunInner(options: RunOptions): Promise<void> {
 
       const verdictMap: Record<string, keyof typeof counters> = {
         pass: "passed", fail: "failed", flaky: "flaky", healed: "passed",
-        environment_error: "failed",
+        environment_error: "failed", skipped: "skipped",
       };
       counters[verdictMap[result.verdict] ?? "failed"]++;
       if (result.verdict === "environment_error") {
         log(`  -> ENVIRONMENT_ERROR (${result.durationMs}ms) — not a test bug, environment issue`);
+      } else if (result.verdict === "skipped") {
+        log(`  -> SKIPPED (${result.durationMs}ms) — blocked before execution, see result detail`);
       } else {
         log(`  -> ${result.verdict.toUpperCase()} (${result.durationMs}ms)`);
       }

@@ -78,6 +78,32 @@ export async function executeTestCase(
 
     // Detect and handle auth state mismatches before test execution
     const authState = await detectAuthState(page, testCase.name, log);
+
+    // Fail fast: a test that needs an authenticated session, with no
+    // credentials and no reusable session, will grind against the login
+    // page for minutes and fail anyway. Skip with an actionable reason.
+    const hasCredentials = Object.values(credentials ?? {}).some(
+      (v) => typeof v === "string" && v.length > 0
+    );
+    if (authState.needsLogin && !hasCredentials && !options?.storageState) {
+      log("BLOCKED: requires authentication but no test credentials are configured — skipping");
+      return {
+        verdict: "skipped",
+        durationMs: Date.now() - startTime,
+        steps: [{
+          stepIndex: 0,
+          action: "auth_preflight",
+          expected: "Authenticated session or test credentials available",
+          actual:
+            "Blocked: this test requires login but no test credentials are configured for this environment. Add credentials in Settings → Environments to unblock it.",
+          status: "skipped",
+          durationMs: Date.now() - startTime,
+        }],
+        artifacts: {},
+        healedSelectors: [],
+      };
+    }
+
     if (authState.needsLogout) {
       log("Page is authenticated but test needs fresh state — clearing cookies");
       await context.clearCookies();
