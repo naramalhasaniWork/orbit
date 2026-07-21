@@ -90,7 +90,16 @@ export async function createStagehandSession(
 }
 
 export function isStagehandEnabled(): boolean {
-  return process.env.USE_STAGEHAND === "true";
+  // Requires Browserbase — USE_STAGEHAND alone would route every test
+  // into a session that throws before executing a single step
+  const wanted = process.env.USE_STAGEHAND === "true";
+  if (wanted && !process.env.BROWSERBASE_API_KEY) {
+    console.warn(
+      "[Stagehand] USE_STAGEHAND=true but BROWSERBASE_API_KEY is not set — falling back to native executor"
+    );
+    return false;
+  }
+  return wanted;
 }
 
 export function isBrowserbaseEnabled(): boolean {
@@ -153,9 +162,13 @@ export async function executeStagehandSteps(
           action: step.action,
           expected: step.expected,
           actual: result.message,
-          status: "passed",
+          status: result.success ? "passed" : "failed",
           durationMs: Date.now() - startTime,
         });
+
+        if (!result.success) {
+          return { steps: stepResults, verdict: "fail", healedSelectors: [] };
+        }
       } catch (err) {
         const errorMsg = err instanceof Error ? err.message : String(err);
         await evidenceCollector.captureScreenshot("stagehand-failure");

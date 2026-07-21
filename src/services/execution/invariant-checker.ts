@@ -192,14 +192,20 @@ export async function collectPageState(
   evidence: EvidenceForInvariants,
   startTime: number
 ): Promise<PageState> {
-  const domInfo = await page.evaluate(() => ({
-    images: Array.from(document.images).map((img) => ({
-      src: img.src,
-      loaded: img.complete && img.naturalWidth > 0,
-    })),
-    title: document.title,
-    hasH1: document.querySelector("h1") !== null,
-  }));
+  const domInfo = await page.evaluate(() => {
+    const nav = performance.getEntriesByType("navigation")[0] as
+      | PerformanceNavigationTiming
+      | undefined;
+    return {
+      images: Array.from(document.images).map((img) => ({
+        src: img.src,
+        loaded: img.complete && img.naturalWidth > 0,
+      })),
+      title: document.title,
+      hasH1: document.querySelector("h1") !== null,
+      navigationDurationMs: nav ? Math.round(nav.duration) : null,
+    };
+  });
 
   return {
     consoleMessages: evidence.consoleLog.map((e) => ({ type: e.type, text: e.text })),
@@ -207,7 +213,9 @@ export async function collectPageState(
       .filter((e): e is { url: string; status: number } => e.status !== null)
       .map((e) => ({ url: e.url, status: e.status })),
     images: domInfo.images,
-    loadTimeMs: Date.now() - startTime,
+    // Real page navigation duration; total test time was reported here
+    // before, which flagged every multi-step test as a slow page load
+    loadTimeMs: domInfo.navigationDurationMs ?? Date.now() - startTime,
     title: domInfo.title,
     hasH1: domInfo.hasH1,
   };

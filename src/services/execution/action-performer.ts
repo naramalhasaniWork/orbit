@@ -1,7 +1,57 @@
-import type { Page } from "playwright";
+import type { Page, Locator } from "playwright";
 import type { ExecutorAction } from "@/agents/schemas/execution-result";
 
 const ACTION_TIMEOUT = 10_000;
+
+// ============================================================
+// Locator Resolution
+// ============================================================
+
+/** Heuristic: does this reference look like a CSS/XPath selector? */
+function looksLikeSelector(ref: string): boolean {
+  return (
+    /^[#.[/]|^\/\//.test(ref) ||
+    /^[a-z]+(\[|#|\.|:|\s*>)/.test(ref) ||
+    /^(text|css|xpath|role)=/.test(ref) ||
+    /^[a-z]+$/.test(ref)
+  );
+}
+
+/**
+ * Resolve an element reference that may be a CSS selector OR a
+ * human-readable label ("Sign In"). The executor LLM emits both, and
+ * treating labels as CSS made every text-based assertion fail.
+ * Tries the selector engine first when it looks like one, then falls
+ * back through text and label matching. Returns the first locator that
+ * matches something; falls back to the raw selector so downstream
+ * timeouts produce a meaningful error.
+ */
+export async function resolveLocator(page: Page, ref: string): Promise<Locator> {
+  const candidates: Locator[] = [];
+
+  if (looksLikeSelector(ref)) {
+    candidates.push(page.locator(ref));
+  }
+  candidates.push(
+    page.getByText(ref, { exact: false }),
+    page.getByRole("button", { name: ref }),
+    page.getByRole("link", { name: ref }),
+    page.getByLabel(ref),
+    page.getByPlaceholder(ref)
+  );
+  if (!looksLikeSelector(ref)) {
+    candidates.push(page.locator(ref));
+  }
+
+  for (const candidate of candidates) {
+    try {
+      if ((await candidate.count()) > 0) return candidate.first();
+    } catch {
+      // Invalid selector syntax for this engine — try the next candidate
+    }
+  }
+  return page.locator(ref).first();
+}
 
 // ============================================================
 // Action Performer
@@ -15,6 +65,12 @@ export async function performAction(
     case "navigate": {
       if (!action.url) throw new Error("Navigate action requires a url");
       const lower = action.url.toLowerCase().trim();
+      // about:blank is harmless — the LLM uses it to verify a clean
+      // session; blocking it failed unauth tests at step 0
+      if (lower === "about:blank") {
+        await page.goto("about:blank");
+        return "Navigated to about:blank (blank session state)";
+      }
       if (lower.startsWith("javascript:") || lower.startsWith("data:") || lower.startsWith("about:")) {
         throw new Error(`Blocked unsafe navigation to ${action.url.slice(0, 50)} — use UI elements instead`);
       }
@@ -27,20 +83,22 @@ export async function performAction(
     }
     case "click": {
       if (!action.selector) throw new Error("Click action requires a selector");
-      await page.locator(action.selector).first().click({ timeout: ACTION_TIMEOUT });
+      const locator = await resolveLocator(page, action.selector);
+      await locator.click({ timeout: ACTION_TIMEOUT });
       // Wait briefly for any navigation or DOM updates triggered by the click
       await page.waitForLoadState("domcontentloaded").catch(() => {});
       return `Clicked ${action.selector}`;
     }
     case "fill": {
       if (!action.selector) throw new Error("Fill action requires a selector");
-      const locator = page.locator(action.selector).first();
+      const locator = await resolveLocator(page, action.selector);
       await locator.fill(action.value ?? "", { timeout: ACTION_TIMEOUT });
       return `Filled ${action.selector} with value`;
     }
     case "select": {
       if (!action.selector) throw new Error("Select action requires a selector");
-      await page.locator(action.selector).first().selectOption(
+      const locator = await resolveLocator(page, action.selector);
+      await locator.selectOption(
         action.value ?? "",
         { timeout: ACTION_TIMEOUT }
       );
@@ -48,7 +106,8 @@ export async function performAction(
     }
     case "hover": {
       if (!action.selector) throw new Error("Hover action requires a selector");
-      await page.locator(action.selector).first().hover({ timeout: ACTION_TIMEOUT });
+      const locator = await resolveLocator(page, action.selector);
+      await locator.hover({ timeout: ACTION_TIMEOUT });
       return `Hovered over ${action.selector}`;
     }
     case "scroll": {
@@ -100,7 +159,14 @@ async function performAssertion(
 
   switch (type) {
     case "visible": {
-      const isVisible = await page.locator(expected).first().isVisible({ timeout: ACTION_TIMEOUT });
+      const locator = await resolveLocator(page, expected);
+      let isVisible = false;
+      try {
+        await locator.waitFor({ state: "visible", timeout: ACTION_TIMEOUT });
+        isVisible = true;
+      } catch {
+        isVisible = false;
+      }
       if (!isVisible) throw new Error(`Element "${expected}" is not visible`);
       return `Verified "${expected}" is visible`;
     }
@@ -119,7 +185,8 @@ async function performAssertion(
       return `Verified URL contains "${expected}"`;
     }
     case "element_exists": {
-      const count = await page.locator(expected).count();
+      const locator = await resolveLocator(page, expected);
+      const count = await locator.count();
       if (count === 0) throw new Error(`Element "${expected}" does not exist`);
       return `Verified "${expected}" exists`;
     }

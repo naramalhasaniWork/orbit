@@ -276,6 +276,10 @@ export async function executeTestSteps(
       ? result.wasHealed ? "healed" : "passed"
       : "failed";
 
+    console.log(
+      `[StepExecutor:${testCaseId.slice(0, 8)}] step ${currentStepIndex} ${action.action}${action.selector ? ` "${action.selector}"` : ""} -> ${stepStatus} (${result.actualResult.slice(0, 120)})`
+    );
+
     stepResults.push({
       stepIndex: currentStepIndex,
       action: `${action.action}${action.selector ? ` on ${action.selector}` : ""}`,
