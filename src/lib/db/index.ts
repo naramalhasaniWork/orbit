@@ -6,7 +6,18 @@ const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
   max: 20,
   idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
+  // Railway's proxy can be slow to accept new connections; 2s caused
+  // "Connection terminated due to connection timeout" on scheduler ticks
+  connectionTimeoutMillis: 10000,
+  keepAlive: true,
+  keepAliveInitialDelayMillis: 10000,
+});
+
+pool.on("error", (err) => {
+  // Idle clients dropped server-side (ECONNRESET) are routine in
+  // long-lived workers — the pool replaces them on next checkout.
+  // Without this handler each drop surfaces as an unhandled error.
+  console.warn("[db] Idle pool connection error:", err.message);
 });
 
 const adapter = new PrismaPg(pool);

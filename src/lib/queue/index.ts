@@ -8,6 +8,9 @@ function parseRedisUrl(url: string): ConnectionOptions {
     password: parsed.password || undefined,
     username: parsed.username !== "default" ? parsed.username : undefined,
     maxRetriesPerRequest: null,
+    // Survive Railway proxy idle resets between BullMQ polls
+    keepAlive: 10000,
+    retryStrategy: (times: number) => Math.min(times * 200, 5000),
   };
 }
 

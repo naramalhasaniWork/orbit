@@ -4,6 +4,30 @@ import {
   type SchedulerJobData,
 } from "@/lib/queue/queues";
 
+const CONNECTION_ERROR_RE =
+  /ECONNRESET|ETIMEDOUT|ECONNREFUSED|Connection terminated|connection timeout/i;
+
+/**
+ * Retry once on transient connection errors. A scheduler tick that dies
+ * on a stale pool connection silently skips every schedule in that
+ * window — one retry with a fresh connection recovers nearly all cases.
+ */
+async function withConnectionRetry<T>(
+  label: string,
+  fn: () => Promise<T>
+): Promise<T> {
+  try {
+    return await fn();
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    if (!CONNECTION_ERROR_RE.test(msg)) throw err;
+    console.warn(
+      `[Worker:scheduler] ${label} hit connection error, retrying once: ${msg}`
+    );
+    return fn();
+  }
+}
+
 export async function handleSchedulerJob(
   job: Job<SchedulerJobData>
 ): Promise<void> {
@@ -14,7 +38,9 @@ export async function handleSchedulerJob(
   });
 
   const { processScheduledRuns } = await import("@/services/scheduler");
-  const triggered = await processScheduledRuns();
+  const triggered = await withConnectionRetry("processScheduledRuns", () =>
+    processScheduledRuns()
+  );
   console.log(`[Worker:scheduler] Job ${job.id} complete — triggered ${triggered} run(s)`);
 
   // Commit polling: check all autoSync projects for new commits
