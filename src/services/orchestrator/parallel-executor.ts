@@ -181,6 +181,9 @@ async function executePartition(
   const { executeTestCase } = await import(
     "@/services/execution/test-case-executor"
   );
+  const { executeApiTestCase } = await import(
+    "@/services/execution/api-test-executor"
+  );
   const { isTestQuarantined } = await import(
     "@/services/execution/flaky-registry"
   );
@@ -232,18 +235,27 @@ async function executePartition(
         selector?: string;
       }>;
 
-      const result = await executeTestCase(
-        runId,
-        {
-          id: tc.id,
-          name: tc.name,
-          steps,
-          projectId: tc.projectId,
-          isCritical: tc.isCritical,
-        },
-        validation.environmentUrl,
-        validation.credentials
-      );
+      const caseForExecution = {
+        id: tc.id,
+        name: tc.name,
+        type: tc.type,
+        steps,
+        projectId: tc.projectId,
+        isCritical: tc.isCritical,
+      };
+
+      // API contract tests run over HTTP; browser only as fallback
+      let result =
+        tc.type === "api_contract"
+          ? await executeApiTestCase(
+              runId, caseForExecution, validation.environmentUrl, validation.credentials
+            )
+          : null;
+      if (!result) {
+        result = await executeTestCase(
+          runId, caseForExecution, validation.environmentUrl, validation.credentials
+        );
+      }
 
       const verdictMap: Record<string, keyof typeof counters> = {
         pass: "passed",

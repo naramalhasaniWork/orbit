@@ -31,6 +31,17 @@ interface TestCaseForExecution {
   requiredRole?: string;
 }
 
+/**
+ * AI provider errors (billing, auth, quota, model access) — platform
+ * problems that must never masquerade as failures of the app under test.
+ */
+const PROVIDER_ERROR_RE =
+  /credit balance|invalid_request_error|authentication_error|permission_error|api key|insufficient_quota|billing|model_not_found|overloaded_error/i;
+
+export function isProviderError(message: string): boolean {
+  return PROVIDER_ERROR_RE.test(message);
+}
+
 interface TestCaseResult {
   verdict: string;
   durationMs: number;
@@ -227,6 +238,26 @@ export async function executeTestCase(
   } catch (err) {
     const errorMsg = err instanceof Error ? err.message : "Unknown execution error";
     log(`EXECUTION ERROR: ${errorMsg}`);
+
+    // Platform-side AI provider failures (billing, auth, quota) are not
+    // app failures — recording them as test FAILs produces false errors.
+    if (isProviderError(errorMsg)) {
+      return {
+        verdict: "environment_error",
+        durationMs: Date.now() - startTime,
+        steps: [{
+          stepIndex: 0,
+          action: "ai_provider",
+          expected: "Orbit's AI provider responds to executor requests",
+          actual: `Orbit platform error (not an app failure): ${errorMsg}`,
+          status: "failed",
+          durationMs: Date.now() - startTime,
+        }],
+        artifacts: {},
+        healedSelectors: [],
+      };
+    }
+
     return {
       verdict: "fail",
       durationMs: Date.now() - startTime,

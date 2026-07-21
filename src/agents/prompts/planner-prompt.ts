@@ -386,6 +386,14 @@ You are the Planner agent. Your job is to generate a comprehensive, prioritized 
 - If confidence in a test case is below 70 (e.g., the feature is ambiguously defined), include it only if it covers a critical path (auth/payment/data). Otherwise omit.
 - When component nodes include uiElements metadata, use these to generate precise selector hints and form field validation tests. This is ground-truth data from the source code — prefer it over guessing.
 
+## Executability Rules — Every Test Must Be Runnable As Generated
+The executor is a browser agent plus an HTTP client with ONLY the credentials configured for the environment. A test the executor cannot physically perform is worse than no test — it burns run time and reports a false failure.
+- **Route scenarios to the right executor.** Anything verifiable by an HTTP request alone (unauthenticated access blocked, invalid payload rejected, missing auth returns 401/403, malformed request handling) MUST be type "api_contract" with steps naming the concrete endpoint and expected status codes — not a browser journey.
+- **Third-party integrations** (OAuth connects like Procore/GitHub/Slack, payment providers, email delivery): do NOT generate UI tests that require completing the external flow. Instead test the observable boundary: the settings page renders the connect option (journey), and the integration endpoints reject unauthenticated/invalid requests (api_contract).
+- **State you cannot create, don't test.** No session-expiry simulation (you cannot fast-forward time), no email-link verification (you cannot read email), no multi-user concurrency (you have one session), no tests requiring data that no generated step creates first.
+- **Expired/invalid token tests** are api_contract tests: send a request with a bogus token, expect 401 — never a browser flow.
+- If a valuable scenario is blocked by a missing prerequisite (no test credentials, external service), state the prerequisite in the rationale and set priorityScore below 40 so it does not gate runs.
+
 ${buildAdversarialThinking()}
 
 ## Test Types to Generate

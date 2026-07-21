@@ -10,6 +10,7 @@ import { publish, channels } from "@/lib/redis/pubsub";
 import { validateEnvironment } from "@/services/execution/environment-validator";
 import { isTestQuarantined } from "@/services/execution/flaky-registry";
 import { executeTestCase } from "@/services/execution/test-case-executor";
+import { executeApiTestCase } from "@/services/execution/api-test-executor";
 import type { TestCaseForExecution } from "@/services/execution/test-case-executor";
 import type { StorageState } from "@/services/execution/browser-manager";
 import { isRunCancelled } from "@/services/orchestrator/run-manager";
@@ -91,6 +92,7 @@ async function executeRunInner(options: RunOptions): Promise<void> {
 
   const counters = { passed: 0, failed: 0, flaky: 0, skipped: 0 };
   let consecutiveBrowserFailures = 0;
+  let consecutiveProviderFailures = 0;
   let authState: StorageState | undefined;
 
   const UNAUTH_PATTERNS = [
@@ -138,10 +140,21 @@ async function executeRunInner(options: RunOptions): Promise<void> {
       // Login tests always start fresh so they can test the full login flow
       const useAuth = !needsFreshBrowser && !isLoginTest && authState ? authState : undefined;
       const roleCredentials = resolveRoleCredentials(validation.credentials, testCase.requiredRole);
-      const result = await executeTestCase(
-        runId, testCase, validation.environmentUrl, roleCredentials,
-        { storageState: useAuth }
-      );
+
+      // API contract tests run over plain HTTP — no browser, no per-step
+      // LLM loop. Falls back to the browser when the plan needs UI.
+      let result =
+        testCase.type === "api_contract"
+          ? await executeApiTestCase(
+              runId, testCase, validation.environmentUrl, roleCredentials
+            )
+          : null;
+      if (!result) {
+        result = await executeTestCase(
+          runId, testCase, validation.environmentUrl, roleCredentials,
+          { storageState: useAuth }
+        );
+      }
 
       // Always update auth state from passing tests (not just first time)
       if (result.storageState) {
@@ -156,7 +169,7 @@ async function executeRunInner(options: RunOptions): Promise<void> {
 
       const verdictMap: Record<string, keyof typeof counters> = {
         pass: "passed", fail: "failed", flaky: "flaky", healed: "passed",
-        environment_error: "failed", skipped: "skipped",
+        environment_error: "skipped", skipped: "skipped",
       };
       counters[verdictMap[result.verdict] ?? "failed"]++;
       if (result.verdict === "environment_error") {
@@ -165,6 +178,28 @@ async function executeRunInner(options: RunOptions): Promise<void> {
         log(`  -> SKIPPED (${result.durationMs}ms) — blocked before execution, see result detail`);
       } else {
         log(`  -> ${result.verdict.toUpperCase()} (${result.durationMs}ms)`);
+      }
+
+      // Platform AI provider failures (billing/auth/quota) poison every
+      // subsequent test — abort instead of recording 29 false errors.
+      const firstStep = result.steps?.[0] as Record<string, unknown> | undefined;
+      if (
+        result.verdict === "environment_error" &&
+        firstStep?.action === "ai_provider"
+      ) {
+        consecutiveProviderFailures++;
+        if (consecutiveProviderFailures >= 2) {
+          log("ABORTING: AI provider unavailable (billing/auth/quota)");
+          await failRun(
+            runId,
+            "Run aborted: Orbit's AI provider rejected executor requests (billing, auth, or quota). " +
+              "This is a platform configuration issue, not an application failure. " +
+              `Detail: ${String(firstStep.actual ?? "")}`
+          );
+          return;
+        }
+      } else {
+        consecutiveProviderFailures = 0;
       }
 
       // Fail-fast: if consecutive browser connection failures, abort the run
@@ -294,7 +329,7 @@ async function loadTestCases(
 
   const cases = await prisma.testCase.findMany({ where, orderBy: { priorityScore: "desc" } });
   return cases.map((tc) => ({
-    id: tc.id, name: tc.name,
+    id: tc.id, name: tc.name, type: tc.type,
     steps: tc.steps as Array<{ action: string; expected: string; selector?: string }>,
     projectId: tc.projectId, isCritical: tc.isCritical,
     requiredRole: tc.requiredRole ?? undefined,

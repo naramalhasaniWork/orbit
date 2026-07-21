@@ -38,12 +38,17 @@ interface CompletionResult {
  * workspace's own provider key (BYOK). Providers fall back to platform
  * env keys when this returns undefined.
  */
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 async function resolveApiKey(
   model: string,
   workspaceId: string,
   provided?: string
 ): Promise<string | undefined> {
   if (provided) return provided;
+  // Internal callers use pseudo-workspace ids like "system" — no BYOK row
+  if (!UUID_RE.test(workspaceId)) return undefined;
   try {
     const provider = await getProviderForModel(model);
     return (await getWorkspaceApiKey(workspaceId, provider)) ?? undefined;
