@@ -11,6 +11,8 @@ interface HeaderProject {
   healthStatus: string;
   onboardingCompleted: boolean;
   status: string;
+  hasEnvironment: boolean;
+  hasActivePlan: boolean;
 }
 
 interface DashboardHeaderProps {

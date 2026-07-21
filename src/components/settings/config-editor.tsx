@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -39,26 +39,34 @@ interface ConfigEditorProps {
 export function ConfigEditor({ projectId }: ConfigEditorProps) {
   const [config, setConfig] = useState<OrbitConfig | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<ConfigError[]>([]);
   const [template, setTemplate] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-  useEffect(() => {
+  const fetchConfig = useCallback(async () => {
     if (!projectId) return;
-    async function fetchConfig() {
-      try {
-        const res = await fetch(`/api/projects/${projectId}/config`);
-        if (res.ok) {
-          const json = await res.json();
-          setConfig(json.data);
-        }
-      } finally {
-        setLoading(false);
+    setLoading(true);
+    setLoadError(false);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/config`);
+      if (!res.ok) {
+        setLoadError(true);
+        return;
       }
+      const json = await res.json();
+      setConfig(json.data);
+    } catch {
+      setLoadError(true);
+    } finally {
+      setLoading(false);
     }
-    fetchConfig();
   }, [projectId]);
+
+  useEffect(() => {
+    fetchConfig();
+  }, [fetchConfig]);
 
   if (!projectId) {
     return (
@@ -112,6 +120,21 @@ export function ConfigEditor({ projectId }: ConfigEditorProps) {
     return (
       <div className="rounded-xl surface-1 p-8 animate-pulse">
         <div className="h-4 w-32 bg-muted rounded" />
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="rounded-xl surface-1 p-8 text-center">
+        <AlertTriangle className="h-5 w-5 text-orbit-fail mx-auto mb-2" />
+        <p className="text-sm text-foreground">Couldn&apos;t load configuration.</p>
+        <p className="text-xs text-muted-foreground mt-1 mb-4">
+          Something went wrong fetching this project&apos;s config.
+        </p>
+        <Button variant="outline" size="sm" onClick={fetchConfig}>
+          Retry
+        </Button>
       </div>
     );
   }

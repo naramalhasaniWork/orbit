@@ -250,8 +250,17 @@ export function OperationsFlow({
 
       <div ref={containerRef} className="flex-1 relative bg-[#0d0f1a] rounded-lg overflow-hidden border border-border">
         {graphData.nodes.length === 0 ? (
-          <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
-            No operations match current filters
+          <div className="flex flex-col items-center justify-center h-full gap-1 px-6 text-center">
+            <p className="text-sm text-muted-foreground">
+              {operations.length === 0
+                ? "No operations yet"
+                : "No operations match current filters"}
+            </p>
+            <p className="text-xs text-muted-foreground/70 max-w-xs">
+              {operations.length === 0
+                ? "Index this project to discover its operations and data flows."
+                : "Adjust or clear the type filters to see operations."}
+            </p>
           </div>
         ) : (
           <ForceGraph2D

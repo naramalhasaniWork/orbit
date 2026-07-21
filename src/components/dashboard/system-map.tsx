@@ -255,8 +255,17 @@ export function SystemMap({ nodes, edges, compact = false }: SystemMapProps) {
 
       <div ref={containerRef} className="flex-1 relative bg-[#0d0f1a] rounded-lg overflow-hidden border border-border">
         {graphData.nodes.length === 0 ? (
-          <div className="flex items-center justify-center h-full text-sm text-muted-foreground">
-            No nodes match current filters
+          <div className="flex flex-col items-center justify-center h-full gap-1 px-6 text-center">
+            <p className="text-sm text-muted-foreground">
+              {nodes.length === 0
+                ? "No system map yet"
+                : "No nodes match current filters"}
+            </p>
+            <p className="text-xs text-muted-foreground/70 max-w-xs">
+              {nodes.length === 0
+                ? "Index this project to map its routes, components, and endpoints."
+                : "Adjust or clear the type, status, and search filters to see nodes."}
+            </p>
           </div>
         ) : (
           <ForceGraph2D

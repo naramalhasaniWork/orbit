@@ -179,6 +179,16 @@ export function ActivityFeed({
       {/* Event list */}
       <ScrollArea className="flex-1 min-h-0">
         <div className="px-4 pb-4">
+          {filteredEvents.length === 0 && (
+            <div className="flex flex-col items-center justify-center gap-1 py-10 text-center">
+              <Zap className="h-4 w-4 text-muted-foreground/50" />
+              <p className="text-xs text-muted-foreground">No activity yet</p>
+              <p className="text-[11px] text-muted-foreground/70 max-w-[220px]">
+                Runs, failures, and fixes will appear here as your tests
+                execute.
+              </p>
+            </div>
+          )}
           <AnimatePresence mode="popLayout">
             {filteredEvents.map((event) => {
               const config = eventConfig[event.type];

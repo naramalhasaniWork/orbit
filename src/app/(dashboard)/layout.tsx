@@ -25,6 +25,8 @@ export default async function DashboardLayout({
     healthStatus: string;
     onboardingCompleted: boolean;
     status: string;
+    hasEnvironment: boolean;
+    hasActivePlan: boolean;
   }[] = [];
 
   const session = await getServerSession(authOptions);
@@ -33,7 +35,7 @@ export default async function DashboardLayout({
   let initialOperations: Awaited<ReturnType<typeof getActiveOperations>> = [];
 
   if (workspaceId) {
-    [projects, initialOperations] = await Promise.all([
+    const [projectsRaw, ops] = await Promise.all([
       prisma.project.findMany({
         where: { workspaceId },
         orderBy: { updatedAt: "desc" },
@@ -45,10 +47,27 @@ export default async function DashboardLayout({
           healthStatus: true,
           onboardingCompleted: true,
           status: true,
+          // Readiness signals for the "Run" button (non-production env + active plan)
+          environments: {
+            where: { type: { not: "production" } },
+            take: 1,
+            select: { id: true },
+          },
+          testPlans: {
+            where: { isActive: true },
+            take: 1,
+            select: { id: true },
+          },
         },
       }),
       getActiveOperations(workspaceId),
     ]);
+    initialOperations = ops;
+    projects = projectsRaw.map(({ environments, testPlans, ...p }) => ({
+      ...p,
+      hasEnvironment: environments.length > 0,
+      hasActivePlan: testPlans.length > 0,
+    }));
   }
 
   return (

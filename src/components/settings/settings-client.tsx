@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { ProjectSettings } from "@/components/settings/project-settings";
@@ -86,7 +87,12 @@ export function SettingsClient({
   secrets,
   integrations,
 }: SettingsClientProps) {
-  const [activeTab, setActiveTab] = useState<TabId>("project");
+  const searchParams = useSearchParams();
+  const requestedTab = searchParams.get("tab");
+  const initialTab: TabId = tabs.some((t) => t.id === requestedTab)
+    ? (requestedTab as TabId)
+    : "project";
+  const [activeTab, setActiveTab] = useState<TabId>(initialTab);
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">

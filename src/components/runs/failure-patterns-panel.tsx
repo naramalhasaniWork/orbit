@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { formatDistanceToNow } from "date-fns";
 import {
   AlertTriangle,
   Clock,
@@ -64,23 +65,31 @@ export function FailurePatternsPanel({ projectId }: FailurePatternsPanelProps) {
   const [patterns, setPatterns] = useState<FailurePattern[]>([]);
   const [categories, setCategories] = useState<CategorySummary[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
 
-  useEffect(() => {
-    async function fetchPatterns() {
-      try {
-        const res = await fetch(`/api/projects/${projectId}/failure-patterns`);
-        if (res.ok) {
-          const json = await res.json();
-          setPatterns(json.data?.patterns ?? []);
-          setCategories(json.data?.byCategory ?? []);
-        }
-      } finally {
-        setLoading(false);
+  const fetchPatterns = useCallback(async () => {
+    setLoading(true);
+    setError(false);
+    try {
+      const res = await fetch(`/api/projects/${projectId}/failure-patterns`);
+      if (!res.ok) {
+        setError(true);
+        return;
       }
+      const json = await res.json();
+      setPatterns(json.data?.patterns ?? []);
+      setCategories(json.data?.byCategory ?? []);
+    } catch {
+      setError(true);
+    } finally {
+      setLoading(false);
     }
-    fetchPatterns();
   }, [projectId]);
+
+  useEffect(() => {
+    fetchPatterns();
+  }, [fetchPatterns]);
 
   if (loading) {
     return (
@@ -89,6 +98,28 @@ export function FailurePatternsPanel({ projectId }: FailurePatternsPanelProps) {
         <div className="mt-4 space-y-2">
           <div className="h-8 bg-muted/30 rounded" />
           <div className="h-8 bg-muted/30 rounded" />
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="rounded-xl surface-1 p-5">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 min-w-0">
+            <AlertTriangle className="h-3.5 w-3.5 text-orbit-fail shrink-0" />
+            <p className="text-xs text-muted-foreground">
+              Couldn&apos;t load failure patterns.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={fetchPatterns}
+            className="text-[11px] font-medium text-orbit-accent hover:text-orbit-accent/80 shrink-0"
+          >
+            Retry
+          </button>
         </div>
       </div>
     );
@@ -175,7 +206,10 @@ export function FailurePatternsPanel({ projectId }: FailurePatternsPanelProps) {
                     {pattern.testCaseIds.length} test{pattern.testCaseIds.length !== 1 ? "s" : ""}
                   </span>
                   <span>
-                    Last: {new Date(pattern.lastSeenAt).toLocaleDateString()}
+                    Last:{" "}
+                    {formatDistanceToNow(new Date(pattern.lastSeenAt), {
+                      addSuffix: true,
+                    })}
                   </span>
                 </div>
               </div>

@@ -42,6 +42,7 @@ export function RunDetailClient({ run, projectId }: RunDetailClientProps) {
   const router = useRouter();
   const [verdictFilter, setVerdictFilter] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
   const [localStatus, setLocalStatus] = useState<string | null>(null);
   const [liveResults, setLiveResults] = useState<RunDetailData["results"]>([]);
   const hasRefreshedRef = useRef(false);
@@ -145,6 +146,7 @@ export function RunDetailClient({ run, projectId }: RunDetailClientProps) {
   const handleCancelRun = useCallback(async () => {
     if (!projectId || cancelling) return;
     setCancelling(true);
+    setCancelError(null);
     try {
       const res = await fetch(`/api/projects/${projectId}/runs/${run.id}`, {
         method: "PATCH",
@@ -154,11 +156,15 @@ export function RunDetailClient({ run, projectId }: RunDetailClientProps) {
       if (res.ok) {
         setLocalStatus("cancelled");
         router.refresh();
-      } else {
-        console.error("[CancelRun] API error:", res.status);
+        return;
       }
-    } catch (err) {
-      console.error("[CancelRun] Network error:", err);
+      const json = await res.json().catch(() => ({}));
+      setCancelError(
+        (json as { error?: { message?: string } }).error?.message ??
+          `Couldn't cancel this run (${res.status}).`
+      );
+    } catch {
+      setCancelError("Couldn't cancel this run. Check your connection and try again.");
     } finally {
       setCancelling(false);
     }
@@ -199,16 +205,23 @@ export function RunDetailClient({ run, projectId }: RunDetailClientProps) {
           <RunMeta run={run} />
         </div>
         {isLive && projectId && (
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-1.5 text-orbit-fail border-orbit-fail/30 hover:bg-orbit-fail/10"
-            onClick={handleCancelRun}
-            disabled={cancelling}
-          >
-            {cancelling ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <XCircle className="h-3.5 w-3.5" />}
-            {cancelling ? "Cancelling..." : "Cancel Run"}
-          </Button>
+          <div className="flex flex-col items-end gap-1">
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5 text-orbit-fail border-orbit-fail/30 hover:bg-orbit-fail/10"
+              onClick={handleCancelRun}
+              disabled={cancelling}
+            >
+              {cancelling ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <XCircle className="h-3.5 w-3.5" />}
+              {cancelling ? "Cancelling..." : "Cancel Run"}
+            </Button>
+            {cancelError && (
+              <span className="text-[11px] text-orbit-fail text-right max-w-[240px]">
+                {cancelError}
+              </span>
+            )}
+          </div>
         )}
       </div>
 

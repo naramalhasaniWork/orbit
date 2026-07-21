@@ -5,6 +5,7 @@ import { StatusDot } from "@/components/shared/status-dot";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { formatDistanceToNow } from "date-fns";
+import { formatDuration } from "@/components/runs/run-types";
 import {
   GitBranch,
   GitPullRequest,
@@ -105,7 +106,7 @@ export function RunsTimeline({ runs }: { runs: Run[] }) {
                     </span>
                     {run.durationMs != null && run.durationMs > 0 && (
                       <span className="text-xs text-muted-foreground">
-                        {(run.durationMs / 1000).toFixed(1)}s
+                        {formatDuration(run.durationMs)}
                       </span>
                     )}
                   </div>
