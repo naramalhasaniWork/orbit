@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { OperationsMapSchema } from "@/agents/schemas/operations-map";
+import { OperationsMapSchema, type OperationsMap } from "@/agents/schemas/operations-map";
 
-function validOperationsMap() {
+function validOperationsMap(): OperationsMap {
   return {
     projectId: "proj-1",
     generatedAt: "2026-02-24T00:00:00Z",

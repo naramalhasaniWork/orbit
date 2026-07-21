@@ -79,7 +79,7 @@ export function buildFeedbackSummary(
   );
   sections.push("");
 
-  for (const [type, nodes] of grouped) {
+  for (const [type, nodes] of Array.from(grouped.entries())) {
     sections.push(`### Uncovered ${type}s`);
     for (const node of nodes) {
       const pathNote = node.filePath ? ` (${node.filePath})` : "";
