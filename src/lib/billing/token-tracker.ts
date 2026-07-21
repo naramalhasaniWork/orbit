@@ -14,9 +14,63 @@ interface TokenTrackingParams {
   agentPhase: "analyst" | "planner" | "executor" | "reporter" | "auditor";
 }
 
+interface PerThousandCosts {
+  input: number;
+  output: number;
+  cached: number;
+}
+
+// Registry pricing cache — dynamic (OpenRouter) models aren't in the
+// built-in cost table, so we look them up once and cache per process.
+const REGISTRY_COST_CACHE = new Map<string, PerThousandCosts | null>();
+const REGISTRY_COST_TTL_MS = 60 * 60 * 1000;
+const registryCostExpiry = new Map<string, number>();
+
+async function getRegistryCosts(model: string): Promise<PerThousandCosts | null> {
+  const expiry = registryCostExpiry.get(model);
+  if (expiry && expiry > Date.now() && REGISTRY_COST_CACHE.has(model)) {
+    return REGISTRY_COST_CACHE.get(model) ?? null;
+  }
+
+  let costs: PerThousandCosts | null = null;
+  try {
+    const entry = await prisma.modelRegistry.findFirst({
+      where: { modelId: model, isActive: true },
+      select: { inputCostPer1M: true, outputCostPer1M: true },
+    });
+    if (entry) {
+      costs = {
+        input: entry.inputCostPer1M / 1000,
+        output: entry.outputCostPer1M / 1000,
+        cached: entry.inputCostPer1M / 1000,
+      };
+    }
+  } catch {
+    // Pricing lookup must never block usage recording
+  }
+
+  REGISTRY_COST_CACHE.set(model, costs);
+  registryCostExpiry.set(model, Date.now() + REGISTRY_COST_TTL_MS);
+  return costs;
+}
+
+function applyCosts(
+  costs: PerThousandCosts,
+  inputTokens: number,
+  outputTokens: number,
+  cachedTokens: number
+): number {
+  const effectiveInput = Math.max(0, inputTokens - cachedTokens);
+  return (
+    (effectiveInput / 1000) * costs.input +
+    (outputTokens / 1000) * costs.output +
+    (cachedTokens / 1000) * costs.cached
+  );
+}
+
 /**
  * Calculate the cost for a given model and token counts.
- * Uses per-1K token pricing from model-router.
+ * Uses per-1K token pricing from model-router (built-in models only).
  */
 export function calculateTokenCost(
   model: string,
@@ -26,13 +80,26 @@ export function calculateTokenCost(
 ): number {
   const costs = getModelCosts(model);
   if (!costs) return 0;
+  return applyCosts(costs, inputTokens, outputTokens, cachedTokens);
+}
 
-  const effectiveInput = Math.max(0, inputTokens - cachedTokens);
-  return (
-    (effectiveInput / 1000) * costs.input +
-    (outputTokens / 1000) * costs.output +
-    (cachedTokens / 1000) * costs.cached
-  );
+/**
+ * Async variant that falls back to ModelRegistry pricing for dynamic
+ * (e.g. OpenRouter) models when the built-in table has no entry.
+ */
+export async function calculateTokenCostAsync(
+  model: string,
+  inputTokens: number,
+  outputTokens: number,
+  cachedTokens = 0
+): Promise<number> {
+  const builtIn = getModelCosts(model);
+  if (builtIn) return applyCosts(builtIn, inputTokens, outputTokens, cachedTokens);
+
+  const registry = await getRegistryCosts(model);
+  if (registry) return applyCosts(registry, inputTokens, outputTokens, cachedTokens);
+
+  return 0;
 }
 
 /**
@@ -51,7 +118,7 @@ export async function recordTokenUsage(params: TokenTrackingParams) {
     agentPhase,
   } = params;
 
-  const cost = calculateTokenCost(model, inputTokens, outputTokens, cachedTokens);
+  const cost = await calculateTokenCostAsync(model, inputTokens, outputTokens, cachedTokens);
 
   if (!UUID_RE.test(workspaceId)) {
     return { cost, inputTokens, outputTokens, cachedTokens };
@@ -85,10 +152,11 @@ export async function recordTokenUsage(params: TokenTrackingParams) {
 export async function recordTokenUsageBatch(
   records: TokenTrackingParams[]
 ) {
-  const data = records
+  const data = await Promise.all(
+    records
     .filter((r) => UUID_RE.test(r.workspaceId))
-    .map((r) => {
-      const cost = calculateTokenCost(r.model, r.inputTokens, r.outputTokens, r.cachedTokens);
+    .map(async (r) => {
+      const cost = await calculateTokenCostAsync(r.model, r.inputTokens, r.outputTokens, r.cachedTokens);
       return {
         workspaceId: r.workspaceId,
         projectId: r.projectId && UUID_RE.test(r.projectId) ? r.projectId : (r.projectId ?? null),
@@ -100,7 +168,8 @@ export async function recordTokenUsageBatch(
         agentPhase: r.agentPhase,
         runId: r.runId && UUID_RE.test(r.runId) ? r.runId : null,
       };
-    });
+    })
+  );
 
   if (data.length === 0) return;
   await prisma.tokenUsage.createMany({ data });

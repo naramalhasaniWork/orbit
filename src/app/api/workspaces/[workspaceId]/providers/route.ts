@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { requirePermission } from "@/lib/auth/rbac";
 import { apiSuccess, apiError, handleApiError } from "@/lib/utils/api";
 import { encrypt } from "@/lib/vault";
+import { syncModelsToRegistry } from "@/lib/ai/providers/openrouter";
 import type { Prisma } from "@/generated/prisma/client";
 
 const VALID_PROVIDERS = ["anthropic", "openai", "openrouter", "custom"] as const;
@@ -119,6 +120,13 @@ export async function POST(
         metadata: { provider },
       },
     });
+
+    // Populate the model registry so the new key's models are selectable
+    if (provider === "openrouter" && apiKey) {
+      syncModelsToRegistry(apiKey).catch((err) =>
+        console.error("[Providers] OpenRouter model sync failed:", err)
+      );
+    }
 
     return apiSuccess(
       {

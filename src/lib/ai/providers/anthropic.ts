@@ -11,6 +11,7 @@ interface AnthropicCompletionOptions {
   messages: CompletionMessage[];
   maxTokens?: number;
   temperature?: number;
+  apiKey?: string;
 }
 
 interface CompletionResult {
@@ -26,8 +27,8 @@ interface CompletionResult {
 const MAX_RETRIES = 3;
 const BASE_DELAY_MS = 1000;
 
-function getClient(): Anthropic {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
+function getClient(providedKey?: string): Anthropic {
+  const apiKey = providedKey ?? process.env.ANTHROPIC_API_KEY;
   if (!apiKey) {
     throw new Error("ANTHROPIC_API_KEY environment variable is not set");
   }
@@ -47,8 +48,9 @@ export async function createAnthropicCompletion(
     messages,
     maxTokens = 4096,
     temperature = 0,
+    apiKey,
   } = options;
-  const client = getClient();
+  const client = getClient(apiKey);
 
   let lastError: Error | null = null;
 
@@ -108,8 +110,9 @@ export async function* streamAnthropicCompletion(
     messages,
     maxTokens = 4096,
     temperature = 0,
+    apiKey,
   } = options;
-  const client = getClient();
+  const client = getClient(apiKey);
 
   const stream = await client.messages.stream({
     model,

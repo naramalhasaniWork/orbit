@@ -1,5 +1,6 @@
 import { createCompletion, streamCompletion } from "@/lib/ai";
 import { recordTokenUsage } from "@/lib/billing/token-tracker";
+import { getProviderForModel, getWorkspaceApiKey } from "@/lib/ai/model-router";
 
 interface CompletionMessage {
   role: "user" | "assistant";
@@ -33,6 +34,25 @@ interface CompletionResult {
 }
 
 /**
+ * Resolve the API key for a model: explicit option first, then the
+ * workspace's own provider key (BYOK). Providers fall back to platform
+ * env keys when this returns undefined.
+ */
+async function resolveApiKey(
+  model: string,
+  workspaceId: string,
+  provided?: string
+): Promise<string | undefined> {
+  if (provided) return provided;
+  try {
+    const provider = await getProviderForModel(model);
+    return (await getWorkspaceApiKey(workspaceId, provider)) ?? undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
  * Create a completion and automatically track token usage for billing.
  * Use this instead of createCompletion when billing context is available.
  */
@@ -40,7 +60,12 @@ export async function createTrackedCompletion(
   options: TrackedCompletionOptions,
   billing: BillingContext
 ): Promise<CompletionResult> {
-  const result = await createCompletion(options);
+  const apiKey = await resolveApiKey(
+    options.model,
+    billing.workspaceId,
+    options.apiKey
+  );
+  const result = await createCompletion({ ...options, apiKey });
 
   // Fire and forget — token tracking should not block the response
   recordTokenUsage({
@@ -66,7 +91,12 @@ export async function* streamTrackedCompletion(
   options: TrackedCompletionOptions,
   billing: BillingContext
 ): AsyncGenerator<string, CompletionResult> {
-  const gen = streamCompletion(options);
+  const apiKey = await resolveApiKey(
+    options.model,
+    billing.workspaceId,
+    options.apiKey
+  );
+  const gen = streamCompletion({ ...options, apiKey });
 
   let result: CompletionResult | undefined;
 

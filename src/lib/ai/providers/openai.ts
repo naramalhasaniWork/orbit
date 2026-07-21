@@ -11,6 +11,7 @@ interface OpenAICompletionOptions {
   messages: CompletionMessage[];
   maxTokens?: number;
   temperature?: number;
+  apiKey?: string;
 }
 
 interface CompletionResult {
@@ -28,8 +29,8 @@ const BASE_DELAY_MS = 1000;
 const EMBEDDING_MODEL = "text-embedding-3-small";
 const EMBEDDING_BATCH_SIZE = 100;
 
-function getClient(): OpenAI {
-  const apiKey = process.env.OPENAI_API_KEY;
+function getClient(providedKey?: string): OpenAI {
+  const apiKey = providedKey ?? process.env.OPENAI_API_KEY;
   if (!apiKey) {
     throw new Error("OPENAI_API_KEY environment variable is not set");
   }
@@ -55,8 +56,9 @@ export async function createOpenAICompletion(
     messages,
     maxTokens = 4096,
     temperature = 0,
+    apiKey,
   } = options;
-  const client = getClient();
+  const client = getClient(apiKey);
 
   let lastError: Error | null = null;
 

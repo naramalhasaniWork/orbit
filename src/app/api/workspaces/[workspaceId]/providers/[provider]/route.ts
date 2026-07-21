@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { requirePermission } from "@/lib/auth/rbac";
 import { apiSuccess, apiError, handleApiError } from "@/lib/utils/api";
 import { encrypt } from "@/lib/vault";
+import { syncModelsToRegistry } from "@/lib/ai/providers/openrouter";
 
 function maskApiKey(encrypted: string | null): string | null {
   if (!encrypted) return null;
@@ -84,6 +85,13 @@ export async function PUT(
         },
       },
     });
+
+    // Refresh the model registry when a new OpenRouter key lands
+    if (provider === "openrouter" && apiKey) {
+      syncModelsToRegistry(apiKey).catch((err) =>
+        console.error("[Providers] OpenRouter model sync failed:", err)
+      );
+    }
 
     return apiSuccess({
       id: updated.id,

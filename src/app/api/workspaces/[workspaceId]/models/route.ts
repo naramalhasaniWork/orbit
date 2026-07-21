@@ -2,6 +2,8 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { requirePermission } from "@/lib/auth/rbac";
 import { apiSuccess, handleApiError } from "@/lib/utils/api";
+import { getWorkspaceApiKey } from "@/lib/ai/model-router";
+import { ensureModelRegistryFresh } from "@/lib/ai/providers/openrouter";
 import type { AgentPhase } from "@/generated/prisma/client";
 
 interface ModelInfo {
@@ -108,6 +110,18 @@ export async function GET(
       select: { tier: true },
     });
 
+    // Check which built-in providers have platform keys
+    const hasPlatformAnthropic = !!process.env.ANTHROPIC_API_KEY;
+    const hasPlatformOpenAI = !!process.env.OPENAI_API_KEY;
+    const hasPlatformOpenRouter = !!process.env.OPENROUTER_API_KEY;
+
+    // Keep the OpenRouter model registry fresh (no-op when synced <24h ago).
+    // Uses the workspace key if configured, otherwise the platform key.
+    const workspaceOpenRouterKey = await getWorkspaceApiKey(workspaceId, "openrouter");
+    if (workspaceOpenRouterKey || hasPlatformOpenRouter) {
+      await ensureModelRegistryFresh(workspaceOpenRouterKey ?? undefined);
+    }
+
     // Get all models from the registry (synced from OpenRouter etc.)
     const registryModels = await prisma.modelRegistry.findMany({
       where: { isActive: true },
@@ -125,10 +139,6 @@ export async function GET(
       select: { provider: true },
     });
     const activeProviders = new Set(providerConfigs.map((p) => p.provider));
-
-    // Check which built-in providers have platform keys
-    const hasPlatformAnthropic = !!process.env.ANTHROPIC_API_KEY;
-    const hasPlatformOpenAI = !!process.env.OPENAI_API_KEY;
 
     const workspaceTierLevel = TIER_HIERARCHY[workspace.tier] ?? 0;
     const models: ModelInfo[] = [];
@@ -155,7 +165,9 @@ export async function GET(
     // Add registry models (OpenRouter, custom providers)
     for (const reg of registryModels) {
       const hasWorkspaceKey = activeProviders.has(reg.provider);
-      if (!hasWorkspaceKey) continue;
+      const hasPlatformKey =
+        reg.provider === "openrouter" && hasPlatformOpenRouter;
+      if (!hasWorkspaceKey && !hasPlatformKey) continue;
 
       const policy = policyMap.get(`${reg.provider}:${reg.modelId}`);
       if (policy && !policy.isAllowed) continue;
