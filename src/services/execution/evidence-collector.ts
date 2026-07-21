@@ -5,6 +5,7 @@ import type {
   Response as PlaywrightResponse,
 } from "playwright";
 import { getStorage } from "@/lib/storage";
+import { absoluteArtifactFileUrl } from "@/lib/storage/artifact-url";
 import { prisma } from "@/lib/db";
 
 // ============================================================
@@ -110,16 +111,18 @@ export function createEvidenceCollector(
     const buffer = await page.screenshot({ fullPage: true });
     await storage.upload(key, buffer, "image/png");
 
+    let url = key;
     if (projectId) {
-      await prisma.runArtifact.create({
+      const artifact = await prisma.runArtifact.create({
         data: {
           projectId, testRunId: runId, type: "screenshot", storageKey: key,
           fileName, contentType: "image/png", sizeBytes: buffer.length, stepIndex,
         },
+        select: { id: true },
       });
+      url = absoluteArtifactFileUrl(projectId, runId, artifact.id);
     }
 
-    const url = await storage.getUrl(key);
     evidence.screenshots.push(url);
     return url;
   }
@@ -133,16 +136,18 @@ export function createEvidenceCollector(
     const buffer = Buffer.from(html);
     await storage.upload(key, buffer, "text/html");
 
+    let url = key;
     if (projectId) {
-      await prisma.runArtifact.create({
+      const artifact = await prisma.runArtifact.create({
         data: {
           projectId, testRunId: runId, type: "dom_snapshot", storageKey: key,
           fileName, contentType: "text/html", sizeBytes: buffer.length, stepIndex,
         },
+        select: { id: true },
       });
+      url = absoluteArtifactFileUrl(projectId, runId, artifact.id);
     }
 
-    const url = await storage.getUrl(key);
     evidence.domSnapshot = url;
     return url;
   }
@@ -165,16 +170,18 @@ export function createEvidenceCollector(
       const key = `runs/${runId}/${testCaseId}/${fileName}`;
       await storage.upload(key, videoBuffer, "video/webm");
 
+      let url = key;
       if (projectId) {
-        await prisma.runArtifact.create({
+        const artifact = await prisma.runArtifact.create({
           data: {
             projectId, testRunId: runId, type: "video", storageKey: key,
             fileName, contentType: "video/webm", sizeBytes: videoBuffer.length,
           },
+          select: { id: true },
         });
+        url = absoluteArtifactFileUrl(projectId, runId, artifact.id);
       }
 
-      const url = await storage.getUrl(key);
       evidence.videoUrl = url;
       return url;
     } catch {
@@ -226,15 +233,17 @@ export async function saveNetworkLog(
   await storage.upload(key, data, "application/json");
 
   if (projectId) {
-    await prisma.runArtifact.create({
+    const artifact = await prisma.runArtifact.create({
       data: {
         projectId, testRunId: runId, type: "network_log", storageKey: key,
         fileName: "network-log.json", contentType: "application/json", sizeBytes: data.length,
       },
+      select: { id: true },
     });
+    return absoluteArtifactFileUrl(projectId, runId, artifact.id);
   }
 
-  return storage.getUrl(key);
+  return key;
 }
 
 export async function saveConsoleLog(
@@ -249,13 +258,15 @@ export async function saveConsoleLog(
   await storage.upload(key, data, "application/json");
 
   if (projectId) {
-    await prisma.runArtifact.create({
+    const artifact = await prisma.runArtifact.create({
       data: {
         projectId, testRunId: runId, type: "console_log", storageKey: key,
         fileName: "console-log.json", contentType: "application/json", sizeBytes: data.length,
       },
+      select: { id: true },
     });
+    return absoluteArtifactFileUrl(projectId, runId, artifact.id);
   }
 
-  return storage.getUrl(key);
+  return key;
 }

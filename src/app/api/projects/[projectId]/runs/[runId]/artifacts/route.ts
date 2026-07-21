@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
-import { getStorage } from "@/lib/storage";
+import { artifactFileUrl } from "@/lib/storage/artifact-url";
 import {
   requireWorkspace,
   apiSuccess,
@@ -50,13 +50,10 @@ export async function GET(
       },
     });
 
-    const storage = getStorage();
-    const withUrls = await Promise.all(
-      artifacts.map(async (a) => ({
-        ...a,
-        url: await storage.getUrl(a.storageKey),
-      }))
-    );
+    const withUrls = artifacts.map((a) => ({
+      ...a,
+      url: artifactFileUrl(projectId, runId, a.id),
+    }));
 
     return apiSuccess(withUrls);
   } catch (error) {

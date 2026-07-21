@@ -286,9 +286,9 @@ export async function executeTestSteps(
       healedSelector: result.wasHealed ? result.healedSelector : undefined,
     });
 
-    // Capture screenshot first so we can include the storage key in the step event
+    // Capture screenshot first so the step event can carry its URL
     if (runId) {
-      const screenshotKey = await captureAndStream(
+      const screenshot = await captureAndStream(
         page, runId, testCaseId, currentStepIndex, projectId
       );
 
@@ -298,7 +298,7 @@ export async function executeTestSteps(
         stepIndex: currentStepIndex,
         action: `${action.action}${action.selector ? ` on ${action.selector}` : ""}`,
         status: result.succeeded ? "passed" : "failed",
-        ...(screenshotKey ? { screenshotUrl: screenshotKey } : {}),
+        ...(screenshot?.url ? { screenshotUrl: screenshot.url } : {}),
       });
     }
 

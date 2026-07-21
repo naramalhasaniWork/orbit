@@ -2,6 +2,7 @@ import type { Page } from "playwright";
 import { publish } from "@/lib/redis/pubsub";
 import { getRedis } from "@/lib/redis";
 import { getStorage } from "@/lib/storage";
+import { artifactFileUrl } from "@/lib/storage/artifact-url";
 import { prisma } from "@/lib/db";
 
 // ============================================================
@@ -25,6 +26,12 @@ interface CaptureOptions {
   stepIndex: number;
   projectId?: string;
   label?: string;
+}
+
+export interface ScreenshotCaptureResult {
+  storageKey: string;
+  /** Browser-loadable URL — null when no RunArtifact row was created */
+  url: string | null;
 }
 
 // ============================================================
@@ -56,7 +63,8 @@ const JPEG_QUALITY = 60;
  * buffers the latest frame in Redis for late-joining clients,
  * and persists it as a RunArtifact for later gallery viewing.
  *
- * Returns the storage key of the persisted screenshot, or null on failure.
+ * Returns the persisted screenshot's storage key and browser-facing URL,
+ * or null on failure.
  */
 export async function captureAndStream(
   page: Page,
@@ -65,7 +73,7 @@ export async function captureAndStream(
   stepIndex: number,
   projectId?: string,
   label?: string
-): Promise<string | null> {
+): Promise<ScreenshotCaptureResult | null> {
   return captureScreenshotFrame({
     page,
     runId,
@@ -76,7 +84,9 @@ export async function captureAndStream(
   });
 }
 
-async function captureScreenshotFrame(options: CaptureOptions): Promise<string | null> {
+async function captureScreenshotFrame(
+  options: CaptureOptions
+): Promise<ScreenshotCaptureResult | null> {
   const { page, runId, testCaseId, stepIndex, projectId, label } = options;
 
   try {
@@ -123,11 +133,9 @@ async function captureScreenshotFrame(options: CaptureOptions): Promise<string |
     await publishFrame(runId, frame);
 
     // Persist to storage for gallery
-    const storageKey = await persistScreenshot(
+    return persistScreenshot(
       buffer, runId, testCaseId, stepIndex, timestamp, projectId, label
     );
-
-    return storageKey;
   } catch (err) {
     console.error(
       `[ScreenshotStreamer] Failed to capture screenshot for run=${runId} step=${stepIndex}:`,
@@ -182,7 +190,7 @@ async function persistScreenshot(
   timestamp: number,
   projectId?: string,
   label?: string
-): Promise<string | null> {
+): Promise<ScreenshotCaptureResult | null> {
   const storage = getStorage();
   const fileName = `${label ?? "step"}-${stepIndex}-${timestamp}.jpg`;
   const key = `runs/${runId}/${testCaseId}/${fileName}`;
@@ -190,8 +198,9 @@ async function persistScreenshot(
   try {
     await storage.upload(key, buffer, "image/jpeg");
 
+    let url: string | null = null;
     if (projectId) {
-      await prisma.runArtifact.create({
+      const artifact = await prisma.runArtifact.create({
         data: {
           projectId,
           testRunId: runId,
@@ -202,10 +211,12 @@ async function persistScreenshot(
           sizeBytes: buffer.length,
           stepIndex,
         },
+        select: { id: true },
       });
+      url = artifactFileUrl(projectId, runId, artifact.id);
     }
 
-    return key;
+    return { storageKey: key, url };
   } catch (err) {
     console.error(
       `[ScreenshotStreamer] Failed to persist screenshot:`,
