@@ -72,6 +72,24 @@ async function getGitHubAccessToken(projectId: string): Promise<string> {
   throw new Error("No GitHub access token found for project");
 }
 
+// A single hung request without a timeout stalls the whole index job
+// forever — the "indexing stuck on starting" failure mode.
+const FETCH_TIMEOUT_MS = 30_000;
+const DOWNLOAD_CONCURRENCY = 8;
+
+async function fetchWithTimeout(
+  url: string,
+  init: RequestInit
+): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  try {
+    return await fetch(url, { ...init, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function fetchDirectoryContents(
   owner: string,
   repo: string,
@@ -80,7 +98,7 @@ async function fetchDirectoryContents(
   token: string
 ): Promise<GitHubContentItem[]> {
   const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}?ref=${branch}`;
-  const response = await fetch(url, {
+  const response = await fetchWithTimeout(url, {
     headers: {
       Authorization: `Bearer ${token}`,
       Accept: "application/vnd.github.v3+json",
@@ -98,7 +116,7 @@ async function fetchFileContent(
   downloadUrl: string,
   token: string
 ): Promise<string> {
-  const response = await fetch(downloadUrl, {
+  const response = await fetchWithTimeout(downloadUrl, {
     headers: { Authorization: `Bearer ${token}` },
   });
 
@@ -119,8 +137,10 @@ async function cloneGitHub(
   const storage = getStorage();
   const localPath = `repos/${projectId}/${branch}`;
   const fileTree: FileEntry[] = [];
+  const downloads: Array<{ path: string; url: string }> = [];
   let totalSize = 0;
 
+  // Phase 1: crawl the tree (directory listings only — no file bodies)
   async function crawlDirectory(dirPath: string): Promise<void> {
     const items = await fetchDirectoryContents(owner, repo, dirPath, branch, token);
 
@@ -132,17 +152,31 @@ async function cloneGitHub(
       } else if (item.type === "file" && isIndexableFile(item.path)) {
         fileTree.push({ path: item.path, type: "file", size: item.size });
         totalSize += item.size;
-
         if (item.download_url) {
-          const content = await fetchFileContent(item.download_url, token);
-          const storageKey = `${localPath}/${item.path}`;
-          await storage.upload(storageKey, Buffer.from(content), "text/plain");
+          downloads.push({ path: item.path, url: item.download_url });
         }
       }
     }
   }
 
   await crawlDirectory("");
+  console.log(`[clone] Tree crawled: ${downloads.length} files to download`);
+
+  // Phase 2: download file bodies in bounded parallel batches — the old
+  // strictly-sequential loop took ~forever on large repos and looked
+  // like a hung "starting" phase in the UI
+  for (let i = 0; i < downloads.length; i += DOWNLOAD_CONCURRENCY) {
+    const batch = downloads.slice(i, i + DOWNLOAD_CONCURRENCY);
+    await Promise.all(
+      batch.map(async ({ path, url }) => {
+        const content = await fetchFileContent(url, token);
+        await storage.upload(`${localPath}/${path}`, Buffer.from(content), "text/plain");
+      })
+    );
+    if ((i / DOWNLOAD_CONCURRENCY) % 10 === 0) {
+      console.log(`[clone] Downloaded ${Math.min(i + DOWNLOAD_CONCURRENCY, downloads.length)}/${downloads.length} files`);
+    }
+  }
 
   return {
     localPath,

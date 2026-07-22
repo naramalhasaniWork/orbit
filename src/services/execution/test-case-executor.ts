@@ -140,6 +140,7 @@ export async function executeTestCase(
         expected: s.expected,
         selectorHint: s.selector,
       })),
+      environmentUrl,
       credentials,
       evidenceCollector,
       maxRetries: 1,
@@ -310,6 +311,7 @@ async function retryTestCase(
         expected: s.expected,
         selectorHint: s.selector,
       })),
+      environmentUrl,
       credentials,
       evidenceCollector,
     });

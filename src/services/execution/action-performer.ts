@@ -59,7 +59,8 @@ export async function resolveLocator(page: Page, ref: string): Promise<Locator> 
 
 export async function performAction(
   page: Page,
-  action: ExecutorAction
+  action: ExecutorAction,
+  baseUrl?: string
 ): Promise<string> {
   switch (action.action) {
     case "navigate": {
@@ -74,12 +75,27 @@ export async function performAction(
       if (lower.startsWith("javascript:") || lower.startsWith("data:") || lower.startsWith("about:")) {
         throw new Error(`Blocked unsafe navigation to ${action.url.slice(0, 50)} — use UI elements instead`);
       }
-      const response = await page.goto(action.url, {
+      // Resolve relative paths — the LLM often emits "/dashboard",
+      // which page.goto rejects (especially from about:blank)
+      let target = action.url;
+      try {
+        new URL(target);
+      } catch {
+        const base =
+          baseUrl ?? (page.url().startsWith("http") ? page.url() : undefined);
+        if (!base) {
+          throw new Error(
+            `Cannot navigate to relative URL "${target}" — no base URL available`
+          );
+        }
+        target = new URL(target, base).toString();
+      }
+      const response = await page.goto(target, {
         waitUntil: "domcontentloaded",
         timeout: ACTION_TIMEOUT,
       });
       const status = response?.status() ?? "unknown";
-      return `Navigated to ${action.url} (status: ${status})`;
+      return `Navigated to ${target} (status: ${status})`;
     }
     case "click": {
       if (!action.selector) throw new Error("Click action requires a selector");
@@ -156,10 +172,13 @@ async function performAssertion(
   if (!action.assertion) throw new Error("Assert action requires assertion object");
 
   const { type, expected } = action.assertion;
+  // Element assertions may carry the element ref in assertion.selector or
+  // the action's selector, with `expected` describing the outcome in prose
+  const elementRef = action.assertion.selector ?? action.selector ?? expected;
 
   switch (type) {
     case "visible": {
-      const locator = await resolveLocator(page, expected);
+      const locator = await resolveLocator(page, elementRef);
       let isVisible = false;
       try {
         await locator.waitFor({ state: "visible", timeout: ACTION_TIMEOUT });
@@ -185,7 +204,7 @@ async function performAssertion(
       return `Verified URL contains "${expected}"`;
     }
     case "element_exists": {
-      const locator = await resolveLocator(page, expected);
+      const locator = await resolveLocator(page, elementRef);
       const count = await locator.count();
       if (count === 0) throw new Error(`Element "${expected}" does not exist`);
       return `Verified "${expected}" exists`;

@@ -42,6 +42,8 @@ interface StepExecutorOptions {
   testCaseName: string;
   runId?: string;
   steps: TestStep[];
+  /** Environment base URL — used to resolve relative navigation targets */
+  environmentUrl?: string;
   credentials: Record<string, string>;
   evidenceCollector: EvidenceCollectorInstance;
   maxRetries?: number;
@@ -265,7 +267,8 @@ export async function executeTestSteps(
     }
 
     const result = await executeAction(
-      page, projectId, action, maxRetries, evidenceCollector, runId
+      page, projectId, action, maxRetries, evidenceCollector, runId,
+      options.environmentUrl
     );
 
     if (result.wasHealed) {

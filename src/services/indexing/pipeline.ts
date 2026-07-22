@@ -255,7 +255,22 @@ export async function runIndexingPipeline(
     progress: 90,
   });
 
-  const embeddingsGenerated = await generateAndStoreEmbeddings(projectId);
+  // Embeddings power semantic retrieval but are not required for the
+  // system map or planning — a bad/missing OpenAI key must not kill
+  // re-indexing (it failed every re-index when the key expired).
+  let embeddingsGenerated = 0;
+  try {
+    embeddingsGenerated = await generateAndStoreEmbeddings(projectId);
+  } catch (embErr) {
+    const msg = embErr instanceof Error ? embErr.message : String(embErr);
+    console.warn(`[pipeline] Embedding generation failed, continuing without embeddings: ${msg}`);
+    await emitProgress(projectId, {
+      phase: "embed",
+      message: "Embeddings skipped (provider error) — semantic retrieval degraded",
+      nodesFound: stats.totalNodes,
+      progress: 92,
+    });
+  }
 
   // Phase 7: Git History Collection
   await emitProgress(projectId, {

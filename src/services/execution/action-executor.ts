@@ -44,7 +44,8 @@ export async function executeAction(
   action: ExecutorAction,
   maxRetries: number,
   _evidenceCollector: EvidenceCollectorInstance,
-  runId?: string
+  runId?: string,
+  baseUrl?: string
 ): Promise<ActionResult> {
   const startTime = Date.now();
   let retries = 0;
@@ -65,7 +66,7 @@ export async function executeAction(
 
   while (retries <= maxRetries) {
     try {
-      actualResult = await performAction(page, action);
+      actualResult = await performAction(page, action, baseUrl);
       succeeded = true;
       break;
     } catch (err) {
@@ -87,7 +88,7 @@ export async function executeAction(
         if (healing.found) {
           try {
             const healedAction = { ...action, selector: healing.healedSelector };
-            actualResult = await performAction(page, healedAction);
+            actualResult = await performAction(page, healedAction, baseUrl);
             const pageUrl = page.url();
             await persistHealing(
               projectId, action.selector, healing.healedSelector, healing.confidence,
