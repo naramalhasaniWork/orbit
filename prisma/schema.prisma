@@ -198,6 +198,7 @@ model Workspace {
   members              WorkspaceMember[]
   projects             Project[]
   auditLogs            AuditLog[]
+  apiKeys              ApiKey[]
   creditTransactions   CreditTransaction[]
   integrationConfigs   IntegrationConfig[]
   pluginInstallations  PluginInstallation[]
@@ -236,6 +237,7 @@ model User {
   testPlans      TestPlan[]              @relation("ApprovedBy")
   testRuns       TestRun[]               @relation("TriggeredBy")
   auditLogs      AuditLog[]
+  apiKeys        ApiKey[]                @relation("ApiKeyCreatedBy")
   invitedUsers   WorkspaceInvitation[]   @relation("InvitedBy")
   promptVersions PromptVersion[]         @relation("PromptCreatedBy")
   conversations  Conversation[]
@@ -715,6 +717,28 @@ model AuditLog {
   @@index([action])
   @@index([createdAt])
   @@map("audit_logs")
+}
+
+// ============================================================
+// API KEYS (public API + MCP authentication)
+// ============================================================
+
+model ApiKey {
+  id          String    @id @default(uuid()) @db.Uuid
+  workspaceId String    @map("workspace_id") @db.Uuid
+  name        String
+  prefix      String
+  keyHash     String    @unique @map("key_hash")
+  createdBy   String?   @map("created_by") @db.Uuid
+  lastUsedAt  DateTime? @map("last_used_at")
+  revokedAt   DateTime? @map("revoked_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  creator   User?     @relation("ApiKeyCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId])
+  @@map("api_keys")
 }
 
 // ============================================================
