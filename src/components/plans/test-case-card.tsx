@@ -84,7 +84,9 @@ export function TestCaseCard({ testCase, projectId, selected = false, onToggleSe
         <button
           type="button"
           onClick={(e) => { e.stopPropagation(); setIsExpanded(!isExpanded); }}
-          className="shrink-0 text-muted-foreground hover:text-foreground"
+          aria-expanded={isExpanded}
+          aria-label={`${isExpanded ? "Collapse" : "Expand"} ${testCase.name}`}
+          className="shrink-0 rounded-sm text-tm-t3 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           {isExpanded ? (
             <ChevronDown className="h-3.5 w-3.5" />
@@ -105,7 +107,7 @@ export function TestCaseCard({ testCase, projectId, selected = false, onToggleSe
               {testCase.name}
             </span>
             {testCase.isCritical && (
-              <span className="tm-label shrink-0 rounded-sm border border-tm-line-strong px-1 text-tm-t2">Critical</span>
+              <span className="tm-label hidden shrink-0 rounded-sm border border-tm-line-strong px-1 text-tm-t2 sm:inline">Critical</span>
             )}
           </div>
           {testCase.rationale && (
@@ -115,10 +117,10 @@ export function TestCaseCard({ testCase, projectId, selected = false, onToggleSe
           )}
         </div>
 
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex shrink-0 items-center gap-3">
           <Badge
             className={cn(
-              "text-[10px] px-1.5 py-0 font-medium border",
+              "hidden border px-1.5 py-0 sm:inline-flex",
               typeConfig?.className ?? "bg-muted/50 text-muted-foreground border-border/50"
             )}
           >
@@ -133,7 +135,8 @@ export function TestCaseCard({ testCase, projectId, selected = false, onToggleSe
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); setIsEditing(true); }}
-              className="text-muted-foreground/50 hover:text-foreground transition-colors"
+              aria-label={`Edit ${testCase.name}`}
+              className="rounded-sm text-tm-t3 transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <Pencil className="h-3 w-3" />
             </button>
@@ -142,6 +145,7 @@ export function TestCaseCard({ testCase, projectId, selected = false, onToggleSe
           <Switch
             checked={enabled}
             onCheckedChange={handleToggleEnabled}
+            aria-label={`${enabled ? "Disable" : "Enable"} ${testCase.name}`}
             className="scale-75"
           />
         </div>
