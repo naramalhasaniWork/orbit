@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
 import type { Prisma, RunMode, RunTrigger } from "@/generated/prisma/client";
-import { canConsume } from "@/lib/auth/tenant";
+import { canConsume, type ConsumeDecision } from "@/lib/auth/tenant";
 import { getIndexingQueue } from "@/lib/queue/queues";
 import { withQueueTimeout } from "@/lib/queue/availability";
 import { emitRunStarted } from "@/lib/websocket";
@@ -63,27 +63,37 @@ export async function launchPipelineRun(input: LaunchRunInput): Promise<LaunchRu
   if (!project) return { ok: false, code: "NOT_FOUND", reason: "Project not found" };
   const branch = input.branch ?? project.defaultBranch;
 
-  const allowance = await canConsume(project.workspaceId, "run");
-  if (!allowance.allowed) {
-    console.warn(`[RunLauncher] Run blocked for project ${input.projectId}: ${allowance.reason}`);
-    return { ok: false, code: allowance.code, reason: allowance.reason };
-  }
-
   const changedFiles = input.changedFiles?.slice(0, 100);
-  const run = await prisma.testRun.create({
-    data: {
-      projectId: input.projectId,
-      status: "queued",
-      mode: input.mode,
-      trigger: input.trigger,
-      branch,
-      environmentId: input.environmentId,
-      commitSha: input.commitSha ?? null,
-      prNumber: input.prNumber ?? null,
-      triggeredById: input.triggeredById,
-      metadata: input.metadata ?? {},
-    },
+  // The allowance check and the insert share one transaction holding the
+  // workspace row lock, so concurrent launches can't both slip under the limit.
+  const created = await prisma.$transaction(async (tx): Promise<
+    { blocked: Extract<ConsumeDecision, { allowed: false }> } | { run: { id: string } }
+  > => {
+    await tx.$queryRaw`SELECT id FROM workspaces WHERE id = ${project.workspaceId}::uuid FOR UPDATE`;
+    const allowance = await canConsume(project.workspaceId, "run", tx);
+    if (!allowance.allowed) return { blocked: allowance };
+    const run = await tx.testRun.create({
+      data: {
+        projectId: input.projectId,
+        status: "queued",
+        mode: input.mode,
+        trigger: input.trigger,
+        branch,
+        environmentId: input.environmentId,
+        commitSha: input.commitSha ?? null,
+        prNumber: input.prNumber ?? null,
+        triggeredById: input.triggeredById,
+        metadata: input.metadata ?? {},
+      },
+    });
+    return { run };
   });
+  if ("blocked" in created) {
+    const { blocked } = created;
+    console.warn(`[RunLauncher] Run blocked for project ${input.projectId}: ${blocked.reason}`);
+    return { ok: false, code: blocked.code, reason: blocked.reason };
+  }
+  const { run } = created;
 
   const enqueued = await enqueueOrDiscard(run.id, () =>
     getIndexingQueue().add(
