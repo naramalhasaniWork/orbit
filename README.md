@@ -159,7 +159,7 @@ in the `storage-data` volume.
 
 ### Railway
 
-See [docs/self-hosting/railway.md](./docs/self-hosting/railway.md).
+See [docs/self-hosting/railway.md](./docs/self-hosting/railway.md) for the services, then [docs/self-hosting/first-run.md](./docs/self-hosting/first-run.md) for the first-run walkthrough (`/setup` checklist, GitHub App, first admin login).
 
 ## Contributing
 
