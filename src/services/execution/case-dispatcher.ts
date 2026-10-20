@@ -3,6 +3,7 @@ import type { TestCaseForExecution, TestCaseResult } from "@/services/execution/
 import { executeApiTestCase } from "@/services/execution/api-test-executor";
 import type { StorageState } from "@/services/execution/browser-manager";
 import { runVisualTest } from "@/services/visual-qa/visual-test-runner";
+import { withModelMeter } from "@/server/engine/model-meter";
 
 // Routes a test case to the executor for its type. Shared by the sequential
 // runner and the parallel executor so both treat every type the same way.
@@ -15,7 +16,29 @@ export function visualRoutePath(testCase: TestCaseForExecution): string | null {
   return match ? match[1] : null;
 }
 
+/** Runs the case and stamps it with the model calls and cost it took. */
 export async function executeCaseByType(
+  runId: string,
+  testCase: TestCaseForExecution,
+  environmentUrl: string,
+  credentials: Record<string, string>,
+  options?: { storageState?: StorageState }
+): Promise<TestCaseResult> {
+  const { result, usage } = await withModelMeter(() =>
+    dispatchCase(runId, testCase, environmentUrl, credentials, options)
+  );
+  return {
+    ...result,
+    execution: {
+      executionMode: result.execution?.executionMode ?? "agent",
+      divergedAtStep: result.execution?.divergedAtStep ?? null,
+      modelCalls: usage.calls,
+      modelCostUsd: usage.costUsd,
+    },
+  };
+}
+
+async function dispatchCase(
   runId: string,
   testCase: TestCaseForExecution,
   environmentUrl: string,

@@ -227,7 +227,7 @@ async function executeRunInner(options: RunOptions): Promise<void> {
       }
       await saveTestResult(
         runId, testCase.id, result.verdict as TestVerdict,
-        result.durationMs, result.steps, result.artifacts, result.healedSelectors
+        result.durationMs, result.steps, result.artifacts, result.healedSelectors, result.execution
       );
       await emitTestResult(runId, testCase.id, result.verdict as TestVerdict, result.durationMs);
       await emitTestCompleted(runId, {

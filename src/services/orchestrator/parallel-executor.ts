@@ -264,7 +264,7 @@ async function executePartition(
       // Record every executed case so the run report and billing see it
       await saveTestResult(
         runId, tc.id, result.verdict as TestVerdict, result.durationMs,
-        result.steps, result.artifacts, result.healedSelectors
+        result.steps, result.artifacts, result.healedSelectors, result.execution
       );
       await prisma.testCase.update({
         where: { id: tc.id },

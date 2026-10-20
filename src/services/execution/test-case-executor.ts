@@ -12,6 +12,7 @@ import { detectAuthState } from "@/services/execution/auth-detector";
 import { loadTestingNotes } from "@/agents/prompts/context-loader";
 import { runAllInvariants, collectPageState } from "@/services/execution/invariant-checker";
 import type { InvariantResult } from "@/services/execution/invariant-checker";
+import type { ExecutionMeta } from "@/services/execution/test-result-store";
 
 // ============================================================
 // Types
@@ -50,6 +51,8 @@ interface TestCaseResult {
   healedSelectors: string[];
   storageState?: StorageState;
   invariants?: InvariantResult;
+  /** Set by the dispatcher: execution mode, model calls and cost for this case */
+  execution?: ExecutionMeta;
 }
 
 // ============================================================

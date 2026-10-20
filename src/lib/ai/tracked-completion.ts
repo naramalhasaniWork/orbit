@@ -1,6 +1,7 @@
 import { createCompletion, streamCompletion } from "@/lib/ai";
 import { recordTokenUsage } from "@/lib/billing/token-tracker";
 import { getProviderForModel, getWorkspaceApiKey } from "@/lib/ai/model-router";
+import { meterModelCall } from "@/server/engine/model-meter";
 
 interface CompletionMessage {
   role: "user" | "assistant";
@@ -71,6 +72,7 @@ export async function createTrackedCompletion(
     options.apiKey
   );
   const result = await createCompletion({ ...options, apiKey });
+  meterModelCall({ model: result.model, ...result.usage });
 
   // Fire and forget — token tracking should not block the response
   recordTokenUsage({

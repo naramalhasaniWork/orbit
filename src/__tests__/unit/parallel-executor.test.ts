@@ -68,7 +68,7 @@ describe("executeParallel", () => {
       "https://staging.example.com", {}, { storageState: undefined }
     );
     expect(saveTestResult).toHaveBeenCalledTimes(2);
-    expect(saveTestResult).toHaveBeenCalledWith("run-1", "tc-1", "pass", 1, [], {}, []);
+    expect(saveTestResult).toHaveBeenCalledWith("run-1", "tc-1", "pass", 1, [], {}, [], undefined);
     expect(result).toMatchObject({ passed: 1, failed: 0, skipped: 1 });
   });
 
