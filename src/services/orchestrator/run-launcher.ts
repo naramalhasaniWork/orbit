@@ -18,6 +18,8 @@ interface LaunchRunInput {
   triggeredById?: string;
   changedFiles?: string[];
   metadata?: Prisma.InputJsonValue;
+  /** Deterministic queue job id; defaults to run-{runId} */
+  jobId?: string;
 }
 
 type LaunchRunResult =
@@ -93,7 +95,7 @@ export async function launchPipelineRun(input: LaunchRunInput): Promise<LaunchRu
         isIncremental: !!changedFiles && changedFiles.length > 0,
         runId: run.id,
       },
-      { jobId: `run-${run.id}` }
+      { jobId: input.jobId ?? `run-${run.id}` }
     )
   );
   if (!enqueued.ok) {
