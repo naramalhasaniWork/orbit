@@ -95,4 +95,5 @@ export const channels = {
   indexingProgress: (projectId: string) => `index:${projectId}:progress`,
   workspaceEvents: (workspaceId: string) => `workspace:${workspaceId}:events`,
   projectEvents: (projectId: string) => `project:${projectId}:events`,
+  planProgress: (projectId: string) => `plan:${projectId}:progress`,
 } as const;

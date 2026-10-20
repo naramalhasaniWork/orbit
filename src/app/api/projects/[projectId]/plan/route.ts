@@ -6,6 +6,7 @@ import {
   apiError,
   handleApiError,
 } from "@/lib/utils/api";
+import { enqueuePlanGeneration } from "@/services/planning/plan-jobs";
 
 // Dynamic import: planner transitively imports prompt files containing
 // markdown with backtick-escaped code examples that confuse the Next.js
@@ -19,7 +20,6 @@ interface PlanRequestBody {
   focusAreas?: string[];
   excludePaths?: string[];
   maxTestCases?: number;
-  stream?: boolean;
 }
 
 const VALID_MODES = new Set(["full", "smoke", "regression", "targeted"]);
@@ -87,6 +87,11 @@ export async function GET(
   }
 }
 
+/**
+ * Queues plan generation and returns 202 immediately. Generation takes
+ * minutes of LLM work; progress streams from ./progress and the latest state
+ * is readable from ./job, so the UI survives a reload.
+ */
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ projectId: string }> }
@@ -100,7 +105,7 @@ export async function POST(
       return apiError("Project not found", "NOT_FOUND", 404);
     }
 
-    const body = (await request.json()) as PlanRequestBody;
+    const body = (await request.json().catch(() => ({}))) as PlanRequestBody;
 
     if (body.mode && !VALID_MODES.has(body.mode)) {
       return apiError(
@@ -116,168 +121,15 @@ export async function POST(
       }
     }
 
-    // Stream mode: return SSE with phase progress
-    if (body.stream) {
-      return streamPlanGeneration(projectId, body);
-    }
-
-    // Legacy non-streaming mode
-    const { generatePlan } = await getPlannerService();
-    const result = await generatePlan({
-      projectId,
-      mode: body.mode,
+    const { state, alreadyRunning } = await enqueuePlanGeneration(projectId, {
+      mode: body.mode ?? "full",
       focusAreas: body.focusAreas,
       excludePaths: body.excludePaths,
       maxTestCases: body.maxTestCases,
     });
 
-    return apiSuccess(
-      {
-        plan: {
-          id: result.plan.id,
-          projectId: result.plan.projectId,
-          version: result.plan.version,
-          isActive: result.plan.isActive,
-          summary: result.plan.summary,
-          createdAt: result.plan.createdAt,
-        },
-        testCasesCount: result.testCases.length,
-        coverage: {
-          overallPercentage: result.coverage.overallPercentage,
-          untestedRoutes: result.coverage.untestedRoutes.length,
-          untestedEndpoints: result.coverage.untestedEndpoints.length,
-        },
-        journeysDetected: result.journeys.map((j) => j.name),
-        tokensUsed: result.tokensUsed,
-      },
-      201
-    );
+    return apiSuccess({ job: state, alreadyRunning }, 202);
   } catch (error) {
     return handleApiError(error);
   }
-}
-
-function streamPlanGeneration(projectId: string, body: PlanRequestBody) {
-  const encoder = new TextEncoder();
-
-  const readable = new ReadableStream({
-    async start(controller) {
-      let closed = false;
-
-      function emit(event: string, data: unknown) {
-        if (closed) return;
-        try {
-          controller.enqueue(
-            encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
-          );
-        } catch {
-          closed = true;
-        }
-      }
-
-      try {
-        emit("plan:phase", { phase: "coverage", message: "Analyzing coverage gaps...", progress: 10 });
-
-        const { analyzeCoverage } = await import("@/services/planning/coverage-analyzer");
-        const { reconstructJourneys } = await import("@/services/planning/journey-reconstructor");
-
-        const [coverage, journeys] = await Promise.all([
-          analyzeCoverage(projectId),
-          reconstructJourneys(projectId),
-        ]);
-
-        emit("plan:phase", {
-          phase: "journeys",
-          message: `Found ${journeys.length} user journeys, ${coverage.untestedRoutes.length} untested routes`,
-          progress: 30,
-        });
-
-        emit("plan:phase", { phase: "generating", message: "Generating test cases with AI...", progress: 40 });
-
-        const { generateTestCases } = await import("@/services/planning/test-case-generator");
-        const { getNextVersion } = await import("@/services/planning/plan-cache");
-        const version = await getNextVersion(projectId);
-
-        const generationResult = await generateTestCases({
-          projectId,
-          version,
-          mode: body.mode ?? "full",
-          coverageReport: coverage,
-          journeys,
-          focusAreas: body.focusAreas,
-          excludePaths: body.excludePaths,
-          maxTestCases: body.maxTestCases,
-        });
-
-        emit("plan:phase", {
-          phase: "prioritizing",
-          message: `Generated ${generationResult.testCases.length} test cases, prioritizing...`,
-          progress: 75,
-        });
-
-        const { prioritizeTestCases, filterByMode } = await import("@/services/planning/prioritizer");
-        const prioritized = prioritizeTestCases(generationResult.testCases, coverage);
-        const filtered = filterByMode(prioritized, body.mode ?? "full", body.maxTestCases);
-
-        emit("plan:phase", { phase: "saving", message: "Saving test plan...", progress: 90 });
-
-        const { storePlan } = await import("@/services/planning/plan-cache");
-        const summary = {
-          totalTests: filtered.length,
-          estimatedCredits: filtered.length,
-        };
-        const { plan, testCases } = await storePlan(projectId, version, filtered, summary);
-
-        emit("plan:complete", {
-          planId: plan.id,
-          version: plan.version,
-          testCaseCount: testCases.length,
-          journeyCount: journeys.length,
-          coveragePercent: coverage.overallPercentage,
-          progress: 100,
-        });
-      } catch (error) {
-        console.error("Plan generation stream error:", error);
-        const msg = sanitizeErrorMessage(error);
-        emit("plan:error", { message: msg });
-      } finally {
-        if (!closed) {
-          closed = true;
-          controller.close();
-        }
-      }
-    },
-  });
-
-  return new Response(readable, {
-    headers: {
-      "Content-Type": "text/event-stream",
-      "Cache-Control": "no-cache",
-      Connection: "keep-alive",
-    },
-  });
-}
-
-/** Sanitize error messages to avoid leaking internal details to clients. */
-function sanitizeErrorMessage(error: unknown): string {
-  if (!(error instanceof Error)) return "Plan generation failed";
-
-  // Allow known user-facing error messages through
-  const safePatterns = [
-    /no.*system map/i,
-    /no.*test.*case/i,
-    /no.*route/i,
-    /project.*not.*found/i,
-    /plan.*generation.*failed/i,
-    /coverage.*analysis.*failed/i,
-    /model.*rate.*limit/i,
-    /token.*budget.*exceeded/i,
-  ];
-
-  if (safePatterns.some((p) => p.test(error.message))) {
-    return error.message;
-  }
-
-  // Generic fallback for unexpected errors (DB, network, etc.)
-  return "Plan generation failed. Please try again.";
 }

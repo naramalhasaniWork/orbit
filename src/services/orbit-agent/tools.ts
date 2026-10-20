@@ -215,20 +215,21 @@ const handlers: Record<string, ToolHandler> = {
   },
 
   generate_test_plan: async (args, ctx) => {
-    const { generatePlan } = await import("@/services/planning/planner");
+    const { enqueuePlanGeneration } = await import("@/services/planning/plan-jobs");
     const mode = (args.mode as string) || "full";
 
-    const result = await generatePlan({
-      projectId: ctx.projectId,
+    // Generation takes minutes; queue it rather than holding the chat turn.
+    const { state, alreadyRunning } = await enqueuePlanGeneration(ctx.projectId, {
       mode: mode as "full" | "smoke" | "regression" | "targeted",
     });
 
     return {
-      planId: result.plan.id,
-      version: result.plan.version,
-      testCaseCount: result.testCases.length,
-      summary: (result.plan.summary as Record<string, unknown>) ?? {},
-      tokensUsed: result.tokensUsed,
+      jobId: state.jobId,
+      status: state.status,
+      alreadyRunning,
+      message: alreadyRunning
+        ? "A plan generation is already in progress for this project. Progress is on the Test Plans page."
+        : "Plan generation started in the background. It usually takes a few minutes; progress is on the Test Plans page.",
     };
   },
 

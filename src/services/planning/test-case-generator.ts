@@ -28,6 +28,7 @@ interface GenerationInput {
   excludePaths?: string[];
   maxTestCases?: number;
   operationsMap?: OperationsMap;
+  onProgress?: (message: string, progress: number) => Promise<void>;
 }
 
 interface GenerationResult {
@@ -172,6 +173,7 @@ export async function generateTestCases(input: GenerationInput): Promise<Generat
   ]);
 
   // Analyze complex journeys (>5 nodes) with sub-agent for deeper coverage
+  await input.onProgress?.("Analyzing complex user journeys...", 35);
   const journeyAnalyses = await analyzeComplexJourneys(
     input.journeys,
     systemMap,
@@ -235,6 +237,7 @@ export async function generateTestCases(input: GenerationInput): Promise<Generat
     enrichedPrompt = `${enrichedPrompt}\n\n## Operations Map\nThe following operations and dependencies were identified by the Operations Analyst. Use this to:\n- Generate tests that follow operational flow ordering (prerequisite operations first)\n- Create prerequisite-aware test sequences (e.g., "Create Invoice" before "Submit Invoice")\n- Prioritize critical path flows with higher priority scores\n\n${JSON.stringify(input.operationsMap, null, 2)}`;
   }
 
+  await input.onProgress?.("Writing test cases with AI (the longest step)...", 50);
   const completion = await createTrackedCompletion(
     {
       model,
