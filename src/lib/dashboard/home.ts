@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { firstSentence } from "@/lib/dashboard/home-copy";
+import { FINISHED_RUN_STATUSES } from "@/lib/status-tone";
 
 const DAY_MS = 86_400_000;
 
@@ -47,9 +48,9 @@ export async function getProjectTracks(workspaceId: string, now = Date.now()): P
 /** Failures and flakes of the project's latest finished run, with the plain-English cause. */
 export async function getNeedsYou(projectId: string): Promise<NeedsYouItem[]> {
   const latest = await prisma.testRun.findFirst({
-    where: { projectId, status: { in: ["completed", "failed"] } },
+    where: { projectId, status: { in: [...FINISHED_RUN_STATUSES] } },
     orderBy: { createdAt: "desc" },
-    select: { id: true, sequenceNumber: true, createdAt: true },
+    select: { id: true, sequenceNumber: true, createdAt: true, status: true },
   });
   if (!latest) return [];
   const results = await prisma.testResult.findMany({
@@ -58,6 +59,20 @@ export async function getNeedsYou(projectId: string): Promise<NeedsYouItem[]> {
     take: 6,
     select: { id: true, verdict: true, failureExplanation: true, testCase: { select: { name: true } } },
   });
+  // A failed run with no failing test results still needs you: say so at run level.
+  if (results.length === 0 && latest.status === "failed") {
+    return [
+      {
+        resultId: latest.id,
+        runId: latest.id,
+        runNumber: latest.sequenceNumber,
+        verdict: "fail",
+        testName: `Run #${latest.sequenceNumber}`,
+        cause: "The run failed before any test reported a result.",
+        createdAt: latest.createdAt.toISOString(),
+      },
+    ];
+  }
   return results.map((r) => ({
     resultId: r.id,
     runId: latest.id,

@@ -29,6 +29,13 @@ export const STATUS_TONES: Record<StatusTone, ToneSpec> = {
 
 const LIVE_RUN_STATUSES = new Set(["indexing", "planning", "executing", "reporting"]);
 
+/** A run that ran to an end with results: what home's numbers and sentences are about. Cancelled runs are not. */
+export const FINISHED_RUN_STATUSES = ["completed", "failed"] as const;
+
+export function isFinishedRunStatus(status: string): boolean {
+  return (FINISHED_RUN_STATUSES as readonly string[]).includes(status);
+}
+
 export function isLiveRunStatus(status: string): boolean {
   return LIVE_RUN_STATUSES.has(status);
 }

@@ -81,7 +81,16 @@ export function ProjectTracks({ tracks, activeProjectId }: { tracks: ProjectTrac
 }
 
 /** Row 3, left: what failed last time, with the cause in plain English as the second line. */
-export function NeedsYouList({ items, projectId }: { items: NeedsYouItem[]; projectId: string }) {
+export function NeedsYouList({
+  items,
+  projectId,
+  runNumber,
+}: {
+  items: NeedsYouItem[];
+  projectId: string;
+  /** The latest finished run: the same run as the pass rate and the headline. */
+  runNumber: number | null;
+}) {
   return (
     <section aria-labelledby="needs-you" className="flex flex-col px-5 py-5">
       <div className="mb-2 flex items-baseline justify-between">
@@ -91,7 +100,9 @@ export function NeedsYouList({ items, projectId }: { items: NeedsYouItem[]; proj
         </Link>
       </div>
       {items.length === 0 ? (
-        <p className="border-t border-border py-3 text-[13px] text-tm-t3">Nothing failed on the latest run.</p>
+        <p className="border-t border-border py-3 text-[13px] text-tm-t3">
+          {runNumber ? `Nothing failed on run #${runNumber}, the latest finished run.` : "No finished runs yet."}
+        </p>
       ) : (
         items.map((i) => (
           <Link
