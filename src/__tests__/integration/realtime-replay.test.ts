@@ -4,7 +4,7 @@ vi.mock("@/lib/redis", async () => (await import("../helpers/fake-redis")).redis
 
 import { fakeRedis as redis } from "../helpers/fake-redis";
 import { channels, publish } from "@/lib/redis/pubsub";
-import { emitTestStep } from "@/lib/websocket";
+import { emitRunCompleted, emitRunProgress, emitTestStep } from "@/lib/websocket";
 import { createSSEStream } from "@/lib/sse/stream";
 import { openReconnectingSource, type EventSourceLike, type SSEMessage } from "@/lib/sse/reconnecting-source";
 import { compareStreamIds } from "@/lib/sse/stream-id";
@@ -183,5 +183,68 @@ describe("realtime replay on reconnect", () => {
 
     for (let i = 0; i < 2100; i++) await publish("bounded:test", { type: "heartbeat", payload: { i } });
     expect(redis.streams.get("rt:bounded:test")!.length).toBeLessThanOrEqual(2000);
+  });
+
+  it("publishes with one Redis round trip per event", async () => {
+    const xadd = vi.spyOn(redis, "xadd");
+    redis.evalCalls = 0;
+    await step(0);
+    await step(1);
+    expect(redis.evalCalls).toBe(2);
+    expect(redis.published).toHaveLength(2);
+    expect(xadd).toHaveBeenCalledTimes(2); // only through the script, never as separate client commands
+  });
+
+  it("sends replay_gap when the client's position was trimmed away, and not otherwise", async () => {
+    await step(0);
+    const lastSeen = redis.streams.get(`rt:${CHANNEL}`)![0][0];
+    const read = async (lastEventId: string) => {
+      const res = await createSSEStream({ channel: CHANNEL, lastEventId });
+      const reader = res.body!.getReader();
+      await step(9999); // a live sentinel marks the end of what the connection sent up front
+      let text = "";
+      while (!text.includes('"stepIndex":9999')) text += new TextDecoder().decode((await reader.read()).value);
+      await reader.cancel();
+      return text;
+    };
+
+    expect(await read(lastSeen)).not.toContain("replay_gap");
+
+    for (let i = 1; i <= 2100; i++) await step(i); // trims entry 0 away
+    const text = await read(lastSeen);
+    expect(text).toContain("event: replay_gap");
+    expect(text).toMatch(/"firstAvailableId":"\d+-\d+"/);
+    const oldest = redis.streams.get(`rt:${CHANNEL}`)![0][0];
+    expect(await read(oldest)).not.toContain("replay_gap");
+  });
+
+  it("tells the screenshot stream when a run ends, however it ended", async () => {
+    const shots = channels.runScreenshots(RUN);
+    const finish = async (end: () => Promise<void>) => {
+      redis.published = [];
+      await end();
+      return redis.published.filter((p) => p.channel === shots).map((p) => JSON.parse(p.message).event);
+    };
+
+    expect(await finish(() => emitRunProgress(RUN, { runId: RUN, status: "executing", currentTest: "", totalTests: 1, passed: 0, failed: 0, flaky: 0 }))).toEqual([]);
+    expect(await finish(() => emitRunProgress(RUN, { runId: RUN, status: "cancelled", currentTest: "", totalTests: 1, passed: 0, failed: 0, flaky: 0 })))
+      .toEqual([{ type: "run:completed", payload: { runId: RUN, status: "cancelled" } }]);
+    expect(await finish(() => emitRunCompleted(RUN, { runId: RUN, projectId: "p1", status: "failed", totalTests: 1, passed: 0, failed: 1, flaky: 0, durationMs: 5 })))
+      .toEqual([{ type: "run:completed", payload: { runId: RUN, status: "failed" } }]);
+
+    // And the viewer's stream ends on it.
+    const res = await createSSEStream({
+      channel: shots,
+      onEvent: (e) => (e.type === "run:completed" ? true : undefined),
+    });
+    const reader = res.body!.getReader();
+    await emitRunCompleted(RUN, { runId: RUN, projectId: "p1", status: "completed", totalTests: 1, passed: 1, failed: 0, flaky: 0, durationMs: 5 });
+    let text = "";
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      text += new TextDecoder().decode(value);
+    }
+    expect(text).toContain("event: run:completed");
   });
 });

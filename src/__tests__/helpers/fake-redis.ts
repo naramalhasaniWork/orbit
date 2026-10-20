@@ -76,6 +76,16 @@ export class FakeRedis {
     return this.buffers.get(key) ?? null;
   }
 
+  /** Stands in for the APPEND_AND_PUBLISH Lua script: same three commands, same order, one call. */
+  async eval(_script: string, _numkeys: number, key: string, channel: string, maxlen: number, body: string, ttl: number) {
+    this.evalCalls++;
+    const id = await this.xadd(key, "MAXLEN", "~", maxlen, "*", "d", body);
+    await this.expire(key, ttl);
+    await this.publish(channel, `{"id":"${id}","event":${body}}`);
+    return id;
+  }
+  evalCalls = 0;
+
   /** Redis is "down": every command on every connection rejects. */
   down = false;
 }
@@ -109,6 +119,7 @@ export class FakeConnection {
   unsubscribe = async (channel: string) => {
     this.channels.delete(channel);
   };
+  eval = (...a: Parameters<FakeRedis["eval"]>) => this.guard(() => this.redis.eval(...a));
   xadd = (...a: Parameters<FakeRedis["xadd"]>) => this.guard(() => this.redis.xadd(...a));
   expire = (...a: Parameters<FakeRedis["expire"]>) => this.guard(() => this.redis.expire(...a));
   xrange = (...a: Parameters<FakeRedis["xrange"]>) => this.guard(() => this.redis.xrange(...a));

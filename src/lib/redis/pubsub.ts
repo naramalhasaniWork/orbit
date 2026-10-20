@@ -1,5 +1,5 @@
 import { createRedisConnection } from "@/lib/redis";
-import { appendAndPublish, readLatest, readSince, type LoggedEvent } from "@/server/realtime/event-log";
+import { appendAndPublish, readLatest, readSince, type LoggedEvent, type Replay } from "@/server/realtime/event-log";
 
 /** Receives the event and its stream entry id (the SSE event id). */
 type MessageCallback = (data: unknown, id: string) => void;
@@ -56,7 +56,7 @@ export async function publish(channel: string, data: unknown): Promise<string | 
 }
 
 /** Events published after `lastId`, for a client that reconnected. Throws when Redis is unreachable. */
-export function replaySince(channel: string, lastId: string): Promise<LoggedEvent[]> {
+export function replaySince(channel: string, lastId: string): Promise<Replay> {
   return readSince(getPubClient(), channel, lastId);
 }
 
