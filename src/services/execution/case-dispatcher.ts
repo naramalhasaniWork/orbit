@@ -5,6 +5,7 @@ import type { StorageState } from "@/services/execution/browser-manager";
 import { runVisualTest } from "@/services/visual-qa/visual-test-runner";
 import { withModelMeter } from "@/server/engine/model-meter";
 import type { CaseExecutor, CaseRunContext } from "@/server/engine/executors/case-executor";
+import { browserExecutor } from "@/server/engine/executors/browser";
 
 // The case-executor registry: routes a test case to the executor for its
 // type. Every run goes through here, so every type is treated the same way.
@@ -53,15 +54,7 @@ const apiExecutor: CaseExecutor = {
   run: (testCase, ctx) => executeApiTestCase(ctx.runId, testCase, ctx.environmentUrl, ctx.credentials),
 };
 
-const browserExecutor: CaseExecutor = {
-  kind: "browser",
-  canRun: () => true,
-  run: (testCase, ctx) => executeTestCase(
-    ctx.runId, testCase, ctx.environmentUrl, ctx.credentials, { storageState: ctx.storageState }
-  ),
-};
-
-/** Tried in order; the browser executor accepts every case, so it goes last. */
+/** Tried in order; the browser executor (replay first, then agent) accepts every case, so it goes last. */
 const EXECUTORS: CaseExecutor[] = [visualExecutor, apiExecutor, browserExecutor];
 
 async function dispatchCase(testCase: TestCaseForExecution, ctx: CaseRunContext): Promise<TestCaseResult> {

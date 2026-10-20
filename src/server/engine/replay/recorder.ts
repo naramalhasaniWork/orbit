@@ -2,6 +2,7 @@ import type { Page } from "playwright";
 import type { ExecutorAction } from "@/agents/schemas/execution-result";
 import { redactCredentials } from "@/lib/utils/credentials";
 import { captureLocators } from "./locators";
+import { settleAfter } from "./locate";
 import { toStoredUrl, toUrlPattern } from "./url-pattern";
 import {
   REPLAYABLE_ACTIONS, type Locators, type RecordedRun, type ReplayActionKind,
@@ -56,6 +57,7 @@ export function createActionRecorder(environmentUrl: string, credentials: Record
 
     async record(page, action, stepIndex, pending, healedSelector) {
       if (!REPLAYABLE_ACTIONS.has(action.action)) return;
+      await settleAfter(page, action.action);
       const locators = Object.keys(pending.locators).length > 0 || !healedSelector
         ? pending.locators
         : { css: healedSelector };

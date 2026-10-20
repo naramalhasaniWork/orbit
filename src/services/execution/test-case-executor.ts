@@ -1,9 +1,9 @@
 import { launchBrowser, closeBrowser, captureStorageState, VIEWPORT_PRESETS } from "@/services/execution/browser-manager";
+import { launchCaseBrowser, prepareCasePage } from "@/services/execution/case-session";
 import type { BrowserInstance, ViewportName, StorageState } from "@/services/execution/browser-manager";
 import { executeTestSteps } from "@/services/execution/step-executor";
 import { createEvidenceCollector } from "@/services/execution/evidence-collector";
 import { detectFlakyFromRetry } from "@/services/execution/flaky-registry";
-import { detectAuthState } from "@/services/execution/auth-detector";
 import { loadTestingNotes } from "@/agents/prompts/context-loader";
 import type { InvariantResult } from "@/services/execution/invariant-checker";
 import { collectCaseArtifacts } from "@/services/execution/case-artifacts";
@@ -76,57 +76,14 @@ export async function executeTestCase(
 
   try {
     log(`Launching browser (remote: ${!!process.env.PLAYWRIGHT_WS_ENDPOINT}, hasAuth: ${!!options?.storageState})...`);
-    browserInstance = await launchBrowser({
-      headless: true,
-      recordVideo: !process.env.PLAYWRIGHT_WS_ENDPOINT,
-      storagePath: `/tmp/orbit-videos/${runId}`,
-      viewport: options?.viewport,
-      storageState: options?.storageState,
-    });
+    browserInstance = await launchCaseBrowser(runId, options);
     log("Browser connected");
     const { page, context } = browserInstance;
 
-    log(`Navigating to ${environmentUrl}...`);
-    await page.goto(environmentUrl, {
-      waitUntil: "domcontentloaded",
-      timeout: 30_000,
-    });
-    log(`Page loaded: ${page.url()}`);
-
-    // Detect and handle auth state mismatches before test execution
-    const authState = await detectAuthState(page, testCase.name, log);
-
-    // Fail fast: a test that needs an authenticated session, with no
-    // credentials and no reusable session, will grind against the login
-    // page for minutes and fail anyway. Skip with an actionable reason.
-    const hasCredentials = Object.values(credentials ?? {}).some(
-      (v) => typeof v === "string" && v.length > 0
+    const blocked = await prepareCasePage(
+      browserInstance, testCase, environmentUrl, credentials, !!options?.storageState, log, startTime
     );
-    if (authState.needsLogin && !hasCredentials && !options?.storageState) {
-      log("BLOCKED: requires authentication but no test credentials are configured — skipping");
-      return {
-        verdict: "skipped",
-        durationMs: Date.now() - startTime,
-        steps: [{
-          stepIndex: 0,
-          action: "auth_preflight",
-          expected: "Authenticated session or test credentials available",
-          actual:
-            "Blocked: this test requires login but no test credentials are configured for this environment. Add credentials in Settings → Environments to unblock it.",
-          status: "skipped",
-          durationMs: Date.now() - startTime,
-        }],
-        artifacts: {},
-        healedSelectors: [],
-      };
-    }
-
-    if (authState.needsLogout) {
-      log("Page is authenticated but test needs fresh state — clearing cookies");
-      await context.clearCookies();
-      await page.goto(environmentUrl, { waitUntil: "domcontentloaded", timeout: 30_000 });
-      log(`Reloaded after clearing cookies: ${page.url()}`);
-    }
+    if (blocked) return blocked;
 
     const evidenceCollector = createEvidenceCollector(
       page, runId, testCase.id, context, testCase.projectId
