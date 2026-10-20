@@ -7,7 +7,8 @@ import { safeFetch } from "@/lib/utils/ssrf";
  * request to the environment's origin (strict mode sets no cookie, so each request needs them).
  *
  * Headers are attached with context.route scoped to that one origin, never extraHTTPHeaders,
- * which would hand the service token to every third-party host the page loads.
+ * which would hand the service token to every third-party host the page loads, and redirects
+ * are never followed with the headers attached.
  */
 export const ACCESS_SECRET_KEYS = {
   clientId: "CF_ACCESS_CLIENT_ID",
@@ -63,7 +64,14 @@ export async function installAccessHeaders(
   const origin = new URL(environmentUrl).origin;
   await context.route(
     (url) => url.origin === origin,
-    (route) => route.continue({ headers: { ...route.request().headers(), ...headers } })
+    async (route) => {
+      // Fetch this one hop with the headers and hand the response back unfollowed. route.continue
+      // would follow a 3xx inside Playwright with the headers still attached, leaking the token
+      // to whatever host the origin redirects to. A fulfilled 3xx is followed by the browser,
+      // so each hop comes back through this origin matcher.
+      const response = await route.fetch({ headers: { ...route.request().headers(), ...headers }, maxRedirects: 0 });
+      await route.fulfill({ response });
+    }
   );
 }
 

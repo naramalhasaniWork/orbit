@@ -283,17 +283,19 @@ export async function executeTestCase(
 // Retry Logic
 // ============================================================
 
-async function retryTestCase(
+export async function retryTestCase(
   runId: string,
   testCase: TestCaseForExecution,
   environmentUrl: string,
-  credentials: Record<string, string>
+  rawCredentials: Record<string, string>
 ): Promise<{ verdict: string } | null> {
   let retryBrowser: BrowserInstance | null = null;
+  const { headers: accessHeaders, credentials } = splitAccessCredentials(rawCredentials);
 
   try {
     retryBrowser = await launchBrowser({ headless: true });
-    const { page } = retryBrowser;
+    const { page, context } = retryBrowser;
+    if (accessHeaders) await installAccessHeaders(context, environmentUrl, accessHeaders);
 
     await page.goto(environmentUrl, { waitUntil: "domcontentloaded" });
 
@@ -320,9 +322,7 @@ async function retryTestCase(
   } catch {
     return null;
   } finally {
-    if (retryBrowser) {
-      await closeBrowser(retryBrowser);
-    }
+    if (retryBrowser) await closeBrowser(retryBrowser);
   }
 }
 

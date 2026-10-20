@@ -40,9 +40,15 @@ describe("installAccessHeaders", () => {
     expect(matcher!(new URL("https://cdn.thirdparty.com/lib.js"))).toBe(false);
     expect(matcher!(new URL("http://abc.acme.pages.dev/"))).toBe(false);
 
+    const response = { status: () => 302 };
+    const fetch = vi.fn(async () => response);
+    const fulfill = vi.fn();
     const cont = vi.fn();
-    handler!({ request: () => ({ headers: () => ({ accept: "*/*" }) }), continue: cont } as unknown as Route);
-    expect(cont).toHaveBeenCalledWith({ headers: { accept: "*/*", ...headers } });
+    await handler!({ request: () => ({ headers: () => ({ accept: "*/*" }) }), fetch, fulfill, continue: cont } as unknown as Route);
+    // One hop only: the browser follows any redirect itself, back through the origin matcher.
+    expect(fetch).toHaveBeenCalledWith({ headers: { accept: "*/*", ...headers }, maxRedirects: 0 });
+    expect(fulfill).toHaveBeenCalledWith({ response });
+    expect(cont).not.toHaveBeenCalled();
   });
 });
 
