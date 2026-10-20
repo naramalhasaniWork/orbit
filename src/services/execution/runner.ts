@@ -13,6 +13,7 @@ import { executeTestCase } from "@/services/execution/test-case-executor";
 import { executeApiTestCase } from "@/services/execution/api-test-executor";
 import { loadTestCases } from "@/services/execution/test-case-loader";
 import { chargeRunCredits } from "@/lib/billing/run-credits";
+import { clearRunToolCallCount } from "@/services/mcp/tool-injector";
 import type { StorageState } from "@/services/execution/browser-manager";
 import { isRunCancelled } from "@/services/orchestrator/run-manager";
 import { executeParallel } from "@/services/orchestrator/parallel-executor";
@@ -48,6 +49,7 @@ export async function executeRun(options: RunOptions): Promise<void> {
       console.error(`[Runner] Could not mark run ${runId} failed:`, failErr)
     );
   } finally {
+    clearRunToolCallCount(runId);
     await releaseLock(lock);
   }
 }
@@ -351,7 +353,8 @@ export async function runTestSuiteParallel(
     return;
   }
 
-  const result = await executeParallel({ runId, testPlanId, environmentId: run.environmentId, mode, maxConcurrency });
+  const result = await executeParallel({ runId, testPlanId, environmentId: run.environmentId, mode, maxConcurrency })
+    .finally(() => clearRunToolCallCount(runId));
   if (result.cancelled) {
     await prisma.testRun.update({ where: { id: runId }, data: { status: "cancelled", completedAt: new Date() } });
     await chargeRunCredits(runId);

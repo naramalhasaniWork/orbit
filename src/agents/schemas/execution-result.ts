@@ -59,6 +59,7 @@ export const ExecutorActionSchema = z.object({
     "scroll",
     "hover",
     "press_key",
+    "tool_call",
     "verdict",
   ]),
   selector: z.string().optional(),
@@ -82,6 +83,9 @@ export const ExecutorActionSchema = z.object({
     })
     .optional(),
   verdict: z.enum(["pass", "fail", "environment_error"]).optional(),
+  /** tool_call: name of a tool from the workspace's connected MCP servers */
+  toolName: z.string().optional(),
+  toolArgs: z.record(z.unknown()).optional(),
   reason: z.string().describe("Explanation for the action or verdict rationale").optional(),
 }).refine(
   (data) => {
@@ -119,6 +123,9 @@ export const ExecutorActionSchema = z.object({
     return true;
   },
   { message: "url is required for navigate action" }
+).refine(
+  (data) => data.action !== "tool_call" || !!data.toolName,
+  { message: "toolName is required for tool_call action" }
 );
 
 export type StepResult = z.infer<typeof StepResultSchema>;
