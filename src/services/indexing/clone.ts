@@ -10,6 +10,7 @@ import {
   repoStorageKey,
   assertSafeRepoPath,
   isSafeRepoPath,
+  isTrustedGitHubDownloadUrl,
 } from "@/lib/github/repo-paths";
 
 interface CloneResult {
@@ -98,10 +99,18 @@ async function fetchDirectoryContents(
   return response.json() as Promise<GitHubContentItem[]>;
 }
 
+/**
+ * Download a file body. The URL comes from GitHub's response, so the token is
+ * only sent to GitHub's own hosts; anything else is skipped (returns null).
+ */
 async function fetchFileContent(
   downloadUrl: string,
   token: string
-): Promise<string> {
+): Promise<string | null> {
+  if (!isTrustedGitHubDownloadUrl(downloadUrl)) {
+    console.warn(`[clone] Skipping file with untrusted download host: ${downloadUrl}`);
+    return null;
+  }
   const response = await fetchWithTimeout(downloadUrl, {
     headers: { Authorization: `Bearer ${token}` },
   });
@@ -165,6 +174,7 @@ async function cloneGitHub(
     await Promise.all(
       batch.map(async ({ path, url }) => {
         const content = await fetchFileContent(url, token);
+        if (content === null) return;
         await storage.upload(`${localPath}/${assertSafeRepoPath(path)}`, Buffer.from(content), "text/plain");
       })
     );
