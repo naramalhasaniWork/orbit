@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { pickDefaultEnvironment } from "@/services/execution/default-environment";
 import { findSimilarNodes } from "@/lib/db/vector";
 import { createEmbedding } from "@/lib/ai";
 import type { AgentPhase } from "./token-budget";
@@ -131,7 +132,7 @@ export async function getProjectContext(projectId: string) {
   const project = await prisma.project.findUnique({
     where: { id: projectId },
     include: {
-      environments: { where: { isDefault: true }, take: 1 },
+      environments: true,
       workspace: { select: { settings: true } },
     },
   });
@@ -161,7 +162,7 @@ export async function getProjectContext(projectId: string) {
 
   return {
     project,
-    defaultEnvironment: project.environments[0] ?? null,
+    defaultEnvironment: pickDefaultEnvironment(project.environments),
     systemMapStats: { nodes: nodeCount, edges: edgeCount },
     activePlan: activePlan
       ? { id: activePlan.id, version: activePlan.version, testCaseCount: activePlan._count.testCases }

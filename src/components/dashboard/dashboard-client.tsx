@@ -20,6 +20,7 @@ import Link from "next/link";
 import type { MapNode, MapEdge } from "@/components/dashboard/map-types";
 import { useProjectEvents, type ProjectRunUpdate } from "@/hooks/use-project-events";
 import { IndexingStatus } from "@/components/project/indexing-status";
+import { ReindexLink } from "@/components/dashboard/reindex-link";
 
 interface Project {
   id: string;
@@ -209,16 +210,7 @@ export function DashboardClient({
                   {syncInfo.lastCommitMessage && (
                     <span className="text-yellow-400/50 hidden sm:inline truncate max-w-[160px]">— {syncInfo.lastCommitMessage}</span>
                   )}
-                  <button
-                    onClick={() => {
-                      fetch(`/api/projects/${activeProject.id}/sync`, { method: "POST", body: JSON.stringify({}) });
-                      router.refresh();
-                    }}
-                    className="ml-1 flex items-center gap-1 text-yellow-400 hover:text-yellow-300 font-medium transition-colors"
-                  >
-                    <RefreshCw className="h-3 w-3" />
-                    Re-index
-                  </button>
+                  <ReindexLink projectId={activeProject.id} />
                 </div>
               );
             }

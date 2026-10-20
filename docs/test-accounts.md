@@ -18,12 +18,12 @@ The seed script is **idempotent** — safe to run multiple times. It uses upsert
 
 ## Demo Data
 
-- **Workspace**: "Orbit Demo" (slug: `orbit-demo`, 5000 credits, pro plan)
+- **Workspace**: "Orbit Demo" (slug: `orbit-demo`, 5000 credits, Pro tier)
 - **Project**: "Acme Dashboard" (slug: `acme-dashboard`, repo: vercel/next.js)
 - **System Map**: 45 nodes (15 routes, 9 endpoints, 12 components, 6 models, 3 auth strategies) + 52 edges
 - **Test Plan**: v1 with 15 test cases across 6 journeys
 - **Test Runs**: 5 runs over the last 7 days with mixed results
-- **Environments**: Staging, Preview, QA (default)
+- **Environments**: Staging (default), Preview, QA
 - **Flaky Tests**: 3 registered with pass rates and quarantine status
 - **Audit Log**: 10 recent activity entries
 

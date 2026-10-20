@@ -34,9 +34,15 @@ interface PlansClientProps {
   projectName: string | null;
   plans: TestPlanData[];
   coverageNodes?: CoverageNode[];
+  /** False until the repository is indexed; generating is refused (409) */
+  isIndexed?: boolean;
 }
 
-export function PlansClient({ projectId, projectName, plans, coverageNodes = [] }: PlansClientProps) {
+const NOT_INDEXED_HINT = "Index the repository first. Plans are generated from the indexed code.";
+
+export function PlansClient({
+  projectId, projectName, plans, coverageNodes = [], isIndexed = true,
+}: PlansClientProps) {
   const router = useRouter();
   // Which plan is open is part of the URL (empty = the active plan, "none" = all collapsed).
   const [urlState, setUrlState] = useUrlParams(URL_DEFAULTS);
@@ -69,6 +75,7 @@ export function PlansClient({ projectId, projectName, plans, coverageNodes = [] 
         projectName={projectName}
         planCount={plans.length}
         generating={generating}
+        disabledReason={isIndexed ? null : NOT_INDEXED_HINT}
         onGenerate={handleGenerate}
       />
 
@@ -83,12 +90,12 @@ export function PlansClient({ projectId, projectName, plans, coverageNodes = [] 
         <EmptyState
           icon={ClipboardList}
           title="No test plans yet"
-          description="Generate your first test plan from the indexed system map."
+          description={isIndexed ? "Generate your first test plan from the indexed system map." : NOT_INDEXED_HINT}
           action={
             <Button
               className="bg-orbit-accent hover:bg-orbit-accent/90 text-white gap-2"
               onClick={handleGenerate}
-              disabled={generating}
+              disabled={generating || !isIndexed}
             >
               <Plus className="h-4 w-4" />
               Generate Plan
@@ -125,7 +132,7 @@ export function PlansClient({ projectId, projectName, plans, coverageNodes = [] 
       {projectId && (
         <AISuggestionsPanel
           projectId={projectId}
-          onGeneratePlan={handleGenerate}
+          onGeneratePlan={isIndexed ? handleGenerate : undefined}
           refreshKey={suggestionsRefreshKey}
         />
       )}
@@ -137,11 +144,13 @@ function PageHeader({
   projectName,
   planCount,
   generating,
+  disabledReason,
   onGenerate,
 }: {
   projectName: string | null;
   planCount: number;
   generating: boolean;
+  disabledReason: string | null;
   onGenerate: () => void;
 }) {
   return (
@@ -156,7 +165,8 @@ function PageHeader({
       <Button
         className="bg-orbit-accent hover:bg-orbit-accent/90 text-white gap-2"
         onClick={onGenerate}
-        disabled={generating}
+        disabled={generating || !!disabledReason}
+        title={disabledReason ?? undefined}
       >
         {generating ? (
           <Loader2 className="h-4 w-4 animate-spin" />

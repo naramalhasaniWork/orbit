@@ -9,6 +9,7 @@ import { AuditTrendChart } from "@/components/audit/trend-chart";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/shared/empty-state";
 import { ShieldCheck, Loader2, AlertTriangle, RefreshCw } from "lucide-react";
+import { apiErrorMessage } from "@/lib/api-client";
 
 interface AuditIssue {
   id: string;
@@ -62,11 +63,11 @@ export function AuditDashboard({
         const res = await fetch(
           `/api/projects/${projectId}/audit/${auditId}`
         );
-        if (!res.ok) throw new Error("Failed to load audit");
+        if (!res.ok) throw new Error(await apiErrorMessage(res, "Failed to load audit"));
         const { data } = await res.json();
         setSelectedAudit(data);
       } catch (err) {
-        console.error("Failed to load audit detail:", err);
+        setAuditError(err instanceof Error ? err.message : "Failed to load audit");
       } finally {
         setIsLoading(false);
       }
@@ -83,7 +84,7 @@ export function AuditDashboard({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({}),
       });
-      if (!res.ok) throw new Error("Audit failed");
+      if (!res.ok) throw new Error(await apiErrorMessage(res, "Audit failed"));
       const { data } = await res.json();
 
       // Refresh audit list
@@ -98,7 +99,6 @@ export function AuditDashboard({
     } catch (err) {
       const message = err instanceof Error ? err.message : "Audit failed";
       setAuditError(message);
-      console.error("Failed to trigger audit:", err);
     } finally {
       setIsRunning(false);
     }
@@ -113,14 +113,17 @@ export function AuditDashboard({
           title="No code audits yet"
           description={`Run your first audit on ${projectName} to get AI-powered code quality insights.`}
           action={
-            <Button onClick={triggerAudit} disabled={isRunning}>
-              {isRunning ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              ) : (
-                <ShieldCheck className="h-4 w-4 mr-2" />
-              )}
-              Run First Audit
-            </Button>
+            <div className="flex flex-col items-center gap-3">
+              <Button onClick={triggerAudit} disabled={isRunning}>
+                {isRunning ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <ShieldCheck className="h-4 w-4 mr-2" />
+                )}
+                Run First Audit
+              </Button>
+              {auditError && <AuditErrorNotice message={auditError} />}
+            </div>
           }
         />
       </div>
@@ -156,12 +159,7 @@ export function AuditDashboard({
       </div>
 
       {/* Audit error */}
-      {auditError && (
-        <div className="flex items-center gap-2 text-sm text-orbit-fail bg-orbit-fail/10 rounded-md px-3 py-2">
-          <AlertTriangle className="h-4 w-4 shrink-0" />
-          {auditError}
-        </div>
-      )}
+      {auditError && <AuditErrorNotice message={auditError} />}
 
       {/* Score + Categories overview */}
       {displayAudit && (
@@ -246,6 +244,15 @@ export function AuditDashboard({
           <IssueList issues={selectedAudit.issues} />
         </div>
       ) : null}
+    </div>
+  );
+}
+
+function AuditErrorNotice({ message }: { message: string }) {
+  return (
+    <div role="alert" className="flex items-center gap-2 text-sm text-orbit-fail bg-orbit-fail/10 rounded-md px-3 py-2">
+      <AlertTriangle className="h-4 w-4 shrink-0" />
+      {message}
     </div>
   );
 }

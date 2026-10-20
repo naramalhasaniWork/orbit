@@ -7,7 +7,8 @@ import {
   handleApiError,
 } from "@/lib/utils/api";
 import { requirePermission } from "@/lib/auth/rbac";
-import { runCodeAudit } from "@/services/auditing/auditor";
+import { runCodeAudit, AuditUnavailableError } from "@/services/auditing/auditor";
+import { isProjectIndexed, INDEX_REQUIRED_MESSAGE } from "@/services/indexing/index-status";
 
 // ============================================================
 // GET /api/projects/[projectId]/audit — List past audits
@@ -82,6 +83,10 @@ export async function POST(
       return apiError("Project not found", "NOT_FOUND", 404);
     }
 
+    if (!(await isProjectIndexed(projectId))) {
+      return apiError(INDEX_REQUIRED_MESSAGE, "INDEX_REQUIRED", 409);
+    }
+
     let body: TriggerAuditBody = {};
     try {
       body = (await request.json()) as TriggerAuditBody;
@@ -98,6 +103,9 @@ export async function POST(
 
     return apiSuccess(result, 201);
   } catch (error) {
+    if (error instanceof AuditUnavailableError) {
+      return apiError(error.message, "AUDIT_UNAVAILABLE", 409);
+    }
     return handleApiError(error);
   }
 }

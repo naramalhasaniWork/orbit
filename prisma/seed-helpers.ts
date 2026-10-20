@@ -52,9 +52,9 @@ export async function seedProject(prisma: PrismaClient, workspaceId: string) {
 
 export async function seedEnvironments(prisma: PrismaClient, projectId: string) {
   const envs = [
-    { id: IDS.environments.staging, name: "Staging", type: "staging" as const, url: "https://staging.acme-app.com", isDefault: false },
+    { id: IDS.environments.staging, name: "Staging", type: "staging" as const, url: "https://staging.acme-app.com", isDefault: true },
     { id: IDS.environments.preview, name: "Preview", type: "preview" as const, url: "https://preview.acme-app.com", isDefault: false },
-    { id: IDS.environments.qa, name: "QA", type: "qa" as const, url: "https://qa.acme-app.com", isDefault: true },
+    { id: IDS.environments.qa, name: "QA", type: "qa" as const, url: "https://qa.acme-app.com", isDefault: false },
   ];
   return Promise.all(envs.map((e) =>
     prisma.environment.upsert({

@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { PlansClient } from "@/components/plans/plans-client";
+import { isProjectIndexed } from "@/services/indexing/index-status";
 
 export const dynamic = "force-dynamic";
 
@@ -151,6 +152,7 @@ export default async function PlansPage({
       projectName={project.name}
       plans={serializedPlans}
       coverageNodes={coverageNodes}
+      isIndexed={await isProjectIndexed(project.id)}
     />
   );
 }

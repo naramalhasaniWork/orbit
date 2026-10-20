@@ -19,6 +19,8 @@ import { useRowSelection } from "@/hooks/use-row-selection";
 import { useUrlParams } from "@/hooks/use-url-state";
 import { parsePositiveInt } from "@/lib/url-state";
 import { filterRuns, isRunSort, paginate, sortRuns } from "@/lib/runs/run-list";
+import { apiErrorMessage } from "@/lib/api-client";
+import { InlineError } from "@/components/shared/inline-error";
 
 const URL_DEFAULTS = { status: "", mode: "", trigger: "", sort: "newest", page: "1" };
 
@@ -74,21 +76,15 @@ export function RunsClient({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ mode: "full", trigger: "manual" }),
       });
-      const json = await res.json().catch(() => ({}));
-      if (res.ok) {
-        // Revalidate SWR cache so runs list updates
-        mutateRuns();
-        if ((json as { data?: { id?: string } }).data?.id) {
-          router.push(`/dashboard/runs/${(json as { data: { id: string } }).data.id}`);
-          return;
-        }
+      if (!res.ok) {
+        // Surface the server's reason (no credits, workers down, no plan…)
+        setRunError(await apiErrorMessage(res, "Failed to start run"));
         return;
       }
-      // Surface the server error message to the user
-      const msg =
-        (json as { error?: { message?: string } }).error?.message ??
-        `Failed to start run (${res.status})`;
-      setRunError(msg);
+      const json = (await res.json().catch(() => ({}))) as { data?: { id?: string } };
+      // Revalidate SWR cache so runs list updates
+      mutateRuns();
+      if (json.data?.id) router.push(`/dashboard/runs/${json.data.id}`);
     } catch {
       setRunError("Failed to start run. Check your connection and try again.");
     } finally {
@@ -157,13 +153,10 @@ export function RunsClient({
               {preflightBlock}
             </span>
           )}
-          {runError && (
-            <span className="text-[11px] text-orbit-fail text-right max-w-[220px]">
-              {runError}
-            </span>
-          )}
         </div>
       </div>
+
+      <InlineError message={runError} />
 
       <RunsSummaryBar runs={runs} />
 

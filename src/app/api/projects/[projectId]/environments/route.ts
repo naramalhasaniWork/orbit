@@ -86,6 +86,14 @@ export async function POST(
     const { name, type, url, baseUrl, teardownHookUrl, isDefault, defaultRunMode } = parsed.data;
     const resolvedUrl = url ?? baseUrl!;
 
+    // Only one environment may be the default
+    if (isDefault) {
+      await prisma.environment.updateMany({
+        where: { projectId, isDefault: true },
+        data: { isDefault: false },
+      });
+    }
+
     const environment = await prisma.environment.create({
       data: {
         projectId,

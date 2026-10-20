@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { decrypt } from "@/lib/vault";
 import { safeFetch, UnsafeUrlError } from "@/lib/utils/ssrf";
+import { pickDefaultEnvironment } from "@/services/execution/default-environment";
 
 // ============================================================
 // Types
@@ -141,22 +142,9 @@ export async function validateEnvironment(
 export async function getDefaultEnvironment(
   projectId: string
 ): Promise<string | null> {
-  const env = await prisma.environment.findFirst({
-    where: { projectId, isDefault: true },
-    select: { id: true },
+  const environments = await prisma.environment.findMany({
+    where: { projectId },
+    select: { id: true, type: true, isDefault: true, createdAt: true },
   });
-
-  if (env) return env.id;
-
-  // Fallback: first non-production environment
-  const fallback = await prisma.environment.findFirst({
-    where: {
-      projectId,
-      type: { not: "production" },
-    },
-    select: { id: true },
-    orderBy: { createdAt: "asc" },
-  });
-
-  return fallback?.id ?? null;
+  return pickDefaultEnvironment(environments)?.id ?? null;
 }

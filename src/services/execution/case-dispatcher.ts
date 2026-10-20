@@ -23,7 +23,9 @@ export async function executeCaseByType(
   options?: { storageState?: StorageState }
 ): Promise<TestCaseResult> {
   if (testCase.type === "visual_regression") {
-    const visual = await executeVisualCase(runId, testCase, environmentUrl);
+    const visual = await executeVisualCase(
+      runId, testCase, environmentUrl, credentials, options?.storageState
+    );
     if (visual) return visual;
   }
 
@@ -44,14 +46,20 @@ export async function executeCaseByType(
 async function executeVisualCase(
   runId: string,
   testCase: TestCaseForExecution,
-  environmentUrl: string
+  environmentUrl: string,
+  credentials: Record<string, string>,
+  existingSession?: StorageState
 ): Promise<TestCaseResult | null> {
   const routePath = visualRoutePath(testCase);
   if (!routePath) return null;
 
   const started = Date.now();
   try {
-    const result = await runVisualTest({ runId, projectId: testCase.projectId, routePath, environmentUrl });
+    const storageState = existingSession
+      ?? await acquireSession(runId, testCase, environmentUrl, credentials);
+    const result = await runVisualTest({
+      runId, projectId: testCase.projectId, routePath, environmentUrl, storageState,
+    });
     const comparison = result.isBaselineCapture
       ? "No baseline yet: captured this screenshot as the baseline"
       : result.diff?.summary ?? "Compared against baseline";
@@ -65,6 +73,8 @@ async function executeVisualCase(
       ],
       artifacts: { screenshot: result.screenshotKey },
       healedSelectors: [],
+      // Hand a freshly acquired session back so the runner reuses it
+      storageState: existingSession ? undefined : storageState,
     };
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
@@ -76,6 +86,34 @@ async function executeVisualCase(
       healedSelectors: [],
     };
   }
+}
+
+/**
+ * No reusable session yet (visual cases often run before any login test):
+ * log in the same way the browser executor does — an LLM-driven login with
+ * the environment's test credentials — and keep the resulting session.
+ * Without credentials the route is captured as an anonymous visitor sees it.
+ */
+async function acquireSession(
+  runId: string,
+  testCase: TestCaseForExecution,
+  environmentUrl: string,
+  credentials: Record<string, string>
+): Promise<StorageState | undefined> {
+  const hasCredentials = Object.values(credentials).some((v) => typeof v === "string" && v.length > 0);
+  if (!hasCredentials) return undefined;
+
+  const login = await executeTestCase(runId, {
+    id: testCase.id,
+    name: "Log in with valid credentials",
+    projectId: testCase.projectId,
+    isCritical: false,
+    steps: [{
+      action: "Log in using the provided test credentials",
+      expected: "An authenticated page is shown (dashboard, account menu or sign-out link)",
+    }],
+  }, environmentUrl, credentials);
+  return login.storageState;
 }
 
 function step(
