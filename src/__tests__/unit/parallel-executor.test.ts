@@ -26,6 +26,7 @@ import { executeCaseByType } from "@/services/execution/case-dispatcher";
 import { saveTestResult, recordEnvironmentError } from "@/services/execution/test-result-store";
 import { validateEnvironment } from "@/services/execution/environment-validator";
 import { executeParallel } from "@/services/orchestrator/parallel-executor";
+import { BudgetExceededError } from "@/server/ai/errors";
 
 const db = prisma as unknown as {
   testRun: { findUniqueOrThrow: ReturnType<typeof vi.fn>; update: ReturnType<typeof vi.fn> };
@@ -70,6 +71,14 @@ describe("executeParallel", () => {
     expect(saveTestResult).toHaveBeenCalledTimes(2);
     expect(saveTestResult).toHaveBeenCalledWith("run-1", "tc-1", "pass", 1, [], {}, []);
     expect(result).toMatchObject({ passed: 1, failed: 0, skipped: 1 });
+  });
+
+  it("aborts the run when the AI budget is exhausted instead of failing every case", async () => {
+    dispatch.mockRejectedValueOnce(new BudgetExceededError("workspace", "AI budget exceeded"));
+
+    await expect(executeParallel(options)).rejects.toBeInstanceOf(BudgetExceededError);
+    expect(dispatch).toHaveBeenCalledTimes(1);
+    expect(saveTestResult).not.toHaveBeenCalled();
   });
 
   it("records every case as environment_error and returns the reason when validation fails", async () => {

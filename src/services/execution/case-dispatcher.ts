@@ -3,6 +3,7 @@ import type { TestCaseForExecution, TestCaseResult } from "@/services/execution/
 import { executeApiTestCase } from "@/services/execution/api-test-executor";
 import type { StorageState } from "@/services/execution/browser-manager";
 import { runVisualTest } from "@/services/visual-qa/visual-test-runner";
+import { isBudgetExceeded } from "@/server/ai/errors";
 
 // Routes a test case to the executor for its type. Shared by the sequential
 // runner and the parallel executor so both treat every type the same way.
@@ -77,6 +78,7 @@ async function executeVisualCase(
       storageState: existingSession ? undefined : storageState,
     };
   } catch (err) {
+    if (isBudgetExceeded(err)) throw err;
     const msg = err instanceof Error ? err.message : String(err);
     return {
       verdict: "environment_error",

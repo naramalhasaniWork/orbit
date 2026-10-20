@@ -3,6 +3,7 @@ import { emitRunProgress } from "@/lib/websocket";
 import { isRunCancelled } from "./run-manager";
 import type { TestVerdict } from "@/generated/prisma/enums";
 import type { RoleSessions } from "@/services/execution/role-sessions";
+import { isBudgetExceeded } from "@/server/ai/errors";
 
 /**
  * Partitions test cases into independent groups by journey,
@@ -281,7 +282,9 @@ async function executePartition(
       };
       const key = verdictMap[result.verdict] ?? "failed";
       counters[key]++;
-    } catch {
+    } catch (err) {
+      // Out of AI budget: abort the run instead of failing every remaining case.
+      if (isBudgetExceeded(err)) throw err;
       counters.failed++;
     }
   }

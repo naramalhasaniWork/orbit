@@ -22,6 +22,7 @@ import { dispatchRunStarted, dispatchRunCompleted } from "@/services/reporting/i
 import { acquireLock, releaseLock } from "@/lib/redis/lock";
 import type { TestVerdict } from "@/generated/prisma/enums";
 import type { TestResultEvent } from "@/lib/websocket/channels";
+import { isBudgetExceeded } from "@/server/ai/errors";
 
 const RUN_LOCK_TTL_SECONDS = 300; // 5 min lock with auto-refresh
 
@@ -46,7 +47,7 @@ export async function executeRun(options: RunOptions): Promise<void> {
     // Not rethrown — a queue retry would re-run tests and duplicate results.
     const msg = err instanceof Error ? err.message : String(err);
     console.error(`[Runner] Run ${runId} crashed:`, err);
-    await failRun(runId, `Execution crashed: ${msg}`).catch((failErr) =>
+    await failRun(runId, isBudgetExceeded(err) ? msg : `Execution crashed: ${msg}`).catch((failErr) =>
       console.error(`[Runner] Could not mark run ${runId} failed:`, failErr)
     );
   } finally {
@@ -240,6 +241,7 @@ async function executeRunInner(options: RunOptions): Promise<void> {
         data: { lastVerdict: result.verdict as TestVerdict, lastRunAt: new Date() },
       });
     } catch (err) {
+      if (isBudgetExceeded(err)) throw err;
       counters.failed++;
       const errorMsg = err instanceof Error ? err.message : "Unknown error";
       log(`  -> CRASH: ${errorMsg}`);
