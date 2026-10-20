@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { emitRunProgress } from "@/lib/websocket";
 import { isRunCancelled } from "./run-manager";
 import type { TestVerdict } from "@/generated/prisma/enums";
+import type { StorageState } from "@/services/execution/browser-manager";
 
 /**
  * Partitions test cases into independent groups by journey,
@@ -28,7 +29,21 @@ interface ParallelRunResult {
   flaky: number;
   skipped: number;
   cancelled: boolean;
+  /** Set when the environment failed validation; every case is recorded as environment_error */
+  environmentError?: string;
 }
+
+interface ValidatedEnvironment {
+  environmentUrl: string;
+  credentials: Record<string, string>;
+}
+
+/** Logged-in session shared by all partitions (first passing login wins). */
+interface SharedSession {
+  storageState?: StorageState;
+}
+
+const VISUAL_JOURNEY = "visual_identity";
 
 /**
  * Partition test cases into independent groups by journey.
@@ -104,7 +119,25 @@ export async function executeParallel(
     data: { totalTests },
   });
 
+  // One environment for the whole run: validate once, like the sequential path
+  const { validateEnvironment } = await import(
+    "@/services/execution/environment-validator"
+  );
+  const validation = await validateEnvironment(environmentId);
+  if (!validation.valid) {
+    const reason = `Environment validation failed: ${validation.errors.join("; ")}`;
+    const { recordEnvironmentError } = await import("@/services/execution/test-result-store");
+    await recordEnvironmentError(runId, partitions.flatMap((p) => p.testCaseIds), reason);
+    return { passed: 0, failed: 0, flaky: 0, skipped: totalTests, cancelled: false, environmentError: reason };
+  }
+
+  // Visual cases go last so they can reuse a session from login tests
+  partitions.sort((a, b) =>
+    Number(a.journey === VISUAL_JOURNEY) - Number(b.journey === VISUAL_JOURNEY)
+  );
+
   const counters = { passed: 0, failed: 0, flaky: 0, skipped: 0 };
+  const session: SharedSession = {};
   let cancelled = false;
 
   // Concurrency-limited execution
@@ -124,9 +157,7 @@ export async function executeParallel(
         return;
       }
 
-      const result = await executePartition(
-        runId, partition, environmentId
-      );
+      const result = await executePartition(runId, partition, validation, session);
 
       counters.passed += result.passed;
       counters.failed += result.failed;
@@ -168,7 +199,8 @@ export async function executeParallel(
 async function executePartition(
   runId: string,
   partition: TestCasePartition,
-  environmentId: string
+  validation: ValidatedEnvironment,
+  session: SharedSession
 ): Promise<{
   passed: number;
   failed: number;
@@ -176,9 +208,6 @@ async function executePartition(
   skipped: number;
   cancelled: boolean;
 }> {
-  const { validateEnvironment } = await import(
-    "@/services/execution/environment-validator"
-  );
   const { executeCaseByType } = await import(
     "@/services/execution/case-dispatcher"
   );
@@ -189,22 +218,10 @@ async function executePartition(
     "@/services/execution/flaky-registry"
   );
 
-  const validation = await validateEnvironment(environmentId);
-  if (!validation.valid) {
-    return {
-      passed: 0,
-      failed: partition.testCaseIds.length,
-      flaky: 0,
-      skipped: 0,
-      cancelled: false,
-    };
-  }
-
   const testCases = await prisma.testCase.findMany({
     where: { id: { in: partition.testCaseIds } },
     orderBy: { priorityScore: "desc" },
   });
-
   const counters = { passed: 0, failed: 0, flaky: 0, skipped: 0 };
 
   for (const tc of testCases) {
@@ -215,17 +232,7 @@ async function executePartition(
     const quarantined = await isTestQuarantined(tc.projectId, tc.id);
     if (quarantined) {
       counters.skipped++;
-      await prisma.testResult.create({
-        data: {
-          testRunId: runId,
-          testCaseId: tc.id,
-          verdict: "skipped",
-          durationMs: 0,
-          steps: [],
-          artifacts: {},
-          healedSelectors: [],
-        },
-      });
+      await saveTestResult(runId, tc.id, "skipped", 0, [], {}, []);
       continue;
     }
 
@@ -246,8 +253,12 @@ async function executePartition(
       };
 
       const result = await executeCaseByType(
-        runId, caseForExecution, validation.environmentUrl, validation.credentials
+        runId, caseForExecution, validation.environmentUrl, validation.credentials,
+        { storageState: session.storageState }
       );
+      if (result.storageState && !session.storageState) {
+        session.storageState = result.storageState;
+      }
 
       // Record every executed case so the run report and billing see it
       await saveTestResult(

@@ -214,6 +214,15 @@ Set `REDIS_URL=redis://localhost:6379` in `.env.local`.
 
 ---
 
+## Test Environments
+
+Each project has one or more environments (Settings → Environments). When a run doesn't name one (header Run button, webhooks, Slack, the API without `environment`), Orbit picks:
+
+1. The environment marked **Default** (only one can be default; marking another clears the old one).
+2. Otherwise, by type: **staging**, then **qa**, then **preview**. Ties go to the oldest.
+
+Production environments are never picked automatically, and runs against them are refused.
+
 ## Connecting Services
 
 ### Playwright (Browser Automation)

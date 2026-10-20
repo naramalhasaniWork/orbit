@@ -6,7 +6,6 @@ vi.mock("@/lib/db", () => ({
     project: { findFirst: vi.fn(), findUnique: vi.fn() },
     webhookDelivery: { create: vi.fn() },
     testRun: { create: vi.fn(), delete: vi.fn() },
-    environment: { findFirst: vi.fn() },
     previewBinding: { findUnique: vi.fn() },
     previewDeployment: { findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
   },
@@ -51,7 +50,6 @@ const mockPrisma = prisma as unknown as {
   project: { findFirst: ReturnType<typeof vi.fn>; findUnique: ReturnType<typeof vi.fn> };
   webhookDelivery: { create: ReturnType<typeof vi.fn> };
   testRun: { create: ReturnType<typeof vi.fn> };
-  environment: { findFirst: ReturnType<typeof vi.fn> };
   previewBinding: { findUnique: ReturnType<typeof vi.fn> };
   previewDeployment: Record<"findUnique" | "create" | "update", ReturnType<typeof vi.fn>>;
 };
@@ -67,7 +65,6 @@ describe("api-webhooks/github", () => {
     vi.clearAllMocks();
     process.env.GITHUB_WEBHOOK_SECRET = webhookSecret;
     mockPrisma.project.findUnique.mockResolvedValue({ workspaceId: "ws-1" });
-    mockPrisma.environment.findFirst.mockResolvedValue({ id: "env-default" });
     mockPrisma.previewBinding.findUnique.mockResolvedValue(null);
   });
 
@@ -249,9 +246,8 @@ describe("api-webhooks/github", () => {
 
     expect(json.status).toBe("pr_processed");
     expect(json.action).toBe("opened");
-    // Without a preview binding the run gets the project's default environment, not none.
     expect(mockPrisma.testRun.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({ mode: "targeted", trigger: "pr", prNumber: 42, environmentId: "env-default" }),
+      data: expect.objectContaining({ mode: "targeted", trigger: "pr", prNumber: 42 }),
     });
     expect(indexingAdd).toHaveBeenCalledWith(
       "run-run-2",

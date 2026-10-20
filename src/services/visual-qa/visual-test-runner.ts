@@ -1,4 +1,4 @@
-import { launchBrowser, closeBrowser } from "@/services/execution/browser-manager";
+import { launchBrowser, closeBrowser, type StorageState } from "@/services/execution/browser-manager";
 import { getStorage } from "@/lib/storage";
 import { compareScreenshots, type DiffResult } from "@/services/visual-qa/diff-engine";
 import { checkBrandConsistency, type BrandCheckResult } from "@/services/visual-qa/brand-checker";
@@ -17,6 +17,8 @@ export interface VisualTestInput {
   environmentUrl: string;
   checkBrand?: boolean;
   diffThreshold?: number;
+  /** Logged-in session from the run, so authenticated routes aren't captured as the login page */
+  storageState?: StorageState;
 }
 
 export interface VisualTestResult {
@@ -41,9 +43,10 @@ interface BillingInfo {
 
 async function captureScreenshot(
   url: string,
-  routePath: string
+  routePath: string,
+  storageState?: StorageState
 ): Promise<Buffer> {
-  const instance = await launchBrowser({ headless: true });
+  const instance = await launchBrowser({ headless: true, storageState });
 
   try {
     const fullUrl = routePath.startsWith("http")
@@ -150,10 +153,10 @@ export async function runVisualTest(
   input: VisualTestInput
 ): Promise<VisualTestResult> {
   const startTime = Date.now();
-  const { runId, projectId, routePath, environmentUrl, checkBrand, diffThreshold } = input;
+  const { runId, projectId, routePath, environmentUrl, checkBrand, diffThreshold, storageState } = input;
 
   // 1. Capture screenshot
-  const screenshotData = await captureScreenshot(environmentUrl, routePath);
+  const screenshotData = await captureScreenshot(environmentUrl, routePath, storageState);
   const storageKey = buildStorageKey(projectId, runId, routePath);
   const checksum = computeChecksum(screenshotData);
 

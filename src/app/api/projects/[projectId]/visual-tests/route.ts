@@ -8,6 +8,7 @@ import {
 } from "@/lib/utils/api";
 import { runVisualTest } from "@/services/visual-qa/visual-test-runner";
 import { requirePermission } from "@/lib/auth/rbac";
+import { getDefaultEnvironment } from "@/services/execution/environment-validator";
 
 // ============================================================
 // POST /api/projects/[projectId]/visual-tests
@@ -47,15 +48,9 @@ export async function POST(
     }
 
     // Resolve environment URL
-    const envWhere: Record<string, unknown> = { projectId };
-    if (body.environmentId) {
-      envWhere.id = body.environmentId;
-    } else {
-      envWhere.isDefault = true;
-    }
-
-    const environment = await prisma.environment.findFirst({
-      where: envWhere,
+    const environmentId = body.environmentId ?? await getDefaultEnvironment(projectId);
+    const environment = environmentId && await prisma.environment.findFirst({
+      where: { id: environmentId, projectId },
       select: { id: true, url: true, type: true },
     });
 

@@ -6,6 +6,7 @@ vi.mock("@/lib/db", () => ({
     environment: {
       findUnique: vi.fn(),
       findFirst: vi.fn(),
+      findMany: vi.fn(),
     },
     secret: {
       findMany: vi.fn(),
@@ -38,6 +39,7 @@ const mockPrisma = prisma as unknown as {
   environment: {
     findUnique: ReturnType<typeof vi.fn>;
     findFirst: ReturnType<typeof vi.fn>;
+    findMany: ReturnType<typeof vi.fn>;
   };
   secret: {
     findMany: ReturnType<typeof vi.fn>;
@@ -234,30 +236,30 @@ describe("environment-validator", () => {
   });
 
   describe("getDefaultEnvironment", () => {
-    it("returns default environment id", async () => {
-      mockPrisma.environment.findFirst
-        .mockResolvedValueOnce({ id: "env-default" });
+    const created = new Date("2026-01-01");
 
-      const result = await getDefaultEnvironment("proj-1");
-      expect(result).toBe("env-default");
+    it("returns the flagged default environment", async () => {
+      mockPrisma.environment.findMany.mockResolvedValue([
+        { id: "env-staging", type: "staging", isDefault: false, createdAt: created },
+        { id: "env-qa", type: "qa", isDefault: true, createdAt: created },
+      ]);
+
+      expect(await getDefaultEnvironment("proj-1")).toBe("env-qa");
     });
 
-    it("falls back to first non-production environment", async () => {
-      mockPrisma.environment.findFirst
-        .mockResolvedValueOnce(null) // no default
-        .mockResolvedValueOnce({ id: "env-staging" }); // fallback
+    it("prefers staging over qa when none is flagged", async () => {
+      mockPrisma.environment.findMany.mockResolvedValue([
+        { id: "env-qa", type: "qa", isDefault: false, createdAt: created },
+        { id: "env-staging", type: "staging", isDefault: false, createdAt: created },
+      ]);
 
-      const result = await getDefaultEnvironment("proj-1");
-      expect(result).toBe("env-staging");
+      expect(await getDefaultEnvironment("proj-1")).toBe("env-staging");
     });
 
     it("returns null when no environments exist", async () => {
-      mockPrisma.environment.findFirst
-        .mockResolvedValueOnce(null)
-        .mockResolvedValueOnce(null);
+      mockPrisma.environment.findMany.mockResolvedValue([]);
 
-      const result = await getDefaultEnvironment("proj-1");
-      expect(result).toBeNull();
+      expect(await getDefaultEnvironment("proj-1")).toBeNull();
     });
   });
 });

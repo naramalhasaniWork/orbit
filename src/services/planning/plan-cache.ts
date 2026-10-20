@@ -50,6 +50,11 @@ export async function storePlan(
   testCases: GeneratedTestCase[],
   summary: Record<string, unknown>
 ): Promise<CachedPlan> {
+  // Never replace a working plan with an empty one
+  if (testCases.length === 0) {
+    throw new Error("No test cases were generated, so no plan was saved. Re-index the repository and try again.");
+  }
+
   // Deactivate old plans, then create new one with test cases in a transaction
   const result = await prisma.$transaction(async (tx) => {
     await tx.testPlan.updateMany({

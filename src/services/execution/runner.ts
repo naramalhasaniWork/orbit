@@ -11,8 +11,9 @@ import { validateEnvironment } from "@/services/execution/environment-validator"
 import { isTestQuarantined } from "@/services/execution/flaky-registry";
 import { executeCaseByType } from "@/services/execution/case-dispatcher";
 import { loadTestCases } from "@/services/execution/test-case-loader";
+import { resolveRoleCredentials } from "@/services/execution/role-credentials";
 import { chargeRunCredits } from "@/lib/billing/run-credits";
-import { saveTestResult } from "@/services/execution/test-result-store";
+import { saveTestResult, recordEnvironmentError } from "@/services/execution/test-result-store";
 import { clearRunToolCallCount } from "@/services/mcp/tool-injector";
 import type { StorageState } from "@/services/execution/browser-manager";
 import { isRunCancelled } from "@/services/orchestrator/run-manager";
@@ -73,8 +74,11 @@ async function executeRunInner(options: RunOptions): Promise<void> {
   log(`Validating environment...`);
   const validation = await validateEnvironment(environmentId);
   if (!validation.valid) {
-    log(`Environment validation FAILED: ${validation.errors.join("; ")}`);
-    await failRun(runId, `Environment validation failed: ${validation.errors.join("; ")}`);
+    const reason = `Environment validation failed: ${validation.errors.join("; ")}`;
+    log(reason);
+    const cases = await loadTestCases(run);
+    await recordEnvironmentError(runId, cases.map((c) => c.id), reason);
+    await failRun(runId, reason);
     return;
   }
   log(`Environment OK: ${validation.environmentUrl} (warnings: ${validation.warnings.length})`);
@@ -345,6 +349,10 @@ export async function runTestSuiteParallel(
 
   const result = await executeParallel({ runId, testPlanId, environmentId: run.environmentId, mode, maxConcurrency })
     .finally(() => clearRunToolCallCount(runId));
+  if (result.environmentError) {
+    await failRun(runId, result.environmentError);
+    return;
+  }
   if (result.cancelled) {
     await prisma.testRun.update({ where: { id: runId }, data: { status: "cancelled", completedAt: new Date() } });
     await chargeRunCredits(runId);
@@ -353,30 +361,4 @@ export async function runTestSuiteParallel(
 
   const totalTests = result.passed + result.failed + result.flaky + result.skipped;
   await completeRun(runId, totalTests, result);
-}
-
-/**
- * Resolve credentials for a specific user role.
- * Looks for role-prefixed keys (e.g. ADMIN_EMAIL, ADMIN_PASSWORD) first,
- * then falls back to generic TEST_* keys.
- */
-function resolveRoleCredentials(
-  allCredentials: Record<string, string>,
-  requiredRole?: string
-): Record<string, string> {
-  if (!requiredRole) return allCredentials;
-
-  const prefix = requiredRole.toUpperCase();
-  const roleCredentials: Record<string, string> = { ...allCredentials };
-  const suffixes = ["EMAIL", "PASSWORD", "API_KEY", "TOKEN", "USERNAME"];
-
-  for (const suffix of suffixes) {
-    const roleKey = `${prefix}_${suffix}`;
-    const genericKey = `TEST_${suffix}`;
-    if (allCredentials[roleKey]) {
-      roleCredentials[genericKey] = allCredentials[roleKey];
-    }
-  }
-
-  return roleCredentials;
 }

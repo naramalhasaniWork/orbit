@@ -59,11 +59,6 @@ export const MCP_TOOLS: MCPTool[] = [
           enum: ["full", "smoke", "regression", "targeted"],
           description: "Run mode (defaults to smoke)",
         },
-        trigger: {
-          type: "string",
-          default: "api",
-          description: "Trigger source (defaults to api)",
-        },
       },
       required: ["projectId"],
     },
@@ -175,11 +170,7 @@ export async function handleMcpTool(
 
   switch (toolName) {
     case "orbit_trigger_run":
-      return triggerRun(
-        projectId,
-        (args.mode as string) ?? "smoke",
-        (args.trigger as string) ?? "api"
-      );
+      return triggerRun(projectId, (args.mode as string) ?? "smoke");
     case "orbit_get_system_map":
       return getSystemMap(projectId, args.nodeType as string | undefined);
     case "orbit_get_test_plan":

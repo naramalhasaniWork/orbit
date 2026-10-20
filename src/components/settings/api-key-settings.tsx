@@ -7,6 +7,8 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Trash2, Copy, Check, Key, Eye, EyeOff } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
+import { apiErrorMessage } from "@/lib/api-client";
+import { InlineError } from "@/components/shared/inline-error";
 
 interface ApiKey {
   id: string;
@@ -28,6 +30,7 @@ export function ApiKeySettings({ workspaceId }: ApiKeySettingsProps) {
   const [creating, setCreating] = useState(false);
   const [newKeyValue, setNewKeyValue] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!workspaceId) return;
@@ -56,30 +59,38 @@ export function ApiKeySettings({ workspaceId }: ApiKeySettingsProps) {
   async function handleCreate() {
     if (!newKeyName.trim()) return;
     setCreating(true);
+    setActionError(null);
     try {
       const res = await fetch(`/api/workspaces/${workspaceId}/api-keys`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: newKeyName }),
       });
-      if (res.ok) {
-        const json = await res.json();
-        setNewKeyValue(json.data.key);
-        setKeys((prev) => [json.data.apiKey, ...prev]);
-        setNewKeyName("");
+      if (!res.ok) {
+        setActionError(await apiErrorMessage(res, "Couldn't create the API key"));
+        return;
       }
+      const json = await res.json();
+      setNewKeyValue(json.data.key);
+      setKeys((prev) => [json.data.apiKey, ...prev]);
+      setNewKeyName("");
+    } catch {
+      setActionError("Couldn't create the API key. Check your connection and try again.");
     } finally {
       setCreating(false);
     }
   }
 
   async function handleRevoke(keyId: string) {
+    setActionError(null);
     const res = await fetch(`/api/workspaces/${workspaceId}/api-keys/${keyId}`, {
       method: "DELETE",
-    });
-    if (res.ok) {
-      setKeys((prev) => prev.filter((k) => k.id !== keyId));
+    }).catch(() => null);
+    if (!res?.ok) {
+      setActionError(res ? await apiErrorMessage(res, "Couldn't revoke the key") : "Couldn't revoke the key. Check your connection.");
+      return;
     }
+    setKeys((prev) => prev.filter((k) => k.id !== keyId));
   }
 
   function copyKey() {
@@ -116,6 +127,8 @@ export function ApiKeySettings({ workspaceId }: ApiKeySettingsProps) {
           Create Key
         </Button>
       </div>
+
+      <InlineError message={actionError} />
 
       {newKeyValue && (
         <div className="rounded-xl border border-orbit-accent/30 bg-orbit-accent/5 p-4 space-y-3">
