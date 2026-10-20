@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { apiSuccess, apiError } from "@/lib/utils/api";
+import { createRunWithinAllowance } from "@/services/orchestrator/run-launcher";
 import { runVisualTest } from "@/services/visual-qa/visual-test-runner";
 import { getDefaultEnvironment } from "@/services/execution/environment-validator";
 import { route } from "@/server/http/route";
@@ -58,20 +59,25 @@ export const POST = route(
       );
     }
 
-    // Resolve or create a run to attach artifacts to
+    // Attach to the caller's run (it must be this project's), or create one under the workspace allowance
     let runId = body.runId;
-    if (!runId) {
-      const run = await prisma.testRun.create({
-        data: {
-          projectId,
-          environmentId: environment.id,
-          status: "executing",
-          mode: "targeted",
-          trigger: "manual",
-          startedAt: new Date(),
-        },
+    if (runId) {
+      const existing = await prisma.testRun.findFirst({ where: { id: runId, projectId }, select: { id: true } });
+      if (!existing) return apiError("Run not found", "NOT_FOUND", 404);
+    } else {
+      const created = await createRunWithinAllowance(workspaceId, {
+        projectId,
+        environmentId: environment.id,
+        status: "executing",
+        mode: "targeted",
+        trigger: "manual",
+        startedAt: new Date(),
       });
-      runId = run.id;
+      if ("blocked" in created) {
+        const { blocked } = created;
+        return apiError(blocked.reason, blocked.code, blocked.code === "NOT_FOUND" ? 404 : 403);
+      }
+      runId = created.run.id;
     }
 
     const result = await runVisualTest({
