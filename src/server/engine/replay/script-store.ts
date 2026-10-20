@@ -110,3 +110,16 @@ export async function recentReplayDivergences(testCaseId: string, environmentId:
   });
   return rows.map((r) => r.divergedAtStep !== null);
 }
+
+/** Route nodes each case's live scripts cover (all environments), for diff-based selection. */
+export async function scriptCoverage(projectId: string): Promise<Map<string, string[]>> {
+  const rows = await prisma.testScript.findMany({
+    where: { projectId, status: { in: ["active", "suspect"] }, NOT: { coveredNodeIds: { isEmpty: true } } },
+    select: { testCaseId: true, coveredNodeIds: true },
+  });
+  const coverage = new Map<string, string[]>();
+  for (const row of rows) {
+    coverage.set(row.testCaseId, [...(coverage.get(row.testCaseId) ?? []), ...row.coveredNodeIds]);
+  }
+  return coverage;
+}
