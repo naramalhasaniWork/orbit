@@ -1,18 +1,14 @@
 import { launchBrowser, closeBrowser, captureStorageState, VIEWPORT_PRESETS } from "@/services/execution/browser-manager";
 import type { BrowserInstance, ViewportName, StorageState } from "@/services/execution/browser-manager";
 import { executeTestSteps } from "@/services/execution/step-executor";
-import {
-  createEvidenceCollector,
-  saveNetworkLog,
-  saveConsoleLog,
-} from "@/services/execution/evidence-collector";
+import { createEvidenceCollector } from "@/services/execution/evidence-collector";
 import { detectFlakyFromRetry } from "@/services/execution/flaky-registry";
-import { analyzeVisualQuality } from "@/agents/prompts/sub-agents/visual-analyzer";
 import { detectAuthState } from "@/services/execution/auth-detector";
 import { loadTestingNotes } from "@/agents/prompts/context-loader";
-import { runAllInvariants, collectPageState } from "@/services/execution/invariant-checker";
 import type { InvariantResult } from "@/services/execution/invariant-checker";
+import { collectCaseArtifacts } from "@/services/execution/case-artifacts";
 import type { ExecutionMeta } from "@/services/execution/test-result-store";
+import type { ActionRecorder } from "@/server/engine/replay/recorder";
 
 // ============================================================
 // Types
@@ -66,7 +62,12 @@ export async function executeTestCase(
   testCase: TestCaseForExecution,
   environmentUrl: string,
   credentials: Record<string, string>,
-  options?: { viewport?: { width: number; height: number }; storageState?: StorageState }
+  options?: {
+    viewport?: { width: number; height: number };
+    storageState?: StorageState;
+    /** Records the first attempt for compile-and-replay (retries are never recorded) */
+    recorder?: ActionRecorder;
+  }
 ): Promise<TestCaseResult> {
   let browserInstance: BrowserInstance | null = null;
   const startTime = Date.now();
@@ -150,6 +151,7 @@ export async function executeTestCase(
       evidenceCollector,
       maxRetries: 1,
       testingNotes: testingNotes.length > 0 ? testingNotes : undefined,
+      recorder: options?.recorder,
     });
 
     evidenceCollector.stopCapture();
@@ -180,57 +182,9 @@ export async function executeTestCase(
       }
     }
 
-    // Save evidence artifacts
-    const evidence = evidenceCollector.getEvidence();
-    const artifacts: Record<string, string> = {};
-
-    // Finalize video recording before closing browser
-    const videoUrl = await evidenceCollector.finalizeVideo();
-    if (videoUrl) {
-      artifacts.videoUrl = videoUrl;
-    }
-
-    if (evidence.screenshots.length > 0) {
-      artifacts.screenshots = JSON.stringify(evidence.screenshots);
-    }
-
-    // Visual quality analysis on last screenshot
-    if (evidence.screenshots.length > 0) {
-      try {
-        const visualResult = await analyzeVisualQuality(
-          evidence.screenshots[evidence.screenshots.length - 1],
-          testCase,
-          environmentUrl,
-        );
-        artifacts.visualAnalysis = JSON.stringify(visualResult);
-      } catch {
-        // Visual analysis is non-blocking — don't fail the test
-      }
-    }
-
-    if (evidence.networkLog.length > 0) {
-      artifacts.networkLog = await saveNetworkLog(
-        runId, testCase.id, evidence.networkLog, testCase.projectId
-      );
-    }
-    if (evidence.consoleLog.length > 0) {
-      artifacts.consoleLog = await saveConsoleLog(
-        runId, testCase.id, evidence.consoleLog, testCase.projectId
-      );
-    }
-    if (evidence.domSnapshot) {
-      artifacts.domSnapshot = evidence.domSnapshot;
-    }
-
-    // Run system invariants (informational — does not affect verdict)
-    let invariants: InvariantResult | undefined;
-    try {
-      invariants = runAllInvariants(await collectPageState(page, evidence, startTime));
-      if (!invariants.passed) {
-        for (const v of invariants.violations) log(`  [${v.severity}] ${v.description}`);
-      }
-      artifacts.invariants = JSON.stringify(invariants);
-    } catch { /* non-blocking */ }
+    const { artifacts, invariants } = await collectCaseArtifacts(page, evidenceCollector, {
+      runId, testCase, environmentUrl, startTime, analyzeVisual: true, log,
+    });
 
     return {
       verdict: finalVerdict,
