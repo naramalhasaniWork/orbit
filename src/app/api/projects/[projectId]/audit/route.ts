@@ -104,7 +104,7 @@ export async function POST(
     return apiSuccess(result, 201);
   } catch (error) {
     if (error instanceof AuditUnavailableError) {
-      return apiError(error.message, "AUDIT_UNAVAILABLE", 409);
+      return apiError(error.message, "AUDIT_UNAVAILABLE", error.status);
     }
     return handleApiError(error);
   }

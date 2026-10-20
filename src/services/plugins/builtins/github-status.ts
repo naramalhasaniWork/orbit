@@ -11,6 +11,7 @@ import type {
   RunResults,
 } from "@/services/plugins/runtime";
 import { resolveGitHubToken } from "@/lib/github/token";
+import { githubRepoApiUrl } from "@/lib/github/repo-paths";
 
 type GithubState = "pending" | "success" | "failure" | "error";
 
@@ -28,7 +29,7 @@ async function postGithubStatus(
   payload: StatusPayload,
   token: string
 ): Promise<void> {
-  const url = `https://api.github.com/repos/${repoOwner}/${repoName}/statuses/${commitSha}`;
+  const url = githubRepoApiUrl(repoOwner, repoName, ["statuses", commitSha]);
 
   const response = await fetch(url, {
     method: "POST",

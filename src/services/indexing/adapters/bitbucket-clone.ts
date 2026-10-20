@@ -1,5 +1,11 @@
 import type { FileEntry } from "@/services/indexing/clone";
 import { getStorage } from "@/lib/storage";
+import {
+  assertSafeRepoPath,
+  isSafeRepoPath,
+  bitbucketSrcUrl,
+  assertBitbucketPageUrl,
+} from "@/lib/github/repo-paths";
 
 interface BitbucketTreeItem {
   path: string;
@@ -41,8 +47,7 @@ async function fetchBitbucketTree(
   token: string
 ): Promise<BitbucketTreeItem[]> {
   const items: BitbucketTreeItem[] = [];
-  let url: string | undefined =
-    `https://api.bitbucket.org/2.0/repositories/${workspace}/${repo}/src/${branch}/?pagelen=100`;
+  let url: string | undefined = bitbucketSrcUrl(workspace, repo, branch, undefined, { pagelen: "100" });
 
   while (url) {
     const response = await fetch(url, {
@@ -55,7 +60,8 @@ async function fetchBitbucketTree(
 
     const data = (await response.json()) as BitbucketTreeResponse;
     items.push(...data.values);
-    url = data.next;
+    // `next` comes from the response: only follow it within this listing
+    url = data.next ? assertBitbucketPageUrl(data.next, workspace, repo) : undefined;
   }
 
   return items;
@@ -68,7 +74,7 @@ async function fetchBitbucketFile(
   filePath: string,
   token: string
 ): Promise<string> {
-  const url = `https://api.bitbucket.org/2.0/repositories/${workspace}/${repo}/src/${branch}/${filePath}`;
+  const url = bitbucketSrcUrl(workspace, repo, branch, filePath);
 
   const response = await fetch(url, {
     headers: { Authorization: `Bearer ${token}` },
@@ -99,13 +105,13 @@ export async function cloneBitbucketRepository(
 
     if (item.type === "commit_directory") {
       fileTree.push({ path: item.path, type: "dir", size: 0 });
-    } else if (item.type === "commit_file" && isIndexableFile(item.path)) {
+    } else if (item.type === "commit_file" && isIndexableFile(item.path) && isSafeRepoPath(item.path)) {
       const size = item.size ?? 0;
       fileTree.push({ path: item.path, type: "file", size });
       totalSize += size;
 
       const content = await fetchBitbucketFile(workspace, repo, branch, item.path, token);
-      await storage.upload(`${storagePrefix}/${item.path}`, Buffer.from(content), "text/plain");
+      await storage.upload(`${storagePrefix}/${assertSafeRepoPath(item.path)}`, Buffer.from(content), "text/plain");
     }
   }
 

@@ -1,5 +1,11 @@
 import type { FileEntry } from "@/services/indexing/clone";
 import { getStorage } from "@/lib/storage";
+import {
+  assertSafeRepoPath,
+  isSafeRepoPath,
+  gitlabTreeUrl,
+  gitlabRawFileUrl,
+} from "@/lib/github/repo-paths";
 
 interface GitLabContentItem {
   name: string;
@@ -31,9 +37,7 @@ async function fetchGitLabTree(
   token: string,
   dirPath: string
 ): Promise<GitLabContentItem[]> {
-  const encoded = encodeURIComponent(projectPath);
-  const encodedPath = encodeURIComponent(dirPath || "/");
-  const url = `https://gitlab.com/api/v4/projects/${encoded}/repository/tree?ref=${branch}&path=${encodedPath}&per_page=100`;
+  const url = gitlabTreeUrl(projectPath, branch, dirPath);
 
   const response = await fetch(url, {
     headers: { "PRIVATE-TOKEN": token },
@@ -52,9 +56,7 @@ async function fetchGitLabFile(
   filePath: string,
   token: string
 ): Promise<string> {
-  const encoded = encodeURIComponent(projectPath);
-  const encodedFile = encodeURIComponent(filePath);
-  const url = `https://gitlab.com/api/v4/projects/${encoded}/repository/files/${encodedFile}/raw?ref=${branch}`;
+  const url = gitlabRawFileUrl(projectPath, filePath, branch);
 
   const response = await fetch(url, {
     headers: { "PRIVATE-TOKEN": token },
@@ -85,13 +87,13 @@ export async function cloneGitLabRepository(
         if (IGNORED_DIRS.has(item.name)) continue;
         fileTree.push({ path: item.path, type: "dir", size: 0 });
         await crawl(item.path);
-      } else if (item.type === "blob" && isIndexableFile(item.path)) {
+      } else if (item.type === "blob" && isIndexableFile(item.path) && isSafeRepoPath(item.path)) {
         const size = item.size ?? 0;
         fileTree.push({ path: item.path, type: "file", size });
         totalSize += size;
 
         const content = await fetchGitLabFile(projectPath, branch, item.path, token);
-        await storage.upload(`${storagePrefix}/${item.path}`, Buffer.from(content), "text/plain");
+        await storage.upload(`${storagePrefix}/${assertSafeRepoPath(item.path)}`, Buffer.from(content), "text/plain");
       }
     }
   }

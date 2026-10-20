@@ -1,6 +1,5 @@
 import { resolveGitHubToken, getRepoInfo } from "@/lib/github/token";
-
-const GITHUB_API = "https://api.github.com";
+import { githubRepoApiUrl } from "@/lib/github/repo-paths";
 
 interface GitHubContext {
   token: string;
@@ -44,7 +43,6 @@ export async function upsertCheckRun(projectId: string, input: CheckRunInput): P
     return null;
   }
 
-  const base = `${GITHUB_API}/repos/${ctx.owner}/${ctx.repo}/check-runs`;
   const body: Record<string, unknown> = {
     name: input.name,
     status: input.status,
@@ -54,7 +52,8 @@ export async function upsertCheckRun(projectId: string, input: CheckRunInput): P
   if (input.status === "completed") body.conclusion = input.conclusion ?? "neutral";
 
   try {
-    const response = await fetch(input.checkRunId ? `${base}/${input.checkRunId}` : base, {
+    const segments = input.checkRunId ? ["check-runs", input.checkRunId] : ["check-runs"];
+    const response = await fetch(githubRepoApiUrl(ctx.owner, ctx.repo, segments), {
       method: input.checkRunId ? "PATCH" : "POST",
       headers: headers(ctx.token),
       body: JSON.stringify(body),
@@ -82,10 +81,9 @@ export async function findOpenPullRequestsForCommit(
   const ctx = await githubContext(projectId);
   if (!ctx) return [];
   try {
-    const response = await fetch(
-      `${GITHUB_API}/repos/${ctx.owner}/${ctx.repo}/commits/${encodeURIComponent(commitSha)}/pulls`,
-      { headers: headers(ctx.token) }
-    );
+    const response = await fetch(githubRepoApiUrl(ctx.owner, ctx.repo, ["commits", commitSha, "pulls"]), {
+      headers: headers(ctx.token),
+    });
     if (!response.ok) return [];
     const pulls = (await response.json()) as Array<{ number: number; state: string; head: { ref: string; sha: string } }>;
     return pulls

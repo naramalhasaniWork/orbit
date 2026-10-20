@@ -8,6 +8,7 @@
  */
 
 import { NextRequest } from "next/server";
+import { sealSecret } from "@/lib/integrations/secret-field";
 import { z } from "zod";
 import { requirePermission } from "@/lib/auth/rbac";
 import { auditSettingsChange } from "@/lib/auth/audit";
@@ -45,7 +46,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
     const { webhookUrl } = connectSchema.parse(await request.json());
 
     const saved = await patchWorkspaceSettings(workspaceId, {
-      slackWebhookUrl: webhookUrl,
+      slackWebhookUrl: sealSecret(webhookUrl),
       slack: { connected: true, notifications: DEFAULT_NOTIFICATIONS },
     });
     if (!saved) return apiError("Workspace not found", "NOT_FOUND", 404);

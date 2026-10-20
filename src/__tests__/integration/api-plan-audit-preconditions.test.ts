@@ -22,7 +22,9 @@ vi.mock("@/services/indexing/index-status", async (importOriginal) => {
 });
 vi.mock("@/services/planning/plan-jobs", () => ({ enqueuePlanGeneration: vi.fn() }));
 vi.mock("@/services/auditing/auditor", async () => {
-  class AuditUnavailableError extends Error {}
+  class AuditUnavailableError extends Error {
+    constructor(message: string, readonly status = 409) { super(message); }
+  }
   return { AuditUnavailableError, runCodeAudit: vi.fn() };
 });
 

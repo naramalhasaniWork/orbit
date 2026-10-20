@@ -75,7 +75,8 @@ const SEVERITY_TO_PRIORITY: Record<string, number> = {
   info: 4,
 };
 
-async function getLinearConfig(
+/** Linear credentials as the Settings integration stores them (project, then workspace, then env). */
+export async function getLinearConfig(
   projectId: string
 ): Promise<{ apiKey: string; teamId: string } | null> {
   const project = await prisma.project.findUnique({

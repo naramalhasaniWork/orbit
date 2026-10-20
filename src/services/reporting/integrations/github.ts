@@ -1,5 +1,6 @@
 import type { RunSummary } from "@/agents/schemas/run-summary";
 import { resolveGitHubToken, getRepoInfo } from "@/lib/github/token";
+import { githubRepoApiUrl } from "@/lib/github/repo-paths";
 import { upsertCheckRun } from "./github-checks";
 
 interface PRCommentResult {
@@ -57,9 +58,8 @@ async function findExistingOrbitComment(
   prNumber: number,
   token: string
 ): Promise<number | null> {
-  const url = `https://api.github.com/repos/${owner}/${repo}/issues/${prNumber}/comments?per_page=100`;
-
   try {
+    const url = githubRepoApiUrl(owner, repo, ["issues", prNumber, "comments"], { per_page: "100" });
     const response = await fetch(url, {
       headers: {
         Authorization: `Bearer ${token}`,
@@ -128,11 +128,11 @@ export async function postPRComment(
 
     if (existingId) {
       // Update existing comment
-      url = `https://api.github.com/repos/${repoInfo.owner}/${repoInfo.repo}/issues/comments/${existingId}`;
+      url = githubRepoApiUrl(repoInfo.owner, repoInfo.repo, ["issues", "comments", existingId]);
       method = "PATCH";
     } else {
       // Create new comment
-      url = `https://api.github.com/repos/${repoInfo.owner}/${repoInfo.repo}/issues/${prNumber}/comments`;
+      url = githubRepoApiUrl(repoInfo.owner, repoInfo.repo, ["issues", prNumber, "comments"]);
       method = "POST";
     }
 

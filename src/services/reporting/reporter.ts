@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { openSecret } from "@/lib/integrations/secret-field";
 import { analyzeFailures, getHistoricalData } from "@/services/reporting/failure-analyzer";
 import {
   generateReport as generateRunReport,
@@ -195,10 +196,9 @@ async function triggerIntegrations(
   }
 
   // Slack: send run notification via webhook
+  // Sealed by the Settings route; legacy plaintext values still open
   const slackWebhookUrl =
-    (settings?.slackWebhookUrl as string | undefined) ??
-    (workspaceSettings.slackWebhookUrl as string | undefined) ??
-    (settings?.slackChannelId as string | undefined);
+    openSecret(settings?.slackWebhookUrl) ?? openSecret(workspaceSettings.slackWebhookUrl);
   if (slackWebhookUrl) {
     if (slackPrefs?.notifications?.runCompleted !== false) {
       const notifResult = await sendRunNotification(

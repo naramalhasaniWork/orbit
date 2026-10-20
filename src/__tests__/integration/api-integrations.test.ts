@@ -67,7 +67,9 @@ describe("slack integration route", () => {
     const { POST } = await import("@/app/api/workspaces/[workspaceId]/integrations/slack/route");
     const res = await POST(req("POST", { webhookUrl: url }), wsParams);
     expect(res.status).toBe(200);
-    expect(workspaceSettings.slackWebhookUrl).toBe(url);
+    // Stored sealed, never as plaintext; the reporter opens it with openSecret
+    expect(workspaceSettings.slackWebhookUrl).not.toBe(url);
+    expect(openSecret(workspaceSettings.slackWebhookUrl)).toBe(url);
     expect(workspaceSettings.slack).toMatchObject({ connected: true });
   });
 

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { githubRepoApiUrl, assertSafeRepoPath } from "@/lib/github/repo-paths";
 
 // ============================================================
 // Types
@@ -193,10 +194,11 @@ export async function fetchGitHubCommits(
   since.setDate(since.getDate() - daysSince);
 
   const url =
-    `https://api.github.com/repos/${owner}/${repo}/commits` +
-    `?sha=${encodeURIComponent(branch)}` +
-    `&since=${since.toISOString()}` +
-    `&per_page=100`;
+    githubRepoApiUrl(owner, repo, ["commits"], {
+      sha: assertSafeRepoPath(branch, "branch"),
+      since: since.toISOString(),
+      per_page: "100",
+    });
 
   const listRes = await fetch(url, {
     headers: {
@@ -217,7 +219,7 @@ export async function fetchGitHubCommits(
 
   for (const commit of commitsToFetch) {
     const detailUrl =
-      `https://api.github.com/repos/${owner}/${repo}/commits/${commit.sha}`;
+      githubRepoApiUrl(owner, repo, ["commits", commit.sha]);
     const detailRes = await fetch(detailUrl, {
       headers: {
         Authorization: `Bearer ${token}`,
