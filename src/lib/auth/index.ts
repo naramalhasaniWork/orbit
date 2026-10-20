@@ -18,7 +18,8 @@ export const authOptions: AuthOptions = {
     GitHubProvider({
       clientId: process.env.GITHUB_CLIENT_ID!,
       clientSecret: process.env.GITHUB_CLIENT_SECRET!,
-      authorization: { params: { scope: "read:user user:email repo read:org" } },
+      // GitHub Apps ignore OAuth scopes (permissions come from the App's configuration),
+      // so none are requested here. GITHUB_CLIENT_ID/SECRET must be the GitHub App's.
     }),
     ...(process.env.GITLAB_CLIENT_ID
       ? [
