@@ -12,6 +12,7 @@ vi.mock("@/lib/auth/rate-limit", () => ({ consumeRateLimit: vi.fn() }));
 vi.mock("@/lib/db", () => ({
   prisma: {
     user: { update: vi.fn(), findUnique: vi.fn(), count: vi.fn() },
+    account: { updateMany: vi.fn() },
     workspaceMember: { findFirst: vi.fn(), create: vi.fn() },
     workspaceInvitation: { findFirst: vi.fn() },
     workspace: { create: vi.fn() },
@@ -29,6 +30,7 @@ const db = prisma as unknown as {
   user: Record<"update" | "findUnique" | "count", ReturnType<typeof vi.fn>>;
   workspaceMember: Record<"findFirst" | "create", ReturnType<typeof vi.fn>>;
   workspaceInvitation: { findFirst: ReturnType<typeof vi.fn> };
+  account: { updateMany: ReturnType<typeof vi.fn> };
   workspace: { create: ReturnType<typeof vi.fn> };
 };
 const evaluate = evaluateSignIn as ReturnType<typeof vi.fn>;
@@ -95,6 +97,14 @@ describe("jwt callback: GitHub token storage", () => {
       .githubAccessToken as string;
     expect(stored).not.toContain("gho_realtoken123");
     expect(decryptToken(stored)).toBe("gho_realtoken123");
+  });
+
+  it("also rewrites the accounts row encrypted (fresh token, legacy plaintext upgraded)", async () => {
+    await runJwt();
+    const call = db.account.updateMany.mock.calls[0][0];
+    expect(call.where).toEqual({ userId: "u1", provider: "github" });
+    expect(call.data.access_token).not.toContain("gho_realtoken123");
+    expect(decryptToken(call.data.access_token)).toBe("gho_realtoken123");
   });
 
   it("re-encrypts on every login, which upgrades legacy plaintext rows", async () => {
