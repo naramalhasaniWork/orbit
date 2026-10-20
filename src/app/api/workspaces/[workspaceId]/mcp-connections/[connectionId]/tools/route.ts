@@ -3,19 +3,13 @@
  * List discovered tools for a specific connection.
  */
 
-import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
-import { requirePermission } from "@/lib/auth/rbac";
-import { apiSuccess, apiError, handleApiError } from "@/lib/utils/api";
+import { apiSuccess, apiError } from "@/lib/utils/api";
+import { route } from "@/server/http/route";
 
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: Promise<{ workspaceId: string; connectionId: string }> }
-) {
-  try {
-    const { workspaceId, connectionId } = await params;
-    await requirePermission(workspaceId, "settings.view");
-
+export const GET = route(
+  { workspace: "param", permission: "settings.view" },
+  async ({ params: { connectionId }, workspaceId }) => {
     const connection = await prisma.mcpConnection.findFirst({
       where: { id: connectionId, workspaceId },
       select: {
@@ -42,7 +36,5 @@ export async function GET(
       tools,
       lastConnectedAt: connection.lastConnectedAt,
     });
-  } catch (error) {
-    return handleApiError(error);
   }
-}
+);

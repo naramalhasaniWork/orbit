@@ -1,13 +1,7 @@
-import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
-import {
-  requireWorkspace,
-  apiSuccess,
-  apiError,
-  handleApiError,
-} from "@/lib/utils/api";
+import { apiSuccess, apiError } from "@/lib/utils/api";
 import { emitRunProgress } from "@/lib/websocket";
-import { requirePermission } from "@/lib/auth/rbac";
+import { route } from "@/server/http/route";
 
 const CANCELLABLE_STATUSES = new Set([
   "queued",
@@ -16,15 +10,9 @@ const CANCELLABLE_STATUSES = new Set([
   "executing",
 ]);
 
-export async function POST(
-  _request: NextRequest,
-  { params }: { params: Promise<{ projectId: string; runId: string }> }
-) {
-  try {
-    const { workspaceId } = await requireWorkspace();
-    await requirePermission(workspaceId, "runs.cancel");
-    const { projectId, runId } = await params;
-
+export const POST = route(
+  { permission: "runs.cancel" },
+  async ({ params: { projectId, runId }, workspaceId }) => {
     const project = await prisma.project.findFirst({
       where: { id: projectId, workspaceId },
       select: { id: true },
@@ -71,7 +59,5 @@ export async function POST(
     });
 
     return apiSuccess(updated);
-  } catch (error) {
-    return handleApiError(error);
   }
-}
+);

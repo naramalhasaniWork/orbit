@@ -7,15 +7,14 @@
  * display state and notification preferences the settings UI renders.
  */
 
-import { NextRequest } from "next/server";
 import { z } from "zod";
-import { requirePermission } from "@/lib/auth/rbac";
 import { auditSettingsChange } from "@/lib/auth/audit";
-import { apiSuccess, apiError, handleApiError } from "@/lib/utils/api";
+import { apiSuccess, apiError } from "@/lib/utils/api";
 import {
   patchWorkspaceSettings,
   readWorkspaceSettings,
 } from "@/lib/integrations/workspace-settings";
+import { route } from "@/server/http/route";
 
 const SLACK_WEBHOOK_PATTERN = /^https:\/\/hooks\.slack\.com\/services\/[A-Za-z0-9/_-]+$/;
 
@@ -37,11 +36,9 @@ const DEFAULT_NOTIFICATIONS = { runCompleted: true, testFailed: true };
 
 type RouteContext = { params: Promise<{ workspaceId: string }> };
 
-export async function POST(request: NextRequest, { params }: RouteContext) {
-  try {
-    const { workspaceId } = await params;
-    const ctx = await requirePermission(workspaceId, "settings.manage");
-
+export const POST = route(
+  { workspace: "param", permission: "settings.manage" },
+  async ({ req: request, workspaceId, session }) => {
     const { webhookUrl } = connectSchema.parse(await request.json());
 
     const saved = await patchWorkspaceSettings(workspaceId, {
@@ -50,21 +47,17 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
     });
     if (!saved) return apiError("Workspace not found", "NOT_FOUND", 404);
 
-    await auditSettingsChange(ctx.session.user.id, workspaceId, "integration.slack", {
+    await auditSettingsChange(session.user.id, workspaceId, "integration.slack", {
       action: "connected",
     });
 
     return apiSuccess({ connected: true, notifications: DEFAULT_NOTIFICATIONS });
-  } catch (error) {
-    return handleApiError(error);
   }
-}
+);
 
-export async function PATCH(request: NextRequest, { params }: RouteContext) {
-  try {
-    const { workspaceId } = await params;
-    await requirePermission(workspaceId, "settings.manage");
-
+export const PATCH = route(
+  { workspace: "param", permission: "settings.manage" },
+  async ({ req: request, workspaceId }) => {
     const { notifications } = patchSchema.parse(await request.json());
 
     const current = await readWorkspaceSettings(workspaceId);
@@ -77,25 +70,19 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
     await patchWorkspaceSettings(workspaceId, { slack });
 
     return apiSuccess({ notifications });
-  } catch (error) {
-    return handleApiError(error);
   }
-}
+);
 
-export async function DELETE(_request: NextRequest, { params }: RouteContext) {
-  try {
-    const { workspaceId } = await params;
-    const ctx = await requirePermission(workspaceId, "settings.manage");
-
+export const DELETE = route(
+  { workspace: "param", permission: "settings.manage" },
+  async ({ workspaceId, session }) => {
     const saved = await patchWorkspaceSettings(workspaceId, { slack: { connected: false } }, ["slackWebhookUrl"]);
     if (!saved) return apiError("Workspace not found", "NOT_FOUND", 404);
 
-    await auditSettingsChange(ctx.session.user.id, workspaceId, "integration.slack", {
+    await auditSettingsChange(session.user.id, workspaceId, "integration.slack", {
       action: "disconnected",
     });
 
     return apiSuccess({ disconnected: true });
-  } catch (error) {
-    return handleApiError(error);
   }
-}
+);

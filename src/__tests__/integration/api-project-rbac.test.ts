@@ -45,7 +45,10 @@ function findRouteFiles(dir: string): string[] {
 
 /** Source of a handler: from its declaration to the next top-level export. */
 function handlerSource(source: string, method: string): string | null {
-  const start = source.indexOf(`export async function ${method}(`);
+  const start = Math.max(
+    source.indexOf(`export async function ${method}(`),
+    source.indexOf(`export const ${method} = route(`)
+  );
   if (start === -1) return null;
   const next = source.indexOf("\nexport ", start + 1);
   return source.slice(start, next === -1 ? undefined : next);
@@ -58,7 +61,8 @@ describe("project routes: every mutating handler checks a permission", () => {
       const body = handlerSource(source, method);
       if (!body) continue;
       it(`${path.relative(API_ROOT, file)} ${method}`, () => {
-        expect(body).toMatch(/await requirePermission\(/);
+        // Either the legacy call, or a route() spec that names the permission
+        expect(body).toMatch(/await requirePermission\(|route\(\s*\{[^}]*permission: "/);
       });
     }
   }

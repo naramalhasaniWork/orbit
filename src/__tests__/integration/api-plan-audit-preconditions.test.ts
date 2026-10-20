@@ -16,6 +16,11 @@ vi.mock("@/lib/utils/api", async () => {
   };
 });
 vi.mock("@/lib/auth/rbac", () => ({ requirePermission: vi.fn().mockResolvedValue({}) }));
+// The plan route runs through route(); the audit POST still uses requireWorkspace (mocked above)
+vi.mock("@/server/http/session", async () => (await import("../helpers/route-auth")).sessionMock());
+vi.mock("@/server/http/auth", async (orig) =>
+  (await import("../helpers/route-auth")).authMock(await orig<Record<string, unknown>>())
+);
 vi.mock("@/services/indexing/index-status", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/services/indexing/index-status")>();
   return { ...actual, isProjectIndexed: vi.fn() };
@@ -29,6 +34,7 @@ vi.mock("@/services/auditing/auditor", async () => {
 });
 
 import { prisma } from "@/lib/db";
+import { resetRouteAuth } from "../helpers/route-auth";
 import { isProjectIndexed } from "@/services/indexing/index-status";
 import { enqueuePlanGeneration } from "@/services/planning/plan-jobs";
 import { runCodeAudit, AuditUnavailableError } from "@/services/auditing/auditor";
@@ -43,6 +49,7 @@ const req = (path: string) =>
 describe("plan/audit preconditions", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    resetRouteAuth();
     (prisma.project.findFirst as ReturnType<typeof vi.fn>).mockResolvedValue({ id: "p1" });
   });
 

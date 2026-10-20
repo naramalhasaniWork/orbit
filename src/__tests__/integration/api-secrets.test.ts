@@ -15,7 +15,6 @@ vi.mock("@/lib/db", () => ({
 vi.mock("@/lib/utils/api", async () => {
   const { NextResponse } = await import("next/server");
   return {
-    requireWorkspace: vi.fn(),
     apiSuccess: (data: unknown, status = 200) =>
       NextResponse.json({ success: true, data }, { status }),
     apiError: (message: string, code: string, status = 400) =>
@@ -39,18 +38,18 @@ vi.mock("@/lib/utils/api", async () => {
   };
 });
 
-vi.mock("@/lib/auth/rbac", () => ({
-  requirePermission: vi.fn(),
-}));
+vi.mock("@/server/http/session", async () => (await import("../helpers/route-auth")).sessionMock());
+vi.mock("@/server/http/auth", async (orig) =>
+  (await import("../helpers/route-auth")).authMock(await orig<Record<string, unknown>>())
+);
 
 vi.mock("@/lib/vault", () => ({
   encrypt: vi.fn(() => ({ encrypted: "enc-value", iv: "enc-iv" })),
 }));
 
 import { prisma } from "@/lib/db";
-import { requireWorkspace } from "@/lib/utils/api";
-import { requirePermission } from "@/lib/auth/rbac";
 import { NextRequest } from "next/server";
+import { resetRouteAuth } from "../helpers/route-auth";
 
 const mockPrisma = prisma as unknown as {
   project: { findFirst: ReturnType<typeof vi.fn> };
@@ -61,16 +60,11 @@ const mockPrisma = prisma as unknown as {
     update: ReturnType<typeof vi.fn>;
   };
 };
-const mockRequireWorkspace = requireWorkspace as ReturnType<typeof vi.fn>;
-const mockRequirePermission = requirePermission as ReturnType<typeof vi.fn>;
 
 describe("api-secrets", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockRequireWorkspace.mockResolvedValue({
-      session: { user: { id: "user-1" }, workspaceId: "ws-1" },
-      workspaceId: "ws-1",
-    });
+    resetRouteAuth();
   });
 
   describe("GET /api/projects/[projectId]/secrets", () => {

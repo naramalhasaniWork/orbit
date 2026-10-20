@@ -3,22 +3,19 @@
  * DELETE /api/workspaces/:workspaceId/mcp-connections/:connectionId — Delete connection
  */
 
-import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
-import { requirePermission } from "@/lib/auth/rbac";
-import { apiSuccess, apiError, handleApiError } from "@/lib/utils/api";
+import { apiSuccess, apiError } from "@/lib/utils/api";
 import { encrypt } from "@/lib/vault";
 import { writeAuditLog } from "@/lib/auth/audit";
 import { disconnectFromPool } from "@/services/mcp/client";
 import type { Prisma } from "@/generated/prisma/client";
+import { route } from "@/server/http/route";
 
 type RouteParams = { params: Promise<{ workspaceId: string; connectionId: string }> };
 
-export async function PUT(request: NextRequest, { params }: RouteParams) {
-  try {
-    const { workspaceId, connectionId } = await params;
-    const { session } = await requirePermission(workspaceId, "settings.manage");
-
+export const PUT = route(
+  { workspace: "param", permission: "settings.manage" },
+  async ({ req: request, params: { connectionId }, workspaceId, session }) => {
     const existing = await prisma.mcpConnection.findFirst({
       where: { id: connectionId, workspaceId },
     });
@@ -95,16 +92,12 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       toolsDiscovered: updated.toolsDiscovered,
       lastConnectedAt: updated.lastConnectedAt,
     });
-  } catch (error) {
-    return handleApiError(error);
   }
-}
+);
 
-export async function DELETE(_request: NextRequest, { params }: RouteParams) {
-  try {
-    const { workspaceId, connectionId } = await params;
-    const { session } = await requirePermission(workspaceId, "settings.manage");
-
+export const DELETE = route(
+  { workspace: "param", permission: "settings.manage" },
+  async ({ params: { connectionId }, workspaceId, session }) => {
     const existing = await prisma.mcpConnection.findFirst({
       where: { id: connectionId, workspaceId },
     });
@@ -125,7 +118,5 @@ export async function DELETE(_request: NextRequest, { params }: RouteParams) {
     });
 
     return apiSuccess({ deleted: true });
-  } catch (error) {
-    return handleApiError(error);
   }
-}
+);

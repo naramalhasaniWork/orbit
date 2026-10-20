@@ -1,71 +1,55 @@
-import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
-import {
-  requireWorkspace,
-  apiSuccess,
-  apiError,
-  handleApiError,
-} from "@/lib/utils/api";
-import { requirePermission } from "@/lib/auth/rbac";
+import { apiSuccess, apiError } from "@/lib/utils/api";
 import { canConsume } from "@/lib/auth/tenant";
 import { getDefaultEnvironment } from "@/services/execution/environment-validator";
 import { emitRunStarted } from "@/lib/websocket";
 import { enqueueOrDiscard } from "@/services/orchestrator/run-launcher";
 import { requireQueueAvailable, WORKERS_UNAVAILABLE_MESSAGE } from "@/lib/queue/availability";
+import { route } from "@/server/http/route";
 
 // ============================================================
 // GET /api/projects/[projectId]/runs — List runs for a project
 // ============================================================
 
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: Promise<{ projectId: string }> }
-) {
-  try {
-    const { workspaceId } = await requireWorkspace();
-    const { projectId } = await params;
+export const GET = route({}, async ({ params: { projectId }, workspaceId }) => {
+  // Verify project belongs to workspace
+  const project = await prisma.project.findFirst({
+    where: { id: projectId, workspaceId },
+    select: { id: true },
+  });
 
-    // Verify project belongs to workspace
-    const project = await prisma.project.findFirst({
-      where: { id: projectId, workspaceId },
-      select: { id: true },
-    });
-
-    if (!project) {
-      return apiError("Project not found", "NOT_FOUND", 404);
-    }
-
-    const runs = await prisma.testRun.findMany({
-      where: { projectId },
-      orderBy: { createdAt: "desc" },
-      take: 50,
-      select: {
-        id: true,
-        sequenceNumber: true,
-        status: true,
-        mode: true,
-        trigger: true,
-        totalTests: true,
-        passed: true,
-        failed: true,
-        flaky: true,
-        skipped: true,
-        creditsConsumed: true,
-        branch: true,
-        commitSha: true,
-        prNumber: true,
-        startedAt: true,
-        completedAt: true,
-        durationMs: true,
-        createdAt: true,
-      },
-    });
-
-    return apiSuccess(runs);
-  } catch (error) {
-    return handleApiError(error);
+  if (!project) {
+    return apiError("Project not found", "NOT_FOUND", 404);
   }
-}
+
+  const runs = await prisma.testRun.findMany({
+    where: { projectId },
+    orderBy: { createdAt: "desc" },
+    take: 50,
+    select: {
+      id: true,
+      sequenceNumber: true,
+      status: true,
+      mode: true,
+      trigger: true,
+      totalTests: true,
+      passed: true,
+      failed: true,
+      flaky: true,
+      skipped: true,
+      creditsConsumed: true,
+      branch: true,
+      commitSha: true,
+      prNumber: true,
+      startedAt: true,
+      completedAt: true,
+      durationMs: true,
+      createdAt: true,
+    },
+  });
+
+  return apiSuccess(runs);
+});
 
 // ============================================================
 // POST /api/projects/[projectId]/runs — Start a new test run
@@ -80,17 +64,9 @@ interface CreateRunBody {
   prNumber?: number;
 }
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ projectId: string }> }
-) {
-  try {
-    const { session, workspaceId } = await requireWorkspace();
-    const { projectId } = await params;
-
-    // RBAC: require runs.create permission
-    await requirePermission(workspaceId, "runs.create");
-
+export const POST = route(
+  { permission: "runs.create" },
+  async ({ req: request, params: { projectId }, workspaceId, session }) => {
     // Verify project belongs to workspace
     const project = await prisma.project.findFirst({
       where: { id: projectId, workspaceId },
@@ -211,7 +187,5 @@ export async function POST(
     });
 
     return apiSuccess({ ...run, totalTests: testCaseCount }, 201);
-  } catch (error) {
-    return handleApiError(error);
   }
-}
+);

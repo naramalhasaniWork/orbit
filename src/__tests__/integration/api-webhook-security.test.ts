@@ -31,14 +31,12 @@ vi.mock("@/lib/db", () => ({
 vi.mock("@/lib/queue/queues", () => ({
   getIndexingQueue: () => ({ getActive: async () => [], getWaiting: async () => [], getFailed: async () => [] }),
 }));
-const requirePermission = vi.fn();
-vi.mock("@/lib/auth/rbac", () => ({ requirePermission: (...a: unknown[]) => requirePermission(...a) }));
-vi.mock("@/lib/utils/api", async (orig) => ({
-  ...(await orig<typeof import("@/lib/utils/api")>()),
-  requireWorkspace: vi.fn(async () => ({ workspaceId: "w1" })),
-}));
+vi.mock("@/server/http/session", async () => (await import("../helpers/route-auth")).sessionMock());
+vi.mock("@/server/http/auth", async (orig) =>
+  (await import("../helpers/route-auth")).authMock(await orig<Record<string, unknown>>())
+);
 
-import { AuthError } from "@/lib/utils/api";
+import { resetRouteAuth, routeAuth } from "../helpers/route-auth";
 import { sealSecret } from "@/lib/integrations/secret-field";
 import { isAllowedWebhookUrl } from "@/lib/integrations/webhook-url";
 
@@ -63,7 +61,8 @@ const sealedHook = {
 beforeEach(() => {
   vi.clearAllMocks();
   vi.unstubAllGlobals();
-  requirePermission.mockResolvedValue({ session: { user: { id: "u1" } } });
+  resetRouteAuth();
+  routeAuth.workspaceId = "w1";
   projectSettings = {
     webhooks: [sealedHook],
     slackWebhookUrl: "https://hooks.slack.com/services/T/B/X",
@@ -115,10 +114,9 @@ describe("generic project settings cannot touch integration credentials", () => 
 
 describe("webhook retry route", () => {
   it("requires integrations.manage", async () => {
-    requirePermission.mockRejectedValue(new AuthError("denied", "FORBIDDEN", 403));
+    routeAuth.role = "viewer"; // viewers hold integrations.view only
     const { POST } = await import("@/app/api/projects/[projectId]/webhook-deliveries/[deliveryId]/retry/route");
     expect((await POST(req("POST"), retryParams)).status).toBe(403);
-    expect(requirePermission).toHaveBeenCalledWith("w1", "integrations.manage");
   });
 
   it("refuses with 409 when the endpoint is gone or its secret is unresolvable", async () => {

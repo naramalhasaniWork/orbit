@@ -1,25 +1,20 @@
-import { NextRequest } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { requirePermission, assertCanManageRole } from "@/lib/auth/rbac";
+import { assertCanManageRole } from "@/lib/auth/rbac";
 import { canConsume } from "@/lib/auth/tenant";
-import { apiSuccess, apiError, handleApiError } from "@/lib/utils/api";
+import { apiSuccess, apiError } from "@/lib/utils/api";
 import { writeAuditLog } from "@/lib/auth/audit";
 import { newInviteExpiry, newInviteToken, normalizeInviteEmail } from "@/lib/invitations";
 import { deliverInviteEmail } from "@/lib/email/invite-email";
+import { route } from "@/server/http/route";
 
 // ============================================================
 // GET /api/workspaces/[workspaceId]/invitations — List invitations
 // ============================================================
 
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: Promise<{ workspaceId: string }> }
-) {
-  try {
-    const { workspaceId } = await params;
-    await requirePermission(workspaceId, "members.invite");
-
+export const GET = route(
+  { workspace: "param", permission: "members.invite" },
+  async ({ workspaceId }) => {
     const invitations = await prisma.workspaceInvitation.findMany({
       where: { workspaceId },
       include: {
@@ -31,10 +26,8 @@ export async function GET(
     });
 
     return apiSuccess(invitations);
-  } catch (error) {
-    return handleApiError(error);
   }
-}
+);
 
 // ============================================================
 // POST /api/workspaces/[workspaceId]/invitations — Create invitation
@@ -45,14 +38,9 @@ const CreateInvitationSchema = z.object({
   role: z.enum(["admin", "member", "viewer", "billing"]).default("member"),
 });
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ workspaceId: string }> }
-) {
-  try {
-    const { workspaceId } = await params;
-    const ctx = await requirePermission(workspaceId, "members.invite");
-
+export const POST = route(
+  { workspace: "param", permission: "members.invite" },
+  async ({ req: request, workspaceId, session }) => {
     const body = await request.json();
     const parsed = CreateInvitationSchema.safeParse(body);
     if (!parsed.success) {
@@ -64,7 +52,7 @@ export async function POST(
     const now = new Date();
 
     // Cannot invite someone at or above your own level
-    assertCanManageRole(ctx.role, role);
+    assertCanManageRole(session.role, role);
 
     const allowance = await canConsume(workspaceId, "member");
     if (!allowance.allowed) {
@@ -102,16 +90,16 @@ export async function POST(
         email,
         role,
         token: newInviteToken(),
-        invitedById: ctx.session.user.id,
+        invitedById: session.user.id,
         expiresAt: newInviteExpiry(now),
       },
     });
 
-    const emailResult = await deliverInviteEmail(workspaceId, invitation, ctx.session.user.name ?? null);
+    const emailResult = await deliverInviteEmail(workspaceId, invitation, session.user.name ?? null);
 
     await writeAuditLog({
       workspaceId,
-      userId: ctx.session.user.id,
+      userId: session.user.id,
       action: "member.invited",
       resourceType: "workspace_invitation",
       resourceId: invitation.id,
@@ -126,10 +114,8 @@ export async function POST(
       expiresAt: invitation.expiresAt,
       emailSent: emailResult.sent,
     }, 201);
-  } catch (error) {
-    return handleApiError(error);
   }
-}
+);
 
 // ============================================================
 // DELETE /api/workspaces/[workspaceId]/invitations — Revoke invitation
@@ -139,14 +125,9 @@ const RevokeSchema = z.object({
   invitationId: z.string().uuid(),
 });
 
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: Promise<{ workspaceId: string }> }
-) {
-  try {
-    const { workspaceId } = await params;
-    const ctx = await requirePermission(workspaceId, "members.invite");
-
+export const DELETE = route(
+  { workspace: "param", permission: "members.invite" },
+  async ({ req: request, workspaceId, session }) => {
     const body = await request.json();
     const parsed = RevokeSchema.safeParse(body);
     if (!parsed.success) {
@@ -168,7 +149,7 @@ export async function DELETE(
 
     await writeAuditLog({
       workspaceId,
-      userId: ctx.session.user.id,
+      userId: session.user.id,
       action: "invitation.revoked",
       resourceType: "workspace_invitation",
       resourceId: invitation.id,
@@ -176,7 +157,5 @@ export async function DELETE(
     });
 
     return apiSuccess({ revoked: invitation.id });
-  } catch (error) {
-    return handleApiError(error);
   }
-}
+);

@@ -25,17 +25,13 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 
-const requirePermission = vi.fn();
-vi.mock("@/lib/auth/rbac", () => ({
-  requirePermission: (...args: unknown[]) => requirePermission(...args),
-}));
+vi.mock("@/server/http/session", async () => (await import("../helpers/route-auth")).sessionMock());
+vi.mock("@/server/http/auth", async (orig) =>
+  (await import("../helpers/route-auth")).authMock(await orig<Record<string, unknown>>())
+);
 vi.mock("@/lib/auth/audit", () => ({ auditSettingsChange: vi.fn() }));
-vi.mock("@/lib/utils/api", async (orig) => ({
-  ...(await orig<typeof import("@/lib/utils/api")>()),
-  requireWorkspace: vi.fn(async () => ({ workspaceId: "w1" })),
-}));
 
-import { AuthError } from "@/lib/utils/api";
+import { resetRouteAuth, routeAuth } from "../helpers/route-auth";
 import { openSecret } from "@/lib/integrations/secret-field";
 
 // Delivery goes through the DNS-pinned safeFetch; route it to the stubbed global fetch here.
@@ -57,7 +53,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   workspaceSettings = {};
   projectSettings = {};
-  requirePermission.mockResolvedValue({ session: { user: { id: "u1" } } });
+  resetRouteAuth();
+  routeAuth.workspaceId = "w1";
 });
 
 describe("slack integration route", () => {
@@ -79,11 +76,10 @@ describe("slack integration route", () => {
   });
 
   it("requires settings.manage", async () => {
-    requirePermission.mockRejectedValue(new AuthError("denied", "FORBIDDEN", 403));
+    routeAuth.role = "viewer";
     const { POST } = await import("@/app/api/workspaces/[workspaceId]/integrations/slack/route");
     const res = await POST(req("POST", { webhookUrl: url }), wsParams);
     expect(res.status).toBe(403);
-    expect(requirePermission).toHaveBeenCalledWith("w1", "settings.manage");
   });
 
   it("updates preferences and disconnects", async () => {
