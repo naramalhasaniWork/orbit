@@ -36,13 +36,16 @@ export interface PlanSummaryStats {
   lowPriority: number;
 }
 
+// Type is a category, not a status: one neutral tag style for all of them.
+const TYPE_TAG = "border-border bg-transparent text-tm-t2 font-label uppercase tracking-label";
+
 export const TEST_TYPE_CONFIG: Record<string, { label: string; className: string }> = {
-  journey: { label: "Journey", className: "bg-orbit-accent/15 text-orbit-accent border-orbit-accent/30" },
-  api_contract: { label: "API", className: "bg-purple-500/15 text-purple-400 border-purple-500/30" },
-  auth: { label: "Auth", className: "bg-amber-500/15 text-amber-400 border-amber-500/30" },
-  form_validation: { label: "Form", className: "bg-cyan-500/15 text-cyan-400 border-cyan-500/30" },
-  edge_case: { label: "Edge Case", className: "bg-rose-500/15 text-rose-400 border-rose-500/30" },
-  regression: { label: "Regression", className: "bg-emerald-500/15 text-emerald-400 border-emerald-500/30" },
+  journey: { label: "Journey", className: TYPE_TAG },
+  api_contract: { label: "API", className: TYPE_TAG },
+  auth: { label: "Auth", className: TYPE_TAG },
+  form_validation: { label: "Form", className: TYPE_TAG },
+  edge_case: { label: "Edge Case", className: TYPE_TAG },
+  regression: { label: "Regression", className: TYPE_TAG },
 };
 
 export function getPriorityTier(score: number): { label: string; className: string } {
