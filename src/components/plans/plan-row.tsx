@@ -56,7 +56,7 @@ export function PlanRow({ plan, stats, isExpanded, onToggle, projectId, onRegene
     <div className="rounded-xl surface-1 border border-border overflow-hidden">
       <button
         onClick={onToggle}
-        className="w-full flex items-center gap-4 px-5 py-4 hover:bg-white/[0.04] transition-colors duration-150 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orbit-accent/50 focus-visible:ring-inset"
+        className="w-full flex items-center gap-4 px-5 py-4 hover:bg-foreground/[0.04] transition-colors duration-150 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orbit-accent/50 focus-visible:ring-inset"
       >
         <ChevronRight
           className={cn(

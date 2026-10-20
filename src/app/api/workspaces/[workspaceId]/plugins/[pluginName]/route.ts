@@ -1,21 +1,15 @@
-import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
-import { requirePermission } from "@/lib/auth/rbac";
-import { apiSuccess, apiError, handleApiError } from "@/lib/utils/api";
+import { apiSuccess, apiError } from "@/lib/utils/api";
+import { route } from "@/server/http/route";
 
 /**
  * PATCH  /api/workspaces/:workspaceId/plugins/:pluginName — Enable/disable or update config
  * DELETE /api/workspaces/:workspaceId/plugins/:pluginName — Uninstall plugin
  */
 
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: Promise<{ workspaceId: string; pluginName: string }> }
-) {
-  try {
-    const { workspaceId, pluginName } = await params;
-    await requirePermission(workspaceId, "settings.manage");
-
+export const PATCH = route(
+  { workspace: "param", permission: "settings.manage" },
+  async ({ req: request, params: { pluginName }, workspaceId }) => {
     const body = await request.json();
     const { enabled, config } = body as {
       enabled?: boolean;
@@ -64,19 +58,12 @@ export async function PATCH(
       enabled: updated.isEnabled,
       config: updated.config,
     });
-  } catch (error) {
-    return handleApiError(error);
   }
-}
+);
 
-export async function DELETE(
-  _request: NextRequest,
-  { params }: { params: Promise<{ workspaceId: string; pluginName: string }> }
-) {
-  try {
-    const { workspaceId, pluginName } = await params;
-    await requirePermission(workspaceId, "settings.manage");
-
+export const DELETE = route(
+  { workspace: "param", permission: "settings.manage" },
+  async ({ params: { pluginName }, workspaceId }) => {
     const installation = await prisma.pluginInstallation.findUnique({
       where: {
         plugin_installation_unique: { workspaceId, pluginName },
@@ -96,7 +83,5 @@ export async function DELETE(
     });
 
     return apiSuccess({ uninstalled: pluginName });
-  } catch (error) {
-    return handleApiError(error);
   }
-}
+);

@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
 import { getNextCronDate } from "@/services/scheduler/cron-parser";
-import { executePipeline } from "@/services/orchestrator/pipeline";
+import { launchPipelineRun } from "@/services/orchestrator/run-launcher";
 import type { RunMode } from "@/generated/prisma/client";
 
 /**
@@ -9,8 +9,9 @@ import type { RunMode } from "@/generated/prisma/client";
  *
  * For each enabled schedule whose nextRunAt <= now:
  * 1. Skip if the parent project is deleted
- * 2. Trigger the pipeline with the schedule's configured mode
- * 3. Update lastRunAt and compute the next nextRunAt
+ * 2. Claim the slot atomically (advance nextRunAt only if it is still the
+ *    value we read), so concurrent ticks or replicas start exactly one run
+ * 3. Enqueue the run; the worker pipeline executes it. Never run it inline.
  *
  * Errors on individual schedules are caught and logged so one
  * failure never blocks the rest.
@@ -52,29 +53,35 @@ export async function processScheduledRuns(): Promise<number> {
       continue;
     }
 
+    const slot = schedule.nextRunAt;
+    if (!slot) continue;
+
+    let claimed = false;
     try {
-      await executePipeline({
+      claimed = await claimSlot(schedule.id, schedule.cronExpression, slot, now);
+      if (!claimed) continue; // another tick/replica took this slot
+
+      const launch = await launchPipelineRun({
         projectId: schedule.projectId,
+        mode: schedule.mode as RunMode,
         trigger: "scheduled",
         branch: schedule.project.defaultBranch,
-        requestedMode: schedule.mode as RunMode,
+        jobId: `sched:${schedule.id}:${slot.toISOString()}`,
       });
-
-      await advanceSchedule(schedule.id, schedule.cronExpression, now);
+      if (!launch.ok) {
+        console.warn(
+          `[Scheduler] Schedule ${schedule.id} not started: ${launch.code} ${launch.reason}`
+        );
+        continue;
+      }
       triggered++;
-
       console.log(
-        `[Scheduler] Triggered run for schedule ${schedule.id} (project ${schedule.projectId})`
+        `[Scheduler] Queued run ${launch.runId} for schedule ${schedule.id} (project ${schedule.projectId})`
       );
     } catch (error) {
+      // The slot is already claimed (or unclaimable): don't retry the same window forever
       const message = error instanceof Error ? error.message : String(error);
-      console.error(
-        `[Scheduler] Failed to trigger schedule ${schedule.id}:`,
-        message
-      );
-
-      // Still advance the schedule so we don't retry the same window forever
-      await advanceSchedule(schedule.id, schedule.cronExpression, now);
+      console.error(`[Scheduler] Failed to trigger schedule ${schedule.id}:`, message);
     }
   }
 
@@ -83,28 +90,35 @@ export async function processScheduledRuns(): Promise<number> {
 }
 
 /**
- * Advance a schedule's lastRunAt to now and compute the next nextRunAt.
+ * Atomically take a due slot: advance nextRunAt to the next cron time only if
+ * it still equals the value we read. Exactly one claimer sees count === 1.
  */
+export async function claimSlot(
+  scheduleId: string,
+  cronExpression: string,
+  seen: Date,
+  now: Date
+): Promise<boolean> {
+  const { count } = await prisma.scheduledRun.updateMany({
+    where: { id: scheduleId, nextRunAt: seen },
+    data: { lastRunAt: now, nextRunAt: getNextCronDate(cronExpression, now) },
+  });
+  return count === 1;
+}
+
+/** Skip a due slot without running it (project inactive or deleted). */
 async function advanceSchedule(
   scheduleId: string,
   cronExpression: string,
   now: Date
 ): Promise<void> {
   try {
-    const nextRun = getNextCronDate(cronExpression, now);
-
     await prisma.scheduledRun.update({
       where: { id: scheduleId },
-      data: {
-        lastRunAt: now,
-        nextRunAt: nextRun,
-      },
+      data: { lastRunAt: now, nextRunAt: getNextCronDate(cronExpression, now) },
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    console.error(
-      `[Scheduler] Failed to advance schedule ${scheduleId}:`,
-      message
-    );
+    console.error(`[Scheduler] Failed to advance schedule ${scheduleId}:`, message);
   }
 }

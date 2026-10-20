@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { createTrackedCompletion } from "@/lib/ai/tracked-completion";
-import { getModelForTask } from "@/lib/ai/model-router";
+import { modelForTier } from "@/server/ai/model-catalog";
 import { parseLlmJson } from "@/lib/utils/json-parse";
 import type { ReplayAssertion, StepSnapshot } from "./types";
 
@@ -52,14 +52,14 @@ export async function deriveAssertions(
   const derived = new Map<number, ReplayAssertion>();
   if (steps.length === 0) return derived;
 
-  const model = await getModelForTask("assertion_derivation");
+  // Cheap tier (ORBIT_MODEL_FAST); the gateway owns retries, budget and usage accounting
+  const model = modelForTier("fast");
   const result = await createTrackedCompletion(
     {
       model,
       systemPrompt: SYSTEM_PROMPT,
       messages: [{ role: "user", content: JSON.stringify(steps.map(describe), null, 2) }],
       maxTokens: 150 + steps.length * 60,
-      temperature: 0,
     },
     { ...billing, agentPhase: "executor" }
   );

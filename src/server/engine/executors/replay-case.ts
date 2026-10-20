@@ -5,7 +5,9 @@ import { collectCaseArtifacts } from "@/services/execution/case-artifacts";
 import { createEvidenceCollector } from "@/services/execution/evidence-collector";
 import { executeTestSteps } from "@/services/execution/step-executor";
 import { loadTestingNotes } from "@/agents/prompts/context-loader";
-import { isProviderError } from "@/services/execution/test-case-executor";
+import { isProviderError } from "@/services/execution/error-classifier";
+import { isRunAbort } from "@/services/execution/run-abort";
+import { splitAccessCredentials } from "@/services/execution/access-headers";
 import type { TestCaseForExecution, TestCaseResult } from "@/services/execution/test-case-executor";
 import type { ExecutionMeta } from "@/services/execution/test-result-store";
 import type { StepResult } from "@/agents/schemas/execution-result";
@@ -34,7 +36,9 @@ export interface ReplayCaseOptions {
 export async function replayCase(
   testCase: TestCaseForExecution, ctx: CaseRunContext, options: ReplayCaseOptions
 ): Promise<TestCaseResult> {
-  const { runId, environmentUrl, credentials } = ctx;
+  const { runId, environmentUrl } = ctx;
+  // The Cloudflare Access token becomes request headers, never a value replay or the agent types
+  const { headers: accessHeaders, credentials } = splitAccessCredentials(ctx.credentials);
   const startTime = Date.now();
   const log = (msg: string) => console.log(`[Replay:${testCase.id.slice(0, 8)}] ${msg}`);
   let instance: BrowserInstance | null = null;
@@ -43,7 +47,7 @@ export async function replayCase(
   try {
     instance = await launchCaseBrowser(runId, { storageState: ctx.storageState });
     const blocked = await prepareCasePage(
-      instance, testCase, environmentUrl, credentials, !!ctx.storageState, log, startTime
+      instance, testCase, environmentUrl, credentials, accessHeaders, !!ctx.storageState, log, startTime
     );
     if (blocked) return blocked;
 
@@ -104,6 +108,7 @@ export async function replayCase(
       execution,
     };
   } catch (err) {
+    if (isRunAbort(err)) throw err;
     const msg = err instanceof Error ? err.message : String(err);
     log(`REPLAY ERROR: ${msg}`);
     // Same shapes as the agent executor, so the runner's abort guards still apply

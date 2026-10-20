@@ -13,7 +13,7 @@ export const FLAKE_WINDOW = 10;
 export const FLAKE_THRESHOLD = 0.3;
 export const REVERIFY_SAMPLE_RATE = 1 / 20;
 export const REVERIFY_AFTER_MS = 14 * 24 * 60 * 60 * 1000;
-export const LOCATOR_TIMEOUT_MS = 10_000;
+export const LOCATOR_TIMEOUT_MS = 4_000;
 export const SUSPECT_LOCATOR_TIMEOUT_MS = 2_000;
 
 export type AgentReason = "no_script" | "steps_changed" | "flaky" | "reverify" | "store_unavailable";

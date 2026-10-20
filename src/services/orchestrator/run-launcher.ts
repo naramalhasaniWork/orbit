@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
-import type { Prisma, RunMode, RunTrigger } from "@/generated/prisma/client";
-import { canConsume } from "@/lib/auth/tenant";
+import type { Prisma, RunMode, RunTrigger, TestRun } from "@/generated/prisma/client";
+import { canConsume, type ConsumeDecision } from "@/lib/auth/tenant";
 import { getIndexingQueue } from "@/lib/queue/queues";
 import { withQueueTimeout } from "@/lib/queue/availability";
 import { emitRunStarted } from "@/lib/websocket";
@@ -18,6 +18,8 @@ interface LaunchRunInput {
   triggeredById?: string;
   changedFiles?: string[];
   metadata?: Prisma.InputJsonValue;
+  /** Deterministic queue job id; defaults to run-{runId} */
+  jobId?: string;
 }
 
 type LaunchRunResult =
@@ -47,6 +49,25 @@ export async function enqueueOrDiscard(
   }
 }
 
+type CreatedRun = { blocked: Extract<ConsumeDecision, { allowed: false }> } | { run: TestRun };
+
+/**
+ * Create a queued run only if the workspace allowance has room. The check and the
+ * insert share one transaction holding the workspace row lock, so concurrent
+ * launches (any trigger) can't both slip under the limit.
+ */
+export function createRunWithinAllowance(
+  workspaceId: string,
+  data: Prisma.TestRunUncheckedCreateInput
+): Promise<CreatedRun> {
+  return prisma.$transaction(async (tx): Promise<CreatedRun> => {
+    await tx.$queryRaw`SELECT id FROM workspaces WHERE id = ${workspaceId}::uuid FOR UPDATE`;
+    const allowance = await canConsume(workspaceId, "run", tx);
+    if (!allowance.allowed) return { blocked: allowance };
+    return { run: await tx.testRun.create({ data }) };
+  });
+}
+
 /**
  * Start an event-triggered run (webhooks, Slack, mentions): check the
  * workspace allowance, create the run, and enqueue an indexing job carrying
@@ -61,27 +82,25 @@ export async function launchPipelineRun(input: LaunchRunInput): Promise<LaunchRu
   if (!project) return { ok: false, code: "NOT_FOUND", reason: "Project not found" };
   const branch = input.branch ?? project.defaultBranch;
 
-  const allowance = await canConsume(project.workspaceId, "run");
-  if (!allowance.allowed) {
-    console.warn(`[RunLauncher] Run blocked for project ${input.projectId}: ${allowance.reason}`);
-    return { ok: false, code: allowance.code, reason: allowance.reason };
-  }
-
   const changedFiles = input.changedFiles?.slice(0, 100);
-  const run = await prisma.testRun.create({
-    data: {
-      projectId: input.projectId,
-      status: "queued",
-      mode: input.mode,
-      trigger: input.trigger,
-      branch,
-      environmentId: input.environmentId,
-      commitSha: input.commitSha ?? null,
-      prNumber: input.prNumber ?? null,
-      triggeredById: input.triggeredById,
-      metadata: input.metadata ?? {},
-    },
+  const created = await createRunWithinAllowance(project.workspaceId, {
+    projectId: input.projectId,
+    status: "queued",
+    mode: input.mode,
+    trigger: input.trigger,
+    branch,
+    environmentId: input.environmentId,
+    commitSha: input.commitSha ?? null,
+    prNumber: input.prNumber ?? null,
+    triggeredById: input.triggeredById,
+    metadata: input.metadata ?? {},
   });
+  if ("blocked" in created) {
+    const { blocked } = created;
+    console.warn(`[RunLauncher] Run blocked for project ${input.projectId}: ${blocked.reason}`);
+    return { ok: false, code: blocked.code, reason: blocked.reason };
+  }
+  const { run } = created;
 
   const enqueued = await enqueueOrDiscard(run.id, () =>
     getIndexingQueue().add(
@@ -93,7 +112,7 @@ export async function launchPipelineRun(input: LaunchRunInput): Promise<LaunchRu
         isIncremental: !!changedFiles && changedFiles.length > 0,
         runId: run.id,
       },
-      { jobId: `run-${run.id}` }
+      { jobId: input.jobId ?? `run-${run.id}` }
     )
   );
   if (!enqueued.ok) {

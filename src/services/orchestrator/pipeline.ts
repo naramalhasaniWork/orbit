@@ -1,8 +1,8 @@
 import { prisma } from "@/lib/db";
 import type { RunTrigger, RunMode } from "@/generated/prisma/client";
 import { selectRunMode } from "./mode-selector";
-import { TokenBudget } from "./token-budget";
-import type { AgentPhase } from "./token-budget";
+import { TokenBudget, runWithBudget } from "@/server/ai/run-budget";
+import type { AgentPhase } from "@/server/ai/types";
 import { getProjectContext } from "./context-manager";
 import {
   createRun,
@@ -11,6 +11,8 @@ import {
   isRunCancelled,
 } from "./run-manager";
 import { canConsume } from "@/lib/auth/tenant";
+import { ShutdownError } from "@/lib/queue/shutdown";
+import { RunLockedError } from "@/lib/queue/run-locked";
 import type { OperationsMap } from "@/agents/schemas/operations-map";
 import {
   runIndexingPhase,
@@ -102,7 +104,7 @@ export async function executePipelineForRun(
     where: { id: runId },
     select: {
       projectId: true, mode: true, trigger: true, branch: true, commitSha: true,
-      prNumber: true, triggeredById: true, environmentId: true, testPlanId: true,
+      prNumber: true, triggeredById: true, environmentId: true, testPlanId: true, status: true,
     },
   });
   const context = await getProjectContext(run.projectId);
@@ -130,60 +132,80 @@ export async function executePipelineForRun(
     requestedMode: run.mode,
   });
 
-  return runPipeline(runId, input, context, selection);
+  // A retried job (shutdown, stalled worker) finds the run already executing:
+  // skip straight to execution, where recorded cases are skipped.
+  const resuming = run.status === "executing" && !!run.testPlanId;
+  return runPipeline(runId, input, context, selection, resuming ? run.testPlanId : undefined);
 }
 
 async function runPipeline(
   runId: string,
   input: PipelineInput,
   context: ProjectContext,
-  selection: ModeSelection
+  selection: ModeSelection,
+  resumeTestPlanId?: string | null
 ): Promise<PipelineResult> {
-  const { mode, reason, skipIndexing, skipPlanning } = selection;
   const tokenBudget = new TokenBudget(
     input.maxTokenBudget
       ? { maxInputTokens: input.maxTokenBudget }
       : undefined
   );
+  // Every AI gateway call made by the phases below is recorded against this budget.
+  return runWithBudget(tokenBudget, () => runPhases(runId, input, context, selection, tokenBudget, resumeTestPlanId));
+}
+
+async function runPhases(
+  runId: string,
+  input: PipelineInput,
+  context: ProjectContext,
+  selection: ModeSelection,
+  tokenBudget: TokenBudget,
+  resumeTestPlanId?: string | null
+): Promise<PipelineResult> {
+  const { mode, reason, skipIndexing, skipPlanning } = selection;
 
   try {
     // Credits may have run out while the run was queued
     const allowance = await canConsume(context.project.workspaceId, "credits");
     if (!allowance.allowed) throw new Error(allowance.reason);
 
-    // Phase 1: Indexing
-    await checkCancellation(runId);
-
-    if (!skipIndexing) {
-      await runIndexingPhase(
-        runId, input.projectId, input.branch, input.changedFiles, context, reason
-      );
-    }
-
-    // Phase 1.5: Code Audit (full runs only)
-    if (mode === "full") {
+    let testPlanId = resumeTestPlanId ?? context.activePlan?.id;
+    if (!resumeTestPlanId) {
+      // Phase 1: Indexing
       await checkCancellation(runId);
-      await runAuditPhase(runId, input.projectId);
-    }
 
-    // Phase 1.75: Operations Analysis (full/manual runs only)
-    let operationsMap: OperationsMap | undefined;
-    if (mode === "full") {
+      if (!skipIndexing) {
+        await runIndexingPhase(
+          runId, input.projectId, input.branch, input.changedFiles, context, reason
+        );
+      }
+
+      // Phase 1.5: Code Audit (full runs only)
+      if (mode === "full") {
+        await checkCancellation(runId);
+        await runAuditPhase(runId, input.projectId);
+      }
+
+      // Phase 1.75: Operations Analysis (full/manual runs only)
+      let operationsMap: OperationsMap | undefined;
+      if (mode === "full") {
+        await checkCancellation(runId);
+        operationsMap = await runOperationsAnalysisPhase(
+          runId, input.projectId
+        );
+      }
+
+      // Phase 2: Planning
       await checkCancellation(runId);
-      operationsMap = await runOperationsAnalysisPhase(
-        runId, input.projectId, tokenBudget
-      );
+
+      if (!skipPlanning || !testPlanId) {
+        testPlanId = await runPlanningPhase(
+          runId, input.projectId, mode, testPlanId, operationsMap
+        );
+      }
     }
 
-    // Phase 2: Planning
-    await checkCancellation(runId);
-
-    let testPlanId = context.activePlan?.id;
-    if (!skipPlanning || !testPlanId) {
-      testPlanId = await runPlanningPhase(
-        runId, input.projectId, mode, testPlanId, tokenBudget, operationsMap
-      );
-    }
+    if (!testPlanId) throw new Error("No test plan available for execution");
 
     // Check budget after planning — hard stop before execution to avoid runaway costs
     if (tokenBudget.isOverBudget()) {
@@ -204,6 +226,8 @@ async function runPipeline(
     // Finalize
     return await finalizePipeline(runId, input.projectId, tokenBudget);
   } catch (error) {
+    // Retryable: leave the run active so the retried job resumes it
+    if (error instanceof ShutdownError || error instanceof RunLockedError) throw error;
     if (error instanceof PipelineCancelledError) {
       const updatedRun = await updateRunStats(runId);
       return buildResult(runId, "cancelled", updatedRun, tokenBudget);

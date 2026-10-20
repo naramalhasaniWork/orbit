@@ -1,8 +1,8 @@
-import { NextResponse, type NextRequest } from "next/server";
-import { requireWorkspace, apiSuccess, apiError, handleApiError } from "@/lib/utils/api";
+import { NextResponse } from "next/server";
+import { apiSuccess, apiError } from "@/lib/utils/api";
 import { prisma } from "@/lib/db";
 import { randomUUID } from "crypto";
-import { requirePermission } from "@/lib/auth/rbac";
+import { route } from "@/server/http/route";
 
 interface TestingNote {
   id: string;
@@ -13,38 +13,23 @@ interface TestingNote {
   updatedAt: string;
 }
 
-export async function GET(
-  _req: NextRequest,
-  { params }: { params: Promise<{ projectId: string }> }
-) {
-  try {
-    const { workspaceId } = await requireWorkspace();
-    const { projectId } = await params;
+export const GET = route({}, async ({ params: { projectId }, workspaceId }) => {
+  const project = await prisma.project.findFirst({
+    where: { id: projectId, workspaceId },
+    select: { settings: true },
+  });
 
-    const project = await prisma.project.findFirst({
-      where: { id: projectId, workspaceId },
-      select: { settings: true },
-    });
+  if (!project) return apiError("Project not found", "NOT_FOUND", 404);
 
-    if (!project) return apiError("Project not found", "NOT_FOUND", 404);
+  const settings = (project.settings as Record<string, unknown>) ?? {};
+  const notes = (settings.testingNotes as TestingNote[]) ?? [];
 
-    const settings = (project.settings as Record<string, unknown>) ?? {};
-    const notes = (settings.testingNotes as TestingNote[]) ?? [];
+  return apiSuccess(notes);
+});
 
-    return apiSuccess(notes);
-  } catch (err) {
-    return handleApiError(err);
-  }
-}
-
-export async function POST(
-  req: NextRequest,
-  { params }: { params: Promise<{ projectId: string }> }
-) {
-  try {
-    const { workspaceId } = await requireWorkspace();
-    await requirePermission(workspaceId, "projects.update");
-    const { projectId } = await params;
+export const POST = route(
+  { permission: "projects.update" },
+  async ({ req, params: { projectId }, workspaceId }) => {
     const body = await req.json();
 
     const { content, category } = body as { content?: string; category?: string };
@@ -81,19 +66,12 @@ export async function POST(
     });
 
     return apiSuccess(note, 201);
-  } catch (err) {
-    return handleApiError(err);
   }
-}
+);
 
-export async function PATCH(
-  req: NextRequest,
-  { params }: { params: Promise<{ projectId: string }> }
-) {
-  try {
-    const { workspaceId } = await requireWorkspace();
-    await requirePermission(workspaceId, "projects.update");
-    const { projectId } = await params;
+export const PATCH = route(
+  { permission: "projects.update" },
+  async ({ req, params: { projectId }, workspaceId }) => {
     const body = await req.json();
 
     const { noteId, content, active, category } = body as {
@@ -133,19 +111,12 @@ export async function PATCH(
     });
 
     return apiSuccess(updated);
-  } catch (err) {
-    return handleApiError(err);
   }
-}
+);
 
-export async function DELETE(
-  req: NextRequest,
-  { params }: { params: Promise<{ projectId: string }> }
-) {
-  try {
-    const { workspaceId } = await requireWorkspace();
-    await requirePermission(workspaceId, "projects.update");
-    const { projectId } = await params;
+export const DELETE = route(
+  { permission: "projects.update" },
+  async ({ req, params: { projectId }, workspaceId }) => {
     const { searchParams } = new URL(req.url);
     const noteId = searchParams.get("noteId");
 
@@ -174,7 +145,5 @@ export async function DELETE(
     });
 
     return apiSuccess({ deleted: true });
-  } catch (err) {
-    return handleApiError(err);
   }
-}
+);

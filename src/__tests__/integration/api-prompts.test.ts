@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
+import { resetRouteAuth } from "../helpers/route-auth";
 
 const mockPrisma = vi.hoisted(() => ({
   promptVersion: {
@@ -21,6 +22,12 @@ vi.mock("@/lib/auth/rbac", () => ({
     memberId: "member-1",
   }),
 }));
+
+// GET/DELETE run through route(); PUT still calls requirePermission (mocked above)
+vi.mock("@/server/http/session", async () => (await import("../helpers/route-auth")).sessionMock());
+vi.mock("@/server/http/auth", async (orig) =>
+  (await import("../helpers/route-auth")).authMock(await orig<Record<string, unknown>>())
+);
 
 vi.mock("@/agents/prompts/operator-layer", () => ({
   getOperatorPrompt: vi.fn().mockReturnValue("[OPERATOR]"),
@@ -77,6 +84,7 @@ const phaseParams = (phase: string) => ({
 describe("prompts API", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    resetRouteAuth();
   });
 
   describe("GET /prompts (list)", () => {

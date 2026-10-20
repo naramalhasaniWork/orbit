@@ -1,6 +1,8 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-vi.mock("@/lib/db", () => ({ prisma: { testCase: { update: vi.fn() } } }));
+vi.mock("@/lib/db", () => ({
+  prisma: { testCase: { update: vi.fn() }, testResult: { findMany: vi.fn() } },
+}));
 vi.mock("@/lib/websocket", () => ({
   emitRunProgress: vi.fn(), emitTestStarted: vi.fn(), emitTestCompleted: vi.fn(),
 }));
@@ -14,12 +16,17 @@ import { executeCaseByType } from "@/services/execution/case-dispatcher";
 import { saveTestResult } from "@/services/execution/test-result-store";
 import { isRunCancelled } from "@/services/orchestrator/run-manager";
 import { isTestQuarantined } from "@/services/execution/flaky-registry";
+import { prisma } from "@/lib/db";
 import { runCases } from "@/server/engine/runner/run-cases";
+import { BudgetExceededError } from "@/server/ai/errors";
+import { RunLockedError } from "@/lib/queue/run-locked";
+import { requestShutdown, resetShutdownForTests, ShutdownError } from "@/lib/queue/shutdown";
 import { partitionCases } from "@/server/engine/runner/partition";
 
 const dispatch = executeCaseByType as ReturnType<typeof vi.fn>;
 const cancelled = isRunCancelled as ReturnType<typeof vi.fn>;
 const quarantined = isTestQuarantined as ReturnType<typeof vi.fn>;
+const recordedResults = (prisma.testResult as unknown as { findMany: ReturnType<typeof vi.fn> }).findMany;
 
 function tc(id: string, type = "e2e", extra: Record<string, unknown> = {}) {
   return { id, name: id, type, journey: "j1", steps: [], projectId: "p1", isCritical: false, ...extra };
@@ -35,8 +42,10 @@ const base = {
 describe("runCases", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    resetShutdownForTests();
     cancelled.mockResolvedValue(false);
     quarantined.mockResolvedValue(false);
+    recordedResults.mockResolvedValue([]);
   });
 
   it("dispatches by type and records every executed case with its execution meta", async () => {
@@ -163,6 +172,65 @@ describe("runCases", () => {
 
     expect(dispatch).toHaveBeenCalledTimes(3);
     expect(stop).toMatchObject({ kind: "aborted", reason: expect.stringContaining("PLAYWRIGHT_WS_ENDPOINT") });
+  });
+});
+
+describe("runCases: resume and run aborts", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    resetShutdownForTests();
+    cancelled.mockResolvedValue(false);
+    quarantined.mockResolvedValue(false);
+    recordedResults.mockResolvedValue([]);
+  });
+
+  it.each([
+    ["the AI budget is exhausted", new BudgetExceededError("workspace", "AI budget exceeded")],
+    ["the worker is shutting down", new ShutdownError()],
+    ["another worker holds the run", new RunLockedError("run-1", 1000)],
+  ])("aborts the run instead of failing every case when %s", async (_why, error) => {
+    dispatch.mockRejectedValueOnce(error);
+
+    await expect(runCases({ ...base, concurrency: 2, cases: [tc("a"), tc("b")] }))
+      .rejects.toBe(error);
+    expect(dispatch).toHaveBeenCalledTimes(1);
+    expect(saveTestResult).not.toHaveBeenCalled();
+  });
+
+  it("resumes a retried run: recorded cases are tallied, not re-executed", async () => {
+    recordedResults.mockResolvedValue([{ testCaseId: "tc-1", verdict: "pass" }, { testCaseId: "tc-2", verdict: "fail" }]);
+    dispatch.mockResolvedValue(okResult);
+
+    const { counters } = await runCases({ ...base, concurrency: 2, cases: [tc("tc-1"), tc("tc-2"), tc("tc-v", "visual_regression")] });
+
+    expect(dispatch.mock.calls.map((c) => c[1].id)).toEqual(["tc-v"]);
+    expect(counters).toMatchObject({ passed: 2, failed: 1 });
+  });
+
+  it("on resume re-runs login cases first, one at a time, to rebuild the sessions", async () => {
+    recordedResults.mockResolvedValue([{ testCaseId: "login", verdict: "pass" }, { testCaseId: "browse", verdict: "pass" }]);
+    const session = { cookies: [{ name: "sid" }], origins: [] };
+    dispatch.mockResolvedValueOnce(okResult).mockResolvedValueOnce({ ...okResult, storageState: session });
+
+    const { counters } = await runCases({
+      ...base, concurrency: 2,
+      cases: [tc("buy", "e2e", { journey: "shop" }), tc("browse", "e2e", { journey: "shop" }), tc("login", "e2e", { name: "Successful login", journey: "auth" })],
+    });
+
+    // The login case starts fresh (it is a login test), then later cases reuse its session
+    expect(dispatch.mock.calls.map((c) => c[1].id)).toEqual(["login", "buy"]);
+    expect(counters.passed).toBe(3);
+  });
+
+  it("throws a retryable ShutdownError between cases once shutdown is requested", async () => {
+    dispatch.mockImplementationOnce(async () => {
+      requestShutdown();
+      return okResult;
+    });
+
+    await expect(runCases({ ...base, cases: [tc("a"), tc("b")] })).rejects.toBeInstanceOf(ShutdownError);
+    expect(dispatch).toHaveBeenCalledTimes(1);
+    expect(saveTestResult).toHaveBeenCalledTimes(1); // the finished case is recorded before stopping
   });
 });
 

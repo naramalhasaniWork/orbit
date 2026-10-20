@@ -3,9 +3,11 @@ import type { TestCaseForExecution, TestCaseResult } from "@/services/execution/
 import { executeApiTestCase } from "@/services/execution/api-test-executor";
 import type { StorageState } from "@/services/execution/browser-manager";
 import { runVisualTest } from "@/services/visual-qa/visual-test-runner";
-import { withModelMeter } from "@/server/engine/model-meter";
+import { withModelMeter } from "@/server/ai/model-meter";
 import type { CaseExecutor, CaseRunContext } from "@/server/engine/executors/case-executor";
 import { browserExecutor } from "@/server/engine/executors/browser";
+import { isRunAbort } from "@/services/execution/run-abort";
+import { splitAccessCredentials } from "@/services/execution/access-headers";
 
 // The case-executor registry: routes a test case to the executor for its
 // type. Every run goes through here, so every type is treated the same way.
@@ -47,11 +49,14 @@ const visualExecutor: CaseExecutor = {
   ),
 };
 
-// API contract tests run over plain HTTP; the browser is the fallback
+// API contract tests run over plain HTTP; the browser is the fallback. Their prompt lists
+// credential names, so the Cloudflare Access token is kept out of it.
 const apiExecutor: CaseExecutor = {
   kind: "api",
   canRun: (testCase) => testCase.type === "api_contract",
-  run: (testCase, ctx) => executeApiTestCase(ctx.runId, testCase, ctx.environmentUrl, ctx.credentials),
+  run: (testCase, ctx) => executeApiTestCase(
+    ctx.runId, testCase, ctx.environmentUrl, splitAccessCredentials(ctx.credentials).credentials
+  ),
 };
 
 /** Tried in order; the browser executor (replay first, then agent) accepts every case, so it goes last. */
@@ -85,8 +90,9 @@ async function executeVisualCase(
   try {
     const storageState = existingSession
       ?? await acquireSession(runId, testCase, environmentUrl, credentials);
+    const accessHeaders = splitAccessCredentials(credentials).headers ?? undefined;
     const result = await runVisualTest({
-      runId, projectId: testCase.projectId, routePath, environmentUrl, storageState,
+      runId, projectId: testCase.projectId, routePath, environmentUrl, storageState, accessHeaders,
     });
     const comparison = result.isBaselineCapture
       ? "No baseline yet: captured this screenshot as the baseline"
@@ -105,6 +111,7 @@ async function executeVisualCase(
       storageState: existingSession ? undefined : storageState,
     };
   } catch (err) {
+    if (isRunAbort(err)) throw err;
     const msg = err instanceof Error ? err.message : String(err);
     return {
       verdict: "environment_error",
@@ -128,7 +135,8 @@ async function acquireSession(
   environmentUrl: string,
   credentials: Record<string, string>
 ): Promise<StorageState | undefined> {
-  const hasCredentials = Object.values(credentials).some((v) => typeof v === "string" && v.length > 0);
+  const loginCredentials = splitAccessCredentials(credentials).credentials;
+  const hasCredentials = Object.values(loginCredentials).some((v) => typeof v === "string" && v.length > 0);
   if (!hasCredentials) return undefined;
 
   const login = await executeTestCase(runId, {

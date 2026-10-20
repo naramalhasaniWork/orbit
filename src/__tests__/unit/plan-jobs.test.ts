@@ -1,9 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-const { store, publish, add, generatePlan, requestSuggestionRefresh } = vi.hoisted(() => ({
+const { store, publish, add, getJob, generatePlan, requestSuggestionRefresh } = vi.hoisted(() => ({
   store: new Map<string, string>(),
   publish: vi.fn(),
   add: vi.fn(),
+  getJob: vi.fn(),
   generatePlan: vi.fn(),
   requestSuggestionRefresh: vi.fn(),
 }));
@@ -29,7 +30,7 @@ vi.mock("@/lib/queue/availability", () => ({
 }));
 vi.mock("@/lib/queue/queues", async (orig) => ({
   ...(await orig<typeof import("@/lib/queue/queues")>()),
-  getPlanningQueue: () => ({ add }),
+  getPlanningQueue: () => ({ add, getJob }),
 }));
 vi.mock("@/services/planning/planner", () => ({ generatePlan }));
 vi.mock("@/services/ai-suggestions/suggestion-cache", () => ({ requestSuggestionRefresh }));
@@ -47,6 +48,7 @@ describe("plan generation jobs", () => {
     vi.clearAllMocks();
     vi.spyOn(console, "error").mockImplementation(() => undefined);
     add.mockResolvedValue({});
+    getJob.mockResolvedValue(undefined);
     requestSuggestionRefresh.mockResolvedValue(true);
   });
 
@@ -71,6 +73,18 @@ describe("plan generation jobs", () => {
     expect(await readPlanJobState(PROJECT)).toBeNull();
     await enqueuePlanGeneration(PROJECT, { mode: "full" });
     expect(add).toHaveBeenCalledTimes(2);
+  });
+
+  it("derives the job id from the inputs, not the clock", async () => {
+    const a = await enqueuePlanGeneration(PROJECT, { mode: "full", focusAreas: ["b", "a"] });
+    store.clear();
+    const b = await enqueuePlanGeneration(PROJECT, { mode: "full", focusAreas: ["a", "b"] });
+    store.clear();
+    const c = await enqueuePlanGeneration(PROJECT, { mode: "smoke" });
+
+    expect(a.state.jobId).toMatch(new RegExp(`^plan:${PROJECT}:[0-9a-f]{16}$`));
+    expect(b.state.jobId).toBe(a.state.jobId);
+    expect(c.state.jobId).not.toBe(a.state.jobId);
   });
 
   it("treats a job silent for 20 minutes as failed", () => {

@@ -6,7 +6,7 @@ generator client {
 
 datasource db {
   provider   = "postgresql"
-  extensions = [vector]
+  extensions = [vector, pg_trgm]
 }
 
 // ============================================================
@@ -45,6 +45,12 @@ enum RunTrigger {
   linear
   api
   deploy
+}
+
+enum JobFailureStatus {
+  open
+  retried
+  discarded
 }
 
 enum TestVerdict {
@@ -210,6 +216,7 @@ model Workspace {
   apiKeys              ApiKey[]
   creditTransactions   CreditTransaction[]
   integrationConfigs   IntegrationConfig[]
+  previewConnections   PreviewConnection[]
   pluginInstallations  PluginInstallation[]
   domainKnowledgeFiles DomainKnowledgeFile[]
   webhookSubscriptions WebhookSubscription[]
@@ -411,6 +418,8 @@ model Project {
   testScripts        TestScript[]
   auditResults       AuditResult[]
   conversations      Conversation[]
+  previewBinding     PreviewBinding?
+  previewDeployments PreviewDeployment[]
 
   @@unique([workspaceId, slug], name: "project_slug_workspace")
   @@index([workspaceId])
@@ -457,12 +466,17 @@ model Environment {
   defaultRunMode String          @default("full") @map("default_run_mode")
   source         String?
   sourceId       String?         @map("source_id")
+  /// "public" or "cloudflare_access" (headers from CF_ACCESS_* secrets are sent to this origin)
+  accessMode     String          @default("public") @map("access_mode")
+  /// Set when a preview environment's PR closes or its deployment is gone; archived environments are never picked as a default.
+  archivedAt     DateTime?       @map("archived_at")
   createdAt      DateTime        @default(now()) @map("created_at")
   updatedAt      DateTime        @default(now()) @updatedAt @map("updated_at")
 
   project  Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
   testRuns TestRun[]
   secrets  Secret[]
+  previewDeployments PreviewDeployment[]
 
   @@index([projectId])
   @@map("environments")
@@ -496,7 +510,7 @@ model SystemMapNode {
   name          String
   filePath      String                         @map("file_path")
   metadata      Json                           @default("{}")
-  embedding     Unsupported("vector(1536)")?
+  embedding     Unsupported("vector")?
   lastIndexedAt DateTime                       @default(now()) @map("last_indexed_at")
   createdAt     DateTime                       @default(now()) @map("created_at")
   updatedAt     DateTime                       @default(now()) @updatedAt @map("updated_at")
@@ -663,7 +677,7 @@ model TestResult {
   testCase     TestCase      @relation(fields: [testCaseId], references: [id])
   runArtifacts RunArtifact[]
 
-  @@index([testRunId])
+  @@unique([testRunId, testCaseId])
   @@index([testRunId, verdict])
   @@index([testCaseId])
   @@index([executionMode, createdAt])
@@ -921,6 +935,7 @@ model TokenUsage {
   inputTokens   Int        @map("input_tokens")
   outputTokens  Int        @map("output_tokens")
   cachedTokens  Int        @default(0) @map("cached_tokens")
+  cacheCreationTokens Int  @default(0) @map("cache_creation_tokens")
   cost          Decimal    @db.Decimal(10, 6)
   agentPhase    AgentPhase @map("agent_phase")
   runId         String?    @map("run_id") @db.Uuid
@@ -1052,6 +1067,92 @@ model IntegrationConfig {
 
   @@unique([workspaceId, provider], name: "integration_config_unique")
   @@map("integration_configs")
+}
+
+// ============================================================
+// PREVIEW DEPLOYMENTS — test a PR's preview deployment (Railway, Cloudflare Pages)
+// ============================================================
+
+/// A workspace's credentials for one preview provider. Webhooks are hints only; the
+/// provider API is always queried before a preview is trusted.
+model PreviewConnection {
+  id               String   @id @default(uuid()) @db.Uuid
+  workspaceId      String   @map("workspace_id") @db.Uuid
+  /// "railway" | "cloudflare_pages"
+  provider         String
+  label            String   @default("default")
+  /// { encryptedToken, iv } via the vault
+  credentials      Json     @default("{}")
+  /// Non-secret provider config, e.g. { accountId } for Cloudflare
+  config           Json     @default("{}")
+  /// sha256 hex of the X-Orbit-Token webhook header value; null means webhooks are rejected
+  webhookTokenHash String?  @map("webhook_token_hash")
+  /// "active" | "error"
+  status           String   @default("active")
+  lastError        String?  @map("last_error")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @default(now()) @updatedAt @map("updated_at")
+
+  workspace Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  bindings  PreviewBinding[]
+
+  @@unique([workspaceId, provider, label], name: "preview_connection_unique")
+  @@map("preview_connections")
+}
+
+/// Which provider target (Railway project/service, Cloudflare Pages project) builds a project's PR previews.
+model PreviewBinding {
+  id                  String   @id @default(uuid()) @db.Uuid
+  projectId           String   @unique @map("project_id") @db.Uuid
+  connectionId        String   @map("connection_id") @db.Uuid
+  /// Railway: "<projectId>/<serviceId>". Cloudflare Pages: the Pages project name.
+  targetRef           String   @map("target_ref")
+  targetLabel         String?  @map("target_label")
+  /// A preview URL's host must equal or end with one of these, e.g. "up.railway.app"
+  allowedHostSuffixes String[] @map("allowed_host_suffixes")
+  /// Prefix of the project Secrets holding Cloudflare Access service-token credentials
+  /// (<prefix>_CLIENT_ID / <prefix>_CLIENT_SECRET); null when previews are public.
+  accessSecretPrefix  String?  @map("access_secret_prefix")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @default(now()) @updatedAt @map("updated_at")
+
+  project     Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  connection  PreviewConnection   @relation(fields: [connectionId], references: [id], onDelete: Cascade)
+  deployments PreviewDeployment[]
+
+  @@index([connectionId])
+  @@map("preview_bindings")
+}
+
+/// One PR head commit waiting for, or tested on, its preview deployment.
+model PreviewDeployment {
+  id            String    @id @default(uuid()) @db.Uuid
+  projectId     String    @map("project_id") @db.Uuid
+  bindingId     String    @map("binding_id") @db.Uuid
+  commitSha     String    @map("commit_sha")
+  /// The provider's deployment id, once resolve() has found it
+  externalId    String?   @map("external_id")
+  branch        String?
+  prNumber      Int?      @map("pr_number")
+  url           String?
+  /// "pending" | "ready" | "failed" | "gone"
+  status        String    @default("pending")
+  error         String?
+  environmentId String?   @map("environment_id") @db.Uuid
+  runId         String?   @map("run_id") @db.Uuid
+  checkRunId    String?   @map("check_run_id")
+  readyAt       DateTime? @map("ready_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @default(now()) @updatedAt @map("updated_at")
+
+  project     Project        @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  binding     PreviewBinding @relation(fields: [bindingId], references: [id], onDelete: Cascade)
+  environment Environment?   @relation(fields: [environmentId], references: [id], onDelete: SetNull)
+
+  @@unique([bindingId, commitSha], name: "preview_deployment_commit")
+  @@index([projectId, commitSha])
+  @@index([status, createdAt])
+  @@map("preview_deployments")
 }
 
 // ============================================================
@@ -1210,7 +1311,7 @@ model DomainKnowledgeFile {
   storageKey  String                          @map("storage_key")
   sizeBytes   Int                             @map("size_bytes")
   chunkCount  Int                             @default(0) @map("chunk_count")
-  embedding   Unsupported("vector(1536)")?
+  embedding   Unsupported("vector")?
   metadata    Json                            @default("{}")
   uploadedBy  String?                         @map("uploaded_by") @db.Uuid
   createdAt   DateTime                        @default(now()) @map("created_at")
@@ -1234,7 +1335,7 @@ model KnowledgeChunk {
   workspaceId     String                          @map("workspace_id") @db.Uuid
   content         String
   chunkIndex      Int                             @map("chunk_index")
-  embedding       Unsupported("vector(1536)")?
+  embedding       Unsupported("vector")?
   metadata        Json                            @default("{}")
   createdAt       DateTime                        @default(now()) @map("created_at")
 
@@ -1353,6 +1454,18 @@ model ProviderConfig {
 // ============================================================
 // MODEL REGISTRY — cache of available models from all providers
 // ============================================================
+
+// Which embedding provider/model/dimension produced the stored vectors (single row).
+// Changing ORBIT_EMBEDDINGS clears vectors and rebuilds the HNSW index for the new dimension.
+model EmbeddingConfig {
+  id         String   @id @default("default")
+  provider   String
+  model      String
+  dimensions Int
+  updatedAt  DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@map("embedding_config")
+}
 
 model ModelRegistry {
   id              String    @id @default(uuid()) @db.Uuid
@@ -1480,4 +1593,29 @@ model Message {
 
   @@index([conversationId, createdAt])
   @@map("messages")
+}
+
+// ============================================================
+// DEAD-LETTER QUEUE — jobs that exhausted their BullMQ attempts
+// ============================================================
+
+model JobFailure {
+  id           String           @id @default(uuid()) @db.Uuid
+  queue        String
+  jobId        String           @map("job_id")
+  jobName      String           @map("job_name")
+  data         Json
+  error        String
+  stack        String?
+  attemptsMade Int              @map("attempts_made")
+  runId        String?          @map("run_id") @db.Uuid
+  projectId    String?          @map("project_id") @db.Uuid
+  status       JobFailureStatus @default(open)
+  createdAt    DateTime         @default(now()) @map("created_at")
+  resolvedAt   DateTime?        @map("resolved_at")
+  resolvedBy   String?          @map("resolved_by") @db.Uuid
+
+  @@unique([queue, jobId])
+  @@index([status, createdAt])
+  @@map("job_failures")
 }

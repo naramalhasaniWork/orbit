@@ -21,7 +21,7 @@ function CopyField({ label, value }: { label: string; value: string }) {
     <div className="space-y-1">
       <div className="text-xs text-muted-foreground">{label}</div>
       <div className="flex gap-2">
-        <code className="flex-1 text-sm font-mono bg-white/[0.04] rounded-md px-3 py-2 break-all">{value}</code>
+        <code className="flex-1 text-sm font-mono bg-foreground/[0.04] rounded-md px-3 py-2 break-all">{value}</code>
         <Button type="button" size="sm" variant="outline" onClick={copy} aria-label={`Copy ${label}`}>
           {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
         </Button>
@@ -36,7 +36,7 @@ export function SetupChecklist({ checks, github }: { checks: SetupCheck[]; githu
   const groups = Array.from(new Set(checks.map((c) => c.group)));
 
   return (
-    <div className="min-h-screen surface-0 p-4 py-12">
+    <div className="min-h-dvh surface-0 p-4 py-12">
       <div className="max-w-2xl mx-auto space-y-8">
         <div className="space-y-2">
           <h1 className="text-xl font-semibold text-foreground">Set up Orbit</h1>

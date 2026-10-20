@@ -7,6 +7,7 @@ import { handleMention, ORBIT_MENTION_PATTERN } from "@/services/mention-handler
 import type { PRContext } from "@/services/mention-handler";
 import { handleInstallationEvent } from "@/services/github-installation-sync";
 import { resolveGitHubToken } from "@/lib/github/token";
+import { handlePullRequestEvent, type PullRequestPayload } from "@/services/github/pull-request-event";
 
 function verifySignature(payload: string, signature: string | null, secret: string): boolean {
   if (!signature) return false;
@@ -116,29 +117,12 @@ export async function POST(req: NextRequest) {
     }
 
     case "pull_request": {
-      const action = payload.action as string;
-      const pr = payload.pull_request as {
-        number: number;
-        head: { ref: string; sha: string };
-        title: string;
-      } | undefined;
-
-      if (action === "opened" || action === "synchronize") {
-        const launched = await launchPipelineRun({
-          projectId: project.id,
-          mode: "targeted",
-          trigger: "pr",
-          branch: pr?.head?.ref ?? project.defaultBranch,
-          commitSha: pr?.head?.sha ?? null,
-          prNumber: pr?.number ?? null,
-          metadata: {
-            prTitle: pr?.title ?? null,
-          } as Prisma.InputJsonValue,
-        });
-        return NextResponse.json({ status: "pr_processed", action, ...launchSummary(launched) });
-      }
-
-      return NextResponse.json({ status: "pr_processed", action });
+      const result = await handlePullRequestEvent(
+        project,
+        payload.action as string,
+        payload.pull_request as PullRequestPayload | undefined
+      );
+      return NextResponse.json(result);
     }
 
     case "issue_comment": {

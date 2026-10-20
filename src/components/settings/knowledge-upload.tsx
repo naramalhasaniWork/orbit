@@ -172,8 +172,8 @@ export function KnowledgeUpload({ workspaceId, initialFiles = [] }: KnowledgeUpl
               onClick={() => setSelectedType(type.value)}
               className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                 selectedType === type.value
-                  ? "bg-white/[0.08] text-foreground ring-1 ring-white/[0.12]"
-                  : "text-muted-foreground hover:text-foreground hover:bg-white/[0.04]"
+                  ? "bg-foreground/[0.08] text-foreground ring-1 ring-border"
+                  : "text-muted-foreground hover:text-foreground hover:bg-foreground/[0.04]"
               }`}
             >
               <Icon className="h-3 w-3" />
@@ -192,7 +192,7 @@ export function KnowledgeUpload({ workspaceId, initialFiles = [] }: KnowledgeUpl
         className={`relative rounded-xl border-2 border-dashed p-8 text-center cursor-pointer transition-colors ${
           dragOver
             ? "border-orbit-accent/60 bg-orbit-accent/5"
-            : "border-white/[0.08] hover:border-white/[0.15] hover:bg-white/[0.02]"
+            : "border-border hover:border-border hover:bg-foreground/[0.02]"
         }`}
       >
         <input
@@ -207,7 +207,7 @@ export function KnowledgeUpload({ workspaceId, initialFiles = [] }: KnowledgeUpl
           <div className="space-y-3">
             <Loader2 className="h-8 w-8 text-orbit-accent mx-auto animate-spin" />
             <p className="text-sm text-muted-foreground">Processing file...</p>
-            <div className="w-48 mx-auto h-1.5 bg-white/[0.06] rounded-full overflow-hidden">
+            <div className="w-48 mx-auto h-1.5 bg-foreground/[0.06] rounded-full overflow-hidden">
               <div
                 className="h-full bg-orbit-accent rounded-full transition-all duration-300"
                 style={{ width: `${uploadProgress}%` }}

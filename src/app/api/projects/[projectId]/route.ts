@@ -1,48 +1,32 @@
-import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { getIndexingQueue } from "@/lib/queue/queues";
-import { requirePermission } from "@/lib/auth/rbac";
 import { mergeUserSettings, redactSettingsOf } from "@/lib/integrations/redact";
-import {
-  requireWorkspace,
-  apiSuccess,
-  apiError,
-  handleApiError,
-} from "@/lib/utils/api";
+import { apiSuccess, apiError } from "@/lib/utils/api";
+import { route } from "@/server/http/route";
 
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: Promise<{ projectId: string }> }
-) {
-  try {
-    const { workspaceId } = await requireWorkspace();
-    const { projectId } = await params;
+export const GET = route({}, async ({ params: { projectId }, workspaceId }) => {
+  const project = await prisma.project.findFirst({
+    where: { id: projectId, workspaceId },
+  });
 
-    const project = await prisma.project.findFirst({
-      where: { id: projectId, workspaceId },
-    });
-
-    if (!project) {
-      return apiError("Project not found", "NOT_FOUND", 404);
-    }
-
-    // Enrich with indexing status data
-    const [nodeCount, edgeCount, indexingStatus] = await Promise.all([
-      prisma.systemMapNode.count({ where: { projectId } }),
-      prisma.systemMapEdge.count({ where: { projectId } }),
-      getIndexingStatus(projectId, project.lastIndexedAt),
-    ]);
-
-    return apiSuccess({
-      ...redactSettingsOf(project),
-      indexingStatus,
-      nodeCount,
-      edgeCount,
-    });
-  } catch (error) {
-    return handleApiError(error);
+  if (!project) {
+    return apiError("Project not found", "NOT_FOUND", 404);
   }
-}
+
+  // Enrich with indexing status data
+  const [nodeCount, edgeCount, indexingStatus] = await Promise.all([
+    prisma.systemMapNode.count({ where: { projectId } }),
+    prisma.systemMapEdge.count({ where: { projectId } }),
+    getIndexingStatus(projectId, project.lastIndexedAt),
+  ]);
+
+  return apiSuccess({
+    ...redactSettingsOf(project),
+    indexingStatus,
+    nodeCount,
+    edgeCount,
+  });
+});
 
 async function getIndexingStatus(
   projectId: string,
@@ -87,17 +71,9 @@ interface UpdateProjectBody {
   status?: "active" | "archived";
 }
 
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: Promise<{ projectId: string }> }
-) {
-  try {
-    const { workspaceId } = await requireWorkspace();
-    const { projectId } = await params;
-
-    // RBAC: require projects.update permission
-    await requirePermission(workspaceId, "projects.update");
-
+export const PATCH = route(
+  { permission: "projects.update" },
+  async ({ req: request, params: { projectId }, workspaceId }) => {
     const project = await prisma.project.findFirst({
       where: { id: projectId, workspaceId },
       select: { id: true, settings: true },
@@ -135,25 +111,16 @@ export async function PATCH(
     });
 
     return apiSuccess(redactSettingsOf(updated));
-  } catch (error) {
-    return handleApiError(error);
   }
-}
+);
 
 // ============================================================
 // DELETE /api/projects/[projectId]
 // ============================================================
 
-export async function DELETE(
-  _request: NextRequest,
-  { params }: { params: Promise<{ projectId: string }> }
-) {
-  try {
-    const { workspaceId } = await requireWorkspace();
-    const { projectId } = await params;
-
-    await requirePermission(workspaceId, "projects.delete");
-
+export const DELETE = route(
+  { permission: "projects.delete" },
+  async ({ params: { projectId }, workspaceId }) => {
     const project = await prisma.project.findFirst({
       where: { id: projectId, workspaceId },
       select: { id: true },
@@ -169,7 +136,5 @@ export async function DELETE(
     });
 
     return apiSuccess({ archived: true });
-  } catch (error) {
-    return handleApiError(error);
   }
-}
+);

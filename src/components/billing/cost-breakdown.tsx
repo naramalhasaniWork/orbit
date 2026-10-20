@@ -58,8 +58,8 @@ const MODEL_COLORS = [
 
 export function AgentTable({ agents }: { agents: AgentBreakdown[] }) {
   return (
-    <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] overflow-hidden">
-      <div className="px-4 py-3 border-b border-white/[0.06]">
+    <div className="rounded-xl border border-border bg-foreground/[0.02] overflow-hidden">
+      <div className="px-4 py-3 border-b border-border">
         <h4 className="text-xs font-medium text-muted-foreground flex items-center gap-2">
           <Bot className="h-3.5 w-3.5" />
           Agent Breakdown
@@ -68,7 +68,7 @@ export function AgentTable({ agents }: { agents: AgentBreakdown[] }) {
       <div className="overflow-x-auto">
         <table className="w-full text-xs">
           <thead>
-            <tr className="border-b border-white/[0.04]">
+            <tr className="border-b border-border">
               <th className="text-left px-4 py-2 text-muted-foreground font-medium">Agent</th>
               <th className="text-right px-4 py-2 text-muted-foreground font-medium">Calls</th>
               <th className="text-right px-4 py-2 text-muted-foreground font-medium">Input Tokens</th>
@@ -81,10 +81,10 @@ export function AgentTable({ agents }: { agents: AgentBreakdown[] }) {
             {agents
               .sort((a, b) => b.cost - a.cost)
               .map((agent) => (
-                <tr key={agent.agent} className="border-b border-white/[0.04] last:border-0">
+                <tr key={agent.agent} className="border-b border-border last:border-0">
                   <td className="px-4 py-2.5">
                     <div className="flex items-center gap-2">
-                      <div className={cn("h-2 w-2 rounded-full", AGENT_COLORS[agent.agent] ?? "bg-white/20")} />
+                      <div className={cn("h-2 w-2 rounded-full", AGENT_COLORS[agent.agent] ?? "bg-foreground/20")} />
                       <span className="text-foreground font-medium">
                         {AGENT_LABELS[agent.agent] ?? agent.agent}
                       </span>
@@ -106,7 +106,7 @@ export function AgentTable({ agents }: { agents: AgentBreakdown[] }) {
 
 export function ModelChart({ models }: { models: ModelBreakdown[] }) {
   return (
-    <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+    <div className="rounded-xl border border-border bg-foreground/[0.02] p-4">
       <h4 className="text-xs font-medium text-muted-foreground mb-4 flex items-center gap-2">
         <Cpu className="h-3.5 w-3.5" />
         Spend by Model
@@ -122,7 +122,7 @@ export function ModelChart({ models }: { models: ModelBreakdown[] }) {
                 </span>
                 <span className="text-xs text-foreground font-medium ml-2">${model.cost.toFixed(2)}</span>
               </div>
-              <div className="h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
+              <div className="h-1.5 rounded-full bg-foreground/[0.06] overflow-hidden">
                 <div
                   className={cn("h-full rounded-full", MODEL_COLORS[i % MODEL_COLORS.length])}
                   style={{ width: `${model.percentage}%` }}
@@ -138,7 +138,7 @@ export function ModelChart({ models }: { models: ModelBreakdown[] }) {
 
 export function ProjectList({ projects }: { projects: ProjectBreakdown[] }) {
   return (
-    <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+    <div className="rounded-xl border border-border bg-foreground/[0.02] p-4">
       <h4 className="text-xs font-medium text-muted-foreground mb-3 flex items-center gap-2">
         <FolderOpen className="h-3.5 w-3.5" />
         Top Projects by Cost
@@ -165,7 +165,7 @@ export function DailySparkline({ daily }: { daily: DailySpend[] }) {
   const maxCost = Math.max(...daily.map((d) => d.cost), 0.001);
 
   return (
-    <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+    <div className="rounded-xl border border-border bg-foreground/[0.02] p-4">
       <h4 className="text-xs font-medium text-muted-foreground mb-3">Daily Spend</h4>
       <div className="flex items-end gap-[2px] h-16">
         {daily.map((day) => {

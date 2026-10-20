@@ -5,14 +5,13 @@
  * DELETE: Remove a knowledge file and its chunks
  */
 
-import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
-import { requirePermission } from "@/lib/auth/rbac";
-import { apiSuccess, apiError, handleApiError } from "@/lib/utils/api";
+import { apiSuccess, apiError } from "@/lib/utils/api";
 import { getStorage, sanitizeFilename } from "@/lib/storage";
 import { chunkDocument } from "@/services/knowledge/chunker";
 import { embedChunks } from "@/services/knowledge/embedder";
 import type { KnowledgeFileType } from "@/generated/prisma/client";
+import { route } from "@/server/http/route";
 
 const ALLOWED_EXTENSIONS = [".md", ".txt", ".json", ".yaml", ".yml", ".pdf"];
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
@@ -47,14 +46,9 @@ function getContentType(ext: string): string {
   return map[ext] ?? "application/octet-stream";
 }
 
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: Promise<{ workspaceId: string }> }
-) {
-  try {
-    const { workspaceId } = await params;
-    await requirePermission(workspaceId, "settings.view");
-
+export const GET = route(
+  { workspace: "param", permission: "settings.view" },
+  async ({ workspaceId }) => {
     const files = await prisma.domainKnowledgeFile.findMany({
       where: { workspaceId },
       orderBy: { createdAt: "desc" },
@@ -70,19 +64,12 @@ export async function GET(
     });
 
     return apiSuccess(files);
-  } catch (error) {
-    return handleApiError(error);
   }
-}
+);
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ workspaceId: string }> }
-) {
-  try {
-    const { workspaceId } = await params;
-    const ctx = await requirePermission(workspaceId, "settings.manage");
-
+export const POST = route(
+  { workspace: "param", permission: "settings.manage" },
+  async ({ req: request, workspaceId, session }) => {
     const formData = await request.formData();
     const file = formData.get("file") as File | null;
     const fileType = formData.get("type") as string | null;
@@ -135,7 +122,7 @@ export async function POST(
         type: fileType,
         storageKey,
         sizeBytes: file.size,
-        uploadedBy: ctx.session.user.id,
+        uploadedBy: session.user.id,
         metadata: { originalName: file.name, contentType: getContentType(ext) },
       },
     });
@@ -159,19 +146,12 @@ export async function POST(
       },
       201
     );
-  } catch (error) {
-    return handleApiError(error);
   }
-}
+);
 
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: Promise<{ workspaceId: string }> }
-) {
-  try {
-    const { workspaceId } = await params;
-    await requirePermission(workspaceId, "settings.manage");
-
+export const DELETE = route(
+  { workspace: "param", permission: "settings.manage" },
+  async ({ req: request, workspaceId }) => {
     const { searchParams } = new URL(request.url);
     const fileId = searchParams.get("fileId");
 
@@ -194,7 +174,5 @@ export async function DELETE(
     });
 
     return apiSuccess({ deleted: true });
-  } catch (error) {
-    return handleApiError(error);
   }
-}
+);

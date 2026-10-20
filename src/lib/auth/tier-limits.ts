@@ -3,6 +3,9 @@
  * Enforcement (canConsume in tenant.ts), Stripe grants (lib/stripe/prices.ts)
  * and every price page derive their numbers from this table.
  *
+ * concurrentRuns caps simultaneously executing runs per workspace (queued
+ * runs wait; see lib/queue/run-slots.ts). Self-hosted is unlimited.
+ *
  * monthlyCredits is per seat on seat-based tiers (the Stripe subscription
  * quantity multiplies it) and per workspace otherwise.
  *
@@ -14,6 +17,7 @@ export const TIER_LIMITS = {
     projects: 1,
     seatBased: false,
     runsPerMonth: 100,
+    concurrentRuns: 1,
     monthlyCredits: 100,
     rateLimit: 60, // requests per minute
     allowedModels: ["claude-haiku-4-5-20251001"] as readonly string[],
@@ -23,6 +27,7 @@ export const TIER_LIMITS = {
     projects: 5,
     seatBased: true,
     runsPerMonth: 500,
+    concurrentRuns: 2,
     monthlyCredits: 1000,
     rateLimit: 120,
     allowedModels: ["claude-haiku-4-5-20251001", "claude-sonnet-4-6"] as readonly string[],
@@ -32,6 +37,7 @@ export const TIER_LIMITS = {
     projects: Infinity,
     seatBased: true,
     runsPerMonth: 5000,
+    concurrentRuns: 5,
     monthlyCredits: 2000,
     rateLimit: 300,
     allowedModels: ["claude-haiku-4-5-20251001", "claude-sonnet-4-6", "claude-opus-4-6"] as readonly string[],
@@ -41,6 +47,7 @@ export const TIER_LIMITS = {
     projects: Infinity,
     seatBased: false,
     runsPerMonth: Infinity,
+    concurrentRuns: Infinity,
     monthlyCredits: Infinity,
     rateLimit: Infinity,
     allowedModels: ["claude-haiku-4-5-20251001", "claude-sonnet-4-6", "claude-opus-4-6"] as readonly string[],

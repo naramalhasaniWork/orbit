@@ -140,12 +140,12 @@ export function TestingNotes({ projectId }: TestingNotesProps) {
       )}
 
       {showAdd && (
-        <div className="border border-white/[0.08] rounded-lg p-3 space-y-3 bg-white/[0.02]">
+        <div className="border border-border rounded-lg p-3 space-y-3 bg-foreground/[0.02]">
           <textarea
             value={newContent}
             onChange={(e) => setNewContent(e.target.value)}
             placeholder="e.g. 'Skip login tests until auth bug #42 is fixed' or 'Admin panel is at /admin, not /dashboard'"
-            className="w-full bg-transparent border border-white/[0.08] rounded-md px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/50 resize-y min-h-[80px] focus:outline-none focus:border-white/20"
+            className="w-full bg-transparent border border-border rounded-md px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/50 resize-y min-h-[80px] focus:outline-none focus:border-border"
           />
           <div className="flex items-center gap-2">
             <span className="text-[11px] text-muted-foreground">Category:</span>
@@ -159,7 +159,7 @@ export function TestingNotes({ projectId }: TestingNotesProps) {
                   className={cn(
                     "flex items-center gap-1 px-2 py-0.5 rounded text-[11px] transition-colors border",
                     newCategory === cat.id
-                      ? "border-white/20 bg-white/[0.06] text-foreground"
+                      ? "border-border bg-foreground/[0.06] text-foreground"
                       : "border-transparent text-muted-foreground hover:text-foreground"
                   )}
                 >
@@ -227,8 +227,8 @@ function NoteRow({
       className={cn(
         "flex items-start gap-2.5 px-3 py-2.5 rounded-md border transition-colors group",
         note.active
-          ? "border-white/[0.08] bg-white/[0.02]"
-          : "border-white/[0.04] bg-transparent opacity-50"
+          ? "border-border bg-foreground/[0.02]"
+          : "border-border bg-transparent opacity-50"
       )}
     >
       <button
@@ -238,7 +238,7 @@ function NoteRow({
           "mt-0.5 h-4 w-4 rounded border flex items-center justify-center shrink-0 transition-colors",
           note.active
             ? "border-emerald-500 bg-emerald-500/20"
-            : "border-white/20 bg-transparent"
+            : "border-border bg-transparent"
         )}
       >
         {note.active && (
@@ -274,7 +274,7 @@ function NoteRow({
 
 function EmptyState({ onAdd }: { onAdd: () => void }) {
   return (
-    <div className="border border-dashed border-white/[0.08] rounded-lg py-8 px-4 text-center">
+    <div className="border border-dashed border-border rounded-lg py-8 px-4 text-center">
       <StickyNote className="h-8 w-8 text-muted-foreground/30 mx-auto mb-3" />
       <p className="text-sm text-muted-foreground mb-1">No testing notes yet</p>
       <p className="text-[11px] text-muted-foreground/70 max-w-sm mx-auto mb-4">

@@ -161,15 +161,15 @@ export function PrivacyClient() {
 
           <Section title="6. Third-Party Sub-Processors">
             <p>We use the following third-party services to operate Orbit:</p>
-            <div className="rounded-lg border border-white/[0.04] overflow-hidden">
+            <div className="rounded-lg border border-border overflow-hidden">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-white/[0.04] bg-card">
+                  <tr className="border-b border-border bg-card">
                     <th className="text-left px-4 py-2 font-medium text-foreground">Provider</th>
                     <th className="text-left px-4 py-2 font-medium text-foreground">Purpose</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-white/[0.04]">
+                <tbody className="divide-y divide-border">
                   {[
                     ["Anthropic", "AI analysis and test plan generation"],
                     ["OpenAI", "Embedding generation and AI analysis"],

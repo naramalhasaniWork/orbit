@@ -56,7 +56,7 @@ export function AgentToolCard({ name, args, result, status }: AgentToolCardProps
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.2 }}
       className={cn(
-        "relative rounded-lg border-l-2 bg-white/[0.03] border border-white/[0.06] overflow-hidden",
+        "relative rounded-lg border-l-2 bg-foreground/[0.03] border border-border overflow-hidden",
         accentColors[status],
       )}
     >
@@ -137,7 +137,7 @@ export function AgentToolCard({ name, args, result, status }: AgentToolCardProps
             transition={{ duration: 0.2 }}
             className="overflow-hidden"
           >
-            <div className="px-3 pb-3 space-y-2 border-t border-white/[0.04] pt-2">
+            <div className="px-3 pb-3 space-y-2 border-t border-border pt-2">
               {/* Args */}
               {argEntries.length > 0 && (
                 <div className="space-y-1">
@@ -148,7 +148,7 @@ export function AgentToolCard({ name, args, result, status }: AgentToolCardProps
                     {argEntries.map(([key, val]) => (
                       <span
                         key={key}
-                        className="inline-flex text-[10px] font-mono bg-white/[0.05] rounded px-1.5 py-0.5 text-muted-foreground"
+                        className="inline-flex text-[10px] font-mono bg-foreground/[0.05] rounded px-1.5 py-0.5 text-muted-foreground"
                       >
                         <span className="text-foreground/70">{key}</span>
                         <span className="mx-0.5">=</span>
@@ -165,7 +165,7 @@ export function AgentToolCard({ name, args, result, status }: AgentToolCardProps
                   <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
                     Result
                   </span>
-                  <pre className="text-[10px] font-mono leading-relaxed text-foreground/60 bg-white/[0.03] rounded px-2 py-1.5 overflow-x-auto whitespace-pre-wrap break-all">
+                  <pre className="text-[10px] font-mono leading-relaxed text-foreground/60 bg-foreground/[0.03] rounded px-2 py-1.5 overflow-x-auto whitespace-pre-wrap break-all">
                     {truncatedResult}
                   </pre>
                   {isResultTruncatable && (

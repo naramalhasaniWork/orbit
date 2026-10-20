@@ -47,42 +47,48 @@ export const ExecutionResultSchema = z.object({
   }),
 });
 
+export const ACTION_TYPES = [
+  "click",
+  "fill",
+  "select",
+  "navigate",
+  "wait",
+  "assert",
+  "screenshot",
+  "scroll",
+  "hover",
+  "press_key",
+  "tool_call",
+  "verdict",
+] as const;
+
+export const ASSERTION_TYPES = [
+  "visible",
+  "text_contains",
+  "url_matches",
+  "element_exists",
+  "attribute_equals",
+  "element_count",
+  "accessibility_check",
+] as const;
+
+export const ACTION_VERDICTS = ["pass", "fail", "environment_error"] as const;
+
 export const ExecutorActionSchema = z.object({
-  action: z.enum([
-    "click",
-    "fill",
-    "select",
-    "navigate",
-    "wait",
-    "assert",
-    "screenshot",
-    "scroll",
-    "hover",
-    "press_key",
-    "tool_call",
-    "verdict",
-  ]),
+  action: z.enum(ACTION_TYPES),
   selector: z.string().optional(),
   value: z.string().optional(),
   url: z.string().optional(),
   waitMs: z.number().min(0).max(10000).optional(),
   assertion: z
     .object({
-      type: z.enum([
-        "visible",
-        "text_contains",
-        "url_matches",
-        "element_exists",
-        "attribute_equals",
-        "element_count",
-        "accessibility_check",
-      ]),
+      type: z.enum(ASSERTION_TYPES),
       expected: z.string(),
       attribute: z.string().optional(),
       selector: z.string().optional(),
     })
     .optional(),
-  verdict: z.enum(["pass", "fail", "environment_error"]).optional(),
+  verdict: z.enum(ACTION_VERDICTS).optional(),
   /** tool_call: name of a tool from the workspace's connected MCP servers */
   toolName: z.string().optional(),
   toolArgs: z.record(z.unknown()).optional(),

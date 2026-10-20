@@ -1,96 +1,75 @@
-import { NextRequest } from "next/server";
+import { z } from "zod";
 import { prisma } from "@/lib/db";
-import {
-  requireWorkspace,
-  apiSuccess,
-  apiError,
-  handleApiError,
-} from "@/lib/utils/api";
-import { requirePermission } from "@/lib/auth/rbac";
+import { apiSuccess, apiError } from "@/lib/utils/api";
 import { canConsume } from "@/lib/auth/tenant";
 import { getDefaultEnvironment } from "@/services/execution/environment-validator";
 import { emitRunStarted } from "@/lib/websocket";
-import { enqueueOrDiscard } from "@/services/orchestrator/run-launcher";
+import { createRunWithinAllowance, enqueueOrDiscard } from "@/services/orchestrator/run-launcher";
 import { requireQueueAvailable, WORKERS_UNAVAILABLE_MESSAGE } from "@/lib/queue/availability";
+import { route } from "@/server/http/route";
 
 // ============================================================
 // GET /api/projects/[projectId]/runs — List runs for a project
 // ============================================================
 
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: Promise<{ projectId: string }> }
-) {
-  try {
-    const { workspaceId } = await requireWorkspace();
-    const { projectId } = await params;
+export const GET = route({}, async ({ params: { projectId }, workspaceId }) => {
+  // Verify project belongs to workspace
+  const project = await prisma.project.findFirst({
+    where: { id: projectId, workspaceId },
+    select: { id: true },
+  });
 
-    // Verify project belongs to workspace
-    const project = await prisma.project.findFirst({
-      where: { id: projectId, workspaceId },
-      select: { id: true },
-    });
-
-    if (!project) {
-      return apiError("Project not found", "NOT_FOUND", 404);
-    }
-
-    const runs = await prisma.testRun.findMany({
-      where: { projectId },
-      orderBy: { createdAt: "desc" },
-      take: 50,
-      select: {
-        id: true,
-        sequenceNumber: true,
-        status: true,
-        mode: true,
-        trigger: true,
-        totalTests: true,
-        passed: true,
-        failed: true,
-        flaky: true,
-        skipped: true,
-        creditsConsumed: true,
-        branch: true,
-        commitSha: true,
-        prNumber: true,
-        startedAt: true,
-        completedAt: true,
-        durationMs: true,
-        createdAt: true,
-      },
-    });
-
-    return apiSuccess(runs);
-  } catch (error) {
-    return handleApiError(error);
+  if (!project) {
+    return apiError("Project not found", "NOT_FOUND", 404);
   }
-}
+
+  const runs = await prisma.testRun.findMany({
+    where: { projectId },
+    orderBy: { createdAt: "desc" },
+    take: 50,
+    select: {
+      id: true,
+      sequenceNumber: true,
+      status: true,
+      mode: true,
+      trigger: true,
+      totalTests: true,
+      passed: true,
+      failed: true,
+      flaky: true,
+      skipped: true,
+      creditsConsumed: true,
+      branch: true,
+      commitSha: true,
+      prNumber: true,
+      startedAt: true,
+      completedAt: true,
+      durationMs: true,
+      createdAt: true,
+    },
+  });
+
+  return apiSuccess(runs);
+});
 
 // ============================================================
 // POST /api/projects/[projectId]/runs — Start a new test run
 // ============================================================
 
-interface CreateRunBody {
-  environmentId?: string;
-  testPlanId?: string;
-  mode?: "full" | "smoke" | "regression" | "targeted";
-  branch?: string;
-  commitSha?: string;
-  prNumber?: number;
-}
+const CreateRunBody = z
+  .object({
+    environmentId: z.string().optional(),
+    testPlanId: z.string().optional(),
+    mode: z.enum(["full", "smoke", "regression", "targeted"]).optional(),
+    branch: z.string().optional(),
+    commitSha: z.string().optional(),
+    prNumber: z.number().int().optional(),
+  })
+  .default({});
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ projectId: string }> }
-) {
-  try {
-    const { session, workspaceId } = await requireWorkspace();
-    const { projectId } = await params;
-
-    // RBAC: require runs.create permission
-    await requirePermission(workspaceId, "runs.create");
-
+export const POST = route(
+  { permission: "runs.create", body: CreateRunBody, idempotent: true },
+  async ({ body, params: { projectId }, workspaceId, session }) => {
     // Verify project belongs to workspace
     const project = await prisma.project.findFirst({
       where: { id: projectId, workspaceId },
@@ -101,12 +80,11 @@ export async function POST(
       return apiError("Project not found", "NOT_FOUND", 404);
     }
 
+    // Fail fast; the check that counts is the atomic one at insert time.
     const allowance = await canConsume(workspaceId, "run");
     if (!allowance.allowed) {
       return apiError(allowance.reason, allowance.code, allowance.code === "NOT_FOUND" ? 404 : 403);
     }
-
-    const body = (await request.json()) as CreateRunBody;
 
     // Resolve environment
     let environmentId = body.environmentId;
@@ -160,21 +138,24 @@ export async function POST(
     // Fail fast before creating a run nothing could pick up.
     await requireQueueAvailable();
 
-    // Create the test run
-    const run = await prisma.testRun.create({
-      data: {
-        projectId,
-        environmentId,
-        testPlanId,
-        status: "queued",
-        mode: body.mode ?? (environment.defaultRunMode as "full" | "smoke" | "regression" | "targeted") ?? "full",
-        trigger: "manual",
-        triggeredById: session.user.id,
-        branch: body.branch,
-        commitSha: body.commitSha,
-        prNumber: body.prNumber,
-      },
+    // Create the test run under the workspace lock so concurrent launches can't exceed the limit
+    const created = await createRunWithinAllowance(workspaceId, {
+      projectId,
+      environmentId,
+      testPlanId,
+      status: "queued",
+      mode: body.mode ?? (environment.defaultRunMode as "full" | "smoke" | "regression" | "targeted") ?? "full",
+      trigger: "manual",
+      triggeredById: session.user.id,
+      branch: body.branch,
+      commitSha: body.commitSha,
+      prNumber: body.prNumber,
     });
+    if ("blocked" in created) {
+      const { blocked } = created;
+      return apiError(blocked.reason, blocked.code, blocked.code === "NOT_FOUND" ? 404 : 403);
+    }
+    const { run } = created;
 
     // Count test cases for the response
     const testCaseCount = await prisma.testCase.count({
@@ -211,7 +192,5 @@ export async function POST(
     });
 
     return apiSuccess({ ...run, totalTests: testCaseCount }, 201);
-  } catch (error) {
-    return handleApiError(error);
   }
-}
+);

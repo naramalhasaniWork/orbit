@@ -8,7 +8,7 @@ import { executeTestCase } from "@/services/execution/test-case-executor";
 import { executeApiTestCase } from "@/services/execution/api-test-executor";
 import { runVisualTest } from "@/services/visual-qa/visual-test-runner";
 import { executeCaseByType } from "@/services/execution/case-dispatcher";
-import { meterModelCall } from "@/server/engine/model-meter";
+import { meterModelCall } from "@/server/ai/model-meter";
 
 const browser = executeTestCase as ReturnType<typeof vi.fn>;
 const api = executeApiTestCase as ReturnType<typeof vi.fn>;
@@ -41,7 +41,7 @@ describe("executeCaseByType", () => {
 
     expect(visual).toHaveBeenCalledWith({
       runId: "run-1", projectId: "p1", routePath: "/pricing",
-      environmentUrl: "https://staging.example.com", storageState: undefined,
+      environmentUrl: "https://staging.example.com", storageState: undefined, accessHeaders: undefined,
     });
     expect(browser).not.toHaveBeenCalled();
     expect(result.verdict).toBe("fail");
@@ -118,15 +118,36 @@ describe("executeCaseByType", () => {
 
   it("stamps every result with the model calls the case made", async () => {
     browser.mockImplementation(async () => {
-      meterModelCall({ model: "m", inputTokens: 1, outputTokens: 1 });
-      meterModelCall({ model: "m", inputTokens: 1, outputTokens: 1 });
+      meterModelCall(0.01);
+      meterModelCall(0.01);
       return browserResult;
     });
 
     const result = await executeCaseByType("run-1", { ...visualCase, type: "e2e" }, "https://staging.example.com", {});
 
     expect(result.execution).toEqual({
-      executionMode: "agent", divergedAtStep: null, modelCalls: 2, modelCostUsd: 0,
+      executionMode: "agent", divergedAtStep: null, modelCalls: 2, modelCostUsd: 0.02,
+    });
+  });
+
+  describe("Cloudflare Access secrets", () => {
+    const creds = { TEST_EMAIL: "qa@acme.dev", CF_ACCESS_CLIENT_ID: "id.access", CF_ACCESS_CLIENT_SECRET: "s3cret" };
+
+    it("sends Access headers to the visual test's browser, never to a login prompt as credentials", async () => {
+      visual.mockResolvedValue({ passed: true, isBaselineCapture: true, screenshotKey: "k", durationMs: 1 });
+      await executeCaseByType("run-1", visualCase, "https://abc.acme.pages.dev", { CF_ACCESS_CLIENT_ID: "id.access", CF_ACCESS_CLIENT_SECRET: "s3cret" });
+
+      expect(visual).toHaveBeenCalledWith(expect.objectContaining({
+        accessHeaders: { "CF-Access-Client-Id": "id.access", "CF-Access-Client-Secret": "s3cret" },
+      }));
+      // Access secrets alone are not login credentials: no LLM login attempt is made.
+      expect(browser).not.toHaveBeenCalled();
+    });
+
+    it("keeps CF_ACCESS_* out of the API contract executor's prompt credentials", async () => {
+      api.mockResolvedValue(browserResult);
+      await executeCaseByType("run-1", { ...visualCase, type: "api_contract" }, "https://abc.acme.pages.dev", creds);
+      expect(api.mock.calls[0][3]).toEqual({ TEST_EMAIL: "qa@acme.dev" });
     });
   });
 });

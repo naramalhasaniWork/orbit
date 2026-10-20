@@ -1,14 +1,9 @@
-import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
-import {
-  requireWorkspace,
-  apiSuccess,
-  apiError,
-  handleApiError,
-} from "@/lib/utils/api";
+import { apiSuccess, apiError } from "@/lib/utils/api";
+import { createRunWithinAllowance } from "@/services/orchestrator/run-launcher";
 import { runVisualTest } from "@/services/visual-qa/visual-test-runner";
-import { requirePermission } from "@/lib/auth/rbac";
 import { getDefaultEnvironment } from "@/services/execution/environment-validator";
+import { route } from "@/server/http/route";
 
 // ============================================================
 // POST /api/projects/[projectId]/visual-tests
@@ -23,15 +18,9 @@ interface VisualTestBody {
   diffThreshold?: number;
 }
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ projectId: string }> }
-) {
-  try {
-    const { workspaceId } = await requireWorkspace();
-    await requirePermission(workspaceId, "runs.create");
-    const { projectId } = await params;
-
+export const POST = route(
+  { permission: "runs.create" },
+  async ({ req: request, params: { projectId }, workspaceId }) => {
     const project = await prisma.project.findFirst({
       where: { id: projectId, workspaceId },
       select: { id: true },
@@ -70,20 +59,25 @@ export async function POST(
       );
     }
 
-    // Resolve or create a run to attach artifacts to
+    // Attach to the caller's run (it must be this project's), or create one under the workspace allowance
     let runId = body.runId;
-    if (!runId) {
-      const run = await prisma.testRun.create({
-        data: {
-          projectId,
-          environmentId: environment.id,
-          status: "executing",
-          mode: "targeted",
-          trigger: "manual",
-          startedAt: new Date(),
-        },
+    if (runId) {
+      const existing = await prisma.testRun.findFirst({ where: { id: runId, projectId }, select: { id: true } });
+      if (!existing) return apiError("Run not found", "NOT_FOUND", 404);
+    } else {
+      const created = await createRunWithinAllowance(workspaceId, {
+        projectId,
+        environmentId: environment.id,
+        status: "executing",
+        mode: "targeted",
+        trigger: "manual",
+        startedAt: new Date(),
       });
-      runId = run.id;
+      if ("blocked" in created) {
+        const { blocked } = created;
+        return apiError(blocked.reason, blocked.code, blocked.code === "NOT_FOUND" ? 404 : 403);
+      }
+      runId = created.run.id;
     }
 
     const result = await runVisualTest({
@@ -110,7 +104,5 @@ export async function POST(
     }
 
     return apiSuccess({ result, runId }, 201);
-  } catch (error) {
-    return handleApiError(error);
   }
-}
+);

@@ -50,10 +50,15 @@ export const PlanningJobDataSchema = z.discriminatedUnion("kind", [
   }),
 ]);
 
+export const PreviewJobDataSchema = z.object({
+  type: z.literal("reconcile_previews"),
+});
+
 export type IndexingJobData = z.infer<typeof IndexingJobDataSchema>;
 export type ExecutionJobData = z.infer<typeof ExecutionJobDataSchema>;
 export type ReportingJobData = z.infer<typeof ReportingJobDataSchema>;
 export type SchedulerJobData = z.infer<typeof SchedulerJobDataSchema>;
+export type PreviewJobData = z.infer<typeof PreviewJobDataSchema>;
 export type PlanningJobData = z.infer<typeof PlanningJobDataSchema>;
 
 // ============================================================
@@ -66,12 +71,14 @@ const QUEUE_NAMES = {
   reporting: "reporting",
   scheduler: "scheduler",
   planning: "planning",
+  preview: "preview",
 } as const;
 
 let indexingQueue: Queue<IndexingJobData> | null = null;
 let executionQueue: Queue<ExecutionJobData> | null = null;
 let reportingQueue: Queue<ReportingJobData> | null = null;
 let schedulerQueue: Queue<SchedulerJobData> | null = null;
+let previewQueue: Queue<PreviewJobData> | null = null;
 let planningQueue: Queue<PlanningJobData> | null = null;
 
 export function getIndexingQueue(): Queue<IndexingJobData> {
@@ -149,6 +156,20 @@ export function getPlanningQueue(): Queue<PlanningJobData> {
     });
   }
   return planningQueue;
+}
+
+export function getPreviewQueue(): Queue<PreviewJobData> {
+  if (!previewQueue) {
+    previewQueue = new Queue<PreviewJobData>(QUEUE_NAMES.preview, {
+      connection: getQueueConnection(),
+      defaultJobOptions: {
+        attempts: 1,
+        removeOnComplete: { count: 10 },
+        removeOnFail: { count: 50 },
+      },
+    });
+  }
+  return previewQueue;
 }
 
 export { QUEUE_NAMES };

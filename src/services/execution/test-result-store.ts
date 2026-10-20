@@ -31,7 +31,12 @@ export async function saveTestResult(
 
   for (let attempt = 1; attempt <= SAVE_RESULT_MAX_RETRIES; attempt++) {
     try {
-      await prisma.testResult.create({ data });
+      // Upsert on (run, case): a retried job rewrites its result instead of duplicating it
+      await prisma.testResult.upsert({
+        where: { testRunId_testCaseId: { testRunId: runId, testCaseId } },
+        create: data,
+        update: data,
+      });
       return;
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);

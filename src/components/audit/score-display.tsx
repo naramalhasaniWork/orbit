@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { tween } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 
 interface ScoreDisplayProps {
@@ -40,7 +41,7 @@ export function ScoreDisplay({ score, label, size = "lg" }: ScoreDisplayProps) {
     <motion.div
       initial={{ scale: 0.8, opacity: 0 }}
       animate={{ scale: 1, opacity: 1 }}
-      transition={{ type: "spring", stiffness: 200, damping: 20 }}
+      transition={tween.change}
       className={cn(
         "flex flex-col items-center justify-center rounded-full",
         s.wrapper,

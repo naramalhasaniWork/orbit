@@ -1,29 +1,17 @@
-import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { getIndexingQueue } from "@/lib/queue/queues";
 import { requireQueueAvailable, withQueueTimeout } from "@/lib/queue/availability";
-import {
-  requireWorkspace,
-  apiSuccess,
-  apiError,
-  handleApiError,
-} from "@/lib/utils/api";
-import { requirePermission } from "@/lib/auth/rbac";
+import { apiSuccess, apiError } from "@/lib/utils/api";
+import { route } from "@/server/http/route";
 
 interface SyncRequestBody {
   branch?: string;
   changedFiles?: string[];
 }
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ projectId: string }> }
-) {
-  try {
-    const { workspaceId } = await requireWorkspace();
-    await requirePermission(workspaceId, "projects.update");
-    const { projectId } = await params;
-
+export const POST = route(
+  { permission: "projects.update" },
+  async ({ req: request, params: { projectId }, workspaceId }) => {
     const project = await prisma.project.findFirst({
       where: { id: projectId, workspaceId },
     });
@@ -62,61 +50,49 @@ export async function POST(
       },
       202
     );
-  } catch (error) {
-    return handleApiError(error);
   }
-}
+);
 
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: Promise<{ projectId: string }> }
-) {
-  try {
-    const { workspaceId } = await requireWorkspace();
-    const { projectId } = await params;
+export const GET = route({}, async ({ params: { projectId }, workspaceId }) => {
+  const project = await prisma.project.findFirst({
+    where: { id: projectId, workspaceId },
+    select: {
+      id: true,
+      lastIndexedAt: true,
+      framework: true,
+      status: true,
+    },
+  });
 
-    const project = await prisma.project.findFirst({
-      where: { id: projectId, workspaceId },
-      select: {
-        id: true,
-        lastIndexedAt: true,
-        framework: true,
-        status: true,
-      },
-    });
-
-    if (!project) {
-      return apiError("Project not found", "NOT_FOUND", 404);
-    }
-
-    const nodeCount = await prisma.systemMapNode.count({
-      where: { projectId },
-    });
-
-    const edgeCount = await prisma.systemMapEdge.count({
-      where: { projectId },
-    });
-
-    // Check if there's an active indexing job
-    await requireQueueAvailable();
-    const queue = getIndexingQueue();
-    const [activeJobs, waitingJobs] = await withQueueTimeout(
-      Promise.all([queue.getActive(), queue.getWaiting()])
-    );
-
-    const isIndexing = [...activeJobs, ...waitingJobs].some((job) =>
-      job.data.projectId === projectId
-    );
-
-    return apiSuccess({
-      projectId,
-      lastIndexedAt: project.lastIndexedAt,
-      framework: project.framework,
-      nodeCount,
-      edgeCount,
-      isIndexing,
-    });
-  } catch (error) {
-    return handleApiError(error);
+  if (!project) {
+    return apiError("Project not found", "NOT_FOUND", 404);
   }
-}
+
+  const nodeCount = await prisma.systemMapNode.count({
+    where: { projectId },
+  });
+
+  const edgeCount = await prisma.systemMapEdge.count({
+    where: { projectId },
+  });
+
+  // Check if there's an active indexing job
+  await requireQueueAvailable();
+  const queue = getIndexingQueue();
+  const [activeJobs, waitingJobs] = await withQueueTimeout(
+    Promise.all([queue.getActive(), queue.getWaiting()])
+  );
+
+  const isIndexing = [...activeJobs, ...waitingJobs].some((job) =>
+    job.data.projectId === projectId
+  );
+
+  return apiSuccess({
+    projectId,
+    lastIndexedAt: project.lastIndexedAt,
+    framework: project.framework,
+    nodeCount,
+    edgeCount,
+    isIndexing,
+  });
+});

@@ -1,0 +1,19 @@
+{
+  "type": "Deployment.succeeded",
+  "details": {
+    "id": "d7b1c2e0-0000-4000-8000-000000000001",
+    "status": "SUCCESS",
+    "branch": "feature/checkout",
+    "commitHash": "4F2A9C1E0B7D6E5F4A3B2C1D0E9F8A7B6C5D4E3F",
+    "commitAuthor": "dev",
+    "commitMessage": "Fix checkout"
+  },
+  "resource": {
+    "workspace": { "id": "ws-railway-1", "name": "Acme" },
+    "project": { "id": "rw-project-1", "name": "acme-web" },
+    "environment": { "id": "rw-env-pr-42", "name": "acme-web-pr-42", "isEphemeral": true },
+    "service": { "id": "rw-service-web", "name": "web" },
+    "deployment": { "id": "d7b1c2e0-0000-4000-8000-000000000001" }
+  },
+  "timestamp": "2026-10-20T12:00:00.000Z"
+}

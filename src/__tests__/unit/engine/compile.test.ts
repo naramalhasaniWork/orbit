@@ -1,9 +1,9 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 vi.mock("@/lib/ai/tracked-completion", () => ({ createTrackedCompletion: vi.fn() }));
-vi.mock("@/lib/ai/model-router", () => ({ getModelForTask: vi.fn().mockResolvedValue("cheap-model") }));
 
 import { createTrackedCompletion } from "@/lib/ai/tracked-completion";
+import { modelForTier } from "@/server/ai/model-catalog";
 import { compileRecording } from "@/server/engine/replay/compile";
 import { assertionHoldsOnSnapshot, deriveAssertions } from "@/server/engine/replay/assertion-deriver";
 import type { RecordedRun, ResolvedAction, StepSnapshot } from "@/server/engine/replay/types";
@@ -115,7 +115,7 @@ describe("deriveAssertions", () => {
     ], billing);
 
     expect(llm).toHaveBeenCalledTimes(1);
-    expect(llm.mock.calls[0][0].model).toBe("cheap-model");
+    expect(llm.mock.calls[0][0].model).toBe(modelForTier("fast"));
     expect(Array.from(derived.entries())).toEqual([[0, { type: "text_contains", expected: "Invoice sent" }]]);
   });
 

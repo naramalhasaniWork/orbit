@@ -1,7 +1,6 @@
-import { NextRequest } from "next/server";
-import { prisma } from "@/lib/db";
-import { requireWorkspace, apiError, handleApiError } from "@/lib/utils/api";
-import { requirePermission } from "@/lib/auth/rbac";
+import { z } from "zod";
+import { apiError } from "@/lib/utils/api";
+import { route } from "@/server/http/route";
 import { findLatestLiveScript } from "@/server/engine/replay/script-store";
 import { renderPlaywrightSpec } from "@/server/engine/replay/export-spec";
 
@@ -10,16 +9,12 @@ import { renderPlaywrightSpec } from "@/server/engine/replay/export-spec";
 // The case's compiled replay script as a standalone Playwright test.
 // ============================================================
 
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: Promise<{ projectId: string; testCaseId: string }> }
-) {
-  try {
-    const { workspaceId } = await requireWorkspace();
-    await requirePermission(workspaceId, "plans.view");
-    const { projectId, testCaseId } = await params;
+const Params = z.object({ projectId: z.string().uuid(), testCaseId: z.string().uuid() });
 
-    const testCase = await prisma.testCase.findFirst({
+export const GET = route(
+  { permission: "plans.view", params: Params },
+  async ({ params: { projectId, testCaseId }, workspaceId, db }) => {
+    const testCase = await db.testCase.findFirst({
       where: { id: testCaseId, projectId, project: { workspaceId } },
       select: { name: true, steps: true },
     });
@@ -32,7 +27,7 @@ export async function GET(
       return apiError("This test case has no compiled script yet", "NOT_FOUND", 404);
     }
 
-    const environment = await prisma.environment.findFirst({
+    const environment = await db.environment.findFirst({
       where: { id: script.envKey.split(":")[0], projectId },
       select: { url: true },
     });
@@ -51,7 +46,5 @@ export async function GET(
         "Content-Disposition": `attachment; filename="${filename}"`,
       },
     });
-  } catch (error) {
-    return handleApiError(error);
   }
-}
+);

@@ -7,6 +7,9 @@ import { resolveRoleCredentials } from "@/services/execution/role-credentials";
 import { createRoleSessions, type RoleSessions } from "@/services/execution/role-sessions";
 import { saveTestResult } from "@/services/execution/test-result-store";
 import { isRunCancelled } from "@/services/orchestrator/run-manager";
+import { isRunAbort } from "@/services/execution/run-abort";
+import { isLoginCase, loadRecordedVerdicts, verdictBucket } from "@/services/execution/resume";
+import { throwIfShuttingDown } from "@/lib/queue/shutdown";
 import type { TestCaseForExecution, TestCaseResult } from "@/services/execution/test-case-executor";
 import type { TestVerdict } from "@/generated/prisma/enums";
 import type { TestResultEvent } from "@/lib/websocket/channels";
@@ -17,6 +20,11 @@ import { partitionCases } from "./partition";
  * `concurrency`: cases are partitioned (see partitionCases) and up to
  * `concurrency` workers drain the partitions. Every executed case is
  * recorded, and sessions are shared per required role across workers.
+ *
+ * A retried run resumes: cases that already have a result are tallied, not
+ * re-run. Login cases are the exception: they run first, one at a time, to
+ * rebuild the per-role sessions the remaining cases reuse. Run aborts
+ * (shutdown, lost run lock, exhausted AI budget) propagate to the caller.
  */
 
 export interface RunCounters {
@@ -44,6 +52,8 @@ export interface RunCasesOutcome {
 
 interface LoopState {
   counters: RunCounters;
+  /** testCaseId → verdict already recorded for this run (a resumed job) */
+  recorded: Map<string, string>;
   stop: RunStop | null;
   sessions: RoleSessions;
   consecutiveBrowserFailures: number;
@@ -57,32 +67,37 @@ const UNAUTH_PATTERNS = [
   "without token", "no token", "expired session", "expired token",
 ];
 
-const AUTH_PATTERNS = [
-  "login with valid", "log in with valid", "sign in with valid",
-  "successful login", "successful sign", "authenticate with valid",
-  "login with correct", "log in with correct",
-];
-
-const VERDICT_COUNTER: Record<string, keyof RunCounters> = {
-  pass: "passed", fail: "failed", flaky: "flaky", healed: "passed",
-  environment_error: "skipped", skipped: "skipped",
-};
-
 export async function runCases(input: RunCasesInput): Promise<RunCasesOutcome> {
-  const partitions = partitionCases(input.cases, input.concurrency);
+  const recorded = await loadRecordedVerdicts(input.runId);
   const state: LoopState = {
     counters: { passed: 0, failed: 0, flaky: 0, skipped: 0 },
+    recorded,
     stop: null,
     sessions: createRoleSessions(),
     consecutiveBrowserFailures: 0,
     consecutiveProviderFailures: 0,
   };
 
+  let cases = input.cases;
+  if (recorded.size > 0) {
+    console.log(`[Runner:${input.runId.slice(0, 8)}] Resuming: ${recorded.size} case(s) already have results`);
+    const logins = cases.filter((c) => isLoginCase(c.name));
+    await runPartitions([logins], 1, input, state);
+    cases = cases.filter((c) => !isLoginCase(c.name));
+  }
+  await runPartitions(partitionCases(cases, input.concurrency), input.concurrency, input, state);
+  return { counters: state.counters, stop: state.stop };
+}
+
+async function runPartitions(
+  partitions: TestCaseForExecution[][], concurrency: number, input: RunCasesInput, state: LoopState
+): Promise<void> {
   let nextPartition = 0;
   const worker = async (): Promise<void> => {
     while (!state.stop && nextPartition < partitions.length) {
       for (const testCase of partitions[nextPartition++]) {
         if (state.stop) return;
+        if (tallyRecorded(testCase, state)) continue;
         const stop = await checkBetweenCases(input.runId);
         if (stop) {
           state.stop ??= stop;
@@ -93,13 +108,30 @@ export async function runCases(input: RunCasesInput): Promise<RunCasesOutcome> {
     }
   };
 
-  const workers = Math.max(1, Math.min(input.concurrency, partitions.length));
-  await Promise.all(Array.from({ length: workers }, worker));
-  return { counters: state.counters, stop: state.stop };
+  // allSettled: when one worker aborts the run, the others stop at their next case instead of racing on
+  const workers = Math.max(1, Math.min(concurrency, partitions.length));
+  const settled = await Promise.allSettled(Array.from({ length: workers }, () => worker().catch((err) => {
+    state.stop ??= { kind: "aborted", reason: err instanceof Error ? err.message : String(err) };
+    throw err;
+  })));
+  const failure = settled.find((r): r is PromiseRejectedResult => r.status === "rejected");
+  if (failure) throw failure.reason;
 }
 
-/** Checked before every case: anything that should stop the run between cases goes here. */
+/** A resumed run counts cases already recorded instead of re-running them; login cases re-run. */
+function tallyRecorded(testCase: TestCaseForExecution, state: LoopState): boolean {
+  const prior = state.recorded.get(testCase.id);
+  if (!prior || isLoginCase(testCase.name)) return false;
+  state.counters[verdictBucket(prior)]++;
+  return true;
+}
+
+/**
+ * Checked before every case to run. Shutdown throws (retryable; the next
+ * worker resumes), outside any per-case catch so it reaches the run.
+ */
 async function checkBetweenCases(runId: string): Promise<RunStop | null> {
+  throwIfShuttingDown();
   if (await isRunCancelled(runId)) return { kind: "cancelled" };
   return null;
 }
@@ -126,7 +158,7 @@ async function runOneCase(input: RunCasesInput, testCase: TestCaseForExecution, 
   try {
     const nameLower = testCase.name.toLowerCase();
     const needsFreshBrowser = UNAUTH_PATTERNS.some((p) => nameLower.includes(p));
-    const isLoginTest = AUTH_PATTERNS.some((p) => nameLower.includes(p));
+    const isLoginTest = isLoginCase(testCase.name);
     // Login tests always start fresh so they can test the full login flow
     const storageState = !needsFreshBrowser && !isLoginTest ? state.sessions.get(testCase.requiredRole) : undefined;
 
@@ -141,7 +173,7 @@ async function runOneCase(input: RunCasesInput, testCase: TestCaseForExecution, 
       state.sessions.replace(testCase.requiredRole, needsFreshBrowser ? undefined : result.storageState);
     }
 
-    counters[VERDICT_COUNTER[result.verdict] ?? "failed"]++;
+    counters[verdictBucket(result.verdict)]++;
     log(`  -> ${result.verdict.toUpperCase()} (${result.durationMs}ms)`);
     checkAbort(result, state);
 
@@ -160,6 +192,8 @@ async function runOneCase(input: RunCasesInput, testCase: TestCaseForExecution, 
       data: { lastVerdict: result.verdict as TestVerdict, lastRunAt: new Date() },
     });
   } catch (err) {
+    // Shutdown, lost run lock or exhausted AI budget end the run, not just this case
+    if (isRunAbort(err)) throw err;
     counters.failed++;
     const errorMsg = err instanceof Error ? err.message : "Unknown error";
     log(`  -> CRASH: ${errorMsg}`);

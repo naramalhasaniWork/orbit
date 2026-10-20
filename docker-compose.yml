@@ -1,5 +1,9 @@
 # Self-hosted Orbit: web app (workers run in-process), Postgres + pgvector, Redis, browserless.
 # Usage: cp .env.selfhost.example .env && edit it && docker compose up -d
+#
+# Split mode (separate worker container): set ORBIT_ROLE=web on `web`, then
+#   docker compose run --rm -e ORBIT_ROLE=migrate web   # once per release
+#   docker compose --profile split up -d
 services:
   postgres:
     image: pgvector/pgvector:pg16
@@ -36,6 +40,8 @@ services:
   web:
     build: .
     restart: unless-stopped
+    # Long enough for running jobs to drain after SIGTERM (default is 10s)
+    stop_grace_period: 90s
     env_file: .env
     environment:
       DATABASE_URL: postgres://orbit:${POSTGRES_PASSWORD}@postgres:5432/orbit
@@ -45,6 +51,29 @@ services:
       STORAGE_PATH: /data/storage
     ports:
       - "3000:3000"
+    volumes:
+      - storage-data:/data/storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  # Optional: run workers in their own container (profile "split"). Also set
+  # ORBIT_ROLE=web on `web` so the two don't both process jobs.
+  worker:
+    profiles: [split]
+    build: .
+    restart: unless-stopped
+    stop_grace_period: 90s
+    env_file: .env
+    environment:
+      ORBIT_ROLE: worker
+      DATABASE_URL: postgres://orbit:${POSTGRES_PASSWORD}@postgres:5432/orbit
+      REDIS_URL: redis://redis:6379
+      PLAYWRIGHT_WS_ENDPOINT: ws://browser:3000?token=${BROWSER_TOKEN}
+      STORAGE_PROVIDER: local
+      STORAGE_PATH: /data/storage
     volumes:
       - storage-data:/data/storage
     depends_on:

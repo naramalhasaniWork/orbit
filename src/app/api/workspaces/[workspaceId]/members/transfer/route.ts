@@ -1,9 +1,8 @@
-import { NextRequest } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { requirePermission } from "@/lib/auth/rbac";
-import { apiSuccess, apiError, handleApiError } from "@/lib/utils/api";
+import { apiSuccess, apiError } from "@/lib/utils/api";
 import { writeAuditLog } from "@/lib/auth/audit";
+import { route } from "@/server/http/route";
 
 // ============================================================
 // POST /api/workspaces/[workspaceId]/members/transfer — Transfer ownership
@@ -13,14 +12,9 @@ const TransferSchema = z.object({
   targetUserId: z.string().uuid(),
 });
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ workspaceId: string }> }
-) {
-  try {
-    const { workspaceId } = await params;
-    const ctx = await requirePermission(workspaceId, "workspace.transfer");
-
+export const POST = route(
+  { workspace: "param", permission: "workspace.transfer" },
+  async ({ req: request, workspaceId, session }) => {
     const body = await request.json();
     const parsed = TransferSchema.safeParse(body);
     if (!parsed.success) {
@@ -29,7 +23,7 @@ export async function POST(
 
     const { targetUserId } = parsed.data;
 
-    if (targetUserId === ctx.session.user.id) {
+    if (targetUserId === session.user.id) {
       return apiError("You are already the owner", "ALREADY_OWNER", 400);
     }
 
@@ -53,7 +47,7 @@ export async function POST(
         where: {
           workspace_member_unique: {
             workspaceId,
-            userId: ctx.session.user.id,
+            userId: session.user.id,
           },
         },
         data: { role: "admin" },
@@ -66,15 +60,13 @@ export async function POST(
 
     await writeAuditLog({
       workspaceId,
-      userId: ctx.session.user.id,
+      userId: session.user.id,
       action: "ownership.transferred",
       resourceType: "workspace",
       resourceId: workspaceId,
-      metadata: { previousOwner: ctx.session.user.id, newOwner: targetUserId },
+      metadata: { previousOwner: session.user.id, newOwner: targetUserId },
     });
 
     return apiSuccess({ newOwner: targetUserId });
-  } catch (error) {
-    return handleApiError(error);
   }
-}
+);

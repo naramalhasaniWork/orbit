@@ -1,21 +1,15 @@
-import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
-import { requirePermission } from "@/lib/auth/rbac";
 import { writeAuditLog } from "@/lib/auth/audit";
-import { apiSuccess, apiError, handleApiError } from "@/lib/utils/api";
+import { apiSuccess, apiError } from "@/lib/utils/api";
+import { route } from "@/server/http/route";
 
 // ============================================================
 // DELETE /api/workspaces/[workspaceId]/api-keys/[keyId] — Revoke a key
 // ============================================================
 
-export async function DELETE(
-  _request: NextRequest,
-  { params }: { params: Promise<{ workspaceId: string; keyId: string }> }
-) {
-  try {
-    const { workspaceId, keyId } = await params;
-    const { session } = await requirePermission(workspaceId, "settings.manage");
-
+export const DELETE = route(
+  { workspace: "param", permission: "settings.manage" },
+  async ({ params: { keyId }, workspaceId, session }) => {
     const existing = await prisma.apiKey.findFirst({
       where: { id: keyId, workspaceId, revokedAt: null },
       select: { id: true, name: true, prefix: true },
@@ -40,7 +34,5 @@ export async function DELETE(
     });
 
     return apiSuccess({ revoked: true });
-  } catch (error) {
-    return handleApiError(error);
   }
-}
+);

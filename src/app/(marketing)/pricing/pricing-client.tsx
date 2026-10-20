@@ -46,7 +46,7 @@ export function PricingPageClient() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true, margin: "-50px" }}
                 transition={{ duration: 0.4, delay: i * 0.06 }}
-                className="rounded-xl border border-white/[0.04] bg-card p-6"
+                className="rounded-xl border border-border bg-card p-6"
               >
                 <h3 className="font-semibold mb-2">{item.question}</h3>
                 <p className="text-sm text-muted-foreground leading-relaxed">
@@ -83,7 +83,7 @@ export function PricingPageClient() {
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
                 transition={{ duration: 0.4, delay: i * 0.1 }}
-                className="rounded-xl border border-white/[0.04] bg-card p-6"
+                className="rounded-xl border border-border bg-card p-6"
               >
                 <div className="text-2xl font-bold">
                   {pack.credits.toLocaleString()}

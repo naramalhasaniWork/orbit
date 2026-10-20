@@ -1,19 +1,13 @@
-import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
-import { requirePermission } from "@/lib/auth/rbac";
-import { apiSuccess, handleApiError } from "@/lib/utils/api";
+import { apiSuccess } from "@/lib/utils/api";
 import type { AgentPhase } from "@/generated/prisma/client";
+import { route } from "@/server/http/route";
 
 const VALID_PHASES: AgentPhase[] = ["analyst", "planner", "executor", "reporter", "auditor"];
 
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: Promise<{ workspaceId: string }> }
-) {
-  try {
-    const { workspaceId } = await params;
-    await requirePermission(workspaceId, "settings.view");
-
+export const GET = route(
+  { workspace: "param", permission: "settings.view" },
+  async ({ workspaceId }) => {
     const versions = await prisma.promptVersion.findMany({
       where: { workspaceId, promptType: "user" },
       select: {
@@ -50,7 +44,5 @@ export async function GET(
     });
 
     return apiSuccess(result);
-  } catch (error) {
-    return handleApiError(error);
   }
-}
+);

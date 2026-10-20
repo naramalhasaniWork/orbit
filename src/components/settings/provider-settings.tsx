@@ -221,7 +221,7 @@ export function ProviderSettings({ workspaceId }: ProviderSettingsProps) {
                     value={card.apiKey}
                     onChange={(e) => updateCard(provider.id, { apiKey: e.target.value })}
                     placeholder={data?.hasKey ? "REDACTEDREDACTED** (key saved)" : "sk-..."}
-                    className="bg-white/[0.04] pr-9"
+                    className="bg-foreground/[0.04] pr-9"
                   />
                   <button
                     type="button"
@@ -239,7 +239,7 @@ export function ProviderSettings({ workspaceId }: ProviderSettingsProps) {
                   value={card.baseUrl}
                   onChange={(e) => updateCard(provider.id, { baseUrl: e.target.value })}
                   placeholder={provider.defaultUrl}
-                  className="bg-white/[0.04]"
+                  className="bg-foreground/[0.04]"
                 />
               </div>
             </div>
@@ -309,7 +309,7 @@ function StatusDot({ status }: { status: "connected" | "disabled" | "not_configu
     "bg-muted-foreground/40";
 
   return (
-    <div className="w-9 h-9 rounded-lg bg-white/[0.06] flex items-center justify-center">
+    <div className="w-9 h-9 rounded-lg bg-foreground/[0.06] flex items-center justify-center">
       <div className={`w-2 h-2 rounded-full ${color}`} />
     </div>
   );

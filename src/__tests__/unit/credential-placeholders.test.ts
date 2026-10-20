@@ -1,6 +1,12 @@
 import { describe, it, expect, vi } from "vitest";
 import type { Page } from "playwright";
-import { buildExecutorPrompt, type ExecutorContext } from "@/agents/prompts/executor-prompt";
+import { buildExecutorPrompt as buildPromptParts, type ExecutorContext } from "@/agents/prompts/executor-prompt";
+
+/** Everything the model sees: rules, test-case block and the turn message. */
+const buildExecutorPrompt = (context: ExecutorContext) => {
+  const p = buildPromptParts(context);
+  return [p.rules, p.testCase, p.turn].join("\n\n");
+};
 import { buildAuthSpecialistPrompt } from "@/agents/prompts/sub-agents/auth-specialist";
 import { performAction } from "@/services/execution/action-performer";
 import {

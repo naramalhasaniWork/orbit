@@ -9,6 +9,7 @@ import {
   findCurrentScript, markVerifiedByAgent, recentReplayDivergences, retireScript, saveScriptVersion,
 } from "@/server/engine/replay/script-store";
 import type { RecordedRun } from "@/server/engine/replay/types";
+import { isRunAbort } from "@/services/execution/run-abort";
 import type { CaseExecutor, CaseRunContext } from "./case-executor";
 import { replayCase } from "./replay-case";
 
@@ -101,6 +102,8 @@ async function compileAndSave(
   }
 }
 
+/** Store and compile failures never affect the case, but run aborts (shutdown, budget, lock) propagate. */
 function logStoreError(err: unknown): void {
+  if (isRunAbort(err)) throw err;
   console.error("[Replay] Script store error (case unaffected):", err instanceof Error ? err.message : err);
 }

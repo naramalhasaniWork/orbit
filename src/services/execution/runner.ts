@@ -8,11 +8,16 @@ import { clearRunToolCallCount } from "@/services/mcp/tool-injector";
 import { dispatchRunStarted, dispatchRunCompleted } from "@/services/reporting/integrations/outbound-webhooks";
 import { acquireLock, releaseLock } from "@/lib/redis/lock";
 import { runCases, type RunCounters } from "@/server/engine/runner/run-cases";
+import { ShutdownError } from "@/lib/queue/shutdown";
+import { RunLockedError } from "@/lib/queue/run-locked";
+import { isBudgetExceeded } from "@/server/ai/errors";
 
 // Run lifecycle around the one case loop (server/engine/runner/run-cases):
 // lock, environment validation, case loading, terminal status and webhooks.
 
 const RUN_LOCK_TTL_SECONDS = 300; // 5 min lock with auto-refresh
+const RUN_LOCK_RETRY_MS = 30_000;
+const TERMINAL_STATUSES: string[] = ["completed", "failed", "cancelled"];
 
 interface RunOptions {
   runId: string;
@@ -29,18 +34,29 @@ export async function executeRun(options: RunOptions): Promise<void> {
 
   const lock = await acquireLock(`run-lock:${runId}`, RUN_LOCK_TTL_SECONDS);
   if (!lock.acquired) {
-    console.warn(`[Runner] Run ${runId} is already being executed by another worker — skipping`);
-    return;
+    // A finished run has nothing left to do. Otherwise the holder is either
+    // live (it refreshes the lock) or dead (the lock expires after its TTL):
+    // retry later rather than reporting success for work nobody did.
+    const current = await prisma.testRun.findUnique({ where: { id: runId }, select: { status: true } });
+    if (!current || TERMINAL_STATUSES.includes(current.status)) {
+      console.warn(`[Runner] Run ${runId} already finished — skipping`);
+      return;
+    }
+    console.warn(`[Runner] Run ${runId} is locked by another worker — will retry`);
+    throw new RunLockedError(runId, RUN_LOCK_RETRY_MS);
   }
 
   try {
     await executeRunInner(options);
   } catch (err) {
+    // Shutdown is retryable: results are upserted and recorded cases are
+    // skipped, so the next worker resumes where this one stopped.
+    if (err instanceof ShutdownError || err instanceof RunLockedError) throw err;
     // Never leave the run "executing": record the crash as a terminal failure.
-    // Not rethrown — a queue retry would re-run tests and duplicate results.
+    // Not rethrown here — other crashes are not safe to retry.
     const msg = err instanceof Error ? err.message : String(err);
     console.error(`[Runner] Run ${runId} crashed:`, err);
-    await failRun(runId, `Execution crashed: ${msg}`).catch((failErr) =>
+    await failRun(runId, isBudgetExceeded(err) ? msg : `Execution crashed: ${msg}`).catch((failErr) =>
       console.error(`[Runner] Could not mark run ${runId} failed:`, failErr)
     );
   } finally {

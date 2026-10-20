@@ -13,8 +13,11 @@ import {
   emitIndexingFailed,
 } from "@/lib/websocket";
 import { runPipelineForJob, markRunFailed, errorMessage } from "@/lib/queue/run-job-guards";
+import { ShutdownError } from "@/lib/queue/shutdown";
+import { RunLockedError } from "@/lib/queue/run-locked";
+import { withRunSlot } from "@/lib/queue/run-slots";
 
-export async function handleIndexingJob(job: Job<IndexingJobData>): Promise<void> {
+export async function handleIndexingJob(job: Job<IndexingJobData>, token?: string): Promise<void> {
   const data = IndexingJobDataSchema.parse(job.data);
   console.log(`[Worker:indexing] Processing job ${job.id}`, {
     projectId: data.projectId,
@@ -25,10 +28,12 @@ export async function handleIndexingJob(job: Job<IndexingJobData>): Promise<void
   await job.updateProgress(10);
 
   // Event-triggered run: the orchestrator owns indexing → planning →
-  // execution → reporting and the run's terminal status. Not retried by the
-  // queue, since a retry would repeat phases on a run already marked failed.
+  // execution → reporting and the run's terminal status. Crashes are recorded
+  // on the run, not retried (a retry would repeat phases on a failed run);
+  // only a ShutdownError escapes, and the retry resumes at execution.
   if (data.runId) {
-    await runPipelineForJob(data.runId, data.changedFiles);
+    const { runId, changedFiles } = data;
+    await withRunSlot(job, token, runId, () => runPipelineForJob(runId, changedFiles));
     await job.updateProgress(100);
     return;
   }
@@ -79,7 +84,7 @@ export async function handleIndexingJob(job: Job<IndexingJobData>): Promise<void
   await job.updateProgress(100);
 }
 
-export async function handleExecutionJob(job: Job<ExecutionJobData>): Promise<void> {
+export async function handleExecutionJob(job: Job<ExecutionJobData>, token?: string): Promise<void> {
   const data = ExecutionJobDataSchema.parse(job.data);
   console.log(`[Worker:execution] Processing job ${job.id}`, { runId: data.runId });
 
@@ -88,16 +93,19 @@ export async function handleExecutionJob(job: Job<ExecutionJobData>): Promise<vo
   // Every execution job is a full run: delegate to the unified runner.
   // executeRun records its own crashes; this guards failures before it
   // starts (e.g. import).
-  try {
-    const runnerModule = await import("@/services/execution/runner");
-    await runnerModule.executeRun({ runId: data.runId, environmentId: data.environmentId });
-  } catch (importErr) {
-    const msg = importErr instanceof Error
-      ? `${importErr.name}: ${importErr.message}\n${importErr.stack}`
-      : String(importErr);
-    console.error(`[Worker:execution] Runner import/execute failed:\n${msg}`);
-    await markRunFailed(data.runId, `Execution could not start: ${errorMessage(importErr)}`);
-  }
+  await withRunSlot(job, token, data.runId, async () => {
+    try {
+      const runnerModule = await import("@/services/execution/runner");
+      await runnerModule.executeRun({ runId: data.runId, environmentId: data.environmentId });
+    } catch (importErr) {
+      if (importErr instanceof ShutdownError || importErr instanceof RunLockedError) throw importErr;
+      const msg = importErr instanceof Error
+        ? `${importErr.name}: ${importErr.message}\n${importErr.stack}`
+        : String(importErr);
+      console.error(`[Worker:execution] Runner import/execute failed:\n${msg}`);
+      await markRunFailed(data.runId, `Execution could not start: ${errorMessage(importErr)}`);
+    }
+  });
   await job.updateProgress(100);
 }
 

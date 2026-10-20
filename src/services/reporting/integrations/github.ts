@@ -1,6 +1,7 @@
 import type { RunSummary } from "@/agents/schemas/run-summary";
 import { resolveGitHubToken, getRepoInfo } from "@/lib/github/token";
 import { githubRepoApiUrl } from "@/lib/github/repo-paths";
+import { upsertCheckRun } from "./github-checks";
 
 interface PRCommentResult {
   success: boolean;
@@ -16,7 +17,7 @@ interface CheckRunResult {
   conclusion: "success" | "failure" | "neutral";
 }
 
-function formatRunSummaryAsMarkdown(summary: RunSummary): string {
+function formatRunSummaryAsMarkdown(summary: RunSummary, testedUrl?: string | null): string {
   const passRate =
     summary.totalTests > 0
       ? ((summary.passed / summary.totalTests) * 100).toFixed(1)
@@ -32,6 +33,7 @@ function formatRunSummaryAsMarkdown(summary: RunSummary): string {
   md += `**${summary.flaky}** flaky | `;
   md += `**${summary.skipped}** skipped\n\n`;
   md += `Pass rate: **${passRate}%** | Duration: **${durationSec}s** | Credits: **${summary.creditsConsumed}**\n\n`;
+  if (testedUrl) md += `Tested against: ${testedUrl}\n\n`;
   md += `> ${summary.summary}\n`;
 
   if (summary.failures.length > 0) {
@@ -89,9 +91,10 @@ async function findExistingOrbitComment(
 export async function postPRComment(
   prNumber: number,
   summary: RunSummary,
-  projectId?: string
+  projectId?: string,
+  testedUrl?: string | null
 ): Promise<PRCommentResult> {
-  const body = formatRunSummaryAsMarkdown(summary);
+  const body = formatRunSummaryAsMarkdown(summary, testedUrl);
 
   if (!projectId) {
     console.warn("[github] No projectId provided, skipping PR comment");
@@ -168,7 +171,8 @@ export async function postPRComment(
 export async function createCheckRun(
   commitSha: string,
   summary: RunSummary,
-  projectId?: string
+  projectId?: string,
+  testedUrl?: string | null
 ): Promise<CheckRunResult> {
   const conclusion: CheckRunResult["conclusion"] =
     summary.failed > 0 ? "failure" : "success";
@@ -178,61 +182,15 @@ export async function createCheckRun(
     return { success: false, checkRunId: "", commitSha, conclusion };
   }
 
-  const resolved = await resolveGitHubToken(projectId);
-  if (!resolved) {
-    console.warn("[github] No GitHub token available, skipping check run");
-    return { success: false, checkRunId: "", commitSha, conclusion };
-  }
-
-  const repoInfo = await getRepoInfo(projectId);
-  if (!repoInfo) {
-    console.warn("[github] No repo info found, skipping check run");
-    return { success: false, checkRunId: "", commitSha, conclusion };
-  }
-
-  const { token } = resolved;
-  const markdownSummary = formatRunSummaryAsMarkdown(summary);
-  try {
-    const url = githubRepoApiUrl(repoInfo.owner, repoInfo.repo, ["check-runs"]);
-    const response = await fetch(url, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        Accept: "application/vnd.github+json",
-        "X-GitHub-Api-Version": "2022-11-28",
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        name: "Orbit Test Run",
-        head_sha: commitSha,
-        status: "completed",
-        conclusion,
-        output: {
-          title: `Orbit: ${summary.passed}/${summary.totalTests} passed`,
-          summary: markdownSummary,
-        },
-      }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.warn(
-        `[github] Check run failed (${response.status}): ${errorText}`
-      );
-      return { success: false, checkRunId: "", commitSha, conclusion };
-    }
-
-    const data = (await response.json()) as { id: number };
-    return {
-      success: true,
-      checkRunId: String(data.id),
-      commitSha,
-      conclusion,
-    };
-  } catch (error) {
-    console.warn("[github] Check run request failed:", error);
-    return { success: false, checkRunId: "", commitSha, conclusion };
-  }
+  const checkRunId = await upsertCheckRun(projectId, {
+    name: "Orbit Test Run",
+    commitSha,
+    status: "completed",
+    conclusion,
+    title: `Orbit: ${summary.passed}/${summary.totalTests} passed`,
+    summary: formatRunSummaryAsMarkdown(summary, testedUrl),
+  });
+  return { success: !!checkRunId, checkRunId: checkRunId ?? "", commitSha, conclusion };
 }
 
 export { formatRunSummaryAsMarkdown };

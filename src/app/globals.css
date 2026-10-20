@@ -2,102 +2,134 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ═══════════════════════════════════════════════════
+   TELEMETRY — two layers.
+   1. Native tokens (--tm-*): the instrument's palette, light + dark.
+   2. Semantic tokens (shadcn + legacy --orbit-*): point at the native layer,
+      so every primitive and page inherits the look without being rewritten.
+   All values are HSL channels so `hsl(var(--x) / <alpha>)` keeps working.
+   ═══════════════════════════════════════════════════ */
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 230 25% 10%;
-    --card: 0 0% 100%;
-    --card-foreground: 230 25% 10%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 230 25% 10%;
-    --primary: 24 100% 50%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 24 10% 95%;
-    --secondary-foreground: 230 25% 10%;
-    --muted: 24 8% 94%;
-    --muted-foreground: 219 16% 46%;
-    --accent: 24 10% 95%;
-    --accent-foreground: 230 25% 10%;
-    --destructive: 346 100% 42%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 219 16% 90%;
-    --input: 219 16% 90%;
-    --ring: 24 100% 50%;
-    --radius: 0.5rem;
+    color-scheme: light;
 
-    --orbit-surface-0: 0 0% 100%;
-    --orbit-surface-1: 219 16% 97%;
-    --orbit-surface-2: 219 16% 95%;
-    --orbit-surface-3: 219 16% 92%;
-    --orbit-surface-4: 219 16% 88%;
-    --orbit-glow: 24 100% 50%;
-    --orbit-success: 160 84% 39%;
-    --orbit-warning: 38 92% 50%;
-    --orbit-error: 346 100% 42%;
-    --orbit-info: 199 89% 48%;
-    --orbit-pass: 160 84% 39%;
-    --orbit-fail: 0 72% 51%;
-    --orbit-flaky: 38 92% 50%;
-    --orbit-untested: 219 16% 46%;
-    --orbit-accent: 24 100% 50%;
-    --orbit-amber: 36 96% 53%;
+    /* Surfaces */
+    --tm-canvas: 60 11.1% 96.5%; /* #F7F7F5 */
+    --tm-surface: 0 0% 100%; /* #FFFFFF */
+    --tm-elevated: 0 0% 100%; /* #FFFFFF */
+    --tm-sunken: 60 8.6% 93.1%; /* #EFEFEC */
+    --tm-hover: 60 6.4% 90.8%; /* #E9E9E6 */
+    --tm-line: 60 6.7% 88.2%; /* #E3E3DF */
+    --tm-line-strong: 60 5.3% 77.6%; /* #C9C9C3 */
+
+    /* Text: t1 17.3:1, t2 7.6:1, t3 4.6:1 on canvas */
+    --tm-t1: 216 12.8% 7.6%; /* #111316 ink */
+    --tm-t2: 216 9.2% 32%; /* #4A5059 */
+    --tm-t3: 217.5 7% 45.1%; /* #6B717B — also input borders + focus ring (3:1) */
+    --tm-on-ink: 0 0% 100%;
+
+    /* The accent. One meaning: a browser is running right now.
+       Swap the brand hue here and nowhere else. Text on the fill is ink, never white. */
+    --tm-live: 18.1 100% 53.9%; /* #FF5B14 safety orange */
+    --tm-live-text: 17.5 88.3% 40.4%; /* #C2410C */
+
+    /* Status — always paired with a glyph (see src/lib/status-tone.ts) */
+    --tm-pass: 153.4 66.9% 28.4%; /* #18794E ✓ */
+    --tm-fail: 348 80.1% 35.5%; /* #A3122F ✕ */
+    --tm-fail-bg: 348.8 53.3% 94.1%; /* #F8E8EB */
+    --tm-flaky: 212.1 13% 42.4%; /* #5E6B7A ◐ */
+    --tm-info: 213.9 42.3% 39.4%; /* #3A5F8F */
+    --tm-warn: 30.2 100% 32%; /* #A35200 */
+
+    /* Elevation: popovers and menus only. No shadows inside the workspace. */
+    --tm-shadow-elevated: 0 1px 0 #e3e3df, 0 8px 24px -16px rgb(17 19 22 / 0.18);
+
+    /* Shape + motion */
+    --tm-radius-control: 4px;
+    --tm-radius-card: 6px;
+    --tm-radius-frame: 10px;
+    /* Motion — mirrors src/lib/motion.ts, the single source. */
+    --ease-out: cubic-bezier(0.2, 0.7, 0, 1);
+    --ease-in: cubic-bezier(0.4, 0, 1, 1);
+    --ease-in-out: cubic-bezier(0.6, 0, 0.2, 1);
+    --dur-feedback: 120ms;
+    --dur-change: 180ms;
+    --dur-open: 240ms;
+    --dur-layout: 280ms;
+    --tm-row-compact: 32px;
+    --tm-row: 36px;
+    --tm-row-touch: 44px;
   }
 
-  /* ═══════════════════════════════════════════════════
-     ORBIT MISSION CONTROL — Dark Theme
-     Dark Slate surfaces with FF6000 Orbit Orange accents
-     and solar amber highlights. Data-dense but calm.
-     ═══════════════════════════════════════════════════ */
   .dark {
-    /* Core semantic tokens */
-    --background: 230 25% 5%;
-    --foreground: 210 20% 95%;
-    --card: 230 22% 8%;
-    --card-foreground: 210 20% 95%;
-    --popover: 230 22% 8%;
-    --popover-foreground: 210 20% 95%;
-    --primary: 24 100% 50%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 230 20% 12%;
-    --secondary-foreground: 210 20% 88%;
-    --muted: 230 16% 14%;
-    --muted-foreground: 215 15% 55%;
-    --accent: 230 16% 16%;
-    --accent-foreground: 210 20% 95%;
-    --destructive: 346 100% 42%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 230 14% 16%;
-    --input: 230 14% 18%;
-    --ring: 24 100% 50%;
+    color-scheme: dark;
 
-    /* 5-level surface system — Dark Slate, warm neutral */
-    --orbit-surface-0: 230 25% 5%;
-    --orbit-surface-1: 230 22% 8%;
-    --orbit-surface-2: 230 18% 11%;
-    --orbit-surface-3: 228 16% 15%;
-    --orbit-surface-4: 226 14% 19%;
-    --surface: 230 18% 11%;
+    --tm-canvas: 220 12% 4.9%; /* #0B0C0E */
+    --tm-surface: 216 12.8% 7.6%; /* #111316 */
+    --tm-elevated: 214.3 13.2% 10.4%; /* #171A1E */
+    --tm-sunken: 210 11.1% 3.5%; /* #08090A */
+    --tm-hover: 217.5 12.9% 12.2%; /* #1B1E23 */
+    --tm-line: 216 12.5% 15.7%; /* #23272D */
+    --tm-line-strong: 214.3 11.9% 23.1%; /* #343A42 */
 
-    /* Primary glow for interactive focus states */
-    --orbit-glow: 24 100% 50%;
+    --tm-t1: 216 15.2% 93.5%; /* #ECEEF1 */
+    --tm-t2: 217.5 9.6% 67.5%; /* #A4AAB4 */
+    --tm-t3: 216.7 7.4% 52.5%; /* #7D848F */
+    --tm-on-ink: 220 12% 4.9%;
 
-    /* Semantic status colors — harmonized with Dark Slate base */
-    --orbit-success: 160 84% 39%;
-    --orbit-warning: 36 96% 53%;
-    --orbit-error: 346 100% 42%;
-    --orbit-info: 199 89% 48%;
+    --tm-live: 18.9 100% 62%; /* #FF7A3D */
+    --tm-live-text: 18.9 100% 62%;
 
-    /* Test status colors */
-    --orbit-pass: 160 84% 39%;
-    --orbit-fail: 0 72% 51%;
-    --orbit-flaky: 36 96% 53%;
-    --orbit-untested: 219 16% 36%;
+    --tm-pass: 151 65.1% 53.9%; /* #3DD68C */
+    --tm-fail: 351.1 100% 71%; /* #FF6B81 */
+    --tm-fail-bg: 348.6 33.3% 12.4%; /* #2A1519 */
+    --tm-flaky: 213.3 14.9% 64.5%; /* #97A3B2 */
+    --tm-info: 214.3 66.4% 73.1%; /* #8DB4E8 */
+    --tm-warn: 34.9 85.8% 58.4%; /* #F0A43A */
 
-    /* Brand accent — Orbit Orange FF6000 (same as primary) */
-    --orbit-accent: 24 100% 50%;
+    --tm-shadow-elevated: inset 0 1px 0 rgb(255 255 255 / 0.04), 0 8px 24px -16px rgb(0 0 0 / 0.6);
+  }
 
-    /* Solar amber — warm CTA / highlight color */
-    --orbit-amber: 36 96% 53%;
+  /* Semantic layer — identical in both modes, it only points at native tokens. */
+  :root {
+    --background: var(--tm-canvas);
+    --foreground: var(--tm-t1);
+    --card: var(--tm-surface);
+    --card-foreground: var(--tm-t1);
+    --popover: var(--tm-elevated);
+    --popover-foreground: var(--tm-t1);
+    --primary: var(--tm-t1);
+    --primary-foreground: var(--tm-on-ink);
+    --secondary: var(--tm-sunken);
+    --secondary-foreground: var(--tm-t1);
+    --muted: var(--tm-sunken);
+    --muted-foreground: var(--tm-t2);
+    --accent: var(--tm-hover);
+    --accent-foreground: var(--tm-t1);
+    --destructive: var(--tm-fail);
+    --destructive-foreground: var(--tm-on-ink);
+    --border: var(--tm-line);
+    --input: var(--tm-t3);
+    --ring: var(--tm-t3);
+    --radius: var(--tm-radius-card);
+
+    /* Legacy Orbit names, kept so existing pages restyle without edits. */
+    --orbit-surface-0: var(--tm-canvas);
+    --orbit-surface-1: var(--tm-surface);
+    --orbit-surface-2: var(--tm-sunken);
+    --orbit-surface-3: var(--tm-hover);
+    --orbit-surface-4: var(--tm-line);
+    --orbit-glow: var(--tm-live);
+    --orbit-success: var(--tm-pass);
+    --orbit-warning: var(--tm-warn);
+    --orbit-error: var(--tm-fail);
+    --orbit-info: var(--tm-info);
+    --orbit-pass: var(--tm-pass);
+    --orbit-fail: var(--tm-fail);
+    --orbit-flaky: var(--tm-flaky);
+    --orbit-untested: var(--tm-t3);
+    --orbit-accent: var(--tm-live);
+    --orbit-amber: var(--tm-warn);
   }
 }
 
@@ -105,33 +137,46 @@
   * {
     @apply border-border;
   }
+  html {
+    -webkit-text-size-adjust: 100%;
+  }
   body {
     @apply bg-background text-foreground;
+    font-feature-settings: "ss01";
+  }
+  ::selection {
+    background: hsl(var(--tm-t1) / 0.14);
   }
 
-  /* Text hierarchy on dark backgrounds */
-  .dark .text-primary-95 {
-    color: hsl(200 27% 94% / 0.95);
+  /* Text hierarchy (legacy names) */
+  .text-primary-95 {
+    color: hsl(var(--tm-t1));
   }
-  .dark .text-secondary-70 {
-    color: hsl(200 27% 94% / 0.70);
+  .text-secondary-70 {
+    color: hsl(var(--tm-t2));
   }
-  .dark .text-tertiary-50 {
-    color: hsl(200 27% 94% / 0.50);
+  .text-tertiary-50 {
+    color: hsl(var(--tm-t3));
   }
-  .dark .text-disabled-30 {
-    color: hsl(200 27% 94% / 0.30);
+  .text-disabled-30 {
+    color: hsl(var(--tm-t3) / 0.6);
   }
 
-  /* Selection styling */
-  .dark ::selection {
-    background: hsl(24 100% 50% / 0.25);
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--tm-line-strong));
+    border-radius: 4px;
+    border: 2px solid transparent;
+    background-clip: content-box;
   }
 }
 
-/* ═══════════════════════════════════════════════════
-   SURFACE LAYERS -- Borderless hierarchy via tint
-   ═══════════════════════════════════════════════════ */
 @layer utilities {
   .surface-0 {
     background-color: hsl(var(--orbit-surface-0));
@@ -148,112 +193,143 @@
   .surface-4 {
     background-color: hsl(var(--orbit-surface-4));
   }
-}
 
-/* ═══════════════════════════════════════════════════
-   SCROLLBAR — Sleek dark scrollbar
-   ═══════════════════════════════════════════════════ */
-@layer base {
-  .dark ::-webkit-scrollbar {
-    width: 6px;
-    height: 6px;
+  /* Instrument label: Martian Mono, uppercase, tabular. Labels and numbers only, never sentences. */
+  .tm-label {
+    font-family: var(--font-martian-mono), ui-monospace, monospace;
+    font-size: 10.5px;
+    line-height: 1.4;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    font-variant-numeric: tabular-nums;
   }
-  .dark ::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  .dark ::-webkit-scrollbar-thumb {
-    background: hsl(230 16% 20%);
-    border-radius: 3px;
-  }
-  .dark ::-webkit-scrollbar-thumb:hover {
-    background: hsl(230 16% 28%);
-  }
-}
-
-/* ═══════════════════════════════════════════════════
-   GLOW EFFECTS — Status-aware glows
-   ═══════════════════════════════════════════════════ */
-@layer utilities {
-  .glow-primary {
-    box-shadow: 0 0 16px hsl(var(--primary) / 0.25),
-                0 0 4px hsl(var(--primary) / 0.15);
-  }
-  .glow-pass {
-    box-shadow: 0 0 12px hsl(var(--orbit-pass) / 0.25),
-                0 0 4px hsl(var(--orbit-pass) / 0.15);
-  }
-  .glow-fail {
-    box-shadow: 0 0 12px hsl(var(--orbit-fail) / 0.25),
-                0 0 4px hsl(var(--orbit-fail) / 0.15);
-  }
-  .glow-accent {
-    box-shadow: 0 0 12px hsl(var(--orbit-accent) / 0.25),
-                0 0 4px hsl(var(--orbit-accent) / 0.15);
-  }
-  .glow-flaky {
-    box-shadow: 0 0 12px hsl(var(--orbit-flaky) / 0.25),
-                0 0 4px hsl(var(--orbit-flaky) / 0.15);
-  }
-}
-
-/* ═══════════════════════════════════════════════════
-   GLASS & SPECIAL SURFACES
-   ═══════════════════════════════════════════════════ */
-@layer utilities {
-  .glass {
-    background: hsl(var(--card) / 0.6);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
+  .tm-num {
+    font-family: var(--font-martian-mono), ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
   }
 
-  /* Subtle dot grid — mission control background texture */
-  .bg-grid-dots {
-    background-image: radial-gradient(
-      hsl(var(--primary) / 0.06) 1px,
-      transparent 1px
-    );
-    background-size: 24px 24px;
-  }
-
-  /* Gradient border effect for premium cards */
-  .border-gradient {
-    position: relative;
-  }
-  .border-gradient::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    padding: 1px;
-    background: linear-gradient(
-      135deg,
-      hsl(var(--primary) / 0.2),
-      hsl(var(--orbit-amber) / 0.08),
-      transparent
-    );
-    -webkit-mask: linear-gradient(#fff 0 0) content-box,
-                  linear-gradient(#fff 0 0);
-    -webkit-mask-composite: xor;
-    mask-composite: exclude;
-    pointer-events: none;
-  }
-
-  /* Status indicator pulse for active runs */
-  .pulse-status {
-    animation: status-pulse 2s ease-in-out infinite;
-  }
-
-  /* Data-dense table alternating row tints */
   .table-row-alt:nth-child(even) {
-    background-color: hsl(var(--orbit-surface-1) / 0.5);
+    background-color: hsl(var(--tm-sunken) / 0.5);
+  }
+
+  /* The only loop in the product: the live dot, 1.6s, only while live.
+     <LiveDot> sets data-offscreen to pause it when it is not visible. */
+  .tm-live-pulse {
+    animation: tm-live 1.6s linear infinite;
+  }
+  .tm-live-pulse[data-offscreen] {
+    animation-play-state: paused;
+  }
+  .pulse-status {
+    animation: tm-live 1.6s linear infinite;
   }
 }
 
-@keyframes status-pulse {
-  0%, 100% {
+/* ═══════════════════════════════════════════════════
+   NAMED EVENTS (SPEC-orbit-motion.md). Transform + opacity only;
+   the O's stroke-dashoffset is a paint animation on a 24-unit glyph.
+   ═══════════════════════════════════════════════════ */
+@keyframes tm-live {
+  0%,
+  100% {
     opacity: 1;
   }
   50% {
-    opacity: 0.5;
+    opacity: 0.35;
+  }
+}
+/* RUN STARTS: the ground track draws left to right. */
+@keyframes tm-draw {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+/* STEP: the finished step's bar settles to full width. */
+@keyframes tm-settle {
+  from {
+    transform: scaleX(0.62);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+/* RUN STARTS: the live dot appears. FAILS: the square lands. */
+@keyframes tm-dot-in {
+  from {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+/* STEP: a tick lands on the track. */
+@keyframes tm-tick {
+  from {
+    transform: translateY(-6px);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+/* STEP: the step count rolls. */
+@keyframes tm-roll {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: none;
+  }
+}
+/* FAILS: a 1px rule draws top to bottom. */
+@keyframes tm-rule-down {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+/* PASSES: the arc closes and the dot merges into the stroke. */
+@keyframes tm-close {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes tm-merge {
+  to {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+}
+/* Running O: the dot travels once per 2.4s and the arc draws behind it. */
+@keyframes tm-orbit {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes tm-trace {
+  from {
+    stroke-dashoffset: 100;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

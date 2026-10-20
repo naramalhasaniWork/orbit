@@ -65,11 +65,12 @@ vi.mock("@/services/execution/evidence-collector", () => ({
 // The scripted agent: one model call per decision, picking the submit
 // button by whatever id the page currently has.
 vi.mock("@/services/execution/executor-decision", async () => {
-  const { meterModelCall } = await import("@/server/engine/model-meter");
+  const { meterModelCall } = await import("@/server/ai/model-meter");
   return {
+    createAgentModelState: async () => ({}),
     getNextAction: async (ctx: { currentStepIndex: number; pageState: { interactiveElements: Array<{ selector: string }> } }) => {
       fixture.agentCalls++;
-      meterModelCall({ model: "agent-model", inputTokens: 1000, outputTokens: 50 });
+      meterModelCall(0.004);
       const selectors = ctx.pageState.interactiveElements.map((e) => e.selector);
       switch (ctx.currentStepIndex) {
         case 0: return { action: "fill", selector: "#email", value: "{{credential:TEST_EMAIL}}" };
@@ -83,11 +84,11 @@ vi.mock("@/services/execution/executor-decision", async () => {
 
 // The cheap assertion model: proposes an assertion per step from the captured page.
 vi.mock("@/lib/ai/tracked-completion", async () => {
-  const { meterModelCall } = await import("@/server/engine/model-meter");
+  const { meterModelCall } = await import("@/server/ai/model-meter");
   return {
     createTrackedCompletion: async (options: { messages: Array<{ content: string }> }) => {
       fixture.deriveCalls++;
-      meterModelCall({ model: "cheap-model", inputTokens: 500, outputTokens: 40 });
+      meterModelCall(0.001);
       const steps = JSON.parse(options.messages[0].content) as Array<{ stepIndex: number; url: string; pageText: string }>;
       const assertions = fixture.deriveNothing ? [] : steps.map((s) => (
         s.url.endsWith("/dashboard")
@@ -167,6 +168,8 @@ const executablePath = findChromium();
 let server: Server;
 let baseUrl = "";
 let mutated = false;
+/** CF-Access-Client-Secret seen per request path, to prove replay sends Access headers */
+const accessSeen: Array<[string, string | undefined]> = [];
 
 const testCase = {
   id: "11111111-1111-4111-8111-111111111111",
@@ -182,14 +185,15 @@ const testCase = {
   ],
 };
 
-async function run(runId: string) {
-  return executeCaseByType(runId, testCase, `${baseUrl}/login`, SECRETS, { environmentId: "env-1" });
+async function run(runId: string, credentials: Record<string, string> = SECRETS) {
+  return executeCaseByType(runId, testCase, `${baseUrl}/login`, credentials, { environmentId: "env-1" });
 }
 
 describe.skipIf(!executablePath)("compile-and-replay on a fixture app", () => {
   beforeAll(async () => {
     fixture.browser = await chromium.launch({ headless: true, executablePath: executablePath! });
     server = createServer((req, res) => {
+      accessSeen.push([req.url ?? "", req.headers["cf-access-client-secret"] as string | undefined]);
       res.setHeader("content-type", "text/html");
       res.end(req.url?.startsWith("/dashboard") ? DASHBOARD : loginPage(mutated));
     });
@@ -285,4 +289,18 @@ describe.skipIf(!executablePath)("compile-and-replay on a fixture app", () => {
       SECRETS.TEST_PASSWORD = VALID_LOGIN.TEST_PASSWORD;
     }
   }, 120_000);
+
+  it("sends Cloudflare Access headers on replayed requests to the environment origin", async () => {
+    mutated = true;
+    accessSeen.length = 0;
+
+    const replay = await run("33333333-3333-4333-8333-333333333337", {
+      ...SECRETS, CF_ACCESS_CLIENT_ID: "id.access", CF_ACCESS_CLIENT_SECRET: "cf-s3cret",
+    });
+
+    expect(replay.execution).toMatchObject({ executionMode: "replay", modelCalls: 0 });
+    expect(accessSeen.map(([path]) => path)).toEqual(["/login", "/dashboard"]);
+    expect(accessSeen.every(([, secret]) => secret === "cf-s3cret")).toBe(true);
+    expect(JSON.stringify(fixture.scripts)).not.toContain("cf-s3cret");
+  }, 60_000);
 });

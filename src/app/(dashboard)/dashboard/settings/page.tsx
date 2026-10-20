@@ -2,7 +2,10 @@ import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { headers } from "next/headers";
 import { SettingsClient } from "@/components/settings/settings-client";
+import { requestOrigin } from "@/lib/setup/access";
+import { listConnectionSummaries } from "@/services/preview/connection-service";
 
 export default async function SettingsPage() {
   const session = await getServerSession(authOptions);
@@ -39,7 +42,7 @@ export default async function SettingsPage() {
 
   if (project) {
     environments = await prisma.environment.findMany({
-      where: { projectId: project.id },
+      where: { projectId: project.id, archivedAt: null },
       select: { id: true, name: true, type: true, url: true, isDefault: true, defaultRunMode: true },
       orderBy: { createdAt: "asc" },
     });
@@ -59,36 +62,17 @@ export default async function SettingsPage() {
     notifications?: { runCompleted: boolean; testFailed: boolean };
   } | undefined;
 
-  // Load Railway integration config from DB
-  const railwayIntegration = workspaceId
-    ? await prisma.integrationConfig.findUnique({
-        where: {
-          integration_config_unique: {
-            workspaceId,
-            provider: "railway",
-          },
-        },
-        select: { isEnabled: true, config: true },
-      })
-    : null;
-  const rwConfig = railwayIntegration?.isEnabled
-    ? {
-        connected: true,
-        ...(railwayIntegration.config as Record<string, unknown>),
-      }
-    : { connected: false };
+  // Preview providers (Railway, Cloudflare Pages): connection state plus the webhook URL to copy
+  const origin = process.env.NEXTAUTH_URL?.replace(/\/$/, "") ?? requestOrigin(headers());
+  const previewSummaries = await listConnectionSummaries(workspaceId);
+  const previewConnections = Object.fromEntries(
+    previewSummaries.map((c) => [c.provider, { connection: c, webhookUrl: c.webhookPath ? `${origin}${c.webhookPath}` : null }])
+  );
 
   const integrations = {
     github: ghConfig ?? { connected: false },
     linear: lnConfig ?? { connected: false },
     slack: slConfig ?? { connected: false },
-    railway: rwConfig as {
-      connected: boolean;
-      userName?: string;
-      railwayProjectId?: string;
-      railwayProjectName?: string;
-      serviceCount?: number;
-    },
   };
 
   return (
@@ -98,6 +82,7 @@ export default async function SettingsPage() {
       environments={environments}
       secrets={secrets}
       integrations={integrations}
+      previewConnections={previewConnections}
       role={(session as { role?: string }).role ?? null}
     />
   );

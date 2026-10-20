@@ -115,6 +115,7 @@ async function triggerIntegrations(
     commitSha: string | null;
     trigger: string;
     mode: string;
+    environment: { url: string } | null;
   }
 ): Promise<IntegrationResults> {
   const results: IntegrationResults = {
@@ -137,12 +138,12 @@ async function triggerIntegrations(
 
   // GitHub integrations
   if (run.prNumber) {
-    const prResult = await postPRComment(run.prNumber, report.summary, run.projectId);
+    const prResult = await postPRComment(run.prNumber, report.summary, run.projectId, run.environment?.url);
     results.github.prComment = prResult.success;
   }
 
   if (run.commitSha) {
-    const checkResult = await createCheckRun(run.commitSha, report.summary, run.projectId);
+    const checkResult = await createCheckRun(run.commitSha, report.summary, run.projectId, run.environment?.url);
     results.github.checkRun = checkResult.success;
   }
 
@@ -253,6 +254,7 @@ export async function runReportingPipeline(
       commitSha: true,
       trigger: true,
       mode: true,
+      environment: { select: { url: true } },
     },
   });
 

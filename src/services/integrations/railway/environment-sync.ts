@@ -1,10 +1,7 @@
 import { prisma } from "@/lib/db";
 import type { EnvironmentType } from "@/generated/prisma/client";
-import {
-  getProjectDetails,
-  getServiceDomain,
-  getRailwayConfig,
-} from "./service";
+import { getProject } from "./client";
+import { environmentDomain } from "@/services/preview/providers/railway-api";
 
 interface SyncResult {
   created: number;
@@ -33,25 +30,18 @@ function mapEnvironmentType(envName: string): EnvironmentType {
 }
 
 /**
- * Sync Railway environments/services to Orbit environments.
- * Creates or updates Orbit environments with Railway service URLs.
+ * Import a bound Railway service's long-lived environments (production, staging, ...) as Orbit
+ * environments. PR environments are skipped: the preview coordinator handles those per PR.
  * Idempotent: running multiple times won't create duplicates.
  */
 async function syncEnvironments(
-  workspaceId: string,
+  token: string,
+  target: { projectId: string; serviceId: string },
   orbitProjectId: string
 ): Promise<SyncResult> {
-  const config = await getRailwayConfig(workspaceId);
-  const railwayProjectId = config?.railwayProjectId;
-
-  if (!railwayProjectId) {
-    throw new Error("No Railway project connected. Select a project first.");
-  }
-
-  const { services, environments } = await getProjectDetails(
-    workspaceId,
-    railwayProjectId
-  );
+  const railwayProjectId = target.projectId;
+  const { services: allServices, environments } = await getProject(token, railwayProjectId);
+  const services = allServices.filter((s) => s.id === target.serviceId);
 
   const nonEphemeral = environments.filter((e) => !e.isEphemeral);
 
@@ -64,12 +54,7 @@ async function syncEnvironments(
 
   for (const railwayEnv of nonEphemeral) {
     for (const service of services) {
-      const domain = await getServiceDomain(
-        workspaceId,
-        railwayProjectId,
-        service.id,
-        railwayEnv.id
-      );
+      const domain = await environmentDomain(token, railwayProjectId, railwayEnv.id, service.id);
 
       if (!domain) {
         result.skipped++;
@@ -145,32 +130,5 @@ async function syncEnvironments(
   return result;
 }
 
-/**
- * Update the URL for a single Railway-sourced environment.
- * Called when a deployment webhook reports a new domain.
- */
-async function updateEnvironmentUrl(
-  serviceId: string,
-  environmentId: string,
-  newUrl: string
-): Promise<boolean> {
-  const sourceId = `${serviceId}:${environmentId}`;
-
-  const env = await prisma.environment.findFirst({
-    where: { source: "railway", sourceId },
-  });
-
-  if (!env) return false;
-
-  if (env.url !== newUrl) {
-    await prisma.environment.update({
-      where: { id: env.id },
-      data: { url: newUrl },
-    });
-  }
-
-  return true;
-}
-
-export { syncEnvironments, updateEnvironmentUrl };
+export { syncEnvironments };
 export type { SyncResult };

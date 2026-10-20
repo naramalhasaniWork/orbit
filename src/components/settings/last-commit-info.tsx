@@ -9,7 +9,7 @@ interface LastCommitInfoProps {
 /** Last synced commit and how far the index is behind GitHub. */
 export function LastCommitInfo({ info, sha }: LastCommitInfoProps) {
   return (
-    <div className="space-y-1 border border-white/[0.06] rounded-lg px-3 py-2.5 bg-white/[0.02]">
+    <div className="space-y-1 border border-border rounded-lg px-3 py-2.5 bg-foreground/[0.02]">
       <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
         <CircleDot className={cn(
           "h-3 w-3",

@@ -30,7 +30,7 @@ function warnRedisDown(err: unknown): void {
 }
 
 /** ioredis queues commands while disconnected, so bound every call with a timeout. */
-function withTimeout<T>(promise: Promise<T>): Promise<T> {
+export function withTimeout<T>(promise: Promise<T>): Promise<T> {
   return new Promise<T>((resolve, reject) => {
     const timer = setTimeout(() => reject(new Error("Redis timeout")), REDIS_TIMEOUT_MS);
     promise.then(
@@ -81,7 +81,7 @@ export async function consumeRateLimit(
   }
 }
 
-function tooManyRequests(result: RateLimitResult, message: string): NextResponse {
+export function tooManyRequests(result: RateLimitResult, message: string): NextResponse {
   const res = apiError(message, "RATE_LIMITED", 429);
   res.headers.set("Retry-After", String(Math.max(1, result.retryAfterSec)));
   return res;

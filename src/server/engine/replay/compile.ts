@@ -1,3 +1,4 @@
+import { isRunAbort } from "@/services/execution/run-abort";
 import { deriveAssertions, type DeriveBilling, type StepToDerive } from "./assertion-deriver";
 import type { RecordedRun, ResolvedAction } from "./types";
 
@@ -58,6 +59,7 @@ export async function compileRecording(
     try {
       derived = await derive(toDerive, input.billing);
     } catch (err) {
+      if (isRunAbort(err)) throw err;
       const msg = err instanceof Error ? err.message : String(err);
       return { compiled: false, reason: `Could not derive assertions: ${msg}` };
     }

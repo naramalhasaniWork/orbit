@@ -3,23 +3,17 @@
  * POST /api/workspaces/:workspaceId/mcp-connections — Add a new MCP connection
  */
 
-import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
-import { requirePermission } from "@/lib/auth/rbac";
-import { apiSuccess, apiError, handleApiError } from "@/lib/utils/api";
+import { apiSuccess, apiError } from "@/lib/utils/api";
 import { encrypt } from "@/lib/vault";
 import { writeAuditLog } from "@/lib/auth/audit";
 import { testConnection } from "@/services/mcp/client";
 import type { Prisma } from "@/generated/prisma/client";
+import { route } from "@/server/http/route";
 
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: Promise<{ workspaceId: string }> }
-) {
-  try {
-    const { workspaceId } = await params;
-    await requirePermission(workspaceId, "settings.view");
-
+export const GET = route(
+  { workspace: "param", permission: "settings.view" },
+  async ({ workspaceId }) => {
     const connections = await prisma.mcpConnection.findMany({
       where: { workspaceId },
       orderBy: { createdAt: "asc" },
@@ -57,19 +51,12 @@ export async function GET(
     }
 
     return apiSuccess(masked);
-  } catch (error) {
-    return handleApiError(error);
   }
-}
+);
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ workspaceId: string }> }
-) {
-  try {
-    const { workspaceId } = await params;
-    const { session } = await requirePermission(workspaceId, "settings.manage");
-
+export const POST = route(
+  { workspace: "param", permission: "settings.manage" },
+  async ({ req: request, workspaceId, session }) => {
     const body = await request.json();
     const { name, description, serverUrl, transportType, apiKey, headers } =
       body as {
@@ -148,7 +135,5 @@ export async function POST(
       },
       201
     );
-  } catch (error) {
-    return handleApiError(error);
   }
-}
+);

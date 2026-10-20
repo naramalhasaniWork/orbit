@@ -1,8 +1,7 @@
-import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
-import { requirePermission } from "@/lib/auth/rbac";
-import { apiSuccess, apiError, handleApiError } from "@/lib/utils/api";
+import { apiSuccess, apiError } from "@/lib/utils/api";
 import type { AgentPhase } from "@/generated/prisma/client";
+import { route } from "@/server/http/route";
 
 const VALID_PHASES: AgentPhase[] = ["analyst", "planner", "executor", "reporter", "auditor"];
 
@@ -21,14 +20,9 @@ const AGENT_DEFAULTS: Record<AgentPhase, AgentConfigDefaults> = {
   auditor: { model: "claude-sonnet-4-6", temperature: 0.1, maxInputTokens: 500000, maxOutputTokens: 150000 },
 };
 
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: Promise<{ workspaceId: string }> }
-) {
-  try {
-    const { workspaceId } = await params;
-    await requirePermission(workspaceId, "settings.view");
-
+export const GET = route(
+  { workspace: "param", permission: "settings.view" },
+  async ({ workspaceId }) => {
     const configs = await prisma.agentConfig.findMany({
       where: { workspaceId },
     });
@@ -51,10 +45,8 @@ export async function GET(
     });
 
     return apiSuccess(result);
-  } catch (error) {
-    return handleApiError(error);
   }
-}
+);
 
 interface PutBody {
   agentPhase: string;
@@ -66,14 +58,9 @@ interface PutBody {
   isEnabled?: boolean;
 }
 
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: Promise<{ workspaceId: string }> }
-) {
-  try {
-    const { workspaceId } = await params;
-    await requirePermission(workspaceId, "settings.manage");
-
+export const PUT = route(
+  { workspace: "param", permission: "settings.manage" },
+  async ({ req: request, workspaceId }) => {
     const body = (await request.json()) as PutBody;
     const { agentPhase, model, temperature, maxInputTokens, maxOutputTokens, customPrompt, isEnabled } = body;
 
@@ -121,7 +108,5 @@ export async function PUT(
     });
 
     return apiSuccess(config);
-  } catch (error) {
-    return handleApiError(error);
   }
-}
+);

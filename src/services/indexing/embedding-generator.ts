@@ -1,6 +1,8 @@
-import { createEmbeddings } from "@/lib/ai";
 import { prisma } from "@/lib/db";
 import { setNodeEmbedding, batchSetEmbeddings } from "@/lib/db/vector";
+import { embed, type Embeddings } from "@/server/ai/gateway";
+import { getEmbeddingProvider } from "@/server/ai/providers";
+import { ensureEmbeddingConfig } from "@/server/ai/embedding-config";
 
 interface EmbeddingInput {
   nodeId: string;
@@ -45,21 +47,33 @@ function buildEmbeddingText(node: {
   return parts.join("\n");
 }
 
+/** Embed and record the configuration that produced the vectors. */
+async function embedTexts(texts: string[]): Promise<Embeddings | null> {
+  const result = await embed(texts);
+  const dims = result?.vectors[0]?.length;
+  if (result && dims) await ensureEmbeddingConfig(result.provider, result.model, dims);
+  return result;
+}
+
 async function generateBatch(
   inputs: EmbeddingInput[]
 ): Promise<EmbeddingResult[]> {
-  const texts = inputs.map((i) => i.text);
-  const embeddings = await createEmbeddings(texts);
-
-  return inputs.map((input, index) => ({
-    nodeId: input.nodeId,
-    embedding: embeddings[index] ?? [],
-  }));
+  const result = await embedTexts(inputs.map((i) => i.text));
+  const vectors = result?.vectors ?? [];
+  return inputs
+    .map((input, index) => ({ nodeId: input.nodeId, embedding: vectors[index] ?? [] }))
+    .filter((r) => r.embedding.length > 0);
 }
 
+/**
+ * Embed nodes that have no vector yet. Returns 0 in keyword-only mode
+ * (ORBIT_EMBEDDINGS=none): search falls back to keyword matching.
+ */
 export async function generateAndStoreEmbeddings(
   projectId: string
 ): Promise<number> {
+  if (!getEmbeddingProvider()) return 0;
+
   // Find nodes without embeddings using raw SQL since
   // Prisma can't filter on Unsupported vector columns
   const nodesWithoutEmbeddings = await prisma.$queryRawUnsafe<
@@ -104,9 +118,12 @@ export async function generateAndStoreEmbeddings(
   return processed;
 }
 
+/** Re-embed one node; null in keyword-only mode. */
 export async function generateEmbeddingForNode(
   nodeId: string
-): Promise<number[]> {
+): Promise<number[] | null> {
+  if (!getEmbeddingProvider()) return null;
+
   const node = await prisma.systemMapNode.findUniqueOrThrow({
     where: { id: nodeId },
     select: { type: true, name: true, filePath: true, metadata: true },
@@ -119,7 +136,7 @@ export async function generateEmbeddingForNode(
     metadata: node.metadata as Record<string, unknown>,
   });
 
-  const [embedding] = await createEmbeddings([text]);
+  const embedding = (await embedTexts([text]))?.vectors[0];
   if (!embedding) throw new Error("Failed to generate embedding");
 
   await setNodeEmbedding(nodeId, embedding);

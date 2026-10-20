@@ -69,7 +69,7 @@ function TraceSummary({ traces }: { traces: TraceNodeData[] }) {
 
 function SummaryStat({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex flex-col gap-0.5 p-3 rounded-lg surface-1 border border-white/[0.04]">
+    <div className="flex flex-col gap-0.5 p-3 rounded-lg surface-1 border border-border">
       <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">
         {label}
       </span>
@@ -99,7 +99,7 @@ function PhaseLegend() {
 
 function EmptyState() {
   return (
-    <div className="rounded-xl surface-1 border border-white/[0.04] p-12 text-center">
+    <div className="rounded-xl surface-1 border border-border p-12 text-center">
       <Activity className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
       <p className="text-sm text-muted-foreground">
         No execution traces available for this run.
@@ -113,7 +113,7 @@ function EmptyState() {
 
 function LoadingState() {
   return (
-    <div className="rounded-xl surface-1 border border-white/[0.04] p-12 text-center">
+    <div className="rounded-xl surface-1 border border-border p-12 text-center">
       <Loader2 className="h-6 w-6 text-muted-foreground mx-auto mb-3 animate-spin" />
       <p className="text-sm text-muted-foreground">Loading traces...</p>
     </div>
