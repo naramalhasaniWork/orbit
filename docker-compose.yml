@@ -1,0 +1,59 @@
+# Self-hosted Orbit: web app (workers run in-process), Postgres + pgvector, Redis, browserless.
+# Usage: cp .env.selfhost.example .env && edit it && docker compose up -d
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: orbit
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+      POSTGRES_DB: orbit
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U orbit -d orbit"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  browser:
+    image: ghcr.io/browserless/chromium
+    restart: unless-stopped
+    environment:
+      TOKEN: ${BROWSER_TOKEN:?set BROWSER_TOKEN in .env}
+
+  web:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://orbit:${POSTGRES_PASSWORD}@postgres:5432/orbit
+      REDIS_URL: redis://redis:6379
+      PLAYWRIGHT_WS_ENDPOINT: ws://browser:3000?token=${BROWSER_TOKEN}
+      STORAGE_PROVIDER: local
+      STORAGE_PATH: /data/storage
+    ports:
+      - "3000:3000"
+    volumes:
+      - storage-data:/data/storage
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+volumes:
+  postgres-data:
+  redis-data:
+  storage-data:

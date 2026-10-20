@@ -482,7 +482,7 @@ model SystemMapNode {
   name          String
   filePath      String                         @map("file_path")
   metadata      Json                           @default("{}")
-  embedding     Unsupported("vector(384)")?
+  embedding     Unsupported("vector(1536)")?
   lastIndexedAt DateTime                       @default(now()) @map("last_indexed_at")
   createdAt     DateTime                       @default(now()) @map("created_at")
   updatedAt     DateTime                       @default(now()) @updatedAt @map("updated_at")
@@ -1129,7 +1129,7 @@ model DomainKnowledgeFile {
   storageKey  String                          @map("storage_key")
   sizeBytes   Int                             @map("size_bytes")
   chunkCount  Int                             @default(0) @map("chunk_count")
-  embedding   Unsupported("vector(384)")?
+  embedding   Unsupported("vector(1536)")?
   metadata    Json                            @default("{}")
   uploadedBy  String?                         @map("uploaded_by") @db.Uuid
   createdAt   DateTime                        @default(now()) @map("created_at")
@@ -1153,7 +1153,7 @@ model KnowledgeChunk {
   workspaceId     String                          @map("workspace_id") @db.Uuid
   content         String
   chunkIndex      Int                             @map("chunk_index")
-  embedding       Unsupported("vector(384)")?
+  embedding       Unsupported("vector(1536)")?
   metadata        Json                            @default("{}")
   createdAt       DateTime                        @default(now()) @map("created_at")
 

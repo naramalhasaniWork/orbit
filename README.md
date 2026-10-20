@@ -71,71 +71,57 @@ src/
   types/              # Shared TypeScript interfaces
 ```
 
-## Quick Start
+## Quick Start (development)
 
 ### Prerequisites
 
-- Node.js 18+
-- pnpm
-- PostgreSQL with pgvector extension
+- Node.js 20
+- pnpm (version pinned by `packageManager` in `package.json`)
+- PostgreSQL 16+ with the pgvector extension
 - Redis
 
 ### Setup
 
 ```bash
-# Clone the repo
 git clone https://github.com/your-org/orbit.git
 cd orbit
-
-# Install dependencies
 pnpm install
 
-# Copy environment file and fill in values
-cp .env.example .env.local
-
-# Push database schema
-pnpm db:push
-
-# Start the dev server
+cp .env.example .env.local     # then fill in values
+pnpm db:migrate:deploy         # apply migrations
 pnpm dev
 ```
 
-The app runs at `http://localhost:3000`.
+The app runs at `http://localhost:3000`. Background workers (BullMQ) start in-process
+with the web server via `src/instrumentation.ts`; there is no separate worker service.
+Do not run `pnpm workers` alongside a running server, or jobs are processed twice.
 
-### Running Workers
-
-Test execution and indexing jobs run on background workers:
+Generate the two required secrets:
 
 ```bash
-pnpm workers
+echo "NEXTAUTH_SECRET=$(openssl rand -base64 32)"; echo "ENCRYPTION_KEY=$(openssl rand -hex 32)"
 ```
+
+Optional demo data: `pnpm db:seed`. When changing `prisma/schema.prisma`, create a migration
+with `pnpm db:migrate` (never `db push` against a shared database).
 
 ## Environment Variables
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `DATABASE_URL` | Yes | PostgreSQL connection string (must have pgvector) |
-| `REDIS_URL` | Yes | Redis connection string (for BullMQ + sessions) |
-| `NEXTAUTH_URL` | Yes | App URL (`http://localhost:3000` for dev) |
-| `NEXTAUTH_SECRET` | Yes | Random secret (`openssl rand -base64 32`) |
-| `GITHUB_CLIENT_ID` | Yes | GitHub OAuth app client ID |
-| `GITHUB_CLIENT_SECRET` | Yes | GitHub OAuth app client secret |
-| `ANTHROPIC_API_KEY` | Yes | Anthropic API key for Claude models |
-| `OPENAI_API_KEY` | Yes | OpenAI API key for embeddings + routing |
-| `ENCRYPTION_KEY` | Yes | AES-256 key for secrets vault (`openssl rand -hex 32`) |
-| `PLAYWRIGHT_WS_ENDPOINT` | No | Remote Playwright server (local Chromium used if not set) |
-| `BROWSERBASE_API_KEY` | No | Browserbase cloud browser API key |
-| `BROWSERBASE_PROJECT_ID` | No | Browserbase project ID |
-| `STORAGE_PROVIDER` | No | `local`, `s3`, or `r2` (default: `local`) |
-| `S3_BUCKET` | No | S3/R2 bucket for artifacts |
-| `S3_REGION` | No | S3 region |
-| `S3_ACCESS_KEY_ID` | No | S3 access key |
-| `S3_SECRET_ACCESS_KEY` | No | S3 secret key |
-| `S3_ENDPOINT` | No | Custom S3 endpoint (for R2) |
-| `LINEAR_API_KEY` | No | Linear integration API key |
-| `SLACK_BOT_TOKEN` | No | Slack bot OAuth token |
-| `SLACK_SIGNING_SECRET` | No | Slack request signing secret |
-| `GITHUB_WEBHOOK_SECRET` | No | GitHub webhook HMAC secret |
+Required for every deployment:
+
+| Variable | Description |
+|----------|-------------|
+| `DATABASE_URL` | PostgreSQL connection string (pgvector required) |
+| `REDIS_URL` | Redis connection string (BullMQ queues, pub/sub) |
+| `NEXTAUTH_URL` | Public URL of the app |
+| `NEXTAUTH_SECRET` | JWT signing secret |
+| `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | GitHub OAuth app credentials |
+| `ENCRYPTION_KEY` | Key for the secrets vault; losing it makes stored secrets unreadable |
+| `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` | AI providers. OpenAI is also used for embeddings |
+| `PLAYWRIGHT_WS_ENDPOINT` | Remote browser (browserless). Falls back to local Chromium if unset |
+
+Everything else (storage, GitHub App, GitLab, Linear, Slack, Stripe, `ORBIT_*` deployment
+flags, `SUPER_ADMIN_EMAILS`) is optional and documented in [`.env.example`](./.env.example).
 
 ## Available Scripts
 
@@ -143,49 +129,35 @@ pnpm workers
 |---------|-------------|
 | `pnpm dev` | Start Next.js dev server |
 | `pnpm build` | Production build |
-| `pnpm start` | Start production server |
+| `pnpm start` | Start production server (standalone) |
 | `pnpm lint` | Run ESLint |
 | `pnpm test` | Run tests with Vitest |
-| `pnpm test:watch` | Run tests in watch mode |
-| `pnpm db:generate` | Generate Drizzle migrations |
-| `pnpm db:push` | Push schema to database |
-| `pnpm db:studio` | Open Drizzle Studio (DB browser) |
-| `pnpm db:migrate` | Run pending migrations |
-| `pnpm workers` | Start BullMQ background workers |
+| `pnpm db:generate` | Generate the Prisma client |
+| `pnpm db:migrate` | Create and apply a migration (dev) |
+| `pnpm db:migrate:deploy` | Apply pending migrations (production) |
+| `pnpm db:migrate:status` | Show migration status |
+| `pnpm db:seed` | Load demo data |
+| `pnpm db:studio` | Open Prisma Studio |
 
 ## Deployment
 
-### Vercel (Web)
+Orbit is a single web service plus Postgres, Redis and a headless-browser sidecar.
+The container applies pending migrations (`prisma migrate deploy`) on start, then runs the server.
+Health check: `GET /api/health` (returns 503 naming the failed dependency).
 
-Deploy the Next.js app to Vercel. Set all required environment variables in the Vercel dashboard.
+### Self-host with Docker Compose
 
-### Railway (Database + Redis + Workers)
-
-Orbit uses Railway for PostgreSQL (with pgvector), Redis, and worker processes:
-
-1. Create a Railway project with PostgreSQL and Redis services
-2. Enable the pgvector extension on PostgreSQL
-3. Deploy the worker service using `pnpm workers` as the start command
-4. Set environment variables referencing Railway's internal connection strings
-
-### Docker
-
-```dockerfile
-FROM node:18-alpine AS base
-WORKDIR /app
-COPY package.json pnpm-lock.yaml ./
-RUN corepack enable && pnpm install --frozen-lockfile
-COPY . .
-RUN pnpm build
-
-FROM node:18-alpine AS runner
-WORKDIR /app
-COPY --from=base /app/.next/standalone ./
-COPY --from=base /app/.next/static ./.next/static
-COPY --from=base /app/public ./public
-EXPOSE 3000
-CMD ["node", "server.js"]
+```bash
+cp .env.selfhost.example .env     # fill in secrets, OAuth app, AI keys
+docker compose up -d
 ```
+
+Starts `web`, `postgres` (pgvector), `redis` and `browser` (browserless). Artifacts are stored
+in the `storage-data` volume.
+
+### Railway
+
+See [docs/self-hosting/railway.md](./docs/self-hosting/railway.md).
 
 ## Contributing
 

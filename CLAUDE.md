@@ -48,8 +48,8 @@ Orbit is an AI-native testing platform that combines deep code-awareness (like C
 - **AI:** Anthropic Claude + OpenAI, model routing per task type (`src/lib/ai/model-router.ts`)
 - **Auth:** NextAuth v4 with GitHub OAuth, JWT strategy, auto workspace provisioning
 - **UI:** shadcn/ui (New York style), react-force-graph-2d for System Map, Geist font
-- **Testing:** Vitest (162 tests, 14 files)
-- **Deployment:** Railway (nixpacks via `railway.toml`, Dockerfile as alternative)
+- **Testing:** Vitest (`pnpm test`)
+- **Deployment:** Dockerfile (Railway via `railway.toml`, or `docker-compose.yml` for self-hosting); see `docs/self-hosting/`
 
 ## Infrastructure Details
 
@@ -64,12 +64,12 @@ Orbit is an AI-native testing platform that combines deep code-awareness (like C
 
 ### Environment Variables
 
-All env vars documented in `.env.local.example`. Critical ones:
+All env vars documented in `.env.example`. Critical ones:
 - `DATABASE_URL` — PostgreSQL connection string
 - `REDIS_URL` — Redis connection string
 - `NEXTAUTH_SECRET` — JWT signing key (`openssl rand -base64 32`)
 - `NEXTAUTH_URL` — Deployment URL
-- `GITHUB_ID` / `GITHUB_SECRET` — GitHub OAuth app credentials
+- `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` — GitHub OAuth app credentials
 - `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` — AI provider keys
 - `PLAYWRIGHT_WS_ENDPOINT` — Remote browser CDP URL
 - `ENCRYPTION_KEY` — AES-256 key for vault (`openssl rand -hex 32`)

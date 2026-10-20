@@ -17,7 +17,13 @@ const nextConfig = {
       "sharp",
     ],
     outputFileTracingIncludes: {
-      "/**": ["./src/generated/prisma/**/*"],
+      "/**": [
+        "./src/generated/prisma/**/*",
+        // Loaded via createRequire().resolve() at runtime, so the tracer can't see them.
+        "./node_modules/web-tree-sitter/web-tree-sitter.wasm",
+        "./node_modules/tree-sitter-wasms/out/tree-sitter-typescript.wasm",
+        "./node_modules/tree-sitter-wasms/out/tree-sitter-javascript.wasm",
+      ],
     },
   },
   webpack: (config, { isServer }) => {
