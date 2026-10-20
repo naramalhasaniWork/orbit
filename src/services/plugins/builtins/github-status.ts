@@ -10,6 +10,7 @@ import type {
   RunContext,
   RunResults,
 } from "@/services/plugins/runtime";
+import { resolveGitHubToken } from "@/lib/github/token";
 
 type GithubState = "pending" | "success" | "failure" | "error";
 
@@ -71,9 +72,9 @@ export const githubStatusPlugin: PluginDefinition = {
     beforeRun: async (context: RunContext) => {
       if (!context.commitSha) return;
 
-      const token = process.env.GITHUB_TOKEN;
+      const token = (await resolveGitHubToken(context.projectId))?.token;
       if (!token) {
-        console.warn("[github-status] No GitHub token configured, skipping status");
+        console.warn("[github-status] No GitHub token for this project, skipping status");
         return;
       }
 
@@ -93,7 +94,7 @@ export const githubStatusPlugin: PluginDefinition = {
     afterRun: async (context: RunContext, results: RunResults) => {
       if (!context.commitSha) return;
 
-      const token = process.env.GITHUB_TOKEN;
+      const token = (await resolveGitHubToken(context.projectId))?.token;
       if (!token) return;
 
       const repo = parseRepoFromContext(context);

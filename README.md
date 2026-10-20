@@ -118,8 +118,9 @@ pnpm workers
 | `REDIS_URL` | Yes | Redis connection string (for BullMQ + sessions) |
 | `NEXTAUTH_URL` | Yes | App URL (`http://localhost:3000` for dev) |
 | `NEXTAUTH_SECRET` | Yes | Random secret (`openssl rand -base64 32`) |
-| `GITHUB_CLIENT_ID` | Yes | GitHub OAuth app client ID |
-| `GITHUB_CLIENT_SECRET` | Yes | GitHub OAuth app client secret |
+| `GITHUB_CLIENT_ID` | Yes | Client ID of your **GitHub App** (used for login and repo access) |
+| `GITHUB_CLIENT_SECRET` | Yes | Client secret of the same GitHub App |
+| `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY`, `GITHUB_APP_SLUG` | No | The GitHub App's ID, private key and slug (installation tokens) |
 | `ANTHROPIC_API_KEY` | Yes | Anthropic API key for Claude models |
 | `OPENAI_API_KEY` | Yes | OpenAI API key for embeddings + routing |
 | `ENCRYPTION_KEY` | Yes | AES-256 key for secrets vault (`openssl rand -hex 32`) |
@@ -140,8 +141,11 @@ pnpm workers
 | `ORBIT_SIGNUP` | No | `open`, `invite` or `closed`. Default: `open` on cloud, `invite` when self-hosted |
 | `ORBIT_ALLOWED_EMAIL_DOMAINS` | No | Comma-separated domains allowed to sign in (default: any) |
 | `ORBIT_ALLOW_PRIVATE_TARGETS` | No | `true` lets environments and MCP servers target localhost/private networks (link-local stays blocked) |
+| `ORBIT_GITHUB_TOKEN_FALLBACK` | No | Self-hosted only: allow the operator `GITHUB_TOKEN` to read private repos (default: public repos only; never used on hosted Orbit) |
 | `ORBIT_TRUSTED_PROXY_HOPS` | No | Number of reverse proxies in front of Orbit (default `1`, as on Railway); picks the trusted `X-Forwarded-For` entry for rate limiting |
 | `SKIP_ENV_VALIDATION` | No | `true` skips the boot-time check for required variables |
+
+**GitHub setup:** create one GitHub App and use it for both login and repo access (plain OAuth Apps are not supported). Set its callback URL to `<NEXTAUTH_URL>/api/auth/callback/github`, its setup URL to `<NEXTAUTH_URL>/api/github/installations/callback`, and enable "Request user authorization (OAuth) during installation". Permissions come from the App's configuration; OAuth scopes are not requested.
 
 Required variables are validated at startup (`src/lib/env.ts`): the server refuses to boot and lists every missing or invalid one. Missing optional integrations are logged as warnings.
 
