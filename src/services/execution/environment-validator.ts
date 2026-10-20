@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import { decrypt } from "@/lib/vault";
 import { safeFetch, UnsafeUrlError } from "@/lib/utils/ssrf";
 import { isDefaultCandidate, pickDefaultEnvironment } from "@/services/execution/default-environment";
+import { gateAccessCredentials } from "@/services/execution/access-headers";
 
 // ============================================================
 // Types
@@ -131,7 +132,7 @@ export async function validateEnvironment(
     errors,
     warnings,
     environmentUrl: environment.url,
-    credentials,
+    credentials: gateAccessCredentials(credentials, environment.accessMode),
   };
 }
 

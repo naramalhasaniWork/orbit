@@ -14,6 +14,7 @@ import {
   emitIndexingFailed,
 } from "@/lib/websocket";
 import { runPipelineForJob, markRunFailed, errorMessage } from "@/lib/queue/run-job-guards";
+import { gateAccessCredentials } from "@/services/execution/access-headers";
 
 export async function handleIndexingJob(job: Job<IndexingJobData>): Promise<void> {
   const data = IndexingJobDataSchema.parse(job.data);
@@ -274,8 +275,7 @@ async function loadCredentials(environmentId: string): Promise<Record<string, st
   const { decrypt } = await import("@/lib/vault");
 
   const environment = await prisma.environment.findUnique({
-    where: { id: environmentId },
-    select: { id: true, projectId: true },
+    where: { id: environmentId }, select: { id: true, projectId: true, accessMode: true },
   });
 
   if (!environment) return {};
@@ -296,5 +296,5 @@ async function loadCredentials(environmentId: string): Promise<Record<string, st
     }
   }
 
-  return credentials;
+  return gateAccessCredentials(credentials, environment.accessMode);
 }

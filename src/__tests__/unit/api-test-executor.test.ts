@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { substituteCredentials } from "@/lib/utils/credentials";
-import { isProviderError } from "@/services/execution/test-case-executor";
+import { isProviderError } from "@/services/execution/error-classifier";
 
 describe("isProviderError", () => {
   it("classifies Anthropic billing errors as provider errors", () => {

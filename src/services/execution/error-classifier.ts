@@ -40,3 +40,14 @@ export function classifyError(errorMsg: string): ErrorClass {
   }
   return "unknown";
 }
+
+/**
+ * AI provider errors (billing, auth, quota, model access) — platform
+ * problems that must never masquerade as failures of the app under test.
+ */
+const PROVIDER_ERROR_RE =
+  /credit balance|invalid_request_error|authentication_error|permission_error|api key|insufficient_quota|billing|model_not_found|overloaded_error/i;
+
+export function isProviderError(message: string): boolean {
+  return PROVIDER_ERROR_RE.test(message);
+}
