@@ -38,7 +38,7 @@ function LoginContent() {
     : null;
 
   return (
-    <div className="flex min-h-screen items-center justify-center surface-0 relative overflow-hidden">
+    <div className="flex min-h-dvh items-center justify-center surface-0 relative overflow-hidden">
       {/* Background gradient layers */}
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-orbit-accent/[0.08] via-transparent to-transparent" />
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_right,_var(--tw-gradient-stops))] from-orbit-pass/[0.03] via-transparent to-transparent" />

@@ -7,6 +7,7 @@ import {
   handleApiError,
 } from "@/lib/utils/api";
 import { requirePermission } from "@/lib/auth/rbac";
+import { getLinearConfig } from "@/services/reporting/integrations/linear";
 
 // ============================================================
 // POST /api/projects/[projectId]/linear-issue
@@ -49,31 +50,16 @@ export async function POST(
       );
     }
 
-    // Find Linear integration config
-    const integration = await prisma.integrationConfig.findFirst({
-      where: { workspaceId, provider: "linear", isEnabled: true },
-      select: { id: true, config: true },
-    });
-
-    if (!integration) {
+    // Same credentials the reporter uses: the key saved by Settings → Integrations → Linear
+    const linear = await getLinearConfig(project.id);
+    if (!linear) {
       return apiError(
-        "Linear integration not connected",
+        "Linear is not connected. Connect it in Settings → Integrations.",
         "INTEGRATION_NOT_FOUND",
         400
       );
     }
-
-    const config = integration.config as Record<string, unknown>;
-    const apiKey = config.apiKey as string | undefined;
-    const teamId = config.teamId as string | undefined;
-
-    if (!apiKey || !teamId) {
-      return apiError(
-        "Linear integration not fully configured",
-        "INTEGRATION_ERROR",
-        400
-      );
-    }
+    const { apiKey, teamId } = linear;
 
     // Build issue title and description
     const title = `[Orbit] Test Failure: ${testCaseName}`;

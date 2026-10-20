@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { isSelfHosted } from "@/lib/self-host";
 import { openSecret } from "@/lib/integrations/secret-field";
 import type { BugReport, RunSummary } from "@/agents/schemas/run-summary";
 
@@ -75,7 +76,8 @@ const SEVERITY_TO_PRIORITY: Record<string, number> = {
   info: 4,
 };
 
-async function getLinearConfig(
+/** Linear credentials as the Settings integration stores them (project, then workspace, then env). */
+export async function getLinearConfig(
   projectId: string
 ): Promise<{ apiKey: string; teamId: string } | null> {
   const project = await prisma.project.findUnique({
@@ -97,13 +99,15 @@ async function getLinearConfig(
   const apiKey =
     openSecret(projectSettings?.linearApiKey) ??
     openSecret(workspaceSettings?.linearApiKey) ??
-    process.env.LINEAR_API_KEY ??
+    // The operator's own key is only a fallback on single-tenant installs;
+    // on hosted Orbit it would let any workspace file issues into it.
+    (isSelfHosted() ? process.env.LINEAR_API_KEY : undefined) ??
     null;
 
   const teamId =
     (projectSettings?.linearTeamId as string) ??
     (workspaceSettings?.linearTeamId as string) ??
-    process.env.LINEAR_TEAM_ID ??
+    (isSelfHosted() ? process.env.LINEAR_TEAM_ID : undefined) ??
     null;
 
   if (!apiKey || !teamId) return null;

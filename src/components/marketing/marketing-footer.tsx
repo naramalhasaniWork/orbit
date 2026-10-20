@@ -27,7 +27,7 @@ export function MarketingFooter() {
           {/* Brand column */}
           <div className="col-span-2 md:col-span-1">
             <Link href="/" className="inline-flex mb-4">
-              <Logo size="sm" />
+              <Logo size="sm" brand />
             </Link>
             <p className="text-sm text-muted-foreground leading-relaxed">
               AI-native testing platform. Code-aware, app-aware, fully

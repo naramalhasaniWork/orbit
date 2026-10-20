@@ -103,14 +103,14 @@ export default function AcceptInvitationPage() {
 
   if (loading || authStatus === "loading") {
     return (
-      <div className="min-h-screen flex items-center justify-center surface-0">
+      <div className="min-h-dvh flex items-center justify-center surface-0">
         <Loader2 className="h-6 w-6 text-orbit-accent animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center surface-0 p-4">
+    <div className="min-h-dvh flex items-center justify-center surface-0 p-4">
       <div className="w-full max-w-md space-y-6">
         {/* Logo */}
         <div className="flex justify-center">
@@ -120,7 +120,7 @@ export default function AcceptInvitationPage() {
         </div>
 
         {/* Card */}
-        <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-6 space-y-4">
+        <div className="rounded-xl border border-border bg-foreground/[0.02] p-6 space-y-4">
           {error && !invitation && (
             <div className="text-center space-y-3">
               <XCircle className="h-10 w-10 text-red-400 mx-auto" />

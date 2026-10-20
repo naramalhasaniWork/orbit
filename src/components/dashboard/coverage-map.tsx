@@ -294,7 +294,7 @@ export function CoverageMap({ cells, className }: CoverageMapProps) {
                       {selectedCell.testCases.map((tc) => (
                         <div
                           key={tc.id}
-                          className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-white/[0.06] transition-colors"
+                          className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-foreground/[0.06] transition-colors"
                         >
                           <StatusDot
                             status={

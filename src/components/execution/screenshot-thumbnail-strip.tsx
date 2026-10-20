@@ -42,7 +42,7 @@ export function ScreenshotThumbnailStrip({
   return (
     <div
       className={cn(
-        "border-t border-white/[0.06] bg-black/20 px-2 py-1.5",
+        "border-t border-border bg-black/20 px-2 py-1.5",
         className
       )}
     >
@@ -61,7 +61,7 @@ export function ScreenshotThumbnailStrip({
               "h-12 w-20 relative",
               index === activeIndex
                 ? "border-orbit-accent ring-1 ring-orbit-accent/30"
-                : "border-white/[0.08] hover:border-white/[0.15]"
+                : "border-border hover:border-border"
             )}
           >
             <img

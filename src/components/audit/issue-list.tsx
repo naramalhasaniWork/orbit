@@ -108,7 +108,7 @@ function IssueCard({ issue }: { issue: AuditIssue }) {
             transition={{ duration: 0.2 }}
             className="overflow-hidden"
           >
-            <div className="px-3 pb-3 space-y-3 border-t border-white/[0.04] pt-3">
+            <div className="px-3 pb-3 space-y-3 border-t border-border pt-3">
               <div>
                 <p className="text-xs font-medium text-muted-foreground mb-1">Description</p>
                 <p className="text-sm text-foreground/80">{issue.description}</p>

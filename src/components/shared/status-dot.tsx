@@ -1,63 +1,40 @@
+import { LiveDot } from "@/components/telemetry/live-dot";
+import { STATUS_TONES, type StatusTone } from "@/lib/status-tone";
 import { cn } from "@/lib/utils";
 
 interface StatusDotProps {
   status: "pass" | "fail" | "flaky" | "untested" | "running" | "skipped";
   size?: "sm" | "md";
+  /** Kept for callers; only a running status ever pulses. */
   pulse?: boolean;
 }
 
-const statusColors: Record<string, string> = {
-  pass: "bg-orbit-pass",
-  fail: "bg-orbit-fail",
-  flaky: "bg-orbit-flaky",
-  untested: "bg-orbit-untested",
-  running: "bg-orbit-accent",
-  skipped: "bg-muted-foreground",
+const TONE: Record<StatusDotProps["status"], StatusTone> = {
+  pass: "pass",
+  fail: "fail",
+  flaky: "flaky",
+  untested: "untested",
+  running: "live",
+  skipped: "skipped",
 };
 
-const glowIntensity: Record<string, string> = {
-  pass: "shadow-[0_0_6px_hsl(var(--orbit-pass)/0.4)]",
-  fail: "shadow-[0_0_8px_hsl(var(--orbit-fail)/0.6)]",
-  flaky: "shadow-[0_0_7px_hsl(var(--orbit-flaky)/0.5)]",
-  running: "shadow-[0_0_8px_hsl(var(--orbit-accent)/0.6)]",
-};
-
-export function StatusDot({ status, size = "sm", pulse }: StatusDotProps) {
-  const isRunning = status === "running";
-  const shouldPulse = pulse || isRunning;
-  const dim = size === "sm" ? "h-2 w-2" : "h-3 w-3";
-
+/**
+ * A 6–8px status mark. Decorative: put the status word next to it, or use <Status>.
+ * Fail is a square so the shape differs, not just the colour.
+ */
+export function StatusDot({ status, size = "sm" }: StatusDotProps) {
+  const tone = TONE[status];
+  if (tone === "live") return <LiveDot size={size === "sm" ? "sm" : "md"} />;
+  const spec = STATUS_TONES[tone];
   return (
-    <span className="relative inline-flex shrink-0">
-      <span
-        className={cn(
-          "inline-block rounded-full",
-          statusColors[status],
-          glowIntensity[status],
-          dim,
-        )}
-      />
-      {/* Primary ping ring */}
-      {shouldPulse && (
-        <span
-          className={cn(
-            "absolute inset-0 rounded-full animate-ping opacity-75",
-            statusColors[status],
-            dim,
-          )}
-        />
+    <span
+      aria-hidden="true"
+      className={cn(
+        "inline-block shrink-0",
+        size === "sm" ? "size-1.5" : "size-2",
+        spec.square ? "rounded-[1px]" : "rounded-full",
+        tone === "untested" ? "border border-tm-t3" : spec.fill
       )}
-      {/* Secondary ring — offset timing for running state */}
-      {isRunning && (
-        <span
-          className={cn(
-            "absolute inset-0 rounded-full animate-ping opacity-40",
-            statusColors[status],
-            dim,
-          )}
-          style={{ animationDelay: "0.5s" }}
-        />
-      )}
-    </span>
+    />
   );
 }

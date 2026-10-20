@@ -81,7 +81,7 @@ function MessageBubble({ message }: { message: ChatMessage }) {
         className={cn(
           "shrink-0 h-6 w-6 rounded-full flex items-center justify-center mt-0.5",
           isUser
-            ? "bg-white/[0.08]"
+            ? "bg-foreground/[0.08]"
             : "bg-orbit-accent/10"
         )}
       >
@@ -96,7 +96,7 @@ function MessageBubble({ message }: { message: ChatMessage }) {
           "max-w-[85%] rounded-lg px-3 py-2 text-sm leading-relaxed",
           isUser
             ? "bg-orbit-accent/10 text-foreground"
-            : "bg-white/[0.04] text-foreground"
+            : "bg-foreground/[0.04] text-foreground"
         )}
       >
         {isUser ? (

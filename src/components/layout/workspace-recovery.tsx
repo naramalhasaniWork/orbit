@@ -47,7 +47,7 @@ export function WorkspaceRecovery() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center surface-0 p-4">
+    <div className="min-h-dvh flex items-center justify-center surface-0 p-4">
       {noWorkspace ? (
         <div className="text-center space-y-4 max-w-sm">
           <h1 className="text-lg font-semibold text-foreground">No workspace</h1>

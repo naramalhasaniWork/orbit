@@ -7,8 +7,6 @@ import { Button } from "@/components/ui/button";
 import {
   Play,
   ChevronDown,
-  Loader2,
-  AlertTriangle,
   ArrowRight,
   Menu,
   X,
@@ -20,6 +18,8 @@ import { useMobileNav } from "@/components/layout/mobile-nav-context";
 import { useShortcutAction } from "@/components/shortcuts/shortcut-provider";
 import { useStartRun } from "@/hooks/use-start-run";
 import { cn } from "@/lib/utils";
+import { StatusDot } from "@/components/shared/status-dot";
+import { toneForHealth } from "@/lib/status-tone";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -59,11 +59,6 @@ const PAGE_TITLES: Record<string, string> = {
   "/dashboard/profile": "Profile",
 };
 
-const healthDot: Record<string, string> = {
-  healthy: "bg-orbit-pass",
-  degraded: "bg-orbit-flaky",
-  failing: "bg-orbit-fail",
-};
 
 function getPageTitle(pathname: string | null): string {
   if (!pathname) return "Dashboard";
@@ -112,28 +107,28 @@ export function Header({ projects = [], activeProjectId, healthStatus }: HeaderP
   }
 
   return (
-    <header className="relative flex items-center justify-between gap-2 h-12 px-3 md:px-6 surface-1 border-b border-border shrink-0">
+    <header className="relative flex h-[52px] shrink-0 items-center justify-between gap-2 border-b border-border px-3 md:px-5">
       <div className="flex items-center gap-1.5 md:gap-3 min-w-0">
         <button
           type="button"
           aria-label="Open navigation"
           onClick={() => setNavOpen(true)}
-          className="md:hidden flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-white/[0.06] transition-colors"
+          className="md:hidden flex size-9 shrink-0 items-center justify-center rounded-md text-tm-t2 hover:text-foreground hover:bg-accent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <Menu className="h-4 w-4" />
+          <Menu aria-hidden="true" className="size-4" />
         </button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className="flex items-center gap-2 px-2 py-1 rounded-md text-sm font-medium text-foreground hover:bg-white/[0.06] transition-colors min-w-0">
-              <div className="h-5 w-5 rounded bg-orbit-accent/15 flex items-center justify-center">
-                <span className="text-[9px] font-bold text-orbit-accent">
+            <button type="button" className="flex h-8 min-w-0 items-center gap-2 rounded-md px-2 text-[13px] font-medium text-foreground transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+              <div aria-hidden="true" className="flex size-5 items-center justify-center rounded-sm border border-border bg-muted">
+                <span className="font-label text-[9px] text-tm-t2">
                   {active?.name?.charAt(0)?.toUpperCase() ?? "P"}
                 </span>
               </div>
               <span className="max-w-[110px] sm:max-w-[140px] truncate">
                 {active?.name ?? "Select Project"}
               </span>
-              <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
+              <ChevronDown aria-hidden="true" className="size-3.5 text-tm-t3" />
             </button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start" className="w-56">
@@ -157,17 +152,18 @@ export function Header({ projects = [], activeProjectId, healthStatus }: HeaderP
                     project.id === activeProjectId && "bg-accent"
                   )}
                 >
-                  <span
-                    className={cn(
-                      "h-1.5 w-1.5 rounded-full shrink-0",
+                  <StatusDot
+                    status={
                       !project.onboardingCompleted
-                        ? "bg-orbit-accent animate-pulse"
-                        : healthDot[project.healthStatus] ?? "bg-muted-foreground"
-                    )}
+                        ? "untested"
+                        : ({ pass: "pass", fail: "fail", flaky: "flaky" } as const)[
+                            toneForHealth(project.healthStatus) as "pass" | "fail" | "flaky"
+                          ] ?? "untested"
+                    }
                   />
                   <span className="truncate flex-1">{project.name}</span>
                   {!project.onboardingCompleted ? (
-                    <span className="text-[10px] text-orbit-accent">Setting up...</span>
+                    <span className="text-[11px] text-tm-t3">Setting up</span>
                   ) : project.framework ? (
                     <span className="text-xs text-muted-foreground">
                       {project.framework}
@@ -185,8 +181,8 @@ export function Header({ projects = [], activeProjectId, healthStatus }: HeaderP
           </DropdownMenuContent>
         </DropdownMenu>
 
-        <span className="hidden sm:inline text-muted-foreground/40 text-sm">/</span>
-        <span className="hidden sm:inline text-sm text-muted-foreground truncate">{title}</span>
+        <span aria-hidden="true" className="hidden sm:inline text-[13px] text-tm-line-strong">/</span>
+        <span className="hidden sm:inline truncate text-[13px] text-tm-t2">{title}</span>
 
         <div className="hidden sm:block">
           <HealthBadge projectStatus={healthStatus ?? active?.healthStatus} />
@@ -205,9 +201,9 @@ export function Header({ projects = [], activeProjectId, healthStatus }: HeaderP
             href={`/dashboard/onboarding?project=${activeProjectId}`}
             title="This project is still indexing. Finish setup to run tests."
             aria-label="Setting up"
-            className="flex items-center justify-center gap-1.5 h-8 w-8 sm:h-7 sm:w-auto sm:px-3 text-xs rounded-md border border-orbit-accent/30 bg-orbit-accent/10 text-orbit-accent hover:bg-orbit-accent/15 transition-colors"
+            className="flex h-8 min-w-8 items-center justify-center gap-1.5 rounded-md border border-tm-line-strong px-2 text-xs text-tm-t2 transition-colors hover:bg-accent sm:px-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
-            <Loader2 className="h-3 w-3 animate-spin" />
+            <span aria-hidden="true" className="font-label">○</span>
             <span className="hidden sm:inline">Setting up</span>
           </Link>
         ) : (
@@ -218,13 +214,10 @@ export function Header({ projects = [], activeProjectId, healthStatus }: HeaderP
               disabled={!activeProjectId || !!blockReason || starting}
               onClick={startRun}
               aria-label={starting ? "Starting run" : "Run tests"}
-              className="h-8 w-8 p-0 sm:h-7 sm:w-auto sm:px-3 text-xs bg-orbit-accent hover:bg-orbit-accent/90 text-white gap-1.5 rounded-md shadow-[0_0_12px_hsl(var(--orbit-accent)/0.2)] disabled:opacity-50 disabled:cursor-not-allowed"
+              aria-busy={starting || undefined}
+              className="h-8 min-w-8 gap-1.5 px-2 text-[13px] sm:px-3 disabled:cursor-not-allowed"
             >
-              {starting ? (
-                <Loader2 className="h-3 w-3 animate-spin" />
-              ) : (
-                <Play className="h-3 w-3" />
-              )}
+              <Play aria-hidden="true" className="size-3" />
               <span className="hidden sm:inline">{starting ? "Starting" : "Run"}</span>
             </Button>
           </span>
@@ -236,10 +229,10 @@ export function Header({ projects = [], activeProjectId, healthStatus }: HeaderP
       {runError && (
         <div
           role="alert"
-          className="absolute right-3 md:right-6 top-full mt-2 z-50 w-[min(320px,calc(100vw-1.5rem))] rounded-lg border border-orbit-fail/40 bg-orbit-fail/[0.08] backdrop-blur px-3 py-2.5 shadow-lg"
+          className="absolute right-3 md:right-5 top-full mt-2 z-toast w-[min(320px,calc(100vw-1.5rem))] rounded-lg border border-tm-fail/40 bg-popover px-3 py-2.5 shadow-elevated"
         >
           <div className="flex items-start gap-2">
-            <AlertTriangle className="h-3.5 w-3.5 text-orbit-fail mt-0.5 shrink-0" />
+            <span aria-hidden="true" className="mt-px shrink-0 font-label text-xs text-tm-fail">✕</span>
             <div className="flex-1 min-w-0">
               <p className="text-xs text-foreground leading-snug">
                 {runError.message}
@@ -248,7 +241,7 @@ export function Header({ projects = [], activeProjectId, healthStatus }: HeaderP
                 <Link
                   href={runError.cta.href}
                   onClick={() => setRunError(null)}
-                  className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-medium text-orbit-accent hover:text-orbit-accent/80"
+                  className="mt-1.5 inline-flex items-center gap-1 text-[12px] font-medium text-foreground underline underline-offset-4 decoration-tm-line-strong hover:decoration-foreground"
                 >
                   {runError.cta.label}
                   <ArrowRight className="h-3 w-3" />

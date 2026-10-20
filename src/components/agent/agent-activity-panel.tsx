@@ -57,9 +57,9 @@ export function AgentActivityPanel({ operations }: AgentActivityPanelProps) {
   }, [operations]);
 
   return (
-    <div className="w-[280px] shrink-0 flex flex-col bg-white/[0.02] overflow-hidden">
+    <div className="w-[280px] shrink-0 flex flex-col bg-foreground/[0.02] overflow-hidden">
       {/* Header */}
-      <div className="px-4 py-3 border-b border-white/[0.04] flex items-center gap-2">
+      <div className="px-4 py-3 border-b border-border flex items-center gap-2">
         <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
           Activity
         </span>
@@ -105,7 +105,7 @@ function OperationCard({ operation }: { operation: BackgroundOperation }) {
       exit={{ opacity: 0, x: 8 }}
       transition={{ duration: 0.2 }}
       className={cn(
-        "rounded-lg bg-white/[0.03] border border-white/[0.06] p-3 space-y-2",
+        "rounded-lg bg-foreground/[0.03] border border-border p-3 space-y-2",
         isError && "border-red-400/20",
       )}
     >
@@ -121,7 +121,7 @@ function OperationCard({ operation }: { operation: BackgroundOperation }) {
       </div>
 
       {/* Progress bar */}
-      <div className="h-1 rounded-full bg-white/[0.06] overflow-hidden">
+      <div className="h-1 rounded-full bg-foreground/[0.06] overflow-hidden">
         <div
           className={cn(
             "h-full rounded-full transition-[width] duration-500 ease-out",

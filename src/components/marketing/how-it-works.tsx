@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { springs } from "@/lib/motion";
+import { tween } from "@/lib/motion";
 
 const STEPS = [
   {
@@ -29,7 +29,7 @@ export function HowItWorks() {
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-100px" }}
-          transition={springs.smooth}
+          transition={tween.open}
           className="mb-20"
         >
           <p className="text-[13px] font-medium text-primary tracking-widest uppercase mb-4">
@@ -47,13 +47,13 @@ export function HowItWorks() {
               initial={{ opacity: 0, y: 24 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: "-50px" }}
-              transition={{ ...springs.smooth, delay: i * 0.1 }}
+              transition={{ ...tween.open, delay: i * 0.1 }}
             >
               <motion.span
                 initial={{ opacity: 0, scale: 0.8 }}
                 whileInView={{ opacity: 1, scale: 1 }}
                 viewport={{ once: true }}
-                transition={{ ...springs.bounce, delay: i * 0.1 + 0.1 }}
+                transition={{ ...tween.change, delay: i * 0.1 + 0.1 }}
                 className="text-5xl font-bold text-primary/[0.12] block mb-4 select-none"
               >
                 {step.number}

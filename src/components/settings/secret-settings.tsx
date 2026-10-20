@@ -200,8 +200,8 @@ export function SecretSettings({ projectId, secrets: initial, environments }: Se
             onClick={() => setFilterEnvId("all")}
             className={`px-2.5 py-1 text-[11px] rounded-md transition-colors ${
               filterEnvId === "all"
-                ? "bg-white/[0.08] text-foreground"
-                : "text-muted-foreground hover:text-foreground hover:bg-white/[0.04]"
+                ? "bg-foreground/[0.08] text-foreground"
+                : "text-muted-foreground hover:text-foreground hover:bg-foreground/[0.04]"
             }`}
           >
             All
@@ -211,8 +211,8 @@ export function SecretSettings({ projectId, secrets: initial, environments }: Se
             onClick={() => setFilterEnvId("global")}
             className={`px-2.5 py-1 text-[11px] rounded-md transition-colors ${
               filterEnvId === "global"
-                ? "bg-white/[0.08] text-foreground"
-                : "text-muted-foreground hover:text-foreground hover:bg-white/[0.04]"
+                ? "bg-foreground/[0.08] text-foreground"
+                : "text-muted-foreground hover:text-foreground hover:bg-foreground/[0.04]"
             }`}
           >
             Global
@@ -224,8 +224,8 @@ export function SecretSettings({ projectId, secrets: initial, environments }: Se
               onClick={() => setFilterEnvId(env.id)}
               className={`px-2.5 py-1 text-[11px] rounded-md transition-colors ${
                 filterEnvId === env.id
-                  ? "bg-white/[0.08] text-foreground"
-                  : "text-muted-foreground hover:text-foreground hover:bg-white/[0.04]"
+                  ? "bg-foreground/[0.08] text-foreground"
+                  : "text-muted-foreground hover:text-foreground hover:bg-foreground/[0.04]"
               }`}
             >
               {env.name}

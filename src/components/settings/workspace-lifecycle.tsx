@@ -74,7 +74,7 @@ export function WorkspaceLifecycle({ workspace, role }: WorkspaceLifecycleProps)
       </div>
 
       {isOwner && (
-        <div className="space-y-3 border-t border-white/[0.06] pt-6 max-w-md">
+        <div className="space-y-3 border-t border-border pt-6 max-w-md">
           <p className="text-xs text-muted-foreground">
             Deleting hides the workspace and its projects from every member. Cancel any
             subscription in Billing first. Type <strong className="text-foreground">{workspace.name}</strong> to confirm.
@@ -87,7 +87,7 @@ export function WorkspaceLifecycle({ workspace, role }: WorkspaceLifecycleProps)
               id="ws-delete-confirm"
               value={confirmName}
               onChange={(e) => setConfirmName(e.target.value)}
-              className="bg-white/[0.04]"
+              className="bg-foreground/[0.04]"
             />
           </div>
           <Button

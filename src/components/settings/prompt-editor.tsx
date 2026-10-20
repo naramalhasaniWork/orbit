@@ -165,7 +165,7 @@ export function PromptEditor({ workspaceId, agentPhase, open, onOpenChange }: Pr
                       onChange={(e) => setCustomInstructions(e.target.value)}
                       placeholder="Add custom instructions for this agent..."
                       rows={8}
-                      className="w-full rounded-md bg-white/[0.04] border border-transparent px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-orbit-accent resize-y font-mono"
+                      className="w-full rounded-md bg-foreground/[0.04] border border-transparent px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-orbit-accent resize-y font-mono"
                     />
                     <div className="flex items-center justify-between">
                       <p className="text-[10px] text-muted-foreground">
@@ -208,7 +208,7 @@ export function PromptEditor({ workspaceId, agentPhase, open, onOpenChange }: Pr
                       readOnly={!editFull}
                       rows={16}
                       className={`w-full rounded-md border border-transparent px-3 py-2 text-xs text-foreground font-mono resize-y focus:outline-none focus:ring-1 focus:ring-orbit-accent ${
-                        editFull ? "bg-white/[0.04]" : "bg-white/[0.02] cursor-default"
+                        editFull ? "bg-foreground/[0.04]" : "bg-foreground/[0.02] cursor-default"
                       }`}
                     />
                     <div className="text-right">
@@ -266,7 +266,7 @@ export function PromptEditor({ workspaceId, agentPhase, open, onOpenChange }: Pr
             value={changelog}
             onChange={(e) => setChangelog(e.target.value)}
             placeholder="e.g. Added safety instructions"
-            className="bg-white/[0.04]"
+            className="bg-foreground/[0.04]"
           />
           <DialogFooter>
             <Button size="sm" variant="ghost" onClick={() => setShowChangelogDialog(false)}>

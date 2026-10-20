@@ -33,7 +33,7 @@ export function PlanGenerationProgress({
       initial={{ opacity: 0, y: -8 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -8 }}
-      className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5 space-y-4"
+      className="rounded-xl border border-border bg-foreground/[0.02] p-5 space-y-4"
     >
       {/* Progress bar */}
       <div className="space-y-2">
@@ -43,7 +43,7 @@ export function PlanGenerationProgress({
           </span>
           <span className="text-muted-foreground tabular-nums">{progress}%</span>
         </div>
-        <div className="h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
+        <div className="h-1.5 rounded-full bg-foreground/[0.06] overflow-hidden">
           <motion.div
             className={cn(
               "h-full rounded-full transition-colors",
@@ -69,7 +69,7 @@ export function PlanGenerationProgress({
                 "flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs transition-colors",
                 isDone && "bg-emerald-400/[0.08] text-emerald-400",
                 isCurrent && "bg-orbit-accent/[0.08] text-orbit-accent",
-                !isDone && !isCurrent && "bg-white/[0.02] text-muted-foreground/50"
+                !isDone && !isCurrent && "bg-foreground/[0.02] text-muted-foreground/50"
               )}
             >
               {isDone ? (

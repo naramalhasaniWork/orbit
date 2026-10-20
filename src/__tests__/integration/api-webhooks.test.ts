@@ -1,13 +1,18 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createHmac } from "crypto";
 
-vi.mock("@/lib/db", () => ({
-  prisma: {
-    project: { findFirst: vi.fn(), findUnique: vi.fn() },
-    webhookDelivery: { create: vi.fn() },
-    testRun: { create: vi.fn(), delete: vi.fn() },
-  },
-}));
+vi.mock("@/lib/db", () => {
+  const testRun = { create: vi.fn(), delete: vi.fn() };
+  return {
+    prisma: {
+      project: { findFirst: vi.fn(), findUnique: vi.fn() },
+      webhookDelivery: { create: vi.fn() },
+      testRun,
+      // launchPipelineRun checks the allowance and inserts inside one transaction
+      $transaction: (fn: (tx: unknown) => unknown) => fn({ $queryRaw: vi.fn(), testRun }),
+    },
+  };
+});
 
 const indexingAdd = vi.fn();
 vi.mock("@/lib/queue/queues", () => ({
