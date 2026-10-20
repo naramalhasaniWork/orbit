@@ -23,10 +23,13 @@ each connection its own URL the way it does for Linear. It routes like this inst
    one is a signed `/orbit link <code>`, where the code was issued by an Orbit admin
    (Slack card → **Get link code**). The code works once and expires after 15 minutes. Orbit
    stores only a hash of it.
-3. If another Orbit workspace already holds that Slack team, the new link is not applied.
-   Commands keep going to the current holder, and the Slack card of the workspace that issued
-   the code shows **Move Slack team here**. When one of its admins confirms, the team moves and
-   the previous workspace loses it. The newest claim always needs that confirmation.
+3. If another Orbit workspace already holds that Slack team, nothing moves. The claim is
+   recorded for 24 hours, both workspaces get an audit entry, and the holder's Slack card shows
+   the request with **Approve transfer** and **Decline**. Only an admin of the **holding**
+   workspace can hand the team over. The claiming workspace can't take it alone, even though
+   someone in the Slack team ran its code. The other way to free the team is for the holder to
+   disconnect Slack; the claimant can then click **Link now** while its claim is still live.
+   Claims lapse after 24 hours.
 4. If a team is ever bound to more than one workspace, commands are refused instead of guessed.
 
 Every button action is then scoped to the linked workspace. A run, test case or result id from

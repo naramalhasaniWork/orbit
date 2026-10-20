@@ -7,6 +7,7 @@ import { SettingsClient } from "@/components/settings/settings-client";
 import { requestOrigin } from "@/lib/setup/access";
 import { listConnectionSummaries } from "@/services/preview/connection-service";
 import { getIntegration } from "@/server/data/integration-repo";
+import { incomingSlackClaims, pendingSlackClaim } from "@/server/data/inbound-repo";
 import { parseWorkspaceSettings } from "@/server/data/settings-repo";
 
 export default async function SettingsPage() {
@@ -57,7 +58,7 @@ export default async function SettingsPage() {
   }
 
   const settings = parseWorkspaceSettings(workspace?.settings);
-  const [linear, slack, workspaceProjects] = await Promise.all([
+  const [linear, slack, workspaceProjects, slackClaim, slackIncomingClaims] = await Promise.all([
     getIntegration(workspaceId, "linear"),
     getIntegration(workspaceId, "slack"),
     prisma.project.findMany({
@@ -65,6 +66,8 @@ export default async function SettingsPage() {
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     }),
+    pendingSlackClaim(workspaceId),
+    incomingSlackClaims(workspaceId),
   ]);
 
   // Preview providers (Railway, Cloudflare Pages): connection state plus the webhook URL to copy
@@ -92,7 +95,8 @@ export default async function SettingsPage() {
           connected: true,
           notifications: slack.settings.notifications,
           teamId: slack.externalAccountId,
-          pendingTeamId: slack.settings.pendingTeamId ?? null,
+          pendingTeamId: slackClaim?.teamId ?? null,
+          incomingClaims: slackIncomingClaims,
         }
       : { connected: false },
   };

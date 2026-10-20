@@ -123,8 +123,9 @@ export async function auditRunAction(
   });
 }
 
+/** `userId` is undefined for changes that arrive from outside Orbit (e.g. a signed Slack command). */
 export async function auditSettingsChange(
-  userId: string,
+  userId: string | undefined,
   workspaceId: string,
   setting: string,
   metadata?: Record<string, unknown>

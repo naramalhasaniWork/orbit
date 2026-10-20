@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Eye, EyeOff, ExternalLink, Hash } from "lucide-react";
-import { SlackCommandsLink } from "@/components/settings/slack-commands-link";
+import { SlackCommandsLink, type IncomingSlackClaim } from "@/components/settings/slack-commands-link";
 
 interface SlackNotifications {
   runCompleted: boolean;
@@ -19,6 +19,7 @@ export interface SlackConfig {
   notifications?: SlackNotifications;
   teamId?: string | null;
   pendingTeamId?: string | null;
+  incomingClaims?: IncomingSlackClaim[];
 }
 
 interface SlackCardProps {
@@ -135,6 +136,7 @@ export function SlackCard({ workspaceId, config, onUpdate }: SlackCardProps) {
             workspaceId={workspaceId}
             teamId={config?.teamId ?? null}
             pendingTeamId={config?.pendingTeamId ?? null}
+            incomingClaims={config?.incomingClaims ?? []}
             onChange={onUpdate}
           />
 

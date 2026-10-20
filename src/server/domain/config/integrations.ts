@@ -31,8 +31,10 @@ export const SlackSettingsSchema = z
     notifications: SlackNotificationsSchema.default({}).catch({ runCompleted: true, testFailed: true }),
     /** When the pending `/orbit link` code (hash in inboundTokenHash) stops working. */
     linkCodeExpiresAt: z.string().nullable().optional().catch(undefined),
-    /** A Slack team that linked here while another Orbit workspace holds it; awaits admin confirmation. */
+    /** A Slack team that linked here while another Orbit workspace holds it; the holder's admin must approve. */
     pendingTeamId: z.string().nullable().optional().catch(undefined),
+    /** When the claim was made; it lapses after 24 hours. */
+    pendingTeamAt: z.string().nullable().optional().catch(undefined),
   })
   .passthrough();
 
