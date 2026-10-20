@@ -21,7 +21,7 @@ export function BulkActionBar({ count, noun, busy, message, onClear, children }:
     <div
       role="region"
       aria-label={`Bulk actions for ${noun}`}
-      className="sticky bottom-3 z-10 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 shadow-lg shadow-black/30"
+      className="sticky bottom-[max(0.75rem,env(safe-area-inset-bottom))] z-sticky flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 shadow-elevated"
     >
       {count > 0 && (
         <>

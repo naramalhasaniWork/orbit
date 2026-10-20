@@ -1,12 +1,12 @@
 "use client";
 
+import { Pending } from "@/components/telemetry/pending";
 import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   RefreshCw,
   CheckCircle2,
   AlertCircle,
-  Loader2,
   Database,
   GitBranch,
 } from "lucide-react";
@@ -170,7 +170,7 @@ function ReindexButton({
       onClick={onReindex}
       disabled={isActive || isTriggering}
     >
-      <RefreshCw className={cn("h-3 w-3", (isActive || isTriggering) && "animate-spin")} />
+      <RefreshCw aria-hidden="true" className="h-3 w-3" />
       {isActive ? "Indexing..." : isTriggering ? "Starting..." : "Re-index"}
     </Button>
   );
@@ -195,28 +195,28 @@ function ActiveIndexingView({
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2">
-        <Loader2 className="h-4 w-4 text-orbit-accent animate-spin shrink-0" />
-        <span className="text-sm text-foreground">{phaseLabel}</span>
+        <Pending />
+        <span className="tm-label text-foreground">{phaseLabel}</span>
         {!connected && (
-          <span className="text-[10px] text-orbit-flaky">reconnecting...</span>
+          <span className="tm-label text-tm-t3">Reconnecting</span>
         )}
       </div>
 
       {/* Progress bar */}
-      <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+      <div aria-hidden="true" className="h-0.5 overflow-hidden bg-tm-line">
         <div
-          className="h-full bg-orbit-accent rounded-full transition-all duration-500 ease-out"
-          style={{ width: `${clampedProgress}%` }}
+          className="h-full origin-left bg-foreground transition-transform duration-layout"
+          style={{ transform: `scaleX(${clampedProgress / 100})` }}
         />
       </div>
 
-      <div className="flex items-center justify-between text-xs text-muted-foreground">
-        <span>{message ?? "Processing..."}</span>
+      <div className="flex items-center justify-between text-[12px] text-tm-t2">
+        <span>{message ?? "Processing"}</span>
         <div className="flex items-center gap-3">
           {liveNodeCount > 0 && (
             <span className="tabular-nums">{liveNodeCount} nodes</span>
           )}
-          <span className="tabular-nums">{Math.round(clampedProgress)}%</span>
+          <span className="tm-num">{Math.round(clampedProgress)}%</span>
         </div>
       </div>
     </div>
@@ -245,7 +245,7 @@ function ErrorView({
         onClick={onRetry}
         disabled={isTriggering}
       >
-        <RefreshCw className={cn("h-3 w-3", isTriggering && "animate-spin")} />
+        <RefreshCw aria-hidden="true" className="h-3 w-3" />
         Retry
       </Button>
     </div>

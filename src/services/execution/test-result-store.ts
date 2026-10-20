@@ -1,22 +1,32 @@
 import { prisma } from "@/lib/db";
-import type { TestVerdict } from "@/generated/prisma/enums";
+import type { ExecutionMode, TestVerdict } from "@/generated/prisma/enums";
 
 // Persists one test case's result for a run, with retries. Shared by the
 // sequential runner and the parallel executor so every executed case is
 // recorded (and billed — see chargeRunCredits).
+
+/** How the result was produced, for the replay share and model-cost metrics. */
+export interface ExecutionMeta {
+  executionMode: ExecutionMode;
+  modelCalls: number;
+  modelCostUsd: number;
+  divergedAtStep?: number | null;
+}
 
 const SAVE_RESULT_MAX_RETRIES = 3;
 const SAVE_RESULT_BASE_DELAY_MS = 500;
 
 export async function saveTestResult(
   runId: string, testCaseId: string, verdict: TestVerdict, durationMs: number,
-  steps: Array<Record<string, unknown>>, artifacts: Record<string, string>, healedSelectors: string[]
+  steps: Array<Record<string, unknown>>, artifacts: Record<string, string>, healedSelectors: string[],
+  execution?: ExecutionMeta
 ): Promise<void> {
   const data = {
     testRunId: runId, testCaseId, verdict, durationMs,
     steps: JSON.parse(JSON.stringify(steps)),
     artifacts: JSON.parse(JSON.stringify(artifacts)),
     healedSelectors: JSON.parse(JSON.stringify(healedSelectors)),
+    ...execution,
   };
 
   for (let attempt = 1; attempt <= SAVE_RESULT_MAX_RETRIES; attempt++) {

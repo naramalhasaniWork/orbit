@@ -6,7 +6,7 @@
 
 import { prisma } from "@/lib/db";
 import { getDefaultEnvironment } from "@/services/execution/environment-validator";
-import type { ToolDefinition } from "@/lib/ai/providers/anthropic-tools";
+import type { ToolDefinition } from "@/server/ai/types";
 
 export interface AgentEnvironment {
   id: string;

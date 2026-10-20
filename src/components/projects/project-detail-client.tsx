@@ -111,7 +111,7 @@ export function ProjectDetailClient({
       <motion.div variants={fadeUp} className="flex items-start justify-between">
         <div className="space-y-1">
           <div className="flex items-center gap-3">
-            <h1 className="text-lg font-semibold text-foreground">
+            <h1 className="text-lg font-medium text-foreground">
               {project.name}
             </h1>
             <StatusDot
@@ -200,7 +200,7 @@ export function ProjectDetailClient({
               </span>
               <Link
                 href={`/dashboard/map?project=${project.id}`}
-                className="text-xs text-orbit-accent hover:text-orbit-accent/80 transition-colors flex items-center gap-1"
+                className="text-xs text-foreground hover:text-foreground transition-colors flex items-center gap-1"
               >
                 Full view
                 <ArrowRight className="h-3 w-3" />
@@ -226,7 +226,7 @@ export function ProjectDetailClient({
             </h2>
             <Link
               href={`/dashboard/runs?project=${project.id}`}
-              className="text-xs text-orbit-accent hover:text-orbit-accent/80 transition-colors"
+              className="text-xs text-foreground hover:text-foreground transition-colors"
             >
               View all
             </Link>
@@ -278,7 +278,7 @@ function MiniStat({
         <Icon className="h-4 w-4 text-muted-foreground" />
       </div>
       <div>
-        <span className="text-lg font-semibold tabular-nums text-foreground block leading-tight">
+        <span className="text-lg font-medium tabular-nums text-foreground block leading-tight">
           {value}
         </span>
         <span className="text-[11px] text-muted-foreground">{label}</span>

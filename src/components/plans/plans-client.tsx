@@ -1,8 +1,9 @@
 "use client";
 
+import { Pending } from "@/components/telemetry/pending";
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { ClipboardList, Plus, Loader2 } from "lucide-react";
+import { ClipboardList, Plus } from "lucide-react";
 import { AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -93,7 +94,7 @@ export function PlansClient({
           description={isIndexed ? "Generate your first test plan from the indexed system map." : NOT_INDEXED_HINT}
           action={
             <Button
-              className="bg-orbit-accent hover:bg-orbit-accent/90 text-white gap-2"
+              className="bg-primary hover:bg-primary/85 text-primary-foreground gap-2"
               onClick={handleGenerate}
               disabled={generating || !isIndexed}
             >
@@ -156,20 +157,20 @@ function PageHeader({
   return (
     <div className="flex items-center justify-between">
       <div>
-        <h1 className="text-lg font-semibold text-foreground">Test Plans</h1>
+        <h1 className="text-balance text-[26px] font-medium leading-tight tracking-display">Test Plans</h1>
         <p className="text-sm text-muted-foreground mt-0.5">
           {projectName ? `${projectName} — ` : ""}
           {planCount} {planCount === 1 ? "plan" : "plans"}
         </p>
       </div>
       <Button
-        className="bg-orbit-accent hover:bg-orbit-accent/90 text-white gap-2"
+        className="bg-primary hover:bg-primary/85 text-primary-foreground gap-2"
         onClick={onGenerate}
         disabled={generating || !!disabledReason}
         title={disabledReason ?? undefined}
       >
         {generating ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
+          <Pending />
         ) : (
           <Plus className="h-4 w-4" />
         )}

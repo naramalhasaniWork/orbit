@@ -1,6 +1,7 @@
 "use client";
 
-import { Check, Loader2, AlertCircle } from "lucide-react";
+import { Pending } from "@/components/telemetry/pending";
+import { Check, AlertCircle } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import type { PlanJobState } from "@/lib/websocket/channels";
@@ -47,7 +48,7 @@ export function PlanGenerationProgress({
           <motion.div
             className={cn(
               "h-full rounded-full transition-colors",
-              error ? "bg-red-400" : complete ? "bg-emerald-400" : "bg-orbit-accent"
+              error ? "bg-tm-fail" : complete ? "bg-tm-pass" : "bg-foreground"
             )}
             initial={{ width: 0 }}
             animate={{ width: `${progress}%` }}
@@ -67,15 +68,15 @@ export function PlanGenerationProgress({
               key={p}
               className={cn(
                 "flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs transition-colors",
-                isDone && "bg-emerald-400/[0.08] text-emerald-400",
-                isCurrent && "bg-orbit-accent/[0.08] text-orbit-accent",
+                isDone && "bg-tm-pass/[0.08] text-tm-pass",
+                isCurrent && "bg-foreground/[0.06] text-foreground",
                 !isDone && !isCurrent && "bg-foreground/[0.02] text-muted-foreground/50"
               )}
             >
               {isDone ? (
                 <Check className="h-3 w-3 shrink-0" />
               ) : isCurrent ? (
-                <Loader2 className="h-3 w-3 shrink-0 animate-spin" />
+                <Pending />
               ) : (
                 <div className="h-3 w-3 shrink-0 rounded-full border border-current opacity-30" />
               )}
@@ -87,7 +88,7 @@ export function PlanGenerationProgress({
 
       {/* Error message */}
       {error && (
-        <div className="flex items-start gap-2 text-xs text-red-400 bg-red-400/[0.06] rounded-md px-3 py-2">
+        <div className="flex items-start gap-2 text-xs text-tm-fail bg-tm-fail/[0.06] rounded-md px-3 py-2">
           <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
           <span>{error}</span>
         </div>

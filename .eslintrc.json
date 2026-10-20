@@ -1,3 +1,23 @@
 {
-  "extends": "next/core-web-vitals"
+  "extends": "next/core-web-vitals",
+  "rules": {
+    "no-restricted-imports": [
+      "error",
+      {
+        "paths": [
+          { "name": "@anthropic-ai/sdk", "message": "Call AI providers through src/server/ai/gateway.ts." },
+          { "name": "openai", "message": "Call AI providers through src/server/ai/gateway.ts." }
+        ],
+        "patterns": [
+          { "group": ["@anthropic-ai/sdk/*", "openai/*"], "message": "Call AI providers through src/server/ai/gateway.ts." }
+        ]
+      }
+    ]
+  },
+  "overrides": [
+    {
+      "files": ["src/server/ai/providers/**"],
+      "rules": { "no-restricted-imports": "off" }
+    }
+  ]
 }

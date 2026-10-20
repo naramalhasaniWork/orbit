@@ -268,11 +268,13 @@ describe("orchestrator pipeline", () => {
       workspaceId: "ws-1",
     });
 
+    // The AI gateway records every call made inside the run into the active run budget;
+    // stand in for the planner's gateway call.
+    const { currentRunBudget } = await import("@/server/ai/run-budget");
     const { generatePlan } = await import("@/services/planning/planner");
-    (generatePlan as ReturnType<typeof vi.fn>).mockResolvedValue({
-      plan: { id: "plan-1" },
-      testCases: [{ id: "tc-1" }],
-      tokensUsed: { input: 50000, output: 10000 },
+    (generatePlan as ReturnType<typeof vi.fn>).mockImplementation(async () => {
+      currentRunBudget()?.record(50000, 10000, 0, "planner");
+      return { plan: { id: "plan-1" }, testCases: [{ id: "tc-1" }], tokensUsed: { input: 50000, output: 10000 } };
     });
 
     mockPrisma.testRun.update.mockResolvedValue({});
@@ -361,6 +363,21 @@ describe("orchestrator pipeline", () => {
 
       expect(result.status).toBe("failed");
       expect(mockUpdateStatus).toHaveBeenCalledWith("run-pr", "failed", "Credit balance is 0.");
+    });
+
+    it("fails the run with the budget reason when the AI budget runs out mid-execution", async () => {
+      const { BudgetExceededError } = await import("@/server/ai/errors");
+      const { runTestSuite } = await import("@/services/execution/runner");
+      const reason = "AI budget exceeded: this workspace has used $50.00 of its $50.00 monthly AI budget";
+      (selectRunMode as ReturnType<typeof vi.fn>).mockReturnValueOnce({
+        mode: "targeted", reason: "Explicitly requested", skipIndexing: false, skipPlanning: true,
+      });
+      (runTestSuite as ReturnType<typeof vi.fn>).mockRejectedValueOnce(new BudgetExceededError("workspace", reason));
+
+      const result = await executePipelineForRun("run-pr");
+
+      expect(result.status).toBe("failed");
+      expect(mockUpdateStatus).toHaveBeenCalledWith("run-pr", "failed", reason);
     });
 
     it("does not report a run the runner already failed as completed", async () => {

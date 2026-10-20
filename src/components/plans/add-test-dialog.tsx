@@ -73,10 +73,10 @@ export function AddTestDialog({ projectId, planId, onSaved, onClose }: AddTestDi
   }, [name, type, journey, isCritical, priorityScore, rationale, projectId, planId, onSaved]);
 
   return (
-    <div className="rounded-xl surface-1 border border-orbit-accent/20 overflow-hidden">
-      <div className="flex items-center justify-between px-5 py-3 border-b border-border bg-orbit-accent/5">
+    <div className="rounded-xl surface-1 border border-tm-line-strong overflow-hidden">
+      <div className="flex items-center justify-between px-5 py-3 border-b border-border bg-foreground/[0.06]">
         <div className="flex items-center gap-2">
-          <Plus className="h-3.5 w-3.5 text-orbit-accent" />
+          <Plus className="h-3.5 w-3.5 text-foreground" />
           <span className="text-sm font-medium text-foreground">Add Test Case</span>
         </div>
         <div className="flex items-center gap-2">
@@ -87,7 +87,7 @@ export function AddTestDialog({ projectId, planId, onSaved, onClose }: AddTestDi
             size="sm"
             onClick={handleSave}
             disabled={saving}
-            className="h-7 bg-orbit-accent hover:bg-orbit-accent/90 text-white gap-1.5"
+            className="h-7 bg-primary hover:bg-primary/85 text-primary-foreground gap-1.5"
           >
             <Save className="h-3 w-3" />
             {saving ? "Adding..." : "Add"}
@@ -129,7 +129,7 @@ export function AddTestDialog({ projectId, planId, onSaved, onClose }: AddTestDi
             <select
               value={type}
               onChange={(e) => setType(e.target.value)}
-              className="h-9 rounded-md border border-transparent bg-muted/30 px-3 text-sm focus:border-orbit-accent/30 focus:outline-none"
+              className="h-9 rounded-md border border-transparent bg-muted/30 px-3 text-sm focus-visible:border-tm-t3 focus:outline-none"
             >
               {TEST_TYPES.map((t) => (
                 <option key={t.value} value={t.value}>{t.label}</option>
@@ -162,7 +162,7 @@ export function AddTestDialog({ projectId, planId, onSaved, onClose }: AddTestDi
             className={cn(
               "w-full rounded-md bg-muted/30 border border-transparent px-3 py-2",
               "text-sm text-foreground placeholder:text-muted-foreground",
-              "focus:outline-none focus:ring-1 focus:ring-orbit-accent resize-y"
+              "focus:outline-none focus:ring-1 focus-visible:ring-ring resize-y"
             )}
             placeholder="Why this test case is needed..."
           />

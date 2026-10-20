@@ -3,10 +3,14 @@ import type { TestCaseForExecution, TestCaseResult } from "@/services/execution/
 import { executeApiTestCase } from "@/services/execution/api-test-executor";
 import type { StorageState } from "@/services/execution/browser-manager";
 import { runVisualTest } from "@/services/visual-qa/visual-test-runner";
+import { withModelMeter } from "@/server/ai/model-meter";
+import type { CaseExecutor, CaseRunContext } from "@/server/engine/executors/case-executor";
+import { browserExecutor } from "@/server/engine/executors/browser";
+import { isRunAbort } from "@/services/execution/run-abort";
 import { splitAccessCredentials } from "@/services/execution/access-headers";
 
-// Routes a test case to the executor for its type. Shared by the sequential
-// runner and the parallel executor so both treat every type the same way.
+// The case-executor registry: routes a test case to the executor for its
+// type. Every run goes through here, so every type is treated the same way.
 
 /** generateVisualRegressionCases writes "Navigate to <route>" as step 1. */
 const VISUAL_ROUTE_RE = /^Navigate to (\S+)/i;
@@ -16,28 +20,55 @@ export function visualRoutePath(testCase: TestCaseForExecution): string | null {
   return match ? match[1] : null;
 }
 
+/** Runs the case and stamps it with the model calls and cost it took. */
 export async function executeCaseByType(
   runId: string,
   testCase: TestCaseForExecution,
   environmentUrl: string,
   credentials: Record<string, string>,
-  options?: { storageState?: StorageState }
+  options?: { storageState?: StorageState; environmentId?: string }
 ): Promise<TestCaseResult> {
-  if (testCase.type === "visual_regression") {
-    const visual = await executeVisualCase(
-      runId, testCase, environmentUrl, credentials, options?.storageState
-    );
-    if (visual) return visual;
-  }
+  const ctx: CaseRunContext = { runId, environmentUrl, credentials, ...options };
+  const { result, usage } = await withModelMeter(() => dispatchCase(testCase, ctx));
+  return {
+    ...result,
+    execution: {
+      executionMode: result.execution?.executionMode ?? "agent",
+      divergedAtStep: result.execution?.divergedAtStep ?? null,
+      modelCalls: usage.calls,
+      modelCostUsd: usage.costUsd,
+    },
+  };
+}
 
-  // API contract tests run over plain HTTP; the browser is the fallback. Their prompt lists
-  // credential names, so the Cloudflare Access token is kept out of it.
-  if (testCase.type === "api_contract") {
-    const api = await executeApiTestCase(runId, testCase, environmentUrl, splitAccessCredentials(credentials).credentials);
-    if (api) return api;
-  }
+const visualExecutor: CaseExecutor = {
+  kind: "visual",
+  canRun: (testCase) => testCase.type === "visual_regression",
+  run: (testCase, ctx) => executeVisualCase(
+    ctx.runId, testCase, ctx.environmentUrl, ctx.credentials, ctx.storageState
+  ),
+};
 
-  return executeTestCase(runId, testCase, environmentUrl, credentials, options);
+// API contract tests run over plain HTTP; the browser is the fallback. Their prompt lists
+// credential names, so the Cloudflare Access token is kept out of it.
+const apiExecutor: CaseExecutor = {
+  kind: "api",
+  canRun: (testCase) => testCase.type === "api_contract",
+  run: (testCase, ctx) => executeApiTestCase(
+    ctx.runId, testCase, ctx.environmentUrl, splitAccessCredentials(ctx.credentials).credentials
+  ),
+};
+
+/** Tried in order; the browser executor (replay first, then agent) accepts every case, so it goes last. */
+const EXECUTORS: CaseExecutor[] = [visualExecutor, apiExecutor, browserExecutor];
+
+async function dispatchCase(testCase: TestCaseForExecution, ctx: CaseRunContext): Promise<TestCaseResult> {
+  for (const executor of EXECUTORS) {
+    if (!executor.canRun(testCase)) continue;
+    const result = await executor.run(testCase, ctx);
+    if (result) return result;
+  }
+  throw new Error(`No executor accepted test case ${testCase.id}`);
 }
 
 /**
@@ -80,6 +111,7 @@ async function executeVisualCase(
       storageState: existingSession ? undefined : storageState,
     };
   } catch (err) {
+    if (isRunAbort(err)) throw err;
     const msg = err instanceof Error ? err.message : String(err);
     return {
       verdict: "environment_error",

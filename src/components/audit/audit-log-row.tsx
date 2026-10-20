@@ -110,7 +110,7 @@ export function AuditLogRow({ log, showWorkspace }: AuditLogRowProps) {
                 transition={{ duration: 0.2 }}
                 className="overflow-hidden"
               >
-                <div className="px-4 py-3 surface-2 border-b border-border">
+                <div className="px-4 py-3 surface-1 border-b border-border">
                   <p className="text-[11px] font-medium text-muted-foreground mb-1.5">
                     Metadata
                   </p>

@@ -69,13 +69,13 @@ export function MapControls({
           placeholder="Filter nodes..."
           value={searchQuery}
           onChange={handleSearch}
-          className="pl-8 h-8 text-xs bg-foreground/[0.06] border-border focus:border-orbit-accent/40"
+          className="pl-8 h-8 text-xs bg-foreground/[0.06] border-border focus-visible:border-tm-t3"
         />
       </div>
 
       {/* Node Types */}
       <div>
-        <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-2 block">
+        <span className=" tm-label text-muted-foreground mb-2 block">
           Node Types
         </span>
         <div className="flex flex-wrap gap-1.5">
@@ -99,7 +99,7 @@ export function MapControls({
 
       {/* Status Filters */}
       <div>
-        <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-2 block">
+        <span className=" tm-label text-muted-foreground mb-2 block">
           Test Status
         </span>
         <div className="flex flex-wrap gap-1.5">
@@ -157,7 +157,7 @@ export function MapControls({
 
       {/* Legend */}
       <div className="pt-1 border-t border-border">
-        <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-2 block">
+        <span className=" tm-label text-muted-foreground mb-2 block">
           Legend
         </span>
         <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[10px] text-muted-foreground">

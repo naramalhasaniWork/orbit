@@ -1,23 +1,15 @@
-import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
-import { requireWorkspace, apiSuccess, apiError } from "@/lib/utils/api";
-import { requirePermission } from "@/lib/auth/rbac";
+import { apiSuccess, apiError } from "@/lib/utils/api";
 import { syncEnvironments } from "@/services/integrations/railway/environment-sync";
 import { connectionAccess } from "@/services/preview/connections";
-import { previewApiError } from "@/services/preview/http";
+import { mapPreviewError } from "@/services/preview/http";
 import { parseRailwayTarget, wrapRailwayError } from "@/services/preview/providers/railway";
-
-interface RouteParams {
-  params: Promise<{ projectId: string }>;
-}
+import { route } from "@/server/http/route";
 
 /** POST: import the bound Railway service's long-lived environments as Orbit environments. */
-export async function POST(_req: NextRequest, { params }: RouteParams) {
-  try {
-    const { workspaceId } = await requireWorkspace();
-    await requirePermission(workspaceId, "secrets.manage");
-    const { projectId } = await params;
-
+export const POST = route(
+  { permission: "secrets.manage", onError: mapPreviewError },
+  async ({ params: { projectId }, workspaceId }) => {
     const binding = await prisma.previewBinding.findFirst({
       where: { projectId, project: { workspaceId } },
       include: { connection: true },
@@ -31,7 +23,5 @@ export async function POST(_req: NextRequest, { params }: RouteParams) {
 
     const result = await syncEnvironments(access.token, target, projectId).catch(wrapRailwayError);
     return apiSuccess(result);
-  } catch (error) {
-    return previewApiError(error);
   }
-}
+);

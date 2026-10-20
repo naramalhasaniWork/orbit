@@ -1,9 +1,13 @@
 import { prisma } from "./index";
 
 // ============================================================
-// pgvector helpers for semantic search on system map nodes.
-// Prisma doesn't support vector operations natively, so we
-// use raw SQL via $queryRawUnsafe for embedding operations.
+// pgvector + keyword search SQL. Prisma doesn't support vector or
+// trigram operations natively, so these use raw SQL.
+//
+// Embedding columns are unconstrained `vector`, so any provider's
+// dimension fits. Similarity search goes through a per-install HNSW
+// expression index on embedding::vector(<dims>), built for the
+// dimension recorded in embedding_config.
 // ============================================================
 
 const VECTOR_TABLES = [
@@ -12,66 +16,20 @@ const VECTOR_TABLES = [
   { table: "knowledge_chunks", column: "embedding" },
 ] as const;
 
-/**
- * Get the current dimension of a vector column, or -1 if unknown.
- * pgvector stores dimension info in format_type output like "vector(384)".
- */
-async function getColumnDimension(table: string, column: string): Promise<number> {
-  try {
-    const result = await prisma.$queryRawUnsafe<Array<{ col_type: string }>>(
-      `SELECT format_type(a.atttypid, a.atttypmod) as col_type
-       FROM pg_attribute a JOIN pg_class c ON a.attrelid = c.oid
-       WHERE c.relname = $1 AND a.attname = $2 AND NOT a.attisdropped`,
-      table,
-      column
-    );
-    const colType = result[0]?.col_type ?? "";
-    const match = colType.match(/vector\((\d+)\)/);
-    return match ? parseInt(match[1], 10) : -1;
-  } catch {
-    return -1;
+const HNSW_INDEX = "system_map_nodes_embedding_hnsw_idx";
+const CHUNKS_HNSW_INDEX = "knowledge_chunks_embedding_hnsw_idx";
+
+function assertDims(dims: number): number {
+  if (!Number.isInteger(dims) || dims <= 0 || dims > 16_000) {
+    throw new Error(`Invalid embedding dimension: ${dims}`);
   }
+  return dims;
 }
 
-/**
- * Resize a vector column to match the required dimension.
- * Clears existing embeddings since dimensions changed.
- */
-async function resizeColumn(table: string, column: string, dim: number): Promise<void> {
-  console.log(`[pgvector] Resizing ${table}.${column} to vector(${dim})`);
-  await prisma.$executeRawUnsafe(
-    `UPDATE ${table} SET ${column} = NULL WHERE ${column} IS NOT NULL`
-  );
-  await prisma.$executeRawUnsafe(
-    `ALTER TABLE ${table} ALTER COLUMN ${column} TYPE vector(${dim})`
-  );
-  if (table === "system_map_nodes") {
-    await prisma.$executeRawUnsafe(`DROP INDEX IF EXISTS system_map_nodes_embedding_hnsw_idx`);
-    try {
-      await prisma.$executeRawUnsafe(`
-        CREATE INDEX system_map_nodes_embedding_hnsw_idx
-        ON system_map_nodes USING hnsw (embedding vector_cosine_ops)
-        WITH (m = 16, ef_construction = 64)
-      `);
-    } catch {
-      console.warn("[pgvector] Could not recreate HNSW index after resize");
-    }
-  }
-}
+const toVector = (embedding: number[]) => `[${embedding.join(",")}]`;
 
 /**
- * Ensure the column dimension matches the embedding dimension.
- * Auto-resizes if there's a mismatch.
- */
-export async function ensureDimension(table: string, column: string, dim: number): Promise<void> {
-  const current = await getColumnDimension(table, column);
-  if (current > 0 && current !== dim) {
-    await resizeColumn(table, column, dim);
-  }
-}
-
-/**
- * Ensures the pgvector extension and HNSW index exist.
+ * Ensures the extensions and keyword-search indexes exist.
  * Never alters or drops columns: a non-vector embedding column is logged
  * and left untouched so no data is lost (fix it with a migration).
  */
@@ -98,47 +56,80 @@ export async function ensureVectorSetup(): Promise<void> {
     }
   }
 
-  try {
-    await prisma.$executeRawUnsafe(`
-      CREATE INDEX IF NOT EXISTS system_map_nodes_embedding_hnsw_idx
-      ON system_map_nodes
-      USING hnsw (embedding vector_cosine_ops)
-      WITH (m = 16, ef_construction = 64)
-    `);
-  } catch {
-    console.warn("[pgvector] Could not create HNSW index — skipping");
+  // Keyword search (ORBIT_EMBEDDINGS=none, or vectors not built yet). Kept out of
+  // migrations because Prisma cannot describe expression/opclass indexes.
+  const keywordIndexes = [
+    `CREATE INDEX IF NOT EXISTS system_map_nodes_name_trgm_idx ON system_map_nodes USING gin (name gin_trgm_ops)`,
+    `CREATE INDEX IF NOT EXISTS knowledge_chunks_content_fts_idx ON knowledge_chunks USING gin (to_tsvector('english', content))`,
+  ];
+  for (const sql of keywordIndexes) {
+    try {
+      await prisma.$executeRawUnsafe(sql);
+    } catch {
+      console.warn("[search] Could not create a keyword index (is pg_trgm installed?) — skipping");
+    }
+  }
+}
+
+/**
+ * Build the HNSW expression indexes for one embedding dimension.
+ * replace=true drops existing ones first (the dimension changed).
+ */
+export async function buildVectorIndexes(dims: number, replace: boolean): Promise<void> {
+  const d = assertDims(dims);
+  for (const [index, table] of [[HNSW_INDEX, "system_map_nodes"], [CHUNKS_HNSW_INDEX, "knowledge_chunks"]]) {
+    if (replace) await prisma.$executeRawUnsafe(`DROP INDEX IF EXISTS ${index}`);
+    try {
+      await prisma.$executeRawUnsafe(
+        `CREATE INDEX IF NOT EXISTS ${index} ON ${table}
+         USING hnsw ((embedding::vector(${d})) vector_cosine_ops)
+         WITH (m = 16, ef_construction = 64)
+         WHERE vector_dims(embedding) = ${d}`
+      );
+    } catch {
+      // pgvector's HNSW limit is 2000 dims; search still works, just without the index.
+      console.warn(`[pgvector] Could not build ${index} for ${d} dimensions — searching without it`);
+    }
+  }
+}
+
+/** Drop every stored vector, so the next indexing run re-embeds with the new provider. */
+export async function clearAllEmbeddings(): Promise<void> {
+  for (const { table, column } of VECTOR_TABLES) {
+    await prisma.$executeRawUnsafe(`UPDATE ${table} SET ${column} = NULL WHERE ${column} IS NOT NULL`);
   }
 }
 
 /**
  * Store an embedding for a system map node.
  */
-export async function setNodeEmbedding(
-  nodeId: string,
-  embedding: number[]
-): Promise<void> {
-  const vectorStr = `[${embedding.join(",")}]`;
-  try {
-    await prisma.$executeRawUnsafe(
-      `UPDATE system_map_nodes SET embedding = $1::vector WHERE id = $2::uuid`,
-      vectorStr,
-      nodeId
-    );
-  } catch (err: unknown) {
-    if (err instanceof Error && err.message.includes("dimensions")) {
-      await ensureDimension("system_map_nodes", "embedding", embedding.length);
-      await prisma.$executeRawUnsafe(
-        `UPDATE system_map_nodes SET embedding = $1::vector WHERE id = $2::uuid`,
-        vectorStr,
-        nodeId
-      );
-    } else {
-      throw err;
-    }
-  }
+export async function setNodeEmbedding(nodeId: string, embedding: number[]): Promise<void> {
+  await prisma.$executeRawUnsafe(
+    `UPDATE system_map_nodes SET embedding = $1::vector WHERE id = $2::uuid`,
+    toVector(embedding),
+    nodeId
+  );
 }
 
-interface SimilarNode {
+/**
+ * Batch-update embeddings for multiple nodes.
+ */
+export async function batchSetEmbeddings(
+  updates: Array<{ nodeId: string; embedding: number[] }>
+): Promise<void> {
+  if (updates.length === 0) return;
+  await prisma.$transaction(
+    updates.map(({ nodeId, embedding }) =>
+      prisma.$executeRawUnsafe(
+        `UPDATE system_map_nodes SET embedding = $1::vector WHERE id = $2::uuid`,
+        toVector(embedding),
+        nodeId
+      )
+    )
+  );
+}
+
+export interface SimilarNode {
   id: string;
   name: string;
   type: string;
@@ -154,44 +145,111 @@ export async function findSimilarNodes(
   queryEmbedding: number[],
   topK: number = 10
 ): Promise<SimilarNode[]> {
-  const vectorStr = `[${queryEmbedding.join(",")}]`;
+  const d = assertDims(queryEmbedding.length);
   return prisma.$queryRawUnsafe<SimilarNode[]>(
     `
-    SELECT
-      id, name, type, file_path,
-      1 - (embedding <=> $1::vector) AS similarity
+    SELECT id, name, type, file_path,
+      1 - (embedding::vector(${d}) <=> $1::vector(${d})) AS similarity
     FROM system_map_nodes
     WHERE project_id = $2::uuid
       AND embedding IS NOT NULL
-    ORDER BY embedding <=> $1::vector
+      AND vector_dims(embedding) = ${d}
+    ORDER BY embedding::vector(${d}) <=> $1::vector(${d})
     LIMIT $3
     `,
-    vectorStr,
+    toVector(queryEmbedding),
     projectId,
     topK
   );
 }
 
-/**
- * Batch-update embeddings for multiple nodes.
- * Auto-detects dimension from the first embedding and resizes if needed.
- */
-export async function batchSetEmbeddings(
-  updates: Array<{ nodeId: string; embedding: number[] }>
+/** Trigram + full-text match on node names and paths; scores are 0-1. */
+export async function keywordSearchNodes(
+  projectId: string,
+  query: string,
+  topK: number = 10
+): Promise<SimilarNode[]> {
+  return prisma.$queryRawUnsafe<SimilarNode[]>(
+    `
+    SELECT id, name, type, file_path, similarity FROM (
+      SELECT id, name, type, file_path,
+        GREATEST(word_similarity(name, $1), word_similarity($1, name), similarity(file_path, $1)) AS similarity
+      FROM system_map_nodes
+      WHERE project_id = $2::uuid
+    ) scored
+    WHERE similarity > 0.2
+    ORDER BY similarity DESC
+    LIMIT $3
+    `,
+    query,
+    projectId,
+    topK
+  );
+}
+
+export interface ChunkMatch {
+  content: string;
+  metadata: Record<string, unknown>;
+  type: string;
+  name: string;
+  similarity: number;
+}
+
+export async function storeChunkEmbedding(
+  db: Pick<typeof prisma, "$executeRawUnsafe">,
+  chunkId: string,
+  embedding: number[]
 ): Promise<void> {
-  if (updates.length === 0) return;
+  await db.$executeRawUnsafe(
+    `UPDATE knowledge_chunks SET embedding = $1::vector WHERE id = $2::uuid`,
+    toVector(embedding),
+    chunkId
+  );
+}
 
-  const dim = updates[0].embedding.length;
-  await ensureDimension("system_map_nodes", "embedding", dim);
+export async function findSimilarChunks(
+  workspaceId: string,
+  queryEmbedding: number[],
+  limit: number
+): Promise<ChunkMatch[]> {
+  const d = assertDims(queryEmbedding.length);
+  return prisma.$queryRawUnsafe<ChunkMatch[]>(
+    `
+    SELECT kc.content, kc.metadata, dkf.type, dkf.name,
+      1 - (kc.embedding::vector(${d}) <=> $1::vector(${d})) AS similarity
+    FROM knowledge_chunks kc
+    JOIN domain_knowledge_files dkf ON kc.knowledge_file_id = dkf.id
+    WHERE kc.workspace_id = $2::uuid
+      AND kc.embedding IS NOT NULL
+      AND vector_dims(kc.embedding) = ${d}
+    ORDER BY kc.embedding::vector(${d}) <=> $1::vector(${d})
+    LIMIT $3
+    `,
+    toVector(queryEmbedding),
+    workspaceId,
+    limit
+  );
+}
 
-  await prisma.$transaction(
-    updates.map(({ nodeId, embedding }) => {
-      const vectorStr = `[${embedding.join(",")}]`;
-      return prisma.$executeRawUnsafe(
-        `UPDATE system_map_nodes SET embedding = $1::vector WHERE id = $2::uuid`,
-        vectorStr,
-        nodeId
-      );
-    })
+/** Any-term full-text match; ts_rank normalisation 32 maps scores into 0-1. */
+export async function keywordSearchChunks(
+  workspaceId: string,
+  tsQuery: string,
+  limit: number
+): Promise<ChunkMatch[]> {
+  return prisma.$queryRawUnsafe<ChunkMatch[]>(
+    `
+    SELECT kc.content, kc.metadata, dkf.type, dkf.name,
+      ts_rank(to_tsvector('english', kc.content), to_tsquery('english', $1), 32) AS similarity
+    FROM knowledge_chunks kc
+    JOIN domain_knowledge_files dkf ON kc.knowledge_file_id = dkf.id
+    WHERE kc.workspace_id = $2::uuid
+      AND to_tsvector('english', kc.content) @@ to_tsquery('english', $1)
+    ORDER BY similarity DESC
+    LIMIT $3
+    `,
+    tsQuery,
+    workspaceId,
+    limit
   );
 }

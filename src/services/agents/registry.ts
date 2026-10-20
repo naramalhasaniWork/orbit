@@ -4,7 +4,7 @@
  * specialized tasks to (e.g. selector finding, API validation, visual analysis).
  */
 
-import { MODELS } from "@/lib/ai";
+import { modelForTier } from "@/server/ai/model-catalog";
 import type { AgentRole } from "@/agents/prompts/prompt-builder";
 
 type AgentPhase = AgentRole;
@@ -29,7 +29,7 @@ const SUB_AGENT_REGISTRY: Record<string, SubAgentDefinition> = {
     type: "selector-finder",
     description: "Finds the best CSS/XPath selector for a UI element",
     agentPhase: "executor",
-    defaultModel: MODELS.HAIKU,
+    defaultModel: modelForTier("fast"),
     maxTokens: 2000,
     canSpawnChildren: false,
   },
@@ -38,7 +38,7 @@ const SUB_AGENT_REGISTRY: Record<string, SubAgentDefinition> = {
     description:
       "Validates API endpoints return expected schema and status codes",
     agentPhase: "executor",
-    defaultModel: MODELS.SONNET,
+    defaultModel: modelForTier("balanced"),
     maxTokens: 4000,
     canSpawnChildren: false,
   },
@@ -47,7 +47,7 @@ const SUB_AGENT_REGISTRY: Record<string, SubAgentDefinition> = {
     description:
       "Handles authentication flows — login, OAuth, session management",
     agentPhase: "executor",
-    defaultModel: MODELS.SONNET,
+    defaultModel: modelForTier("balanced"),
     maxTokens: 4000,
     canSpawnChildren: false,
   },
@@ -56,7 +56,7 @@ const SUB_AGENT_REGISTRY: Record<string, SubAgentDefinition> = {
     description:
       "Analyzes screenshots for visual regressions and brand consistency",
     agentPhase: "reporter",
-    defaultModel: MODELS.SONNET,
+    defaultModel: modelForTier("balanced"),
     maxTokens: 4000,
     canSpawnChildren: false,
   },
@@ -65,7 +65,7 @@ const SUB_AGENT_REGISTRY: Record<string, SubAgentDefinition> = {
     description:
       "Analyzes complex multi-step user journeys and identifies edge cases",
     agentPhase: "planner",
-    defaultModel: MODELS.SONNET,
+    defaultModel: modelForTier("balanced"),
     maxTokens: 8000,
     canSpawnChildren: false,
   },
@@ -74,7 +74,7 @@ const SUB_AGENT_REGISTRY: Record<string, SubAgentDefinition> = {
     description:
       "Reviews code changes for quality, security, and best practices",
     agentPhase: "analyst",
-    defaultModel: MODELS.SONNET,
+    defaultModel: modelForTier("balanced"),
     maxTokens: 8000,
     canSpawnChildren: false,
   },

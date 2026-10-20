@@ -211,6 +211,25 @@ async function tryLlmHealing(
   return null;
 }
 
+/** The heuristic strategies only: no model calls, safe for zero-cost replay. */
+export async function healSelectorWithoutLlm(
+  page: Page,
+  projectId: string,
+  originalSelector: string
+): Promise<HealingResult | null> {
+  const strategies = [
+    () => tryStoredMapping(projectId, originalSelector),
+    () => tryTextContent(page, originalSelector),
+    () => tryAriaLabel(page, originalSelector),
+    () => tryRoleBasedSelector(page, originalSelector),
+  ];
+  for (const strategy of strategies) {
+    const result = await strategy();
+    if (result?.found) return result;
+  }
+  return null;
+}
+
 export async function healSelector(
   page: Page,
   projectId: string,
@@ -218,30 +237,18 @@ export async function healSelector(
   actionDescription: string,
   runId?: string
 ): Promise<HealingResult> {
-  // Try strategies in order of speed and reliability.
   // Fast heuristics first, then LLM fallback, then sub-agent (richest context).
   const strategies = [
-    () => tryStoredMapping(projectId, originalSelector),
-    () => tryTextContent(page, originalSelector),
-    () => tryAriaLabel(page, originalSelector),
-    () => tryRoleBasedSelector(page, originalSelector),
+    () => healSelectorWithoutLlm(page, projectId, originalSelector),
     () => tryLlmHealing(page, originalSelector, actionDescription, projectId, runId),
     () => trySubAgentHealing(page, originalSelector, actionDescription, projectId, runId),
   ];
 
   for (const strategy of strategies) {
     const result = await strategy();
-    if (result?.found) {
-      return result;
-    }
+    if (result?.found) return result;
   }
-
-  return {
-    found: false,
-    healedSelector: originalSelector,
-    confidence: 0,
-    strategy: "none",
-  };
+  return { found: false, healedSelector: originalSelector, confidence: 0, strategy: "none" };
 }
 
 export async function persistHealing(

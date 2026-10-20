@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CheckCircle2, XCircle, Shield, Loader2 } from "lucide-react";
+import { CheckCircle2, XCircle, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -110,7 +110,7 @@ export function PlanApproval({
           className={cn(
             "w-full rounded-md bg-muted/30 border border-transparent px-3 py-2",
             "text-xs text-foreground placeholder:text-muted-foreground",
-            "focus:outline-none focus:ring-1 focus:ring-orbit-accent resize-y"
+            "focus:outline-none focus:ring-1 focus-visible:ring-ring resize-y"
           )}
         />
       )}
@@ -118,11 +118,11 @@ export function PlanApproval({
       <div className="flex items-center gap-2">
         <Button
           size="sm"
-          className="h-7 bg-orbit-pass hover:bg-orbit-pass/90 text-white gap-1.5 text-xs"
+          className="h-7 gap-1.5 text-xs"
           onClick={() => handleAction("approve")}
           disabled={loading}
         >
-          {loading ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
+          <CheckCircle2 className="h-3 w-3" />
           Approve
         </Button>
         <Button

@@ -26,8 +26,8 @@ export function AuditFilterBar({ filters, members, onFilterChange }: AuditFilter
         onChange={(e) => update("action", e.target.value)}
         className={cn(
           "h-8 rounded-md border border-border bg-foreground/[0.03] px-2 text-xs text-foreground",
-          "focus:outline-none focus:ring-1 focus:ring-orbit-accent/50",
-          filters.action && "border-orbit-accent/30"
+          "focus:outline-none focus:ring-1 focus-visible:ring-ring",
+          filters.action && "border-tm-line-strong"
         )}
       >
         <option value="">All Actions</option>
@@ -42,8 +42,8 @@ export function AuditFilterBar({ filters, members, onFilterChange }: AuditFilter
         onChange={(e) => update("userId", e.target.value)}
         className={cn(
           "h-8 rounded-md border border-border bg-foreground/[0.03] px-2 text-xs text-foreground",
-          "focus:outline-none focus:ring-1 focus:ring-orbit-accent/50",
-          filters.userId && "border-orbit-accent/30"
+          "focus:outline-none focus:ring-1 focus-visible:ring-ring",
+          filters.userId && "border-tm-line-strong"
         )}
       >
         <option value="">All Users</option>
@@ -60,8 +60,8 @@ export function AuditFilterBar({ filters, members, onFilterChange }: AuditFilter
         onChange={(e) => update("resourceType", e.target.value)}
         className={cn(
           "h-8 rounded-md border border-border bg-foreground/[0.03] px-2 text-xs text-foreground",
-          "focus:outline-none focus:ring-1 focus:ring-orbit-accent/50",
-          filters.resourceType && "border-orbit-accent/30"
+          "focus:outline-none focus:ring-1 focus-visible:ring-ring",
+          filters.resourceType && "border-tm-line-strong"
         )}
       >
         <option value="">All Resources</option>
@@ -78,8 +78,8 @@ export function AuditFilterBar({ filters, members, onFilterChange }: AuditFilter
         placeholder="From"
         className={cn(
           "h-8 rounded-md border border-border bg-foreground/[0.03] px-2 text-xs text-foreground",
-          "focus:outline-none focus:ring-1 focus:ring-orbit-accent/50",
-          filters.from && "border-orbit-accent/30"
+          "focus:outline-none focus:ring-1 focus-visible:ring-ring",
+          filters.from && "border-tm-line-strong"
         )}
       />
 
@@ -91,8 +91,8 @@ export function AuditFilterBar({ filters, members, onFilterChange }: AuditFilter
         placeholder="To"
         className={cn(
           "h-8 rounded-md border border-border bg-foreground/[0.03] px-2 text-xs text-foreground",
-          "focus:outline-none focus:ring-1 focus:ring-orbit-accent/50",
-          filters.to && "border-orbit-accent/30"
+          "focus:outline-none focus:ring-1 focus-visible:ring-ring",
+          filters.to && "border-tm-line-strong"
         )}
       />
 
@@ -106,8 +106,8 @@ export function AuditFilterBar({ filters, members, onFilterChange }: AuditFilter
           placeholder="Search metadata..."
           className={cn(
             "h-8 w-44 rounded-md border border-border bg-foreground/[0.03] pl-7 pr-2 text-xs text-foreground",
-            "focus:outline-none focus:ring-1 focus:ring-orbit-accent/50 placeholder:text-muted-foreground",
-            filters.search && "border-orbit-accent/30"
+            "focus:outline-none focus:ring-1 focus-visible:ring-ring placeholder:text-muted-foreground",
+            filters.search && "border-tm-line-strong"
           )}
         />
       </div>

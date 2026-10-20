@@ -63,7 +63,7 @@ export function ProjectsListClient({ projects }: ProjectsListClientProps) {
         description="Connect your first repository to get started with AI-powered testing."
         action={
           <Link href="/dashboard/onboarding">
-            <Button className="bg-orbit-accent hover:bg-orbit-accent/90 text-white gap-2">
+            <Button className="bg-primary hover:bg-primary/85 text-primary-foreground gap-2">
               <Plus className="h-4 w-4" />
               Add Project
             </Button>
@@ -81,7 +81,7 @@ export function ProjectsListClient({ projects }: ProjectsListClientProps) {
       className="space-y-6 max-w-4xl"
     >
       <motion.div variants={fadeUp} className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold text-foreground">Projects</h1>
+        <h1 className="text-lg font-medium text-foreground">Projects</h1>
         <Link href="/dashboard/onboarding">
           <Button
             variant="outline"

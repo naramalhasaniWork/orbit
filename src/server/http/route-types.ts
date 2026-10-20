@@ -30,6 +30,8 @@ export interface RouteSpec {
   query?: ZodTypeAny;
   body?: ZodTypeAny;
   rateLimit?: RateLimitSpec;
+  /** Domain error mapping tried before the standard one; return null to fall through. */
+  onError?: (error: unknown) => Response | null;
   /** Honour an Idempotency-Key header (Redis, 24h). */
   idempotent?: boolean;
 }

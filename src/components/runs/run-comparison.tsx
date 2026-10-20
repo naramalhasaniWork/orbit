@@ -60,7 +60,7 @@ interface RunComparisonProps {
 const CHANGE_CONFIG: Record<string, { label: string; icon: typeof ArrowUpRight; className: string }> = {
   regressed: { label: "Regressed", icon: ArrowDownRight, className: "text-orbit-fail" },
   improved: { label: "Improved", icon: ArrowUpRight, className: "text-orbit-pass" },
-  new: { label: "New", icon: Plus, className: "text-orbit-accent" },
+  new: { label: "New", icon: Plus, className: "text-foreground" },
   removed: { label: "Removed", icon: Trash2, className: "text-muted-foreground" },
   unchanged: { label: "Unchanged", icon: Minus, className: "text-muted-foreground" },
 };
@@ -70,7 +70,7 @@ const VERDICT_COLORS: Record<string, string> = {
   fail: "text-orbit-fail",
   flaky: "text-orbit-flaky",
   skipped: "text-muted-foreground",
-  healed: "text-orbit-accent",
+  healed: "text-foreground",
 };
 
 export function RunComparison({ projectId, runAId, runBId }: RunComparisonProps) {
@@ -103,7 +103,7 @@ export function RunComparison({ projectId, runAId, runBId }: RunComparisonProps)
 
   if (loading) {
     return (
-      <div className="space-y-4 animate-pulse">
+      <div className="space-y-4">
         <div className="h-20 bg-muted/30 rounded-xl" />
         <div className="h-40 bg-muted/30 rounded-xl" />
       </div>

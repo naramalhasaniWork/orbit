@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { Loader2, RotateCcw, XCircle } from "lucide-react";
+import { RotateCcw, XCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { BulkActionBar } from "@/components/shared/bulk-action-bar";
 import { assertOk, runBulk, summarizeBulk } from "@/lib/bulk";
@@ -89,7 +89,7 @@ export function RunsBulkActions({ projectId, runs, onClear, onDone }: RunsBulkAc
         title={cancellable.length === 0 ? "None of the selected runs are in progress." : undefined}
         onClick={cancelSelected}
       >
-        {busy === "cancel" ? <Loader2 className="h-3 w-3 animate-spin" /> : <XCircle className="h-3 w-3" />}
+        <XCircle className="h-3 w-3" />
         Cancel{cancellable.length > 0 ? ` (${cancellable.length})` : ""}
       </Button>
       <Button
@@ -99,7 +99,7 @@ export function RunsBulkActions({ projectId, runs, onClear, onDone }: RunsBulkAc
         disabled={busy !== null}
         onClick={rerunSelected}
       >
-        {busy === "rerun" ? <Loader2 className="h-3 w-3 animate-spin" /> : <RotateCcw className="h-3 w-3" />}
+        <RotateCcw className="h-3 w-3" />
         Re-run ({runs.length})
       </Button>
     </BulkActionBar>

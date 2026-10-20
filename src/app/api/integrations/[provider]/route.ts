@@ -1,16 +1,12 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
-import { requireWorkspace, apiSuccess, apiError } from "@/lib/utils/api";
-import { requirePermission } from "@/lib/auth/rbac";
+import { apiSuccess, apiError } from "@/lib/utils/api";
 import { requestOrigin } from "@/lib/setup/access";
 import {
   connectProvider, disconnectProvider, getConnectionSummary, rotateWebhookToken, type ConnectionSummary,
 } from "@/services/preview/connection-service";
-import { parseProviderParam, previewApiError } from "@/services/preview/http";
-
-interface RouteParams {
-  params: Promise<{ provider: string }>;
-}
+import { parseProviderParam, mapPreviewError } from "@/services/preview/http";
+import { route } from "@/server/http/route";
 
 const ConnectSchema = z.union([
   z.object({
@@ -25,26 +21,22 @@ function webhookUrl(req: NextRequest, connection: ConnectionSummary | null): str
   return `${process.env.NEXTAUTH_URL?.replace(/\/$/, "") ?? requestOrigin(req.headers)}${connection.webhookPath}`;
 }
 
-export async function GET(req: NextRequest, { params }: RouteParams) {
-  try {
-    const { workspaceId } = await requireWorkspace();
-    await requirePermission(workspaceId, "integrations.view");
-    const provider = parseProviderParam((await params).provider);
+export const GET = route(
+  { permission: "integrations.view", onError: mapPreviewError },
+  async ({ req, params, workspaceId }) => {
+    const provider = parseProviderParam(params.provider);
     if (!provider) return apiError("Unknown provider", "NOT_FOUND", 404);
 
     const connection = await getConnectionSummary(workspaceId, provider);
     return apiSuccess({ connection, webhookUrl: webhookUrl(req, connection) });
-  } catch (error) {
-    return previewApiError(error);
   }
-}
+);
 
 /** Connect (or replace the token), or { rotateWebhookToken: true }. The webhook token is shown once. */
-export async function POST(req: NextRequest, { params }: RouteParams) {
-  try {
-    const { workspaceId } = await requireWorkspace();
-    await requirePermission(workspaceId, "integrations.manage");
-    const provider = parseProviderParam((await params).provider);
+export const POST = route(
+  { permission: "integrations.manage", onError: mapPreviewError },
+  async ({ req, params, workspaceId }) => {
+    const provider = parseProviderParam(params.provider);
     if (!provider) return apiError("Unknown provider", "NOT_FOUND", 404);
 
     const body = ConnectSchema.parse(await req.json());
@@ -60,21 +52,16 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
     }
     const { connection, webhookToken } = await connectProvider(workspaceId, provider, body);
     return apiSuccess({ connection, webhookUrl: webhookUrl(req, connection), webhookToken });
-  } catch (error) {
-    return previewApiError(error);
   }
-}
+);
 
-export async function DELETE(_req: NextRequest, { params }: RouteParams) {
-  try {
-    const { workspaceId } = await requireWorkspace();
-    await requirePermission(workspaceId, "integrations.manage");
-    const provider = parseProviderParam((await params).provider);
+export const DELETE = route(
+  { permission: "integrations.manage", onError: mapPreviewError },
+  async ({ params, workspaceId }) => {
+    const provider = parseProviderParam(params.provider);
     if (!provider) return apiError("Unknown provider", "NOT_FOUND", 404);
 
     const removed = await disconnectProvider(workspaceId, provider);
     return removed ? apiSuccess({ connected: false }) : apiError("Not connected", "NOT_FOUND", 404);
-  } catch (error) {
-    return previewApiError(error);
   }
-}
+);

@@ -46,6 +46,7 @@ export async function GET(
         contentType: true,
         sizeBytes: true,
         stepIndex: true,
+        testResultId: true,
         createdAt: true,
       },
     });

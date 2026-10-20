@@ -8,7 +8,7 @@ export function InlineError({ message, className }: { message: string | null; cl
     <div
       role="alert"
       className={cn(
-        "flex items-start gap-2 text-xs text-red-400 bg-red-400/[0.06] rounded-md px-3 py-2",
+        "flex items-start gap-2 text-xs text-tm-fail bg-tm-fail/[0.06] rounded-md px-3 py-2",
         className
       )}
     >

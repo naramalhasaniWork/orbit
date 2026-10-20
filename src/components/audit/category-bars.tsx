@@ -31,15 +31,15 @@ const CATEGORY_META: Record<
 };
 
 function getBarColor(score: number): string {
-  if (score >= 90) return "bg-emerald-400/80";
-  if (score >= 70) return "bg-amber-400/80";
-  return "bg-red-400/80";
+  if (score >= 90) return "bg-tm-pass/80";
+  if (score >= 70) return "bg-tm-warn/80";
+  return "bg-tm-fail/80";
 }
 
 function getBarTrack(score: number): string {
-  if (score >= 90) return "bg-emerald-400/10";
-  if (score >= 70) return "bg-amber-400/10";
-  return "bg-red-400/10";
+  if (score >= 90) return "bg-tm-pass/10";
+  if (score >= 70) return "bg-tm-warn/10";
+  return "bg-tm-fail/10";
 }
 
 export function CategoryBar({ name, score, issueCount, index }: CategoryBarProps) {
@@ -65,7 +65,7 @@ export function CategoryBar({ name, score, issueCount, index }: CategoryBarProps
           <span className="text-xs text-muted-foreground">
             {issueCount} {issueCount === 1 ? "issue" : "issues"}
           </span>
-          <span className={cn("text-sm font-semibold tabular-nums", getScoreColor(score))}>
+          <span className={cn("text-sm font-medium tabular-nums", getScoreColor(score))}>
             {score}
           </span>
         </div>

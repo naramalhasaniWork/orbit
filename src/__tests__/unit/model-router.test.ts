@@ -1,15 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
-
-// Mock the MODELS import used by model-router
-vi.mock("@/lib/ai", () => ({
-  MODELS: {
-    HAIKU: "claude-3-5-haiku-20241022",
-    SONNET: "claude-sonnet-4-20250514",
-    OPUS: "claude-opus-4-20250514",
-    GPT4O: "gpt-4o",
-    GPT4O_MINI: "gpt-4o-mini",
-  },
-}));
+import { describe, it, expect, vi, afterEach } from "vitest";
 
 // Mock prisma so getAgentConfig doesn't hit a real DB
 vi.mock("@/lib/db", () => ({
@@ -20,102 +9,77 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 
-import { getModelForTask, getModelForTaskSync, getAllTaskMappings } from "@/lib/ai/model-router";
+import {
+  getAgentModels,
+  getMaxOutputTokensForModel,
+  getModelCosts,
+  getModelForTask,
+} from "@/lib/ai/model-router";
 import type { TaskType } from "@/lib/ai/model-router";
 
 describe("model-router", () => {
-  describe("getModelForTaskSync", () => {
-    it("returns Haiku for framework_detection", () => {
-      expect(getModelForTaskSync("framework_detection")).toBe("claude-3-5-haiku-20241022");
-    });
-
-    it("returns Sonnet for test_generation", () => {
-      expect(getModelForTaskSync("test_generation")).toBe("claude-sonnet-4-20250514");
-    });
-
-    it("returns Opus for security_testing", () => {
-      expect(getModelForTaskSync("security_testing")).toBe("claude-opus-4-20250514");
-    });
+  afterEach(() => {
+    vi.unstubAllEnvs();
   });
 
-  describe("getModelForTask (async)", () => {
-    it("returns Haiku for framework_detection without workspaceId", async () => {
-      expect(await getModelForTask("framework_detection")).toBe("claude-3-5-haiku-20241022");
+  describe("getModelForTask defaults (current generation)", () => {
+    it.each<[TaskType, string]>([
+      ["framework_detection", "claude-haiku-5-5"],
+      ["route_extraction", "claude-haiku-5-5"],
+      ["report_writing", "claude-haiku-5-5"],
+      ["test_generation", "claude-sonnet-5-5"],
+      ["failure_analysis", "claude-sonnet-5-5"],
+      ["security_testing", "claude-opus-5-5"],
+      ["browser_execution", "claude-haiku-5-5"],
+    ])("%s -> %s", async (task, model) => {
+      expect(await getModelForTask(task)).toBe(model);
     });
 
-    it("returns Haiku for route_extraction", async () => {
-      expect(await getModelForTask("route_extraction")).toBe("claude-3-5-haiku-20241022");
+    it("reads tier overrides from env", async () => {
+      vi.stubEnv("ORBIT_MODEL_BALANCED", "gpt-4.1");
+      vi.stubEnv("ORBIT_MODEL_FAST", "openrouter/some-model");
+      expect(await getModelForTask("test_generation")).toBe("gpt-4.1");
+      expect(await getModelForTask("framework_detection")).toBe("openrouter/some-model");
     });
 
-    it("returns Sonnet for test_generation", async () => {
-      expect(await getModelForTask("test_generation")).toBe("claude-sonnet-4-20250514");
-    });
-
-    it("returns Sonnet for browser_execution", async () => {
-      expect(await getModelForTask("browser_execution")).toBe("claude-sonnet-4-20250514");
-    });
-
-    it("returns Sonnet for failure_analysis", async () => {
-      expect(await getModelForTask("failure_analysis")).toBe("claude-sonnet-4-20250514");
-    });
-
-    it("returns Haiku for report_writing", async () => {
-      expect(await getModelForTask("report_writing")).toBe("claude-3-5-haiku-20241022");
-    });
-
-    it("returns Opus for security_testing", async () => {
-      expect(await getModelForTask("security_testing")).toBe("claude-opus-4-20250514");
-    });
-
-    it("returns embedding model for embedding task", async () => {
+    it("names the configured embedding model, or none", async () => {
+      vi.stubEnv("ORBIT_EMBEDDINGS", "none");
+      expect(await getModelForTask("embedding")).toBe("none");
+      vi.stubEnv("ORBIT_EMBEDDINGS", "openai");
+      vi.stubEnv("OPENAI_API_KEY", "sk-test");
       expect(await getModelForTask("embedding")).toBe("text-embedding-3-small");
     });
 
-    it("uses legacy workspace override when provided", async () => {
-      const overrides = {
-        modelOverrides: { test_generation: "gpt-4o" } as Partial<Record<TaskType, string>>,
-      };
+    it("uses a legacy workspace override when provided", async () => {
+      const overrides = { modelOverrides: { test_generation: "gpt-4o" } as Partial<Record<TaskType, string>> };
       expect(await getModelForTask("test_generation", undefined, overrides)).toBe("gpt-4o");
-    });
-
-    it("falls back to default when override is not set for task", async () => {
-      const overrides = {
-        modelOverrides: { test_generation: "gpt-4o" } as Partial<Record<TaskType, string>>,
-      };
-      expect(await getModelForTask("security_testing", undefined, overrides)).toBe("claude-opus-4-20250514");
+      expect(await getModelForTask("framework_detection", undefined, overrides)).toBe("claude-haiku-5-5");
     });
   });
 
-  describe("getAllTaskMappings", () => {
-    it("returns all default mappings without overrides", async () => {
-      const mappings = await getAllTaskMappings();
-      expect(mappings.framework_detection).toBe("claude-3-5-haiku-20241022");
-      expect(mappings.security_testing).toBe("claude-opus-4-20250514");
-      expect(mappings.embedding).toBe("text-embedding-3-small");
+  describe("getAgentModels", () => {
+    it("starts on the fast tier and escalates to the balanced tier", () => {
+      expect(getAgentModels({})).toEqual({ primary: "claude-haiku-5-5", escalation: "claude-sonnet-5-5" });
     });
 
-    it("merges workspace overrides into mappings", async () => {
-      const overrides = {
-        modelOverrides: {
-          test_generation: "gpt-4o",
-          report_writing: "gpt-4o-mini",
-        } as Partial<Record<TaskType, string>>,
-      };
-      const mappings = await getAllTaskMappings(undefined, overrides);
+    it("ORBIT_AGENT_MODEL pins one model and disables escalation", () => {
+      expect(getAgentModels({ ORBIT_AGENT_MODEL: "claude-opus-5-5" })).toEqual({
+        primary: "claude-opus-5-5",
+        escalation: null,
+      });
+    });
+  });
 
-      expect(mappings.test_generation).toBe("gpt-4o");
-      expect(mappings.report_writing).toBe("gpt-4o-mini");
-      expect(mappings.framework_detection).toBe("claude-3-5-haiku-20241022");
+  describe("model limits and pricing come from the catalog", () => {
+    it("uses the catalog ceiling, then a safe default", () => {
+      expect(getMaxOutputTokensForModel("claude-sonnet-5-5")).toBe(64_000);
+      expect(getMaxOutputTokensForModel("unknown/model")).toBe(8_192);
+      expect(getMaxOutputTokensForModel("claude-sonnet-5-5", 1234)).toBe(1234);
     });
 
-    it("does not mutate defaults when overrides are applied", async () => {
-      const overrides = {
-        modelOverrides: { test_generation: "custom-model" } as Partial<Record<TaskType, string>>,
-      };
-      await getAllTaskMappings(undefined, overrides);
-
-      const defaults = await getAllTaskMappings();
-      expect(defaults.test_generation).toBe("claude-sonnet-4-20250514");
+    it("prices current models per 1K tokens", () => {
+      expect(getModelCosts("claude-haiku-5-5")).toEqual({ input: 0.0001, output: 0.0005, cached: 0.00001 });
+      expect(getModelCosts("nope")).toBeNull();
     });
   });
 });

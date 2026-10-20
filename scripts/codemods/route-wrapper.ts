@@ -18,8 +18,11 @@ import fs from "node:fs";
 import path from "node:path";
 import ts from "typescript";
 
-const REMOVABLE_IMPORTS = ["requireWorkspace", "requirePermission", "handleApiError", "NextRequest"];
+const REMOVABLE_IMPORTS = ["requireWorkspace", "requirePermission", "handleApiError", "NextRequest", "previewApiError"];
+/** Catch-all functions a handler may end with, and the route() onError each one becomes (null: the standard mapping). */
+const CATCH_FUNCTIONS: Record<string, string | null> = { handleApiError: null, previewApiError: "mapPreviewError" };
 const ROUTE_IMPORT = 'import { route } from "@/server/http/route";';
+const ASSERT_IMPORT = 'import { assertPermission } from "@/server/http/auth";';
 
 interface Edit { start: number; end: number; text: string }
 interface Outcome { file: string; handler: string; converted: boolean; reason?: string }
@@ -73,10 +76,12 @@ function convertHandler(fn: ts.FunctionDeclaration, sf: ts.SourceFile): { edit: 
   if (stmts.length !== 1 || !ts.isTryStatement(tryStmt) || tryStmt.finallyBlock) return { reason: "body is not a lone try/catch" };
   const catchStmts = tryStmt.catchClause?.block.statements ?? [];
   const catchVar = tryStmt.catchClause?.variableDeclaration?.name.getText(sf);
-  if (catchStmts.length !== 1 || !ts.isReturnStatement(catchStmts[0]) || !isCall(catchStmts[0].expression, "handleApiError") ||
-      text((catchStmts[0].expression as ts.CallExpression).arguments[0], sf) !== catchVar) {
+  const catchCall = catchStmts.length === 1 && ts.isReturnStatement(catchStmts[0]) ? catchStmts[0].expression : undefined;
+  const catchFn = catchCall && ts.isCallExpression(catchCall) && ts.isIdentifier(catchCall.expression) ? catchCall.expression.text : "";
+  if (!(catchFn in CATCH_FUNCTIONS) || text((catchCall as ts.CallExpression).arguments[0], sf) !== catchVar) {
     return { reason: "catch is not `return handleApiError(e)`" };
   }
+  const onError = CATCH_FUNCTIONS[catchFn];
 
   let segName: string | null = null;
   if (segParam) {
@@ -92,6 +97,7 @@ function convertHandler(fn: ts.FunctionDeclaration, sf: ts.SourceFile): { edit: 
   let wantSession = false, wantRole = false, wantWorkspace = false, wantAuth = false;
   let alias: string | null = null; // `const ctx = await requirePermission(...)`
   let permission: string | null = null;
+  const extraPermissions: string[] = [];
   let workspaceFromParam = false;
   const dropped = new Set<ts.Statement>();
 
@@ -111,8 +117,9 @@ function convertHandler(fn: ts.FunctionDeclaration, sf: ts.SourceFile): { edit: 
       const names = alias ? [] : info ? bindingNames(info.decl) : [];
       if (!names || names.some((n) => !["session", "workspaceId", "role"].includes(n))) return { reason: "uses a requirePermission field route() does not provide" };
       wantSession ||= names.includes("session"); wantRole ||= names.includes("role"); wantWorkspace ||= names.includes("workspaceId");
-      if (permission !== null) return { reason: "two requirePermission calls" };
-      permission = permArg.getText(sf);
+      // route() checks one permission; further ones become assertPermission(session.role, ...) at the top
+      if (permission !== null) extraPermissions.push(permArg.getText(sf));
+      else permission = permArg.getText(sf);
       dropped.add(st);
     } else if (segName && info && text(info.call ?? sf, sf) === "params" && info.call && ts.isIdentifier(info.call)) {
       if (!ts.isObjectBindingPattern(info.decl.name)) return { reason: "params not destructured" };
@@ -145,10 +152,28 @@ function convertHandler(fn: ts.FunctionDeclaration, sf: ts.SourceFile): { edit: 
     rest.forEach(visit);
     if (bad) return { reason: `\`${alias}\` is used other than as ${alias}.session/workspaceId/role/memberId` };
   }
-  for (const banned of ["requireWorkspace", "requirePermission", "handleApiError"]) {
+  for (const banned of ["requireWorkspace", "requirePermission", ...Object.keys(CATCH_FUNCTIONS)]) {
     if (any(banned)) return { reason: `${banned} used outside the recognised preamble` };
   }
-  if (segName && any("params")) return { reason: "params used beyond a plain destructure" };
+  // `(await params).x` -> `params.x`: route() has already resolved them
+  let paramsWhole = false;
+  if (segName) {
+    const visit = (node: ts.Node) => {
+      if (ts.isAwaitExpression(node) && ts.isIdentifier(node.expression) && node.expression.text === "params") {
+        let target: ts.Node = node;
+        if (ts.isParenthesizedExpression(node.parent)) target = node.parent;
+        aliasEdits.push({ start: target.getStart(sf), end: target.getEnd(), text: "params" });
+        paramsWhole = true;
+      } else if (ts.isIdentifier(node) && node.text === "params" && !ts.isAwaitExpression(node.parent) &&
+        !(ts.isPropertyAccessExpression(node.parent) && node.parent.name === node)) {
+        paramsBad = true;
+      }
+      ts.forEachChild(node, visit);
+    };
+    let paramsBad = false;
+    rest.forEach(visit);
+    if (paramsBad) return { reason: "params used beyond a plain destructure" };
+  }
 
   const hasSessionAuth = Array.from(dropped).some((s) => /requireWorkspace/.test(text(s, sf)));
   // Shape B: the workspace id comes from the path.
@@ -165,14 +190,16 @@ function convertHandler(fn: ts.FunctionDeclaration, sf: ts.SourceFile): { edit: 
     const rn = reqParam.name.getText(sf);
     names.push(rn === "req" ? "req" : `req: ${rn}`);
   }
-  if (paramElements.length) names.push(`params: { ${paramElements.join(", ")} }`);
+  if (paramsWhole) names.push("params");
+  else if (paramElements.length) names.push(`params: { ${paramElements.join(", ")} }`);
   if (wantWorkspace) names.push("workspaceId");
-  if (wantSession || wantRole) names.push("session");
+  if (wantSession || wantRole || extraPermissions.length) names.push("session");
   if (wantAuth) names.push("auth");
 
   const specParts: string[] = [];
   if (workspaceFromParam) specParts.push('workspace: "param"');
   if (permission) specParts.push(`permission: ${permission}`);
+  if (onError) specParts.push(`onError: ${onError}`);
   const spec = specParts.length ? `{ ${specParts.join(", ")} }` : "{}";
 
   const indent = "  ";
@@ -183,7 +210,10 @@ function convertHandler(fn: ts.FunctionDeclaration, sf: ts.SourceFile): { edit: 
   for (const e of aliasEdits.sort((a, b) => b.start - a.start)) {
     raw = raw.slice(0, e.start - startPos) + e.text + raw.slice(e.end - startPos);
   }
-  const preamble = wantRole ? `const { role } = session;` : "";
+  const preamble = [
+    wantRole ? "const { role } = session;" : "",
+    ...extraPermissions.map((perm) => `assertPermission(session.role, ${perm});`),
+  ].filter(Boolean).join(`\n${indent}`);
   const argList = names.length ? `{ ${names.join(", ")} }` : "";
   const compactHeader = `export const ${method} = route(${spec}, async (${argList}) => {`;
   // Short signatures stay on one line and the body moves out one level; long ones wrap and the body keeps its indent.
@@ -221,6 +251,11 @@ function cleanImports(source: string, file: string): string {
   return lastImport ? result.slice(0, lastImport.getEnd()) + `\n${ROUTE_IMPORT}` + result.slice(lastImport.getEnd()) : `${ROUTE_IMPORT}\n${result}`;
 }
 
+function addAssertImport(source: string): string {
+  if (!source.includes("assertPermission(") || source.includes(ASSERT_IMPORT)) return source;
+  return source.replace(ROUTE_IMPORT, `${ASSERT_IMPORT}\n${ROUTE_IMPORT}`);
+}
+
 export function convertFile(file: string, source: string): { source: string; outcomes: Outcome[] } {
   const sf = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true);
   const edits: Edit[] = [];
@@ -235,7 +270,9 @@ export function convertFile(file: string, source: string): { source: string; out
   if (!edits.length) return { source, outcomes };
   let out = source;
   for (const e of edits.sort((a, b) => b.start - a.start)) out = out.slice(0, e.start) + e.text + out.slice(e.end);
-  return { source: cleanImports(out, file), outcomes };
+  if (out.includes("onError: mapPreviewError")) out = out.replace(/\bpreviewApiError\b(?=[^;]*from "@\/services\/preview\/http")/, "mapPreviewError");
+  out = out.replace(/interface RouteParams \{\n  params: Promise<\{[^}]*\}>;\n\}\n\n/, (m) => (out.split("RouteParams").length > 2 ? m : ""));
+  return { source: addAssertImport(cleanImports(out, file)), outcomes };
 }
 
 function walk(target: string): string[] {

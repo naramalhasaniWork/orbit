@@ -11,8 +11,6 @@ import { disconnectFromPool } from "@/services/mcp/client";
 import type { Prisma } from "@/generated/prisma/client";
 import { route } from "@/server/http/route";
 
-type RouteParams = { params: Promise<{ workspaceId: string; connectionId: string }> };
-
 export const PUT = route(
   { workspace: "param", permission: "settings.manage" },
   async ({ req: request, params: { connectionId }, workspaceId, session }) => {

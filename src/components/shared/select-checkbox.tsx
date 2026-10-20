@@ -22,7 +22,7 @@ export function SelectCheckbox({ checked, onToggle, label, className }: SelectCh
         e.stopPropagation();
         onToggle(e.shiftKey);
       }}
-      className={cn("h-4 w-4 shrink-0 cursor-pointer rounded accent-[hsl(var(--orbit-accent))]", className)}
+      className={cn("h-4 w-4 shrink-0 cursor-pointer rounded accent-[hsl(var(--tm-t1))]", className)}
     />
   );
 }

@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db";
 import { requirePermission } from "@/lib/auth/rbac";
 import { apiSuccess, apiError, handleApiError } from "@/lib/utils/api";
 import { encrypt } from "@/lib/vault";
-import { syncModelsToRegistry } from "@/lib/ai/providers/openrouter";
+import { syncModelsToRegistry } from "@/server/ai/openrouter-registry";
 import type { Prisma } from "@/generated/prisma/client";
 
 const VALID_PROVIDERS = ["anthropic", "openai", "openrouter", "custom"] as const;

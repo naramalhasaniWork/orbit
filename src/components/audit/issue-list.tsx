@@ -33,26 +33,26 @@ const SEVERITY_CONFIG: Record<
   { color: string; bg: string; icon: LucideIcon; order: number }
 > = {
   critical: {
-    color: "text-red-400",
-    bg: "bg-red-400/10 border-red-400/20",
+    color: "text-tm-fail",
+    bg: "bg-tm-fail/10 border-tm-fail/20",
     icon: AlertTriangle,
     order: 0,
   },
   high: {
-    color: "text-orange-400",
-    bg: "bg-orange-400/10 border-orange-400/20",
+    color: "text-tm-warn",
+    bg: "bg-tm-warn/10 border-tm-warn/20",
     icon: AlertTriangle,
     order: 1,
   },
   medium: {
-    color: "text-amber-400",
-    bg: "bg-amber-400/10 border-amber-400/20",
+    color: "text-tm-warn",
+    bg: "bg-tm-warn/10 border-tm-warn/20",
     icon: AlertCircle,
     order: 2,
   },
   low: {
-    color: "text-blue-400",
-    bg: "bg-blue-400/10 border-blue-400/20",
+    color: "text-tm-info",
+    bg: "bg-tm-info/10 border-tm-info/20",
     icon: Info,
     order: 3,
   },
@@ -120,7 +120,7 @@ function IssueCard({ issue }: { issue: AuditIssue }) {
                 </pre>
               </div>
               <div>
-                <p className="text-xs font-medium text-emerald-400 mb-1">Suggestion</p>
+                <p className="text-xs font-medium text-tm-pass mb-1">Suggestion</p>
                 <p className="text-sm text-foreground/80">{issue.suggestion}</p>
               </div>
             </div>

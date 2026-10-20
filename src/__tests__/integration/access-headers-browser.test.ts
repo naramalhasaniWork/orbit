@@ -1,21 +1,14 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { createServer, type IncomingHttpHeaders, type Server } from "http";
-import { existsSync } from "fs";
 import type { AddressInfo } from "net";
 import { chromium, type Browser } from "playwright";
 import { installAccessHeaders } from "@/services/execution/access-headers";
+import { findChromium } from "../helpers/chromium";
 
 // Real-browser check that the Cloudflare Access token never follows a redirect off the
-// environment's origin. Skipped where no Playwright Chromium is installed; set
-// PLAYWRIGHT_CHROMIUM_EXECUTABLE to use a different local Chromium build.
-const executablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE || undefined;
-const hasChromium = (() => {
-  try {
-    return existsSync(executablePath ?? chromium.executablePath());
-  } catch {
-    return false;
-  }
-})();
+// environment's origin. Skipped only where no local Chromium can be found.
+const executablePath = findChromium() ?? undefined;
+const hasChromium = Boolean(executablePath);
 
 const headers = { "CF-Access-Client-Id": "id.access", "CF-Access-Client-Secret": "s3cret" };
 

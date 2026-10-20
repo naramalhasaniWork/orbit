@@ -141,7 +141,7 @@ export function CoverageMap({ cells, className }: CoverageMapProps) {
               className={cn(
                 "px-2 py-1 rounded text-[11px] transition-colors",
                 !filterType
-                  ? "bg-orbit-accent/10 text-orbit-accent"
+                  ? "bg-foreground/[0.06] text-foreground"
                   : "text-muted-foreground hover:text-foreground"
               )}
             >
@@ -154,7 +154,7 @@ export function CoverageMap({ cells, className }: CoverageMapProps) {
                 className={cn(
                   "px-2 py-1 rounded text-[11px] transition-colors",
                   filterType === type
-                    ? "bg-orbit-accent/10 text-orbit-accent"
+                    ? "bg-foreground/[0.06] text-foreground"
                     : "text-muted-foreground hover:text-foreground"
                 )}
               >
@@ -183,8 +183,6 @@ export function CoverageMap({ cells, className }: CoverageMapProps) {
                   {groupCells.map((cell) => (
                     <motion.button
                       key={cell.nodeId}
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
                       onClick={() =>
                         setSelectedCell(
                           selectedCell?.nodeId === cell.nodeId ? null : cell
@@ -195,7 +193,7 @@ export function CoverageMap({ cells, className }: CoverageMapProps) {
                         "flex flex-col items-center justify-center gap-0.5",
                         coverageColors[cell.coverage],
                         selectedCell?.nodeId === cell.nodeId &&
-                          "ring-1 ring-orbit-accent"
+                          "ring-1 ring-tm-line-strong"
                       )}
                       title={`${cell.name} — ${cell.coverage}`}
                     >
@@ -286,7 +284,7 @@ export function CoverageMap({ cells, className }: CoverageMapProps) {
               {/* Test cases list */}
               {selectedCell.testCases && selectedCell.testCases.length > 0 && (
                 <div className="border-t border-border pt-3">
-                  <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
+                  <span className=" text-muted-foreground tm-label">
                     Test Cases
                   </span>
                   <ScrollArea className="h-[200px] mt-2">

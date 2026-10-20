@@ -1,6 +1,5 @@
 import { prisma } from "@/lib/db";
-import { findSimilarNodes } from "@/lib/db/vector";
-import { createEmbedding } from "@/lib/ai";
+import { search } from "@/server/ai/search";
 import type { SystemMapNode as PrismaNode, TestCase as PrismaTestCase } from "@/generated/prisma/client";
 import type { OperationsMap } from "@/agents/schemas/operations-map";
 
@@ -222,8 +221,7 @@ async function semanticMatchForTestCase(
   tc: Pick<PrismaTestCase, "name" | "journey">
 ): Promise<string[]> {
   const text = `${tc.name} ${tc.journey ?? ""}`.trim();
-  const embedding = await createEmbedding(text);
-  const similar = await findSimilarNodes(projectId, embedding, 5);
+  const similar = await search.semantic(projectId, text, 5);
   return similar
     .filter((n) => n.similarity >= SEMANTIC_SIMILARITY_THRESHOLD)
     .map((n) => n.name);

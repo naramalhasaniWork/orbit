@@ -12,7 +12,7 @@ import {
   computeHealthStatus,
 } from "@/lib/dashboard/stats";
 import { getIndexingQueue } from "@/lib/queue/queues";
-import type { MapNode, MapEdge } from "@/components/dashboard/map-types";
+import { getNeedsYou, getProjectTracks, getRiskiestUntested } from "@/lib/dashboard/home";
 
 interface DashboardPageProps {
   searchParams: Promise<{ project?: string }>;
@@ -115,37 +115,19 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     isIndexing: false,
   };
 
-  // Fetch system map data for inline preview
-  let mapNodes: MapNode[] = [];
-  let mapEdges: MapEdge[] = [];
+  let nodeCount = 0;
+  let edgeCount = 0;
+  let needsYou: Awaited<ReturnType<typeof getNeedsYou>> = [];
+  let riskiest: Awaited<ReturnType<typeof getRiskiestUntested>> = [];
+  const tracks = await getProjectTracks(workspaceId);
 
   if (activeProject) {
-    const [dbNodes, dbEdges] = await Promise.all([
-      prisma.systemMapNode.findMany({
-        where: { projectId: activeProject.id },
-        select: { id: true, type: true, name: true, filePath: true, metadata: true },
-        orderBy: { createdAt: "asc" },
-      }),
-      prisma.systemMapEdge.findMany({
-        where: { projectId: activeProject.id },
-        select: { id: true, sourceNodeId: true, targetNodeId: true, relationship: true },
-      }),
+    [nodeCount, edgeCount, needsYou, riskiest] = await Promise.all([
+      prisma.systemMapNode.count({ where: { projectId: activeProject.id } }),
+      prisma.systemMapEdge.count({ where: { projectId: activeProject.id } }),
+      getNeedsYou(activeProject.id),
+      getRiskiestUntested(activeProject.id),
     ]);
-
-    mapNodes = dbNodes.map((n) => ({
-      id: n.id,
-      type: n.type as MapNode["type"],
-      name: n.name,
-      filePath: n.filePath,
-      metadata: n.metadata as Record<string, unknown> | null,
-    }));
-
-    mapEdges = dbEdges.map((e) => ({
-      id: e.id,
-      sourceId: e.sourceNodeId,
-      targetId: e.targetNodeId,
-      relationship: e.relationship,
-    }));
 
     // Check if indexing is in progress via the queue
     let isIndexing = false;
@@ -162,8 +144,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
     indexingInfo = {
       lastIndexedAt: activeProject.lastIndexedAt?.toISOString() ?? null,
-      nodeCount: dbNodes.length,
-      edgeCount: dbEdges.length,
+      nodeCount,
+      edgeCount,
       isIndexing,
     };
   }
@@ -177,15 +159,15 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     <>
       {finishSetupSteps && <FinishSetupCard workspaceId={workspaceId} steps={finishSetupSteps} />}
       <DashboardClient
-        projects={projects}
         activeProject={activeProject ?? null}
         recentRuns={recentRuns}
         stats={stats}
         activeRun={activeRun}
-        mapNodes={mapNodes}
-        mapEdges={mapEdges}
         indexingInfo={indexingInfo}
         syncInfo={syncInfo}
+        tracks={tracks}
+        needsYou={needsYou}
+        riskiest={riskiest}
       />
     </>
   );

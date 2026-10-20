@@ -256,6 +256,15 @@
     transform: scaleX(1);
   }
 }
+/* Waiting on the server (<Pending>): a short segment crosses a 1px rule. */
+@keyframes tm-indeterminate {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(300%);
+  }
+}
 /* RUN STARTS: the live dot appears. FAILS: the square lands. */
 @keyframes tm-dot-in {
   from {
