@@ -124,10 +124,15 @@ async function triggerIntegrations(
 
   const project = await prisma.project.findUniqueOrThrow({
     where: { id: run.projectId },
-    select: { settings: true },
+    select: { settings: true, workspace: { select: { settings: true } } },
   });
 
   const settings = project.settings as Record<string, unknown>;
+  const workspaceSettings = (project.workspace.settings ?? {}) as Record<string, unknown>;
+  const linearPrefs = workspaceSettings.linear as { autoCreateIssues?: boolean } | undefined;
+  const slackPrefs = workspaceSettings.slack as
+    | { notifications?: { runCompleted?: boolean; testFailed?: boolean } }
+    | undefined;
 
   // GitHub integrations
   if (run.prNumber) {
@@ -145,7 +150,10 @@ async function triggerIntegrations(
     (f) => f.severity === "critical" || f.severity === "high"
   );
 
-  for (const failure of criticalFailures) {
+  // Workspace-level "Auto-create issues" toggle; unset keeps the existing behaviour.
+  const issuesEnabled = linearPrefs?.autoCreateIssues !== false;
+
+  for (const failure of issuesEnabled ? criticalFailures : []) {
     const failedResult = await prisma.testResult.findFirst({
       where: {
         testRunId: run.id,
@@ -188,16 +196,21 @@ async function triggerIntegrations(
   // Slack: send run notification via webhook
   const slackWebhookUrl =
     (settings?.slackWebhookUrl as string | undefined) ??
+    (workspaceSettings.slackWebhookUrl as string | undefined) ??
     (settings?.slackChannelId as string | undefined);
   if (slackWebhookUrl) {
-    const notifResult = await sendRunNotification(
-      slackWebhookUrl,
-      report.summary
-    );
-    results.slack.notification = notifResult.success;
+    if (slackPrefs?.notifications?.runCompleted !== false) {
+      const notifResult = await sendRunNotification(
+        slackWebhookUrl,
+        report.summary
+      );
+      results.slack.notification = notifResult.success;
+    }
 
     // Send individual alerts for critical failures
-    for (const failure of criticalFailures) {
+    const alertFailures =
+      slackPrefs?.notifications?.testFailed === false ? [] : criticalFailures;
+    for (const failure of alertFailures) {
       const alertResult = await sendFailureAlert(slackWebhookUrl, failure, run.projectId);
       if (alertResult.success) {
         results.slack.alerts++;

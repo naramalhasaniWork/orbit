@@ -1,20 +1,15 @@
 import Link from "next/link";
 import { Logo } from "@/components/ui/logo";
 
+// Blog, changelog and docs are not listed until they have real content.
 const FOOTER_LINKS = {
   Product: [
     { label: "Features", href: "/features" },
     { label: "Pricing", href: "/pricing" },
     { label: "Integrations", href: "/features#integrations" },
-    { label: "Changelog", href: "/changelog" },
-  ],
-  Developers: [
-    { label: "Documentation", href: "/docs" },
-    { label: "API Reference", href: "/docs/api" },
   ],
   Company: [
     { label: "About", href: "/about" },
-    { label: "Blog", href: "/blog" },
     { label: "Contact", href: "mailto:hello@sunrisesystems.co" },
   ],
   Legal: [
@@ -28,7 +23,7 @@ export function MarketingFooter() {
   return (
     <footer className="border-t border-border/50 bg-background">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12 lg:py-16">
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-8">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
           {/* Brand column */}
           <div className="col-span-2 md:col-span-1">
             <Link href="/" className="inline-flex mb-4">

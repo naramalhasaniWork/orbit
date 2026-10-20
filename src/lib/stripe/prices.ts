@@ -1,4 +1,4 @@
-import type { WorkspaceTier } from "@/lib/auth/tenant";
+import { TIER_LIMITS, type WorkspaceTier } from "@/lib/auth/tenant";
 
 /**
  * Stripe price/product configuration mapped to Orbit tiers.
@@ -23,15 +23,15 @@ const TIER_CONFIG: Record<WorkspaceTier, TierConfig> = {
     name: "Free",
     priceMonthly: 0,
     priceAnnual: null,
-    creditsPerSeat: 500,
-    maxProjects: 1,
-    maxMembers: 1,
+    creditsPerSeat: TIER_LIMITS.free.monthlyCredits,
+    maxProjects: TIER_LIMITS.free.projects,
+    maxMembers: TIER_LIMITS.free.members,
     stripePriceIdMonthly: null,
     stripePriceIdAnnual: null,
     features: [
-      "1 project",
-      "1 team member",
-      "500 credits/month",
+      `${TIER_LIMITS.free.projects} project`,
+      `${TIER_LIMITS.free.members} team members`,
+      `${TIER_LIMITS.free.monthlyCredits} credits/month`,
       "Core indexing, planning, and execution",
       "GitHub integration",
       "Basic dashboard and System Map",
@@ -50,9 +50,8 @@ const TIER_CONFIG: Record<WorkspaceTier, TierConfig> = {
     features: [
       "Unlimited projects",
       "5,000 credits/month per seat",
-      "All integrations (Linear, Slack, VS Code, CLI)",
+      "GitHub, Linear, Slack, and webhook integrations",
       "Custom system prompts",
-      "Plugin marketplace access",
       "Self-healing selectors",
       "Email support with SLA",
     ],
@@ -90,7 +89,6 @@ const TIER_CONFIG: Record<WorkspaceTier, TierConfig> = {
       "Self-hosted deployment option",
       "Bring your own AI API keys",
       "Custom data retention and residency",
-      "SOC 2 Type II report access",
       "Dedicated support and onboarding",
       "SLA with uptime guarantees",
     ],

@@ -25,47 +25,63 @@ export function LinearCard({ workspaceId, config, onUpdate }: LinearCardProps) {
   const [apiKey, setApiKey] = useState("");
   const [showKey, setShowKey] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const connected = config?.connected ?? false;
+  const endpoint = `/api/workspaces/${workspaceId}/integrations/linear`;
+
+  async function send(method: "POST" | "PATCH" | "DELETE", body?: unknown) {
+    const res = await fetch(endpoint, {
+      method,
+      headers: { "Content-Type": "application/json" },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+    const json = await res.json().catch(() => null);
+    if (!res.ok) {
+      throw new Error(json?.error?.message ?? "Request failed");
+    }
+    return json?.data;
+  }
 
   async function handleConnect() {
     if (!apiKey.trim()) return;
     setSaving(true);
+    setError(null);
     try {
-      const res = await fetch(`/api/workspaces/${workspaceId}/integrations/linear`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ apiKey }),
+      const data = await send("POST", { apiKey });
+      onUpdate({
+        connected: true,
+        teamId: data.teamId,
+        teamName: data.teamName,
+        autoCreateIssues: data.autoCreateIssues,
       });
-      if (res.ok) {
-        const data = await res.json();
-        onUpdate({
-          connected: true,
-          teamId: data.teamId,
-          teamName: data.teamName,
-        });
-        setApiKey("");
-      }
+      setApiKey("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to connect Linear");
     } finally {
       setSaving(false);
     }
   }
 
   async function handleDisconnect() {
-    const res = await fetch(`/api/workspaces/${workspaceId}/integrations/linear`, {
-      method: "DELETE",
-    });
-    if (res.ok) {
+    setError(null);
+    try {
+      await send("DELETE");
       onUpdate({ connected: false, teamId: undefined, teamName: undefined, autoCreateIssues: false });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to disconnect Linear");
     }
   }
 
   async function handleToggleAutoCreate(checked: boolean) {
+    const previous = config?.autoCreateIssues ?? false;
     onUpdate({ autoCreateIssues: checked });
-    await fetch(`/api/workspaces/${workspaceId}/integrations/linear`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ autoCreateIssues: checked }),
-    });
+    setError(null);
+    try {
+      await send("PATCH", { autoCreateIssues: checked });
+    } catch (err) {
+      onUpdate({ autoCreateIssues: previous });
+      setError(err instanceof Error ? err.message : "Failed to save setting");
+    }
   }
 
   return (
@@ -154,6 +170,7 @@ export function LinearCard({ workspaceId, config, onUpdate }: LinearCardProps) {
           </Button>
         </div>
       )}
+      {error && <p className="text-xs text-red-400">{error}</p>}
     </div>
   );
 }

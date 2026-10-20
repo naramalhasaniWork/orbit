@@ -11,7 +11,6 @@ import { Plus, Trash2, Webhook, Copy, Check, Eye, EyeOff } from "lucide-react";
 interface WebhookEndpoint {
   id: string;
   url: string;
-  secret: string;
   events: string[];
   isEnabled: boolean;
 }
@@ -38,6 +37,7 @@ export function WebhookSettings({ projectId }: WebhookSettingsProps) {
   const [creating, setCreating] = useState(false);
   const [generatedSecret, setGeneratedSecret] = useState<string | null>(null);
   const [copiedSecret, setCopiedSecret] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!projectId) return;
@@ -63,32 +63,42 @@ export function WebhookSettings({ projectId }: WebhookSettingsProps) {
     );
   }
 
+  async function request(url: string, init?: RequestInit) {
+    const res = await fetch(url, init);
+    const json = await res.json().catch(() => null);
+    if (!res.ok) {
+      throw new Error(json?.error?.message ?? "Request failed");
+    }
+    return json?.data;
+  }
+
   async function handleCreate() {
     if (!newEndpoint.url.trim()) return;
     setCreating(true);
+    setError(null);
     try {
-      const res = await fetch(`/api/projects/${projectId}/webhooks`, {
+      const data = await request(`/api/projects/${projectId}/webhooks`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(newEndpoint),
       });
-      if (res.ok) {
-        const data = await res.json();
-        setGeneratedSecret(data.secret);
-        setEndpoints((prev) => [...prev, data.endpoint]);
-        setNewEndpoint({ url: "", events: ["run.completed", "test.failed"] });
-      }
+      setGeneratedSecret(data.secret);
+      setEndpoints((prev) => [...prev, data.endpoint]);
+      setNewEndpoint({ url: "", events: ["run.completed", "test.failed"] });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to create endpoint");
     } finally {
       setCreating(false);
     }
   }
 
   async function handleDelete(endpointId: string) {
-    const res = await fetch(`/api/projects/${projectId}/webhooks/${endpointId}`, {
-      method: "DELETE",
-    });
-    if (res.ok) {
+    setError(null);
+    try {
+      await request(`/api/projects/${projectId}/webhooks/${endpointId}`, { method: "DELETE" });
       setEndpoints((prev) => prev.filter((e) => e.id !== endpointId));
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to delete endpoint");
     }
   }
 
@@ -96,11 +106,19 @@ export function WebhookSettings({ projectId }: WebhookSettingsProps) {
     setEndpoints((prev) =>
       prev.map((e) => (e.id === endpointId ? { ...e, isEnabled } : e))
     );
-    await fetch(`/api/projects/${projectId}/webhooks/${endpointId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ isEnabled }),
-    });
+    setError(null);
+    try {
+      await request(`/api/projects/${projectId}/webhooks/${endpointId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isEnabled }),
+      });
+    } catch (err) {
+      setEndpoints((prev) =>
+        prev.map((e) => (e.id === endpointId ? { ...e, isEnabled: !isEnabled } : e))
+      );
+      setError(err instanceof Error ? err.message : "Failed to update endpoint");
+    }
   }
 
   function toggleEvent(event: string) {
@@ -141,6 +159,8 @@ export function WebhookSettings({ projectId }: WebhookSettingsProps) {
           Add Endpoint
         </Button>
       </div>
+
+      {error && <p className="text-xs text-red-400">{error}</p>}
 
       {generatedSecret && (
         <div className="rounded-xl border border-orbit-accent/30 bg-orbit-accent/5 p-4 space-y-3">

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Check, Zap, ArrowRight, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { TIER_LIMITS } from "@/lib/auth/tenant";
 
 interface PricingTier {
   key: string;
@@ -28,11 +29,11 @@ const TIERS: PricingTier[] = [
     price: 0,
     annualPrice: null,
     period: "forever",
-    credits: "500 credits/month",
+    credits: `${TIER_LIMITS.free.monthlyCredits} credits/month`,
     features: [
-      "1 project",
-      "1 team member",
-      "500 credits/month",
+      `${TIER_LIMITS.free.projects} project`,
+      `${TIER_LIMITS.free.members} team members`,
+      `${TIER_LIMITS.free.monthlyCredits} credits/month`,
       "Core indexing & execution",
       "GitHub integration",
     ],

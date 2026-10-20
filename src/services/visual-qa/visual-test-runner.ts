@@ -74,12 +74,12 @@ async function storeScreenshot(
   data: Buffer,
   projectId: string,
   runId: string
-): Promise<void> {
+): Promise<string> {
   const storage = getStorage();
   await storage.upload(key, data, "image/png");
 
   // Store as run artifact
-  await prisma.runArtifact.create({
+  const artifact = await prisma.runArtifact.create({
     data: {
       projectId,
       testRunId: runId,
@@ -91,6 +91,35 @@ async function storeScreenshot(
       metadata: { source: "visual-qa" } as Prisma.InputJsonValue,
     },
   });
+  return artifact.id;
+}
+
+/**
+ * Persist the outcome on the screenshot artifact so the run detail page can
+ * render it later (see loadRunVisualResults).
+ */
+async function recordResult(
+  artifactId: string,
+  routePath: string,
+  checksum: string,
+  result: VisualTestResult
+): Promise<VisualTestResult> {
+  await prisma.runArtifact.update({
+    where: { id: artifactId },
+    data: {
+      metadata: {
+        source: "visual-qa",
+        routePath,
+        checksum,
+        passed: result.passed,
+        isBaselineCapture: result.isBaselineCapture,
+        baselineKey: result.baselineKey ?? null,
+        diff: result.diff ?? null,
+        brandCheck: result.brandCheck ?? null,
+      } as unknown as Prisma.InputJsonValue,
+    },
+  });
+  return result;
 }
 
 // ============================================================
@@ -128,7 +157,7 @@ export async function runVisualTest(
   const storageKey = buildStorageKey(projectId, runId, routePath);
   const checksum = computeChecksum(screenshotData);
 
-  await storeScreenshot(storageKey, screenshotData, projectId, runId);
+  const artifactId = await storeScreenshot(storageKey, screenshotData, projectId, runId);
 
   // 2. Look for existing baseline
   const baseline = await getBaseline(projectId, routePath);
@@ -143,13 +172,13 @@ export async function runVisualTest(
       brandCheck = await checkBrandConsistency(storageKey, undefined, projectId, billing);
     }
 
-    return {
+    return recordResult(artifactId, routePath, checksum, {
       passed: true,
       isBaselineCapture: true,
       screenshotKey: storageKey,
       brandCheck,
       durationMs: Date.now() - startTime,
-    };
+    });
   }
 
   // 4. Compare against baseline
@@ -171,7 +200,7 @@ export async function runVisualTest(
   const brandPassed = brandCheck ? brandCheck.passed : true;
   const passed = diffPassed && brandPassed;
 
-  return {
+  return recordResult(artifactId, routePath, checksum, {
     passed,
     isBaselineCapture: false,
     screenshotKey: storageKey,
@@ -179,5 +208,5 @@ export async function runVisualTest(
     brandCheck,
     baselineKey: baseline.storageKey,
     durationMs: Date.now() - startTime,
-  };
+  });
 }

@@ -20,6 +20,9 @@ import { cn } from "@/lib/utils";
 import { TestResultCard } from "@/components/runs/test-result-card";
 import { FailurePatternsPanel } from "@/components/runs/failure-patterns-panel";
 import { TraceViewer } from "@/components/runs/trace-viewer";
+import { RunScreenshotsTab } from "@/components/runs/run-screenshots-tab";
+import { RunVisualTab } from "@/components/runs/run-visual-tab";
+import type { VisualDiffData } from "@/components/runs/visual-diff-viewer";
 import { LiveExecutionViewer } from "@/components/execution/live-viewer";
 import { useRunEvents } from "@/hooks/use-run-events";
 import {
@@ -34,11 +37,13 @@ import { formatDistanceToNow } from "date-fns";
 interface RunDetailClientProps {
   run: RunDetailData;
   projectId?: string;
+  visualResults?: VisualDiffData[];
+  previousRunId?: string;
 }
 
 const LIVE_STATUSES = new Set(["queued", "executing", "indexing", "planning", "reporting"]);
 
-export function RunDetailClient({ run, projectId }: RunDetailClientProps) {
+export function RunDetailClient({ run, projectId, visualResults = [], previousRunId }: RunDetailClientProps) {
   const router = useRouter();
   const [verdictFilter, setVerdictFilter] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState(false);
@@ -204,6 +209,13 @@ export function RunDetailClient({ run, projectId }: RunDetailClientProps) {
           </div>
           <RunMeta run={run} />
         </div>
+        {previousRunId && !isLive && (
+          <Button variant="outline" size="sm" asChild>
+            <Link href={`/dashboard/runs/compare?runA=${previousRunId}&runB=${run.id}`}>
+              Compare with previous run
+            </Link>
+          </Button>
+        )}
         {isLive && projectId && (
           <div className="flex flex-col items-end gap-1">
             <Button
@@ -256,7 +268,11 @@ export function RunDetailClient({ run, projectId }: RunDetailClientProps) {
           <TabsTrigger value="results">
             Results{mergedResults.length > 0 ? ` (${mergedResults.length})` : ""}
           </TabsTrigger>
+          <TabsTrigger value="screenshots">Screenshots</TabsTrigger>
           <TabsTrigger value="traces">Traces</TabsTrigger>
+          {projectId && visualResults.length > 0 && (
+            <TabsTrigger value="visual">Visual ({visualResults.length})</TabsTrigger>
+          )}
         </TabsList>
 
         {isLive && (
@@ -298,6 +314,14 @@ export function RunDetailClient({ run, projectId }: RunDetailClientProps) {
           </motion.div>
         </TabsContent>
 
+        <TabsContent value="screenshots" className="mt-4">
+          {projectId ? (
+            <RunScreenshotsTab projectId={projectId} runId={run.id} />
+          ) : (
+            <p className="text-sm text-muted-foreground">Project context required to view screenshots.</p>
+          )}
+        </TabsContent>
+
         <TabsContent value="traces" className="mt-4">
           <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={springs.snappy}>
             {projectId ? (
@@ -307,6 +331,12 @@ export function RunDetailClient({ run, projectId }: RunDetailClientProps) {
             )}
           </motion.div>
         </TabsContent>
+
+        {projectId && visualResults.length > 0 && (
+          <TabsContent value="visual" className="mt-4">
+            <RunVisualTab results={visualResults} projectId={projectId} runId={run.id} />
+          </TabsContent>
+        )}
       </Tabs>
     </motion.div>
   );

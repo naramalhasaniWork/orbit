@@ -52,6 +52,8 @@ export interface PlannerContext {
   workspaceName?: string;
   operationsMap?: OperationsMap;
   testingNotes?: TestingNoteInput[];
+  /** Retrieved workspace knowledge, already formatted for the prompt */
+  domainKnowledge?: string;
   semanticContext?: Array<{ name: string; type: string; filePath: string; similarity: number }>;
 }
 
@@ -451,6 +453,7 @@ priorityScore = (criticality * 0.4) + (risk * 0.35) + (coverageGap * 0.25)
     agentRole: "planner",
     agentInstructions,
     userLayer,
+    domainKnowledge: context.domainKnowledge,
     workspaceName: context.workspaceName,
     maxOutputTokens: 8192,
   });

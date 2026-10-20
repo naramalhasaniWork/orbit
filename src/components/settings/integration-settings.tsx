@@ -20,13 +20,9 @@ interface IntegrationConfig {
   };
   slack?: {
     connected: boolean;
-    teamName?: string;
-    defaultChannel?: string;
     notifications?: {
       runCompleted: boolean;
       testFailed: boolean;
-      bugDiscovered: boolean;
-      planUpdated: boolean;
     };
   };
   railway?: {

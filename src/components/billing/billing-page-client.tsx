@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 import { SubscriptionStatus } from "./subscription-status";
 import { CostDashboard } from "./cost-dashboard";
+import { UsageDashboard } from "./usage-dashboard";
 import { InvoiceHistory } from "./invoice-history";
 import { PricingSelector } from "./pricing-selector";
 
@@ -54,6 +55,14 @@ export function BillingPageClient({ workspaceId }: BillingPageClientProps) {
             />
           </div>
         )}
+      </div>
+
+      {/* Plan limits and credit activity */}
+      <div>
+        <h3 className="text-sm font-semibold text-foreground mb-4">
+          Plan Usage
+        </h3>
+        <UsageDashboard workspaceId={workspaceId} />
       </div>
 
       {/* Cost analytics dashboard with credit purchase */}

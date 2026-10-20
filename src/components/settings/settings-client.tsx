@@ -14,6 +14,7 @@ import { IntegrationSettings } from "@/components/settings/integration-settings"
 import { ApiKeySettings } from "@/components/settings/api-key-settings";
 import { WebhookSettings } from "@/components/settings/webhook-settings";
 import { PluginSettings } from "@/components/settings/plugin-settings";
+import { AuditLogViewer } from "@/components/audit/audit-log-viewer";
 import { KnowledgeUpload } from "@/components/settings/knowledge-upload";
 import { AgentSettingsList } from "@/components/settings/agent-settings-list";
 import { TestingNotes } from "@/components/settings/testing-notes";
@@ -23,13 +24,9 @@ interface IntegrationConfig {
   linear?: { connected: boolean; teamId?: string; teamName?: string; autoCreateIssues?: boolean };
   slack?: {
     connected: boolean;
-    teamName?: string;
-    defaultChannel?: string;
     notifications?: {
       runCompleted: boolean;
       testFailed: boolean;
-      bugDiscovered: boolean;
-      planUpdated: boolean;
     };
   };
   railway?: {
@@ -76,6 +73,7 @@ const tabs = [
   { id: "api-keys", label: "API Keys" },
   { id: "plugins", label: "Plugins" },
   { id: "workspace", label: "Workspace" },
+  { id: "audit", label: "Audit Log" },
 ] as const;
 
 type TabId = (typeof tabs)[number]["id"];
@@ -174,6 +172,7 @@ export function SettingsClient({
             <PluginSettings workspaceId={workspace?.id ?? null} />
           )}
           {activeTab === "workspace" && <WorkspaceSettings workspace={workspace} />}
+          {activeTab === "audit" && workspace && <AuditLogViewer workspaceId={workspace.id} />}
         </motion.div>
       </AnimatePresence>
     </div>

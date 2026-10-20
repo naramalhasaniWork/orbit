@@ -56,9 +56,7 @@ export default async function SettingsPage() {
   const lnConfig = settings?.linear as { connected: boolean; teamId?: string; teamName?: string; autoCreateIssues?: boolean } | undefined;
   const slConfig = settings?.slack as {
     connected: boolean;
-    teamName?: string;
-    defaultChannel?: string;
-    notifications?: { runCompleted: boolean; testFailed: boolean; bugDiscovered: boolean; planUpdated: boolean };
+    notifications?: { runCompleted: boolean; testFailed: boolean };
   } | undefined;
 
   // Load Railway integration config from DB

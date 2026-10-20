@@ -1,5 +1,6 @@
 import { createHmac } from "crypto";
 import { prisma } from "@/lib/db";
+import { readStoredWebhooks, resolveWebhookSecret } from "./webhook-store";
 import type { RunSummary, FailureSummary } from "@/agents/schemas/run-summary";
 
 // ============================================================
@@ -69,6 +70,7 @@ async function deliverWebhook(
           "X-Orbit-Event": payload.event,
           "X-Orbit-Delivery-Attempt": String(attempt),
         },
+        body,
         signal: AbortSignal.timeout(10000),
       });
 
@@ -138,23 +140,11 @@ async function getWebhookEndpoints(
 
   if (!project) return [];
 
-  const settings = project.settings as Record<string, unknown>;
-  const webhooks = settings?.webhooks as Array<{
-    url: string;
-    secret: string;
-    events: string[];
-    enabled?: boolean;
-  }> | undefined;
-
-  if (!webhooks) return [];
-
-  return webhooks
-    .filter((w) => w.enabled !== false && w.events.includes(event))
-    .map((w) => ({
-      url: w.url,
-      secret: w.secret,
-      events: w.events as WebhookEvent[],
-    }));
+  return readStoredWebhooks(project.settings).flatMap((w) => {
+    const secret = resolveWebhookSecret(w);
+    if (w.enabled === false || !secret || !w.events.includes(event)) return [];
+    return [{ url: w.url, secret, events: w.events as WebhookEvent[] }];
+  });
 }
 
 // ============================================================

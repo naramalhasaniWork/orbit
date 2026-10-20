@@ -11,14 +11,10 @@ import { Eye, EyeOff, ExternalLink, Hash } from "lucide-react";
 interface SlackNotifications {
   runCompleted: boolean;
   testFailed: boolean;
-  bugDiscovered: boolean;
-  planUpdated: boolean;
 }
 
 interface SlackConfig {
   connected: boolean;
-  teamName?: string;
-  defaultChannel?: string;
   notifications?: SlackNotifications;
 }
 
@@ -31,72 +27,65 @@ interface SlackCardProps {
 const NOTIFICATION_OPTIONS: { key: keyof SlackNotifications; label: string; description: string }[] = [
   { key: "runCompleted", label: "Run completed", description: "Notify when a test run finishes" },
   { key: "testFailed", label: "Test failed", description: "Notify on individual test failures" },
-  { key: "bugDiscovered", label: "Bug discovered", description: "Notify when a new bug is found" },
-  { key: "planUpdated", label: "Plan updated", description: "Notify when test plan changes" },
 ];
 
 export function SlackCard({ workspaceId, config, onUpdate }: SlackCardProps) {
-  const [botToken, setBotToken] = useState("");
-  const [showToken, setShowToken] = useState(false);
-  const [channel, setChannel] = useState(config?.defaultChannel ?? "");
+  const [webhookUrl, setWebhookUrl] = useState("");
+  const [showUrl, setShowUrl] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const connected = config?.connected ?? false;
+  const endpoint = `/api/workspaces/${workspaceId}/integrations/slack`;
+
+  async function send(method: "POST" | "PATCH" | "DELETE", body?: unknown) {
+    const res = await fetch(endpoint, {
+      method,
+      headers: { "Content-Type": "application/json" },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+    const json = await res.json().catch(() => null);
+    if (!res.ok) {
+      throw new Error(json?.error?.message ?? "Request failed");
+    }
+    return json?.data;
+  }
 
   async function handleConnect() {
-    if (!botToken.trim()) return;
+    if (!webhookUrl.trim()) return;
     setSaving(true);
+    setError(null);
     try {
-      const res = await fetch(`/api/workspaces/${workspaceId}/integrations/slack`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ botToken, defaultChannel: channel || undefined }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        onUpdate({
-          connected: true,
-          teamName: data.teamName,
-          defaultChannel: channel || undefined,
-          notifications: {
-            runCompleted: true,
-            testFailed: true,
-            bugDiscovered: true,
-            planUpdated: false,
-          },
-        });
-        setBotToken("");
-      }
+      const data = await send("POST", { webhookUrl });
+      onUpdate({ connected: true, notifications: data.notifications });
+      setWebhookUrl("");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to connect Slack");
     } finally {
       setSaving(false);
     }
   }
 
   async function handleDisconnect() {
-    const res = await fetch(`/api/workspaces/${workspaceId}/integrations/slack`, {
-      method: "DELETE",
-    });
-    if (res.ok) {
-      onUpdate({ connected: false, teamName: undefined, defaultChannel: undefined, notifications: undefined });
+    setError(null);
+    try {
+      await send("DELETE");
+      onUpdate({ connected: false, notifications: undefined });
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to disconnect Slack");
     }
   }
 
   async function handleToggleNotification(key: keyof SlackNotifications, checked: boolean) {
-    const updated = { ...config?.notifications, [key]: checked } as SlackNotifications;
+    const previous = config?.notifications;
+    const updated = { ...previous, [key]: checked } as SlackNotifications;
     onUpdate({ notifications: updated });
-    await fetch(`/api/workspaces/${workspaceId}/integrations/slack`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ notifications: updated }),
-    });
-  }
-
-  async function handleUpdateChannel() {
-    onUpdate({ defaultChannel: channel });
-    await fetch(`/api/workspaces/${workspaceId}/integrations/slack`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ defaultChannel: channel }),
-    });
+    setError(null);
+    try {
+      await send("PATCH", { notifications: updated });
+    } catch (err) {
+      onUpdate({ notifications: previous });
+      setError(err instanceof Error ? err.message : "Failed to save preferences");
+    }
   }
 
   return (
@@ -109,7 +98,7 @@ export function SlackCard({ workspaceId, config, onUpdate }: SlackCardProps) {
           <div>
             <h3 className="text-sm font-medium text-foreground">Slack</h3>
             <p className="text-xs text-muted-foreground">
-              Notifications, slash commands, and interactive messages
+              Post run results and failure alerts to a channel
             </p>
           </div>
         </div>
@@ -123,35 +112,6 @@ export function SlackCard({ workspaceId, config, onUpdate }: SlackCardProps) {
 
       {connected ? (
         <div className="space-y-4">
-          {config?.teamName && (
-            <div className="space-y-2">
-              <Label className="text-xs text-muted-foreground">Connected Workspace</Label>
-              <div className="text-sm bg-muted/40 rounded-md px-3 py-2 border border-transparent text-foreground">
-                {config.teamName}
-              </div>
-            </div>
-          )}
-
-          <div className="space-y-2">
-            <Label className="text-xs text-muted-foreground">Default Channel</Label>
-            <div className="flex gap-2 max-w-md">
-              <Input
-                placeholder="#orbit-testing"
-                value={channel}
-                onChange={(e) => setChannel(e.target.value)}
-                className="bg-muted/40"
-              />
-              <Button
-                size="sm"
-                variant="outline"
-                disabled={channel === (config?.defaultChannel ?? "")}
-                onClick={handleUpdateChannel}
-              >
-                Save
-              </Button>
-            </div>
-          </div>
-
           <div className="space-y-3">
             <Label className="text-xs text-muted-foreground">Notification Preferences</Label>
             {NOTIFICATION_OPTIONS.map((opt) => (
@@ -177,37 +137,31 @@ export function SlackCard({ workspaceId, config, onUpdate }: SlackCardProps) {
       ) : (
         <div className="space-y-3">
           <div className="space-y-2">
-            <Label className="text-xs text-muted-foreground">Bot Token</Label>
+            <Label className="text-xs text-muted-foreground">Incoming Webhook URL</Label>
             <div className="relative max-w-md">
               <Input
-                type={showToken ? "text" : "password"}
-                placeholder="xoxb-..."
-                value={botToken}
-                onChange={(e) => setBotToken(e.target.value)}
+                type={showUrl ? "text" : "password"}
+                placeholder="https://hooks.slack.com/services/..."
+                value={webhookUrl}
+                onChange={(e) => setWebhookUrl(e.target.value)}
                 className="bg-muted/40 font-mono pr-9"
               />
               <button
                 type="button"
-                onClick={() => setShowToken(!showToken)}
+                onClick={() => setShowUrl(!showUrl)}
                 className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
               >
-                {showToken ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
+                {showUrl ? <EyeOff className="h-3.5 w-3.5" /> : <Eye className="h-3.5 w-3.5" />}
               </button>
             </div>
-          </div>
-          <div className="space-y-2">
-            <Label className="text-xs text-muted-foreground">Default Channel (optional)</Label>
-            <Input
-              placeholder="#orbit-testing"
-              value={channel}
-              onChange={(e) => setChannel(e.target.value)}
-              className="bg-muted/40 max-w-md"
-            />
+            <p className="text-xs text-muted-foreground">
+              Create one in Slack under Apps, Incoming Webhooks. Messages post to the channel you pick there.
+            </p>
           </div>
           <Button
             size="sm"
             onClick={handleConnect}
-            disabled={saving || !botToken.trim()}
+            disabled={saving || !webhookUrl.trim()}
             className="bg-orbit-accent hover:bg-orbit-accent/90 text-white gap-1.5"
           >
             <ExternalLink className="h-3.5 w-3.5" />
@@ -215,6 +169,7 @@ export function SlackCard({ workspaceId, config, onUpdate }: SlackCardProps) {
           </Button>
         </div>
       )}
+      {error && <p className="text-xs text-red-400">{error}</p>}
     </div>
   );
 }

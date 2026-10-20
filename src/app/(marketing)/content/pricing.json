@@ -1,6 +1,6 @@
 {
   "headline": "Pricing That Scales With You",
-  "subheadline": "Start free. Pay for what you use. No per-seat surprises.",
+  "subheadline": "Start free. Pay for what you use.",
   "creditExplainer": "1 credit = 1 test case execution. A typical PR check uses 20-40 credits.",
   "tiers": [
     {
@@ -10,11 +10,11 @@
       "description": "For solo developers trying Orbit on a side project or evaluating the platform.",
       "highlight": false,
       "cta": "Get Started Free",
-      "credits": "500 credits/month",
+      "credits": "100 credits/month",
       "features": [
         "1 project",
-        "1 team member",
-        "500 credits/month",
+        "2 team members",
+        "100 credits/month",
         "Core indexing, planning, and execution",
         "GitHub integration",
         "Basic dashboard and System Map",
@@ -29,15 +29,13 @@
       "period": "per seat/month",
       "description": "For small teams shipping fast who need autonomous testing on every PR.",
       "highlight": true,
-      "badge": "Most Popular",
       "cta": "Start Pro Trial",
       "credits": "5,000 credits/month per seat",
       "features": [
         "Unlimited projects",
         "5,000 credits/month per seat",
-        "All integrations (Linear, Slack, VS Code, CLI)",
+        "GitHub, Linear, Slack, and webhook integrations",
         "Custom system prompts",
-        "Plugin marketplace access",
         "Self-healing selectors",
         "Smoke, regression, and full suite modes",
         "30-day run history",
@@ -78,7 +76,6 @@
         "Self-hosted deployment option",
         "Bring your own AI API keys",
         "Custom data retention and residency",
-        "SOC 2 Type II report access",
         "Dedicated support and onboarding",
         "SLA with uptime guarantees",
         "Audit log export for compliance"
@@ -113,10 +110,6 @@
     {
       "question": "What if I run out of credits?",
       "answer": "You can purchase credit top-ups at any time. We alert you at 75% and 95% consumed so you're never caught off guard."
-    },
-    {
-      "question": "How does this compare to hiring a QA engineer?",
-      "answer": "A junior QA engineer costs $60,000-$90,000/year. A Pro seat at $79/month covers the same project with 24/7 autonomous testing, instant regression detection, and zero ramp-up time."
     },
     {
       "question": "Can I self-host Orbit?",

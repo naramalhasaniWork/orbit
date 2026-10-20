@@ -161,7 +161,7 @@ export function HeroSection() {
               transition={{ ...springs.smooth, delay: 0.35 }}
               className="mt-6 text-xs text-muted-foreground/50"
             >
-              Free for up to 100 test runs/month. No credit card required.
+              Free for up to 100 credits/month. No credit card required.
             </motion.p>
           </div>
 
