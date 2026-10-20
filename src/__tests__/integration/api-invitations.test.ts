@@ -36,7 +36,8 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 vi.mock("@/lib/auth/rbac", () => ({
-  requirePermission: vi.fn(async () => ({ session: { user: { id: "u1", name: "Sam" } } })),
+  requirePermission: vi.fn(async () => ({ role: "owner", session: { user: { id: "u1", name: "Sam" } } })),
+  assertCanManageRole: vi.fn(),
 }));
 vi.mock("@/lib/auth/tenant", () => ({ canConsume: (...a: unknown[]) => canConsume(...a) }));
 vi.mock("@/lib/auth/audit", () => ({ writeAuditLog: vi.fn() }));
