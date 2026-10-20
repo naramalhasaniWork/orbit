@@ -1,9 +1,10 @@
+import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { apiSuccess, apiError } from "@/lib/utils/api";
 import { canConsume } from "@/lib/auth/tenant";
 import { getDefaultEnvironment } from "@/services/execution/environment-validator";
 import { emitRunStarted } from "@/lib/websocket";
-import { enqueueOrDiscard } from "@/services/orchestrator/run-launcher";
+import { createRunWithinAllowance, enqueueOrDiscard } from "@/services/orchestrator/run-launcher";
 import { requireQueueAvailable, WORKERS_UNAVAILABLE_MESSAGE } from "@/lib/queue/availability";
 import { route } from "@/server/http/route";
 
@@ -55,18 +56,20 @@ export const GET = route({}, async ({ params: { projectId }, workspaceId }) => {
 // POST /api/projects/[projectId]/runs — Start a new test run
 // ============================================================
 
-interface CreateRunBody {
-  environmentId?: string;
-  testPlanId?: string;
-  mode?: "full" | "smoke" | "regression" | "targeted";
-  branch?: string;
-  commitSha?: string;
-  prNumber?: number;
-}
+const CreateRunBody = z
+  .object({
+    environmentId: z.string().optional(),
+    testPlanId: z.string().optional(),
+    mode: z.enum(["full", "smoke", "regression", "targeted"]).optional(),
+    branch: z.string().optional(),
+    commitSha: z.string().optional(),
+    prNumber: z.number().int().optional(),
+  })
+  .default({});
 
 export const POST = route(
-  { permission: "runs.create" },
-  async ({ req: request, params: { projectId }, workspaceId, session }) => {
+  { permission: "runs.create", body: CreateRunBody, idempotent: true },
+  async ({ body, params: { projectId }, workspaceId, session }) => {
     // Verify project belongs to workspace
     const project = await prisma.project.findFirst({
       where: { id: projectId, workspaceId },
@@ -77,12 +80,11 @@ export const POST = route(
       return apiError("Project not found", "NOT_FOUND", 404);
     }
 
+    // Fail fast; the check that counts is the atomic one at insert time.
     const allowance = await canConsume(workspaceId, "run");
     if (!allowance.allowed) {
       return apiError(allowance.reason, allowance.code, allowance.code === "NOT_FOUND" ? 404 : 403);
     }
-
-    const body = (await request.json()) as CreateRunBody;
 
     // Resolve environment
     let environmentId = body.environmentId;
@@ -136,21 +138,24 @@ export const POST = route(
     // Fail fast before creating a run nothing could pick up.
     await requireQueueAvailable();
 
-    // Create the test run
-    const run = await prisma.testRun.create({
-      data: {
-        projectId,
-        environmentId,
-        testPlanId,
-        status: "queued",
-        mode: body.mode ?? (environment.defaultRunMode as "full" | "smoke" | "regression" | "targeted") ?? "full",
-        trigger: "manual",
-        triggeredById: session.user.id,
-        branch: body.branch,
-        commitSha: body.commitSha,
-        prNumber: body.prNumber,
-      },
+    // Create the test run under the workspace lock so concurrent launches can't exceed the limit
+    const created = await createRunWithinAllowance(workspaceId, {
+      projectId,
+      environmentId,
+      testPlanId,
+      status: "queued",
+      mode: body.mode ?? (environment.defaultRunMode as "full" | "smoke" | "regression" | "targeted") ?? "full",
+      trigger: "manual",
+      triggeredById: session.user.id,
+      branch: body.branch,
+      commitSha: body.commitSha,
+      prNumber: body.prNumber,
     });
+    if ("blocked" in created) {
+      const { blocked } = created;
+      return apiError(blocked.reason, blocked.code, blocked.code === "NOT_FOUND" ? 404 : 403);
+    }
+    const { run } = created;
 
     // Count test cases for the response
     const testCaseCount = await prisma.testCase.count({

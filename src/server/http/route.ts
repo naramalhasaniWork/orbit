@@ -166,7 +166,7 @@ export function route<const S extends RouteSpec>(spec: S, handler: RouteHandler<
       try {
         res = await execute(spec, handler, req, segment, requestId);
       } catch (err) {
-        res = mapError(err, requestId, logger);
+        res = spec.onError?.(err) ?? mapError(err, requestId, logger);
       }
       try {
         res.headers.set("X-Request-Id", requestId);
