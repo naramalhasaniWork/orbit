@@ -6,7 +6,7 @@ import { StatusDot } from "@/components/shared/status-dot";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import {
-  Loader2, ChevronRight, CheckCircle2,
+  Loader2, ChevronRight,
   GitBranch, FlaskConical, FileSearch, FileText,
   ShieldCheck, Eye,
 } from "lucide-react";
@@ -70,24 +70,15 @@ function OperationItem({ op }: { op: ActiveOperation }) {
   return (
     <Link
       href={link}
-      className="group flex items-center gap-2.5 px-3 py-1.5 rounded-lg hover:bg-foreground/[0.04] transition-colors min-w-0"
+      className="group flex h-8 min-w-0 items-center gap-2.5 rounded-md px-3 transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
-      <StatusDot status="running" pulse size="sm" />
+      <StatusDot status="running" size="sm" />
 
-      <Icon className={cn(
-        "h-3.5 w-3.5 shrink-0",
-        isSecurityAudit ? "text-amber-400" : "text-orbit-accent",
-        op.status !== "queued" && "animate-pulse"
-      )} />
+      <Icon aria-hidden="true" className="size-3.5 shrink-0 text-tm-t2" strokeWidth={1.6} />
 
       <div className="flex items-center gap-1.5 min-w-0 flex-1">
         {modeBadge && (
-          <span className={cn(
-            "text-[10px] font-medium px-1.5 py-0.5 rounded shrink-0",
-            isSecurityAudit
-              ? "bg-amber-400/10 text-amber-400"
-              : "bg-orbit-accent/10 text-orbit-accent"
-          )}>
+          <span className="tm-label shrink-0 text-tm-t3">
             {isSecurityAudit ? "Audit" : modeBadge}
           </span>
         )}
@@ -98,50 +89,48 @@ function OperationItem({ op }: { op: ActiveOperation }) {
           {op.label}
         </span>
         {isExecuting && total > 0 && (
-          <span className="text-[10px] text-muted-foreground shrink-0 tabular-nums">
+          <span className="tm-num shrink-0 text-[10.5px] text-tm-t2">
             {passed + failed}/{total}
           </span>
         )}
       </div>
 
       {isExecuting && total > 0 && (passed > 0 || failed > 0) && (
-        <div className="flex items-center gap-1 shrink-0 text-[10px] tabular-nums">
-          {passed > 0 && <span className="text-green-400">{passed}✓</span>}
-          {failed > 0 && <span className="text-red-400">{failed}✗</span>}
+        <div className="tm-num flex shrink-0 items-center gap-1.5 text-[10.5px]">
+          {passed > 0 && <span className="text-tm-pass">✓ {passed}</span>}
+          {failed > 0 && <span className="text-tm-fail">✕ {failed}</span>}
         </div>
       )}
 
       {progress !== null && (
         <div className="flex items-center gap-1.5 shrink-0">
-          <div className="w-20 h-1.5 rounded-full bg-muted overflow-hidden">
+          {/* Progress is scaleX from the left: transform only, never width. */}
+          <div aria-hidden="true" className="relative h-0.5 w-20 overflow-hidden bg-tm-line">
             {isExecuting && total > 0 ? (
-              <div className="h-full rounded-full flex overflow-hidden">
+              <>
                 <div
-                  className="h-full bg-green-500 transition-all duration-500"
-                  style={{ width: `${Math.round((passed / total) * 100)}%` }}
+                  className="absolute inset-0 origin-left bg-tm-pass transition-transform duration-change"
+                  style={{ transform: `scaleX(${passed / total})` }}
                 />
                 <div
-                  className="h-full bg-red-500 transition-all duration-500"
-                  style={{ width: `${Math.round((failed / total) * 100)}%` }}
+                  className="absolute inset-0 origin-left bg-tm-fail transition-transform duration-change"
+                  style={{ transform: `translateX(${(passed / total) * 100}%) scaleX(${failed / total})` }}
                 />
-              </div>
+              </>
             ) : (
               <div
-                className={cn(
-                  "h-full rounded-full transition-all duration-700 ease-out",
-                  isSecurityAudit ? "bg-amber-400" : "bg-orbit-accent"
-                )}
-                style={{ width: `${Math.max(progress, 3)}%` }}
+                className="absolute inset-0 origin-left bg-tm-live transition-transform duration-change"
+                style={{ transform: `scaleX(${Math.max(progress, 3) / 100})` }}
               />
             )}
           </div>
-          <span className="text-[10px] tabular-nums text-muted-foreground w-7 text-right">
+          <span className="tm-num w-8 text-right text-[10.5px] text-tm-t2">
             {progress}%
           </span>
         </div>
       )}
 
-      <ChevronRight className="h-3 w-3 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity shrink-0" />
+      <ChevronRight aria-hidden="true" className="size-3 shrink-0 text-tm-t3 opacity-0 transition-opacity group-hover:opacity-100 group-focus-visible:opacity-100" />
     </Link>
   );
 }
@@ -156,11 +145,10 @@ export function GlobalActivityBar({ initialOperations }: GlobalActivityBarProps)
   return (
     <div
       className={cn(
-        "border-b border-border bg-gradient-to-r from-orbit-accent/[0.03] to-transparent",
-        "animate-fade-in"
+        "border-b border-border"
       )}
     >
-      <div className="flex items-center gap-1 px-3 py-1">
+      <div className="flex items-center gap-1 overflow-x-auto px-2 py-1">
         {/* Active operations */}
         {operations.map((op) => (
           <OperationItem key={op.id} op={op} />
@@ -170,9 +158,10 @@ export function GlobalActivityBar({ initialOperations }: GlobalActivityBarProps)
         {recentlyCompleted.map((c) => (
           <div
             key={c.id}
-            className="flex items-center gap-2 px-3 py-1.5 text-xs text-orbit-pass animate-fade-in"
+            role="status"
+            className="flex h-8 items-center gap-2 px-3 text-xs text-tm-t2"
           >
-            <CheckCircle2 className="h-3.5 w-3.5" />
+            <span aria-hidden="true" className="font-label text-tm-t3">–</span>
             <span className="font-medium">{c.projectName}</span>
             <span className="text-muted-foreground">{c.label}</span>
           </div>
