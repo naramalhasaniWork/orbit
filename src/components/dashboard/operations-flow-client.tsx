@@ -76,7 +76,7 @@ function OperationsHeader({
   return (
     <div className="flex items-center justify-between px-1 pb-3">
       <div>
-        <h1 className="text-lg font-semibold text-foreground">Operations</h1>
+        <h1 className="text-lg font-medium text-foreground">Operations</h1>
         <p className="text-xs text-muted-foreground">
           {projectName}
           {operationCount > 0 && (
@@ -86,7 +86,7 @@ function OperationsHeader({
               {", "}
               {flowCount} flow{flowCount !== 1 ? "s" : ""}
               {criticalCount !== undefined && criticalCount > 0 && (
-                <span className="text-orbit-accent">
+                <span className="text-foreground">
                   {" "}({criticalCount} critical)
                 </span>
               )}

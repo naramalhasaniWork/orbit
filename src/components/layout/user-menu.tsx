@@ -21,7 +21,7 @@ export function UserMenu() {
       <DropdownMenuTrigger asChild>
         <button
           aria-label="Account menu"
-          className="rounded-full ring-1 ring-border hover:ring-border transition-all focus:outline-none focus:ring-2 focus:ring-orbit-accent/50"
+          className="rounded-full ring-1 ring-border hover:ring-border transition-all focus:outline-none focus:ring-2 focus-visible:ring-ring"
         >
           {session?.user?.image ? (
             <Image
@@ -77,7 +77,7 @@ export function UserMenu() {
         )}
         <DropdownMenuSeparator />
         <DropdownMenuItem
-          className="cursor-pointer gap-2 text-red-400 focus:text-red-400 focus:bg-red-500/10"
+          className="cursor-pointer gap-2 text-tm-fail focus:text-tm-fail focus:bg-tm-fail/10"
           onClick={() => signOut({ callbackUrl: "/login" })}
         >
           <LogOut className="h-4 w-4" />

@@ -30,7 +30,7 @@ interface UseProjectEventsOptions {
 /**
  * Subscribes to project-level events via SSE.
  * Receives run:started and run:completed events for the entire project,
- * allowing dashboard components (RunsTimeline, ActiveRunBar, stats)
+ * allowing dashboard components (ActiveRunBar, home stats)
  * to update in real-time without polling.
  */
 export function useProjectEvents({

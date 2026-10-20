@@ -1,5 +1,6 @@
 "use client";
 
+import { Pending } from "@/components/telemetry/pending";
 import { useState, useCallback } from "react";
 import { motion } from "framer-motion";
 import { ScoreDisplay } from "@/components/audit/score-display";
@@ -8,7 +9,7 @@ import { IssueList } from "@/components/audit/issue-list";
 import { AuditTrendChart } from "@/components/audit/trend-chart";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/shared/empty-state";
-import { ShieldCheck, Loader2, AlertTriangle, RefreshCw } from "lucide-react";
+import { ShieldCheck, AlertTriangle, RefreshCw } from "lucide-react";
 import { apiErrorMessage } from "@/lib/api-client";
 
 interface AuditIssue {
@@ -116,7 +117,7 @@ export function AuditDashboard({
             <div className="flex flex-col items-center gap-3">
               <Button onClick={triggerAudit} disabled={isRunning}>
                 {isRunning ? (
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  <Pending />
                 ) : (
                   <ShieldCheck className="h-4 w-4 mr-2" />
                 )}
@@ -145,12 +146,12 @@ export function AuditDashboard({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-foreground">Code Audit</h1>
+          <h1 className="text-xl font-medium text-foreground">Code Audit</h1>
           <p className="text-sm text-muted-foreground mt-0.5">{projectName}</p>
         </div>
         <Button onClick={triggerAudit} disabled={isRunning} size="sm">
           {isRunning ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+            <Pending />
           ) : (
             <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
           )}
@@ -176,7 +177,7 @@ export function AuditDashboard({
                 {displayAudit.issueCount} issues
               </span>
               {displayAudit.criticalCount > 0 && (
-                <span className="flex items-center gap-1 text-red-400">
+                <span className="flex items-center gap-1 text-tm-fail">
                   <AlertTriangle className="h-3.5 w-3.5" />
                   {displayAudit.criticalCount} critical
                 </span>
@@ -234,7 +235,7 @@ export function AuditDashboard({
       {/* Issue list */}
       {isLoading ? (
         <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          <Pending />
         </div>
       ) : selectedAudit ? (
         <div className="surface-1 rounded-xl border border-border p-6">

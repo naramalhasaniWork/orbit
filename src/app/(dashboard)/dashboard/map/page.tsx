@@ -2,7 +2,7 @@ import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
-import { SystemMap3D } from "@/components/dashboard/system-map-3d";
+import { SystemMapView } from "@/components/dashboard/system-map-view";
 import type { MapNode, MapEdge, TestStatus, ChangeStatus } from "@/components/dashboard/map-types";
 
 export default async function MapPage({
@@ -99,24 +99,24 @@ export default async function MapPage({
   }));
 
   return (
-    <div className="flex flex-col h-[calc(100vh-4rem)]">
+    <div className="flex h-[calc(100dvh-8.5rem)] min-h-[480px] flex-col">
       <div className="flex items-center justify-between px-1 pb-3">
         <div>
-          <h1 className="text-lg font-semibold text-foreground">System Map</h1>
-          <p className="text-xs text-muted-foreground flex items-center gap-2 flex-wrap">
-            <span>{project.name} — {nodes.length} nodes, {edges.length} edges</span>
+          <h1 className="text-[26px] font-medium leading-tight tracking-display">System Map</h1>
+          <p className="tm-label mt-1 flex flex-wrap items-center gap-2 text-tm-t3">
+            <span>{project.name} · {nodes.length} nodes · {edges.length} edges</span>
             {syncDiff && (syncDiff.added > 0 || syncDiff.modified > 0 || syncDiff.removed > 0) && (
               <span className="flex items-center gap-1">
                 <span className="text-muted-foreground/40">·</span>
-                {syncDiff.added > 0 && <span className="text-blue-400">+{syncDiff.added} new</span>}
+                {syncDiff.added > 0 && <span className="text-tm-info">+{syncDiff.added} new</span>}
                 {syncDiff.added > 0 && syncDiff.modified > 0 && <span className="text-muted-foreground/40"> · </span>}
-                {syncDiff.modified > 0 && <span className="text-purple-400">~{syncDiff.modified} changed</span>}
+                {syncDiff.modified > 0 && <span className="text-tm-t2">~{syncDiff.modified} changed</span>}
                 {(syncDiff.added > 0 || syncDiff.modified > 0) && syncDiff.removed > 0 && <span className="text-muted-foreground/40"> · </span>}
-                {syncDiff.removed > 0 && <span className="text-red-400">-{syncDiff.removed} removed</span>}
+                {syncDiff.removed > 0 && <span className="text-tm-fail">-{syncDiff.removed} removed</span>}
               </span>
             )}
             {commitsBehind > 0 && (
-              <span className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 text-[10px]">
+              <span className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-tm-warn/10 text-tm-warn border border-tm-warn/20 text-[10px]">
                 ↑ {commitsBehind} commit{commitsBehind !== 1 ? "s" : ""} ahead on GitHub
                 {lastCommitSha && (
                   <span className="font-mono opacity-70">{lastCommitSha.slice(0, 7)}</span>
@@ -129,9 +129,7 @@ export default async function MapPage({
           </p>
         </div>
       </div>
-      <div className="flex-1 min-h-0 rounded-xl surface-1 overflow-hidden">
-        <SystemMap3D nodes={nodes} edges={edges} />
-      </div>
+      <SystemMapView nodes={nodes} edges={edges} />
     </div>
   );
 }

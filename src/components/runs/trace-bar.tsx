@@ -33,7 +33,7 @@ function ReasoningSteps({ steps }: { steps: unknown }) {
 
   return (
     <div>
-      <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
+      <span className=" tm-label text-muted-foreground">
         Reasoning Steps
       </span>
       <div className="mt-2 space-y-1.5">
@@ -57,7 +57,7 @@ function ReasoningSteps({ steps }: { steps: unknown }) {
                   </p>
                 ) : null}
                 {s.result ? (
-                  <p className="text-orbit-accent mt-0.5">
+                  <p className="text-foreground mt-0.5">
                     {String(s.result)}
                   </p>
                 ) : null}
@@ -75,7 +75,7 @@ function TraceDetails({ trace }: { trace: TraceNodeData }) {
     <div className="px-4 pb-4 pt-2 border-t border-border space-y-3">
       {trace.inputSummary && (
         <div>
-          <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
+          <span className=" tm-label text-muted-foreground">
             Input
           </span>
           <p className="text-xs text-foreground/80 mt-1">
@@ -86,7 +86,7 @@ function TraceDetails({ trace }: { trace: TraceNodeData }) {
 
       {trace.outputSummary && (
         <div>
-          <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
+          <span className=" tm-label text-muted-foreground">
             Output
           </span>
           <p className="text-xs text-foreground/80 mt-1">
@@ -101,7 +101,7 @@ function TraceDetails({ trace }: { trace: TraceNodeData }) {
         <div className="rounded-lg bg-orbit-fail/[0.06] border-l-2 border-orbit-fail/40 py-2 pl-3 pr-4">
           <div className="flex items-center gap-1.5">
             <AlertCircle className="h-3.5 w-3.5 text-orbit-fail shrink-0" />
-            <span className="text-[10px] font-semibold text-orbit-fail uppercase tracking-wider">
+            <span className=" text-orbit-fail tm-label">
               Error
             </span>
           </div>
@@ -229,7 +229,7 @@ export function TraceBar({
                   "absolute h-full rounded-full",
                   trace.status === "failed"
                     ? "bg-orbit-fail/60"
-                    : phaseConfig?.bgColor ?? "bg-orbit-accent/40"
+                    : phaseConfig?.bgColor ?? "bg-foreground/[0.06]"
                 )}
                 initial={{ width: 0, left: `${leftPercent}%` }}
                 animate={{

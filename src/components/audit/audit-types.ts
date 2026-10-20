@@ -67,11 +67,11 @@ export function getActionColor(action: string): "green" | "blue" | "amber" | "re
 }
 
 export const ACTION_BADGE_CLASSES: Record<string, string> = {
-  green: "bg-emerald-500/15 text-emerald-400 border-emerald-500/20",
-  blue: "bg-blue-500/15 text-blue-400 border-blue-500/20",
-  amber: "bg-amber-500/15 text-amber-400 border-amber-500/20",
-  red: "bg-red-500/15 text-red-400 border-red-500/20",
-  purple: "bg-purple-500/15 text-purple-400 border-purple-500/20",
+  green: "bg-tm-pass/15 text-tm-pass border-tm-pass/20",
+  blue: "bg-tm-info/15 text-tm-info border-tm-info/20",
+  amber: "bg-tm-warn/15 text-tm-warn border-tm-warn/20",
+  red: "bg-tm-fail/15 text-tm-fail border-tm-fail/20",
+  purple: "bg-tm-t2/15 text-tm-t2 border-tm-t2/20",
 };
 
 export const RESOURCE_TYPES = [

@@ -1,5 +1,6 @@
 "use client";
 
+import { Pending } from "@/components/telemetry/pending";
 import { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
@@ -15,8 +16,7 @@ import {
   UserPlus,
   GitBranch,
   Zap,
-  Loader2,
-} from "lucide-react";
+  } from "lucide-react";
 
 // ------------------------------------------------------------------
 // Types
@@ -63,7 +63,7 @@ const eventConfig: Record<
 > = {
   run_started: {
     icon: Play,
-    color: "text-orbit-accent",
+    color: "text-foreground",
     dotStatus: "running",
   },
   run_completed: {
@@ -93,12 +93,12 @@ const eventConfig: Record<
   },
   deploy_detected: {
     icon: GitBranch,
-    color: "text-orbit-accent",
+    color: "text-foreground",
     dotStatus: "running",
   },
   plan_generated: {
     icon: Zap,
-    color: "text-orbit-accent",
+    color: "text-foreground",
     dotStatus: "running",
   },
 };
@@ -145,7 +145,7 @@ export function ActivityFeed({
             className={cn(
               "px-2 py-0.5 rounded text-[10px] transition-colors",
               !filter
-                ? "bg-orbit-accent/10 text-orbit-accent"
+                ? "bg-foreground/[0.06] text-foreground"
                 : "text-muted-foreground hover:text-foreground"
             )}
           >
@@ -263,7 +263,7 @@ export function ActivityFeed({
               >
                 {loading ? (
                   <>
-                    <Loader2 className="h-3 w-3 mr-1.5 animate-spin" />
+                    <Pending />
                     Loading...
                   </>
                 ) : (

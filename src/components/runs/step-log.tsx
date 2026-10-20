@@ -1,120 +1,61 @@
 "use client";
 
-import { CheckCircle2, XCircle, Clock, Image as ImageIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { parseSteps, formatStepDuration } from "@/lib/runs/steps";
+import { STATUS_TONES, type StatusTone } from "@/lib/status-tone";
 
 interface StepLogProps {
   steps: unknown;
 }
 
-interface ParsedStep {
-  action: string;
-  status: "pass" | "fail" | "pending";
-  durationMs?: number;
-  detail?: string;
-  screenshot?: string;
-}
+const TONE: Record<"pass" | "fail" | "pending", StatusTone> = {
+  pass: "pass",
+  fail: "fail",
+  pending: "untested",
+};
 
+/** Numbered step list: folio, glyph, action, duration. The failing step carries a fail rule. */
 export function StepLog({ steps }: StepLogProps) {
-  const parsedSteps = parseStepLog(steps);
-
-  if (parsedSteps.length === 0) return null;
+  const parsed = parseSteps(steps);
+  if (parsed.length === 0) return null;
 
   return (
     <div>
-      <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
-        Execution Steps
-      </span>
-      <div className="mt-2 relative">
-        {/* Timeline connector line */}
-        <div className="absolute left-[7px] top-2 bottom-2 w-px bg-muted/40" />
-
-        <div className="space-y-0">
-          {parsedSteps.map((step, i) => (
-            <div key={i} className="flex items-start gap-3 py-1.5 relative">
-              <div className="relative z-10 shrink-0">
-                <StepIcon status={step.status} />
-              </div>
-              <div className="flex-1 min-w-0 pt-px">
-                <div className="flex items-center gap-2">
-                  <span
-                    className={cn(
-                      "text-xs",
-                      step.status === "pass" && "text-foreground/80",
-                      step.status === "fail" && "text-orbit-fail",
-                      step.status === "pending" && "text-muted-foreground"
-                    )}
-                  >
-                    <span className="text-muted-foreground tabular-nums mr-1.5">
-                      {i + 1}.
-                    </span>
-                    {step.action}
-                  </span>
-                  {step.screenshot && (
-                    <ImageIcon className="h-3 w-3 text-muted-foreground shrink-0" />
-                  )}
-                </div>
-                {step.detail && (
-                  <p className="text-[11px] text-muted-foreground mt-0.5 pl-4">
-                    {step.detail}
-                  </p>
-                )}
-              </div>
-              {step.durationMs !== undefined && (
-                <span className="text-[11px] text-muted-foreground tabular-nums shrink-0 pt-px">
-                  {formatStepDuration(step.durationMs)}
-                </span>
+      <span className="tm-label text-tm-t3">Steps</span>
+      <ol className="mt-2">
+        {parsed.map((step, i) => {
+          const tone = STATUS_TONES[TONE[step.status]];
+          return (
+            <li
+              key={i}
+              className={cn(
+                "relative grid grid-cols-[24px_16px_1fr_auto] items-baseline gap-2 py-1 pl-2 text-[13px]",
+                step.status === "fail" && "bg-tm-fail-bg/60",
+                step.status === "pending" && "text-tm-t3"
               )}
-            </div>
-          ))}
-        </div>
-      </div>
+            >
+              {step.status === "fail" && (
+                <span
+                  aria-hidden="true"
+                  className="absolute inset-y-0 left-0 w-px origin-top bg-tm-fail motion-safe:animate-[tm-rule-down_180ms_var(--ease-out)_both]"
+                />
+              )}
+              <span className="tm-num text-[10.5px] text-tm-t3">{String(i + 1).padStart(2, "0")}</span>
+              <span aria-hidden="true" className={cn("font-label text-xs", tone.text)}>
+                {tone.glyph}
+              </span>
+              <span className="min-w-0">
+                <span className="sr-only">{tone.label}: </span>
+                <span className={cn(step.status === "fail" && "font-medium text-foreground")}>{step.action}</span>
+                {step.detail && <span className="mt-0.5 block text-[12px] text-tm-t2 text-pretty">{step.detail}</span>}
+              </span>
+              <span className="tm-num pr-2 text-[10.5px] text-tm-t2">
+                {step.durationMs !== undefined ? formatStepDuration(step.durationMs) : ""}
+              </span>
+            </li>
+          );
+        })}
+      </ol>
     </div>
   );
-}
-
-function StepIcon({ status }: { status: "pass" | "fail" | "pending" }) {
-  const base = "h-[15px] w-[15px] shrink-0";
-  if (status === "pass") {
-    return <CheckCircle2 className={cn(base, "text-orbit-pass")} />;
-  }
-  if (status === "fail") {
-    return <XCircle className={cn(base, "text-orbit-fail")} />;
-  }
-  return <Clock className={cn(base, "text-muted-foreground")} />;
-}
-
-function formatStepDuration(ms: number): string {
-  if (ms < 1000) return `${ms}ms`;
-  return `${(ms / 1000).toFixed(1)}s`;
-}
-
-function parseStepLog(steps: unknown): ParsedStep[] {
-  if (!Array.isArray(steps)) return [];
-
-  return steps.map((step) => {
-    if (typeof step === "string") {
-      return { action: step, status: "pass" as const };
-    }
-
-    if (typeof step === "object" && step !== null) {
-      const s = step as Record<string, unknown>;
-      return {
-        action: (s.action ?? s.description ?? s.name ?? JSON.stringify(step)) as string,
-        status: parseStepStatus(s.status),
-        durationMs: typeof s.durationMs === "number" ? s.durationMs : undefined,
-        detail: typeof s.detail === "string" ? s.detail : undefined,
-        screenshot: typeof s.screenshot === "string" ? s.screenshot : undefined,
-      };
-    }
-
-    return { action: JSON.stringify(step), status: "pass" as const };
-  });
-}
-
-function parseStepStatus(raw: unknown): "pass" | "fail" | "pending" {
-  if (typeof raw !== "string") return "pass";
-  if (raw === "fail" || raw === "failed" || raw === "error") return "fail";
-  if (raw === "pending" || raw === "running" || raw === "skipped") return "pending";
-  return "pass";
 }

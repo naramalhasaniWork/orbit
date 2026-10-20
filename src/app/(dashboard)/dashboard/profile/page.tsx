@@ -25,11 +25,11 @@ function formatDate(dateString: string | undefined): string {
 
 function roleBadgeStyle(role: string): string {
   const styles: Record<string, string> = {
-    owner: "bg-orbit-accent/15 text-orbit-accent border-orbit-accent/20",
-    admin: "bg-blue-500/15 text-blue-400 border-blue-500/20",
-    member: "bg-emerald-500/15 text-emerald-400 border-emerald-500/20",
+    owner: "bg-foreground/[0.06] text-foreground border-tm-line-strong",
+    admin: "bg-tm-info/15 text-tm-info border-tm-info/20",
+    member: "bg-tm-pass/15 text-tm-pass border-tm-pass/20",
     viewer: "bg-gray-500/15 text-gray-400 border-gray-500/20",
-    billing: "bg-amber-500/15 text-amber-400 border-amber-500/20",
+    billing: "bg-tm-warn/15 text-tm-warn border-tm-warn/20",
   };
   return styles[role] ?? styles.member;
 }
@@ -40,7 +40,7 @@ export default function ProfilePage() {
   if (status === "loading") {
     return (
       <div className="flex items-center justify-center h-full">
-        <div className="h-6 w-6 border-2 border-orbit-accent border-t-transparent rounded-full animate-spin" />
+        <div className="h-6 w-6 border-2 border-tm-line-strong border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -59,7 +59,7 @@ export default function ProfilePage() {
   return (
     <div className="max-w-2xl mx-auto py-8 px-4 space-y-6 animate-fade-in">
       <div>
-        <h1 className="text-xl font-semibold text-foreground">Profile Settings</h1>
+        <h1 className="text-xl font-medium text-foreground">Profile Settings</h1>
         <p className="text-sm text-muted-foreground mt-1">
           Your account information and preferences
         </p>
@@ -79,7 +79,7 @@ export default function ProfilePage() {
               />
             ) : (
               <div className="h-[72px] w-[72px] rounded-full bg-foreground/[0.06] ring-2 ring-border flex items-center justify-center">
-                <span className="text-2xl font-semibold text-muted-foreground">
+                <span className="text-2xl font-medium text-muted-foreground">
                   {session.user?.name?.charAt(0)?.toUpperCase() ?? "U"}
                 </span>
               </div>
@@ -99,7 +99,7 @@ export default function ProfilePage() {
                 {provider}
               </span>
               {session.userRole === "super_admin" && (
-                <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-md bg-red-500/15 text-red-400 border border-red-500/20">
+                <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-md bg-tm-fail/15 text-tm-fail border border-tm-fail/20">
                   <Shield className="h-3 w-3" />
                   Super Admin
                 </span>
@@ -186,7 +186,7 @@ export default function ProfilePage() {
       <div className="pt-2">
         <Button
           variant="outline"
-          className="w-full border-red-500/20 text-red-400 hover:bg-red-500/10 hover:text-red-300 gap-2"
+          className="w-full border-tm-fail/20 text-tm-fail hover:bg-tm-fail/10 hover:text-tm-fail gap-2"
           onClick={() => signOut({ callbackUrl: "/login" })}
         >
           <LogOut className="h-4 w-4" />

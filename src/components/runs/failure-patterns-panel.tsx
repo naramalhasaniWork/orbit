@@ -50,14 +50,14 @@ const CATEGORY_ICONS: Record<string, typeof AlertTriangle> = {
 };
 
 const CATEGORY_COLORS: Record<string, string> = {
-  timeout: "text-orange-400",
-  selector_not_found: "text-purple-400",
+  timeout: "text-tm-warn",
+  selector_not_found: "text-tm-t2",
   assertion_mismatch: "text-orbit-fail",
-  network_error: "text-red-400",
-  auth_failure: "text-amber-400",
-  render_error: "text-rose-400",
-  data_inconsistency: "text-cyan-400",
-  navigation_failure: "text-blue-400",
+  network_error: "text-tm-fail",
+  auth_failure: "text-tm-warn",
+  render_error: "text-tm-fail",
+  data_inconsistency: "text-tm-info",
+  navigation_failure: "text-tm-info",
   unknown: "text-muted-foreground",
 };
 
@@ -93,7 +93,7 @@ export function FailurePatternsPanel({ projectId }: FailurePatternsPanelProps) {
 
   if (loading) {
     return (
-      <div className="rounded-xl surface-1 p-5 animate-pulse">
+      <div className="rounded-xl surface-1 p-5">
         <div className="h-4 w-32 bg-muted/40 rounded" />
         <div className="mt-4 space-y-2">
           <div className="h-8 bg-muted/30 rounded" />
@@ -116,7 +116,7 @@ export function FailurePatternsPanel({ projectId }: FailurePatternsPanelProps) {
           <button
             type="button"
             onClick={fetchPatterns}
-            className="text-[11px] font-medium text-orbit-accent hover:text-orbit-accent/80 shrink-0"
+            className="text-[11px] font-medium text-foreground hover:text-foreground shrink-0"
           >
             Retry
           </button>

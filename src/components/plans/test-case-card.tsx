@@ -73,7 +73,7 @@ export function TestCaseCard({ testCase, projectId, selected = false, onToggleSe
     <div
       className={cn(
         "rounded-lg bg-muted/20 transition-colors",
-        selected && "ring-1 ring-orbit-accent/40 bg-orbit-accent/[0.05]",
+        selected && "ring-1 ring-tm-line-strong bg-foreground/[0.06]",
         !enabled && "opacity-50"
       )}
     >
@@ -133,7 +133,7 @@ export function TestCaseCard({ testCase, projectId, selected = false, onToggleSe
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); setIsEditing(true); }}
-              className="text-muted-foreground/50 hover:text-orbit-accent transition-colors"
+              className="text-muted-foreground/50 hover:text-foreground transition-colors"
             >
               <Pencil className="h-3 w-3" />
             </button>
@@ -185,7 +185,7 @@ function ExpandedDetails({
     <div className="px-4 pb-3 pt-1 border-t border-border space-y-3">
       {rationale && (
         <div>
-          <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
+          <span className=" tm-label text-muted-foreground">
             Rationale
           </span>
           <p className="text-xs text-foreground/80 mt-0.5">{rationale}</p>
@@ -194,7 +194,7 @@ function ExpandedDetails({
 
       {steps.length > 0 && (
         <div>
-          <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
+          <span className=" tm-label text-muted-foreground">
             Steps
           </span>
           <ol className="mt-1 space-y-1">
@@ -212,7 +212,7 @@ function ExpandedDetails({
 
       {parsedEdgeCases.length > 0 && (
         <div>
-          <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
+          <span className=" tm-label text-muted-foreground">
             Edge Cases
           </span>
           <ul className="mt-1 space-y-0.5">

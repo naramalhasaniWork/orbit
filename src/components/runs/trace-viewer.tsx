@@ -1,8 +1,9 @@
 "use client";
 
+import { Pending } from "@/components/telemetry/pending";
 import { useState, useEffect, useMemo } from "react";
 import { motion } from "framer-motion";
-import { Activity, Loader2 } from "lucide-react";
+import { Activity } from "lucide-react";
 import {
   type TraceNodeData,
   AGENT_PHASE_CONFIG,
@@ -70,10 +71,10 @@ function TraceSummary({ traces }: { traces: TraceNodeData[] }) {
 function SummaryStat({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-col gap-0.5 p-3 rounded-lg surface-1 border border-border">
-      <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">
+      <span className=" text-muted-foreground tm-label">
         {label}
       </span>
-      <span className="text-lg font-semibold tabular-nums text-foreground">
+      <span className="text-lg font-medium tabular-nums text-foreground">
         {value}
       </span>
     </div>
@@ -114,7 +115,7 @@ function EmptyState() {
 function LoadingState() {
   return (
     <div className="rounded-xl surface-1 border border-border p-12 text-center">
-      <Loader2 className="h-6 w-6 text-muted-foreground mx-auto mb-3 animate-spin" />
+      <Pending />
       <p className="text-sm text-muted-foreground">Loading traces...</p>
     </div>
   );

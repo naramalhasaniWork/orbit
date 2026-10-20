@@ -44,7 +44,7 @@ export function JourneyGroup({ journey, testCases, projectId, selection }: Journ
             isOpen && "rotate-90"
           )}
         />
-        <span className="text-xs font-medium text-foreground uppercase tracking-wider">
+        <span className=" text-foreground tm-label">
           {journey}
         </span>
         <span className="text-xs text-muted-foreground">

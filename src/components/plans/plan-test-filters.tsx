@@ -122,7 +122,7 @@ function Chip({
       className={cn(
         "text-xs px-2 py-1 rounded-md transition-colors",
         selected
-          ? "bg-orbit-accent/15 text-orbit-accent"
+          ? "bg-foreground/[0.06] text-foreground"
           : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
       )}
     >

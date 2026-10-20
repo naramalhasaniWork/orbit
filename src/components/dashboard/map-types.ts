@@ -67,16 +67,16 @@ export const NODE_TYPE_CONFIG: Record<string, NodeTypeConfig> = {
 };
 
 export const STATUS_CONFIG: Record<TestStatus, StatusConfig> = {
-  pass: { label: "Passing", color: "#22c55e" },
-  fail: { label: "Failing", color: "#ef4444" },
-  flaky: { label: "Flaky", color: "#f59e0b" },
-  untested: { label: "Untested", color: "#6b7280" },
+  pass: { label: "Passing", color: "#18794E" },
+  fail: { label: "Failing", color: "#A3122F" },
+  flaky: { label: "Flaky", color: "#5E6B7A" },
+  untested: { label: "Untested", color: "#6B717B" },
 };
 
 export const CHANGE_STATUS_CONFIG: Record<ChangeStatus, { label: string; color: string }> = {
-  added: { label: "New", color: "#3b82f6" },
-  modified: { label: "Changed", color: "#a855f7" },
+  added: { label: "New", color: "#3A5F8F" },
+  modified: { label: "Changed", color: "#4A5059" },
   unchanged: { label: "Unchanged", color: "" },
 };
 
-export const ACCENT_COLOR = "#ff6000";
+export const ACCENT_COLOR = "#FF5B14";

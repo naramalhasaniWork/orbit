@@ -72,7 +72,7 @@ interface VisualDiffViewerProps {
 const SEVERITY_CONFIG = {
   critical: { icon: AlertTriangle, color: "text-orbit-fail", bg: "bg-orbit-fail/10", border: "border-orbit-fail/30" },
   warning: { icon: AlertTriangle, color: "text-orbit-flaky", bg: "bg-orbit-flaky/10", border: "border-orbit-flaky/30" },
-  info: { icon: Info, color: "text-orbit-accent", bg: "bg-orbit-accent/10", border: "border-orbit-accent/30" },
+  info: { icon: Info, color: "text-foreground", bg: "bg-foreground/[0.06]", border: "border-tm-line-strong" },
 } as const;
 
 // ============================================================
@@ -103,7 +103,7 @@ function ScoreGauge({ score, label }: { score: number; label: string }) {
             className={color}
           />
         </svg>
-        <span className={cn("absolute inset-0 flex items-center justify-center text-[10px] font-bold", color)}>
+        <span className={cn("absolute inset-0 flex items-center justify-center text-[10px] font-medium", color)}>
           {score}
         </span>
       </div>
@@ -123,7 +123,7 @@ function ScoreGauge({ score, label }: { score: number; label: string }) {
 function ImagePanel({ url, label, fallback }: { url?: string; label: string; fallback?: string }) {
   if (!url) {
     return (
-      <div className="flex flex-col items-center justify-center h-64 rounded-lg border border-dashed border-border/50 bg-orbit-surface-2">
+      <div className="flex flex-col items-center justify-center h-64 rounded-lg border border-dashed border-border/50 bg-orbit-surface-1">
         <ImageOff className="h-8 w-8 text-muted-foreground/50 mb-2" />
         <span className="text-xs text-muted-foreground">{fallback ?? "No image available"}</span>
       </div>
@@ -132,8 +132,8 @@ function ImagePanel({ url, label, fallback }: { url?: string; label: string; fal
 
   return (
     <div className="space-y-1.5">
-      <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">{label}</div>
-      <div className="rounded-lg border border-border/50 overflow-hidden bg-orbit-surface-2">
+      <div className=" text-muted-foreground tm-label">{label}</div>
+      <div className="rounded-lg border border-border/50 overflow-hidden bg-orbit-surface-1">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={url} alt={label} className="w-full h-auto" />
       </div>
@@ -146,14 +146,14 @@ function DiffRegionOverlay({ regions }: { regions: DiffRegion[] }) {
 
   return (
     <div className="space-y-2">
-      <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
+      <div className=" text-muted-foreground tm-label">
         Changed Regions ({regions.length})
       </div>
       <div className="grid gap-1.5">
         {regions.map((region, i) => (
           <div
             key={i}
-            className="flex items-center justify-between px-3 py-1.5 rounded-md bg-orbit-surface-2 text-xs"
+            className="flex items-center justify-between px-3 py-1.5 rounded-md bg-orbit-surface-1 text-xs"
           >
             <span className="text-muted-foreground font-mono">
               ({region.x}, {region.y}) {region.width}x{region.height}
@@ -165,7 +165,7 @@ function DiffRegionOverlay({ regions }: { regions: DiffRegion[] }) {
                   ? "bg-orbit-fail/15 text-orbit-fail border-orbit-fail/30"
                   : region.changeIntensity > 0.3
                     ? "bg-orbit-flaky/15 text-orbit-flaky border-orbit-flaky/30"
-                    : "bg-orbit-accent/15 text-orbit-accent border-orbit-accent/30"
+                    : "bg-foreground/[0.06] text-foreground border-tm-line-strong"
               )}
             >
               {Math.round(region.changeIntensity * 100)}%
@@ -281,7 +281,7 @@ export function VisualDiffViewer({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Eye className="h-4 w-4 text-orbit-accent" />
+          <Eye className="h-4 w-4 text-foreground" />
           <h3 className="text-sm font-medium text-foreground">Visual QA</h3>
           <span className="text-xs text-muted-foreground font-mono">{data.routePath}</span>
         </div>
@@ -299,7 +299,7 @@ export function VisualDiffViewer({
             </Badge>
           )}
           {data.isBaselineCapture && (
-            <Badge className="text-[10px] px-1.5 py-0 bg-orbit-accent/15 text-orbit-accent border border-orbit-accent/30">
+            <Badge className="text-[10px] px-1.5 py-0 bg-foreground/[0.06] text-foreground border border-tm-line-strong">
               Baseline Captured
             </Badge>
           )}
@@ -318,7 +318,7 @@ export function VisualDiffViewer({
 
       {/* Diff Summary */}
       {data.diff?.summary && (
-        <div className="text-xs text-muted-foreground bg-orbit-surface-2 rounded-md px-3 py-2">
+        <div className="text-xs text-muted-foreground bg-orbit-surface-1 rounded-md px-3 py-2">
           {data.diff.summary}
         </div>
       )}

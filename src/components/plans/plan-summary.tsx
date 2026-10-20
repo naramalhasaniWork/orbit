@@ -37,7 +37,7 @@ export function PlanSummary({ stats }: PlanSummaryProps) {
       </div>
 
       <div className="flex items-center gap-2 flex-wrap">
-        <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
+        <span className=" tm-label text-muted-foreground">
           Types
         </span>
         {Object.entries(stats.byType).map(([type, count]) => {
@@ -67,7 +67,7 @@ function MiniStat({
 }) {
   return (
     <div className="flex flex-col gap-0.5">
-      <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
+      <span className=" tm-label text-muted-foreground">
         {label}
       </span>
       <span className={`text-lg font-semibold tabular-nums ${color}`}>

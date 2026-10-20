@@ -1,7 +1,8 @@
 "use client";
 
+import { Pending } from "@/components/telemetry/pending";
 import { useState, useEffect, useCallback } from "react";
-import { Image as ImageIcon, X, ChevronLeft, ChevronRight, Loader2 } from "lucide-react";
+import { Image as ImageIcon, X, ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { EmptyState } from "@/components/shared/empty-state";
 import { formatDistanceToNow } from "date-fns";
@@ -83,7 +84,7 @@ export function RunScreenshotsTab({ runId, projectId }: RunScreenshotsTabProps) 
   if (loading) {
     return (
       <div className="flex items-center justify-center py-16">
-        <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+        <Pending />
       </div>
     );
   }
@@ -91,10 +92,10 @@ export function RunScreenshotsTab({ runId, projectId }: RunScreenshotsTabProps) 
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center">
-        <p className="text-sm text-red-400">{error}</p>
+        <p className="text-sm text-tm-fail">{error}</p>
         <button
           onClick={fetchScreenshots}
-          className="mt-3 text-xs text-orbit-accent hover:underline"
+          className="mt-3 text-xs text-foreground hover:underline"
         >
           Retry
         </button>
@@ -120,7 +121,7 @@ export function RunScreenshotsTab({ runId, projectId }: RunScreenshotsTabProps) 
             key={shot.id}
             type="button"
             onClick={() => setLightboxIndex(index)}
-            className="group relative rounded-lg overflow-hidden border border-border hover:border-orbit-accent/40 transition-colors bg-foreground/[0.02]"
+            className="group relative rounded-lg overflow-hidden border border-border hover:border-tm-line-strong transition-colors bg-foreground/[0.02]"
           >
             <div className="aspect-video relative">
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -175,7 +176,7 @@ function Lightbox({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm"
+      className="fixed inset-0 z-modal flex items-center justify-center bg-black/80"
       onClick={onClose}
     >
       <div
