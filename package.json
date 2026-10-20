@@ -16,6 +16,7 @@
     "db:studio": "prisma studio",
     "db:seed": "prisma db seed",
     "workers": "tsx src/workers/index.ts",
+    "build:worker": "tsup",
     "test": "vitest run",
     "test:watch": "vitest"
   },

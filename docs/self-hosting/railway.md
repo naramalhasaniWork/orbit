@@ -1,7 +1,9 @@
 # Deploying Orbit on Railway
 
-Orbit v1 is **one web service**. BullMQ workers run in-process (`src/instrumentation.ts`
-calls `registerWorkers()` on boot), so there is no separate worker service. Do not add one.
+By default Orbit is **one web service**: BullMQ workers run in-process (`ORBIT_ROLE=all`, the default;
+`src/instrumentation.ts` calls `registerWorkers()` on boot). For scale, split into a web service and a
+worker service, see [Split mode](#split-mode-web--worker). Never run both `all` and `worker` against the
+same Redis unless you want the extra capacity: they share the queues.
 
 Services in the project:
 
@@ -63,9 +65,29 @@ instance redirects to `/setup`, which checks the deployment and walks through th
 The full walkthrough, with exact field values and troubleshooting, is in
 [first-run.md](./first-run.md). The first account to sign in becomes the admin.
 
+## Split mode (web + worker)
+
+Same image, two services, selected by `ORBIT_ROLE`:
+
+| Service | `ORBIT_ROLE` | Config file | Notes |
+|---------|--------------|-------------|-------|
+| `web` | `web` | `railway.toml` | HTTP only. Health check `/api/health` |
+| `worker` | `worker` | `railway.worker.toml` | Runs `worker.mjs`; no HTTP, no health check |
+
+Give `worker` the same variables as `web` (DB, Redis, browser, storage, AI keys). Migrations do **not** run
+in split mode on boot. Set a pre-deploy command on `web` (service settings, or `preDeployCommand` in
+`railway.toml`): `["cd /prisma && node node_modules/prisma/build/index.js migrate deploy"]`.
+Worker deploys that need new schema should wait for the web deploy.
+
+Both configs set `drainingSeconds = 90` (the gap between SIGTERM and SIGKILL). On SIGTERM a worker stops
+taking jobs, finishes the current test case, and the run resumes on the next worker. Self-hosting with
+Compose: `docker compose --profile split up -d` with `ORBIT_ROLE=web` on `web`, and run migrations first
+with `docker compose run --rm -e ORBIT_ROLE=migrate web`. Failed jobs that used all their retries land
+in **Admin > Jobs** where they can be retried or discarded.
+
 ## Migrations
 
-`scripts/start.sh` runs `prisma migrate deploy` before the server starts. To run migrations as a
+For `ORBIT_ROLE=all`, `scripts/start.sh` runs `prisma migrate deploy` before the server starts. To run migrations as a
 Railway pre-deploy step instead, set `ORBIT_SKIP_MIGRATIONS=true` on `web` and configure the
 pre-deploy command in the service settings (`cd /prisma && node node_modules/prisma/build/index.js migrate deploy`).
 
