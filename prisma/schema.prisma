@@ -142,6 +142,12 @@ enum IntegrationProvider {
   railway
 }
 
+enum IntegrationStatus {
+  connected
+  disconnected
+  error
+}
+
 enum WebhookEventStatus {
   received
   processing
@@ -176,14 +182,14 @@ enum UserRole {
 // ============================================================
 
 model Workspace {
-  id              String        @id @default(uuid()) @db.Uuid
-  name            String
-  slug            String        @unique
-  tier            WorkspaceTier @default(free)
-  creditBalance   Int           @default(100) @map("credit_balance")
-  monthlyCredits  Int           @default(100) @map("monthly_credits")
-  tokenBudgetMonthly Int?       @map("token_budget_monthly")
-  settings        Json          @default("{}")
+  id                 String        @id @default(uuid()) @db.Uuid
+  name               String
+  slug               String        @unique
+  tier               WorkspaceTier @default(free)
+  creditBalance      Int           @default(100) @map("credit_balance")
+  monthlyCredits     Int           @default(100) @map("monthly_credits")
+  tokenBudgetMonthly Int?          @map("token_budget_monthly")
+  settings           Json          @default("{}")
 
   // Stripe billing fields
   stripeCustomerId     String?   @unique @map("stripe_customer_id")
@@ -193,9 +199,9 @@ model Workspace {
   billingPeriodStart   DateTime? @map("billing_period_start")
   billingPeriodEnd     DateTime? @map("billing_period_end")
 
-  deletedAt       DateTime?     @map("deleted_at")
-  createdAt       DateTime      @default(now()) @map("created_at")
-  updatedAt       DateTime      @default(now()) @updatedAt @map("updated_at")
+  deletedAt DateTime? @map("deleted_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @default(now()) @updatedAt @map("updated_at")
 
   members              WorkspaceMember[]
   projects             Project[]
@@ -206,7 +212,7 @@ model Workspace {
   previewConnections   PreviewConnection[]
   pluginInstallations  PluginInstallation[]
   domainKnowledgeFiles DomainKnowledgeFile[]
-  webhookSubscriptions WebhookSubscription[]
+  webhookEndpoints     WebhookEndpoint[]
   invitations          WorkspaceInvitation[]
   usageRecords         WorkspaceUsage[]
   subscriptions        Subscription[]
@@ -237,12 +243,12 @@ model User {
   memberships    WorkspaceMember[]
   accounts       Account[]
   sessions       Session[]
-  testPlans      TestPlan[]              @relation("ApprovedBy")
-  testRuns       TestRun[]               @relation("TriggeredBy")
+  testPlans      TestPlan[]            @relation("ApprovedBy")
+  testRuns       TestRun[]             @relation("TriggeredBy")
   auditLogs      AuditLog[]
-  apiKeys        ApiKey[]                @relation("ApiKeyCreatedBy")
-  invitedUsers   WorkspaceInvitation[]   @relation("InvitedBy")
-  promptVersions PromptVersion[]         @relation("PromptCreatedBy")
+  apiKeys        ApiKey[]              @relation("ApiKeyCreatedBy")
+  invitedUsers   WorkspaceInvitation[] @relation("InvitedBy")
+  promptVersions PromptVersion[]       @relation("PromptCreatedBy")
   conversations  Conversation[]
 
   @@map("users")
@@ -284,15 +290,15 @@ model WorkspaceInvitation {
 }
 
 model WorkspaceUsage {
-  id          String   @id @default(uuid()) @db.Uuid
-  workspaceId String   @map("workspace_id") @db.Uuid
-  month       String   // "2026-02" format
-  runsUsed    Int      @default(0) @map("runs_used")
-  creditsUsed Int      @default(0) @map("credits_used")
-  membersCount Int     @default(0) @map("members_count")
-  projectsCount Int    @default(0) @map("projects_count")
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at")
+  id            String   @id @default(uuid()) @db.Uuid
+  workspaceId   String   @map("workspace_id") @db.Uuid
+  month         String // "2026-02" format
+  runsUsed      Int      @default(0) @map("runs_used")
+  creditsUsed   Int      @default(0) @map("credits_used")
+  membersCount  Int      @default(0) @map("members_count")
+  projectsCount Int      @default(0) @map("projects_count")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at")
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
@@ -385,16 +391,16 @@ model Project {
   createdAt           DateTime      @default(now()) @map("created_at")
   updatedAt           DateTime      @default(now()) @updatedAt @map("updated_at")
 
-  workspace         Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  environments      Environment[]
-  systemMapNodes    SystemMapNode[]
-  systemMapEdges    SystemMapEdge[]
-  testPlans         TestPlan[]
-  testCases         TestCase[]
-  testRuns          TestRun[]
-  secrets           Secret[]
-  flakyTests        FlakyTest[]
-  selectorMappings  SelectorMapping[]
+  workspace          Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  environments       Environment[]
+  systemMapNodes     SystemMapNode[]
+  systemMapEdges     SystemMapEdge[]
+  testPlans          TestPlan[]
+  testCases          TestCase[]
+  testRuns           TestRun[]
+  secrets            Secret[]
+  flakyTests         FlakyTest[]
+  selectorMappings   SelectorMapping[]
   selectorHistory    SelectorHistory[]
   webhookDeliveries  WebhookDelivery[]
   webhookEvents      WebhookEvent[]
@@ -406,6 +412,8 @@ model Project {
   conversations      Conversation[]
   previewBinding     PreviewBinding?
   previewDeployments PreviewDeployment[]
+  webhookEndpoints   WebhookEndpoint[]
+  notes              ProjectNote[]
 
   @@unique([workspaceId, slug], name: "project_slug_workspace")
   @@index([workspaceId])
@@ -442,26 +450,26 @@ model ScheduledRun {
 // ============================================================
 
 model Environment {
-  id             String          @id @default(uuid()) @db.Uuid
-  projectId      String          @map("project_id") @db.Uuid
-  name           String
-  type           EnvironmentType @default(staging)
-  url            String
-  teardownHookUrl String?        @map("teardown_hook_url")
-  isDefault      Boolean         @default(false) @map("is_default")
-  defaultRunMode String          @default("full") @map("default_run_mode")
-  source         String?
-  sourceId       String?         @map("source_id")
+  id              String          @id @default(uuid()) @db.Uuid
+  projectId       String          @map("project_id") @db.Uuid
+  name            String
+  type            EnvironmentType @default(staging)
+  url             String
+  teardownHookUrl String?         @map("teardown_hook_url")
+  isDefault       Boolean         @default(false) @map("is_default")
+  defaultRunMode  String          @default("full") @map("default_run_mode")
+  source          String?
+  sourceId        String?         @map("source_id")
   /// "public" or "cloudflare_access" (headers from CF_ACCESS_* secrets are sent to this origin)
-  accessMode     String          @default("public") @map("access_mode")
+  accessMode      String          @default("public") @map("access_mode")
   /// Set when a preview environment's PR closes or its deployment is gone; archived environments are never picked as a default.
-  archivedAt     DateTime?       @map("archived_at")
-  createdAt      DateTime        @default(now()) @map("created_at")
-  updatedAt      DateTime        @default(now()) @updatedAt @map("updated_at")
+  archivedAt      DateTime?       @map("archived_at")
+  createdAt       DateTime        @default(now()) @map("created_at")
+  updatedAt       DateTime        @default(now()) @updatedAt @map("updated_at")
 
-  project  Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  testRuns TestRun[]
-  secrets  Secret[]
+  project            Project             @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  testRuns           TestRun[]
+  secrets            Secret[]
   previewDeployments PreviewDeployment[]
 
   @@index([projectId])
@@ -469,14 +477,14 @@ model Environment {
 }
 
 model Secret {
-  id            String   @id @default(uuid()) @db.Uuid
-  projectId     String   @map("project_id") @db.Uuid
-  environmentId String?  @map("environment_id") @db.Uuid
-  key           String
-  encryptedValue String  @map("encrypted_value")
-  iv            String
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @default(now()) @updatedAt @map("updated_at")
+  id             String   @id @default(uuid()) @db.Uuid
+  projectId      String   @map("project_id") @db.Uuid
+  environmentId  String?  @map("environment_id") @db.Uuid
+  key            String
+  encryptedValue String   @map("encrypted_value")
+  iv             String
+  createdAt      DateTime @default(now()) @map("created_at")
+  updatedAt      DateTime @default(now()) @updatedAt @map("updated_at")
 
   project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
   environment Environment? @relation(fields: [environmentId], references: [id], onDelete: Cascade)
@@ -490,16 +498,16 @@ model Secret {
 // ============================================================
 
 model SystemMapNode {
-  id            String                         @id @default(uuid()) @db.Uuid
-  projectId     String                         @map("project_id") @db.Uuid
+  id            String                       @id @default(uuid()) @db.Uuid
+  projectId     String                       @map("project_id") @db.Uuid
   type          SystemMapNodeType
   name          String
-  filePath      String                         @map("file_path")
-  metadata      Json                           @default("{}")
+  filePath      String                       @map("file_path")
+  metadata      Json                         @default("{}")
   embedding     Unsupported("vector(1536)")?
-  lastIndexedAt DateTime                       @default(now()) @map("last_indexed_at")
-  createdAt     DateTime                       @default(now()) @map("created_at")
-  updatedAt     DateTime                       @default(now()) @updatedAt @map("updated_at")
+  lastIndexedAt DateTime                     @default(now()) @map("last_indexed_at")
+  createdAt     DateTime                     @default(now()) @map("created_at")
+  updatedAt     DateTime                     @default(now()) @updatedAt @map("updated_at")
 
   project       Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
   outgoingEdges SystemMapEdge[] @relation("SourceNode")
@@ -535,17 +543,17 @@ model SystemMapEdge {
 // ============================================================
 
 model TestPlan {
-  id          String    @id @default(uuid()) @db.Uuid
-  projectId   String    @map("project_id") @db.Uuid
-  version     Int       @default(1)
-  isActive    Boolean   @default(true) @map("is_active")
-  generatedBy String    @default("planner") @map("generated_by")
-  summary     Json      @default("{}")
-  approvedAt  DateTime? @map("approved_at")
-  approvedById String?  @map("approved_by") @db.Uuid
-  deletedAt   DateTime? @map("deleted_at")
-  createdAt   DateTime  @default(now()) @map("created_at")
-  updatedAt   DateTime  @default(now()) @updatedAt @map("updated_at")
+  id           String    @id @default(uuid()) @db.Uuid
+  projectId    String    @map("project_id") @db.Uuid
+  version      Int       @default(1)
+  isActive     Boolean   @default(true) @map("is_active")
+  generatedBy  String    @default("planner") @map("generated_by")
+  summary      Json      @default("{}")
+  approvedAt   DateTime? @map("approved_at")
+  approvedById String?   @map("approved_by") @db.Uuid
+  deletedAt    DateTime? @map("deleted_at")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @default(now()) @updatedAt @map("updated_at")
 
   project    Project    @relation(fields: [projectId], references: [id], onDelete: Cascade)
   approvedBy User?      @relation("ApprovedBy", fields: [approvedById], references: [id])
@@ -558,26 +566,26 @@ model TestPlan {
 }
 
 model TestCase {
-  id           String      @id @default(uuid()) @db.Uuid
-  testPlanId   String      @map("test_plan_id") @db.Uuid
-  projectId    String      @map("project_id") @db.Uuid
-  name         String
-  type         TestType
-  journey      String?
-  priorityScore Int        @default(50) @map("priority_score")
-  criticality  Int         @default(50)
-  risk         Int         @default(50)
-  coverageGap  Int         @default(50) @map("coverage_gap")
-  steps        Json
-  rationale    String?
-  edgeCases    Json        @default("[]") @map("edge_cases")
-  requiredRole String?     @map("required_role")
-  isEnabled    Boolean     @default(true) @map("is_enabled")
-  isCritical   Boolean     @default(false) @map("is_critical")
-  lastVerdict  TestVerdict? @map("last_verdict")
-  lastRunAt    DateTime?   @map("last_run_at")
-  createdAt    DateTime    @default(now()) @map("created_at")
-  updatedAt    DateTime    @default(now()) @updatedAt @map("updated_at")
+  id            String       @id @default(uuid()) @db.Uuid
+  testPlanId    String       @map("test_plan_id") @db.Uuid
+  projectId     String       @map("project_id") @db.Uuid
+  name          String
+  type          TestType
+  journey       String?
+  priorityScore Int          @default(50) @map("priority_score")
+  criticality   Int          @default(50)
+  risk          Int          @default(50)
+  coverageGap   Int          @default(50) @map("coverage_gap")
+  steps         Json
+  rationale     String?
+  edgeCases     Json         @default("[]") @map("edge_cases")
+  requiredRole  String?      @map("required_role")
+  isEnabled     Boolean      @default(true) @map("is_enabled")
+  isCritical    Boolean      @default(false) @map("is_critical")
+  lastVerdict   TestVerdict? @map("last_verdict")
+  lastRunAt     DateTime?    @map("last_run_at")
+  createdAt     DateTime     @default(now()) @map("created_at")
+  updatedAt     DateTime     @default(now()) @updatedAt @map("updated_at")
 
   testPlan    TestPlan          @relation(fields: [testPlanId], references: [id], onDelete: Cascade)
   project     Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
@@ -597,46 +605,46 @@ model TestCase {
 // ============================================================
 
 model TestRun {
-  id             String     @id @default(uuid()) @db.Uuid
-  projectId      String     @map("project_id") @db.Uuid
-  environmentId  String?    @map("environment_id") @db.Uuid
-  testPlanId     String?    @map("test_plan_id") @db.Uuid
-  status         RunStatus  @default(queued)
-  mode           RunMode    @default(full)
-  trigger        RunTrigger @default(manual)
-  triggeredById  String?    @map("triggered_by") @db.Uuid
-  branch         String?
-  commitSha      String?    @map("commit_sha")
-  prNumber       Int?       @map("pr_number")
+  id              String     @id @default(uuid()) @db.Uuid
+  projectId       String     @map("project_id") @db.Uuid
+  environmentId   String?    @map("environment_id") @db.Uuid
+  testPlanId      String?    @map("test_plan_id") @db.Uuid
+  status          RunStatus  @default(queued)
+  mode            RunMode    @default(full)
+  trigger         RunTrigger @default(manual)
+  triggeredById   String?    @map("triggered_by") @db.Uuid
+  branch          String?
+  commitSha       String?    @map("commit_sha")
+  prNumber        Int?       @map("pr_number")
   /// Human run number per project (#412). Assigned by the test_runs insert trigger; never set from code.
-  sequenceNumber Int        @default(0) @map("sequence_number")
-  totalTests     Int        @default(0) @map("total_tests")
-  passed         Int        @default(0)
-  failed         Int        @default(0)
-  flaky          Int        @default(0)
-  skipped        Int        @default(0)
-  creditsConsumed Int       @default(0) @map("credits_consumed")
-  summary        String?
-  startedAt      DateTime?  @map("started_at")
-  completedAt    DateTime?  @map("completed_at")
-  durationMs     Int?       @map("duration_ms")
-  metadata       Json       @default("{}")
-  createdAt      DateTime   @default(now()) @map("created_at")
-  updatedAt      DateTime   @default(now()) @updatedAt @map("updated_at")
+  sequenceNumber  Int        @default(0) @map("sequence_number")
+  totalTests      Int        @default(0) @map("total_tests")
+  passed          Int        @default(0)
+  failed          Int        @default(0)
+  flaky           Int        @default(0)
+  skipped         Int        @default(0)
+  creditsConsumed Int        @default(0) @map("credits_consumed")
+  summary         String?
+  startedAt       DateTime?  @map("started_at")
+  completedAt     DateTime?  @map("completed_at")
+  durationMs      Int?       @map("duration_ms")
+  metadata        Json       @default("{}")
+  createdAt       DateTime   @default(now()) @map("created_at")
+  updatedAt       DateTime   @default(now()) @updatedAt @map("updated_at")
 
-  project     Project      @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  environment Environment? @relation(fields: [environmentId], references: [id])
-  testPlan    TestPlan?    @relation(fields: [testPlanId], references: [id])
-  triggeredBy User?        @relation("TriggeredBy", fields: [triggeredById], references: [id])
+  project     Project               @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  environment Environment?          @relation(fields: [environmentId], references: [id])
+  testPlan    TestPlan?             @relation(fields: [testPlanId], references: [id])
+  triggeredBy User?                 @relation("TriggeredBy", fields: [triggeredById], references: [id])
   results     TestResult[]
   artifacts   RunArtifact[]
   traces      AgentExecutionTrace[]
 
+  @@unique([projectId, sequenceNumber])
   @@index([projectId])
   @@index([projectId, status])
   @@index([projectId, createdAt])
   @@index([status])
-  @@unique([projectId, sequenceNumber])
   @@map("test_runs")
 }
 
@@ -763,6 +771,7 @@ model ApiKey {
 model WebhookDelivery {
   id          String    @id @default(uuid()) @db.Uuid
   projectId   String    @map("project_id") @db.Uuid
+  endpointId  String?   @map("endpoint_id") @db.Uuid
   event       String
   url         String
   payload     Json
@@ -772,10 +781,12 @@ model WebhookDelivery {
   deliveredAt DateTime? @map("delivered_at")
   createdAt   DateTime  @default(now()) @map("created_at")
 
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project  Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  endpoint WebhookEndpoint? @relation(fields: [endpointId], references: [id], onDelete: SetNull)
 
   @@index([projectId])
   @@index([projectId, event])
+  @@index([endpointId])
   @@map("webhook_deliveries")
 }
 
@@ -807,16 +818,16 @@ model CreditTransaction {
 // ============================================================
 
 model WebhookEvent {
-  id         String             @id @default(uuid()) @db.Uuid
-  projectId  String?            @map("project_id") @db.Uuid
-  provider   IntegrationProvider
-  event      String
-  externalId String?            @map("external_id")
-  payload    Json
-  status     WebhookEventStatus @default(received)
-  error      String?
-  processedAt DateTime?         @map("processed_at")
-  createdAt  DateTime           @default(now()) @map("created_at")
+  id          String              @id @default(uuid()) @db.Uuid
+  projectId   String?             @map("project_id") @db.Uuid
+  provider    IntegrationProvider
+  event       String
+  externalId  String?             @map("external_id")
+  payload     Json
+  status      WebhookEventStatus  @default(received)
+  error       String?
+  processedAt DateTime?           @map("processed_at")
+  createdAt   DateTime            @default(now()) @map("created_at")
 
   project Project? @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
@@ -841,17 +852,17 @@ enum SubscriptionStatus {
 }
 
 model Subscription {
-  id                    String             @id @default(uuid()) @db.Uuid
-  workspaceId           String             @map("workspace_id") @db.Uuid
-  stripeSubscriptionId  String             @unique @map("stripe_subscription_id")
-  status                SubscriptionStatus @default(active)
-  currentPeriodStart    DateTime           @map("current_period_start")
-  currentPeriodEnd      DateTime           @map("current_period_end")
-  cancelAtPeriodEnd     Boolean            @default(false) @map("cancel_at_period_end")
-  priceId               String             @map("price_id")
-  tier                  WorkspaceTier      @default(free)
-  createdAt             DateTime           @default(now()) @map("created_at")
-  updatedAt             DateTime           @default(now()) @updatedAt @map("updated_at")
+  id                   String             @id @default(uuid()) @db.Uuid
+  workspaceId          String             @map("workspace_id") @db.Uuid
+  stripeSubscriptionId String             @unique @map("stripe_subscription_id")
+  status               SubscriptionStatus @default(active)
+  currentPeriodStart   DateTime           @map("current_period_start")
+  currentPeriodEnd     DateTime           @map("current_period_end")
+  cancelAtPeriodEnd    Boolean            @default(false) @map("cancel_at_period_end")
+  priceId              String             @map("price_id")
+  tier                 WorkspaceTier      @default(free)
+  createdAt            DateTime           @default(now()) @map("created_at")
+  updatedAt            DateTime           @default(now()) @updatedAt @map("updated_at")
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
@@ -872,17 +883,17 @@ enum AgentPhase {
 }
 
 model TokenUsage {
-  id            String     @id @default(uuid()) @db.Uuid
-  workspaceId   String     @map("workspace_id") @db.Uuid
-  projectId     String?    @map("project_id") @db.Uuid
-  model         String
-  inputTokens   Int        @map("input_tokens")
-  outputTokens  Int        @map("output_tokens")
-  cachedTokens  Int        @default(0) @map("cached_tokens")
-  cost          Decimal    @db.Decimal(10, 6)
-  agentPhase    AgentPhase @map("agent_phase")
-  runId         String?    @map("run_id") @db.Uuid
-  createdAt     DateTime   @default(now()) @map("created_at")
+  id           String     @id @default(uuid()) @db.Uuid
+  workspaceId  String     @map("workspace_id") @db.Uuid
+  projectId    String?    @map("project_id") @db.Uuid
+  model        String
+  inputTokens  Int        @map("input_tokens")
+  outputTokens Int        @map("output_tokens")
+  cachedTokens Int        @default(0) @map("cached_tokens")
+  cost         Decimal    @db.Decimal(10, 6)
+  agentPhase   AgentPhase @map("agent_phase")
+  runId        String?    @map("run_id") @db.Uuid
+  createdAt    DateTime   @default(now()) @map("created_at")
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
@@ -941,9 +952,9 @@ model AgentExecutionTrace {
   startedAt      DateTime   @default(now()) @map("started_at")
   completedAt    DateTime?  @map("completed_at")
 
-  testRun        TestRun                @relation(fields: [runId], references: [id], onDelete: Cascade)
-  parentTrace    AgentExecutionTrace?   @relation("SubTraces", fields: [parentTraceId], references: [id])
-  childTraces    AgentExecutionTrace[]  @relation("SubTraces")
+  testRun     TestRun               @relation(fields: [runId], references: [id], onDelete: Cascade)
+  parentTrace AgentExecutionTrace?  @relation("SubTraces", fields: [parentTraceId], references: [id])
+  childTraces AgentExecutionTrace[] @relation("SubTraces")
 
   @@index([runId])
   @@index([runId, agentPhase])
@@ -980,12 +991,12 @@ model Invoice {
 // ============================================================
 
 model StripeWebhookEvent {
-  id              String   @id @default(uuid()) @db.Uuid
-  stripeEventId   String   @unique @map("stripe_event_id")
-  type            String
-  processed       Boolean  @default(false)
-  error           String?
-  createdAt       DateTime @default(now()) @map("created_at")
+  id            String   @id @default(uuid()) @db.Uuid
+  stripeEventId String   @unique @map("stripe_event_id")
+  type          String
+  processed     Boolean  @default(false)
+  error         String?
+  createdAt     DateTime @default(now()) @map("created_at")
 
   @@index([stripeEventId])
   @@index([createdAt])
@@ -996,15 +1007,26 @@ model StripeWebhookEvent {
 // INTEGRATION CONFIGS — per-workspace integration settings
 // ============================================================
 
+/// Read and written only through src/server/data/integration-repo.ts.
 model IntegrationConfig {
-  id          String              @id @default(uuid()) @db.Uuid
-  workspaceId String              @map("workspace_id") @db.Uuid
-  provider    IntegrationProvider
-  isEnabled   Boolean             @default(true) @map("is_enabled")
-  config      Json                @default("{}")
-  credentials Json                @default("{}")
-  createdAt   DateTime            @default(now()) @map("created_at")
-  updatedAt   DateTime            @default(now()) @updatedAt @map("updated_at")
+  id                String              @id @default(uuid()) @db.Uuid
+  workspaceId       String              @map("workspace_id") @db.Uuid
+  provider          IntegrationProvider
+  isEnabled         Boolean             @default(true) @map("is_enabled")
+  status            IntegrationStatus   @default(connected)
+  /// The provider-side account the credentials act for (e.g. the Linear team id).
+  externalAccountId String?             @map("external_account_id")
+  displayName       String?             @map("display_name")
+  /// A SealedSecret ({encrypted, iv}). Never select it outside integration-repo.
+  credentialsSealed Json?               @map("credentials_sealed")
+  /// Provider settings (domain/config/integrations), including lastError/lastErrorAt.
+  settings          Json                @default("{}")
+  /// Deprecated: superseded by settings/credentialsSealed; dropped a release after the 20261025 backfill.
+  config            Json                @default("{}")
+  /// Deprecated: see `config`.
+  credentials       Json                @default("{}")
+  createdAt         DateTime            @default(now()) @map("created_at")
+  updatedAt         DateTime            @default(now()) @updatedAt @map("updated_at")
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
@@ -1247,18 +1269,18 @@ model PluginInstallation {
 // ============================================================
 
 model DomainKnowledgeFile {
-  id          String                          @id @default(uuid()) @db.Uuid
-  workspaceId String                          @map("workspace_id") @db.Uuid
+  id          String                       @id @default(uuid()) @db.Uuid
+  workspaceId String                       @map("workspace_id") @db.Uuid
   name        String
-  type        KnowledgeFileType               @default(other)
-  storageKey  String                          @map("storage_key")
-  sizeBytes   Int                             @map("size_bytes")
-  chunkCount  Int                             @default(0) @map("chunk_count")
+  type        KnowledgeFileType            @default(other)
+  storageKey  String                       @map("storage_key")
+  sizeBytes   Int                          @map("size_bytes")
+  chunkCount  Int                          @default(0) @map("chunk_count")
   embedding   Unsupported("vector(1536)")?
-  metadata    Json                            @default("{}")
-  uploadedBy  String?                         @map("uploaded_by") @db.Uuid
-  createdAt   DateTime                        @default(now()) @map("created_at")
-  updatedAt   DateTime                        @default(now()) @updatedAt @map("updated_at")
+  metadata    Json                         @default("{}")
+  uploadedBy  String?                      @map("uploaded_by") @db.Uuid
+  createdAt   DateTime                     @default(now()) @map("created_at")
+  updatedAt   DateTime                     @default(now()) @updatedAt @map("updated_at")
 
   workspace Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   chunks    KnowledgeChunk[]
@@ -1273,14 +1295,14 @@ model DomainKnowledgeFile {
 // ============================================================
 
 model KnowledgeChunk {
-  id              String                          @id @default(uuid()) @db.Uuid
-  knowledgeFileId String                          @map("knowledge_file_id") @db.Uuid
-  workspaceId     String                          @map("workspace_id") @db.Uuid
+  id              String                       @id @default(uuid()) @db.Uuid
+  knowledgeFileId String                       @map("knowledge_file_id") @db.Uuid
+  workspaceId     String                       @map("workspace_id") @db.Uuid
   content         String
-  chunkIndex      Int                             @map("chunk_index")
+  chunkIndex      Int                          @map("chunk_index")
   embedding       Unsupported("vector(1536)")?
-  metadata        Json                            @default("{}")
-  createdAt       DateTime                        @default(now()) @map("created_at")
+  metadata        Json                         @default("{}")
+  createdAt       DateTime                     @default(now()) @map("created_at")
 
   knowledgeFile DomainKnowledgeFile @relation(fields: [knowledgeFileId], references: [id], onDelete: Cascade)
 
@@ -1290,24 +1312,49 @@ model KnowledgeChunk {
 }
 
 // ============================================================
-// WEBHOOK SUBSCRIPTIONS — user-configured outbound webhooks
+// WEBHOOK ENDPOINTS — user-configured outbound webhooks
 // ============================================================
 
-model WebhookSubscription {
-  id          String   @id @default(uuid()) @db.Uuid
-  workspaceId String   @map("workspace_id") @db.Uuid
-  url         String
-  events      Json     @default("[]")
-  secret      String?
-  isEnabled   Boolean  @default(true) @map("is_enabled")
-  description String?
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at")
+/// An outbound webhook target. projectId null means workspace-wide (not dispatched yet).
+model WebhookEndpoint {
+  id           String   @id @default(uuid()) @db.Uuid
+  workspaceId  String   @map("workspace_id") @db.Uuid
+  projectId    String?  @map("project_id") @db.Uuid
+  url          String
+  events       String[] @default([])
+  /// A SealedSecret ({encrypted, iv}) used to sign deliveries.
+  secretSealed Json?    @map("secret_sealed")
+  isEnabled    Boolean  @default(true) @map("is_enabled")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at")
 
-  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspace  Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  project    Project?          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  deliveries WebhookDelivery[]
 
   @@index([workspaceId])
-  @@map("webhook_subscriptions")
+  @@index([projectId])
+  @@map("webhook_endpoints")
+}
+
+// ============================================================
+// PROJECT NOTES — user-supplied context for planner/executor prompts
+// ============================================================
+
+model ProjectNote {
+  id        String   @id @default(uuid()) @db.Uuid
+  projectId String   @map("project_id") @db.Uuid
+  content   String
+  /// "context" | "instruction" | "known-issue" | "credential-hint"
+  category  String   @default("context")
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@map("project_notes")
 }
 
 // ============================================================
@@ -1377,7 +1424,7 @@ model AuditResult {
 model ProviderConfig {
   id              String   @id @default(uuid()) @db.Uuid
   workspaceId     String   @map("workspace_id") @db.Uuid
-  provider        String   // "anthropic", "openai", "openrouter", "custom"
+  provider        String // "anthropic", "openai", "openrouter", "custom"
   displayName     String?  @map("display_name")
   apiKeyEncrypted String?  @map("api_key_encrypted")
   baseUrl         String?  @map("base_url")
@@ -1442,16 +1489,16 @@ model GlobalModelPolicy {
 // ============================================================
 
 model PromptVersion {
-  id          String      @id @default(uuid()) @db.Uuid
-  workspaceId String?     @map("workspace_id") @db.Uuid
-  agentPhase  AgentPhase  @map("agent_phase")
-  promptType  String      @map("prompt_type") // "operator", "user", "agent"
+  id          String     @id @default(uuid()) @db.Uuid
+  workspaceId String?    @map("workspace_id") @db.Uuid
+  agentPhase  AgentPhase @map("agent_phase")
+  promptType  String     @map("prompt_type") // "operator", "user", "agent"
   content     String
-  version     Int         @default(1)
-  isActive    Boolean     @default(true) @map("is_active")
-  createdById String?     @map("created_by_id") @db.Uuid
+  version     Int        @default(1)
+  isActive    Boolean    @default(true) @map("is_active")
+  createdById String?    @map("created_by_id") @db.Uuid
   changelog   String?
-  createdAt   DateTime    @default(now()) @map("created_at")
+  createdAt   DateTime   @default(now()) @map("created_at")
 
   workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   createdBy User?      @relation("PromptCreatedBy", fields: [createdById], references: [id])
@@ -1492,17 +1539,17 @@ model McpConnection {
 // ============================================================
 
 model Conversation {
-  id        String    @id @default(uuid()) @db.Uuid
-  projectId String    @map("project_id") @db.Uuid
-  userId    String    @map("user_id") @db.Uuid
+  id        String   @id @default(uuid()) @db.Uuid
+  projectId String   @map("project_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
   title     String?
-  isActive  Boolean   @default(true) @map("is_active")
-  createdAt DateTime  @default(now()) @map("created_at")
-  updatedAt DateTime  @default(now()) @updatedAt @map("updated_at")
+  isActive  Boolean  @default(true) @map("is_active")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
 
-  project   Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  messages  Message[]
+  project  Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages Message[]
 
   @@index([projectId, userId])
   @@index([projectId, isActive])
@@ -1510,17 +1557,17 @@ model Conversation {
 }
 
 model Message {
-  id             String       @id @default(uuid()) @db.Uuid
-  conversationId String       @map("conversation_id") @db.Uuid
-  role           String       // "user" | "assistant" | "tool_call" | "tool_result"
+  id             String   @id @default(uuid()) @db.Uuid
+  conversationId String   @map("conversation_id") @db.Uuid
+  role           String // "user" | "assistant" | "tool_call" | "tool_result"
   content        String
-  toolName       String?      @map("tool_name")
-  toolArgs       Json?        @map("tool_args")
-  toolResult     Json?        @map("tool_result")
-  metadata       Json         @default("{}")
-  createdAt      DateTime     @default(now()) @map("created_at")
+  toolName       String?  @map("tool_name")
+  toolArgs       Json?    @map("tool_args")
+  toolResult     Json?    @map("tool_result")
+  metadata       Json     @default("{}")
+  createdAt      DateTime @default(now()) @map("created_at")
 
-  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
 
   @@index([conversationId, createdAt])
   @@map("messages")
