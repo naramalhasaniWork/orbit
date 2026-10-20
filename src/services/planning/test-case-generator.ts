@@ -6,6 +6,7 @@ import {
   computeMaxTestCasesForTokenBudget,
 } from "@/lib/ai/model-router";
 import { generateVisualRegressionCases } from "@/services/planning/visual-regression-cases";
+import { getFlag } from "@/lib/system-config";
 import { getPlannerKnowledge } from "@/services/knowledge/context-injector";
 import { buildPlannerPrompt, type PlannerContext } from "@/agents/prompts/planner-prompt";
 import { loadUserLayerForProject, getWorkspaceName, loadTestingNotes } from "@/agents/prompts/context-loader";
@@ -257,8 +258,10 @@ export async function generateTestCases(input: GenerationInput): Promise<Generat
   const parsed = parseLlmJson(completion.content);
   const validated = TestPlanSchema.parse(parsed);
 
-  // Append visual regression test cases for route nodes
-  const visualCases = generateVisualRegressionCases(systemMap, existingTestNames);
+  // Visual regression cases only when an admin enabled visual QA
+  const visualCases = (await getFlag("visual_regression"))
+    ? generateVisualRegressionCases(systemMap, existingTestNames)
+    : [];
   const allTestCases = [...validated.testCases, ...visualCases];
 
   // metadata may be absent when the response was truncated and recovered —
