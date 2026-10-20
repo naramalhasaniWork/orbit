@@ -13,6 +13,8 @@ type Where = Record<string, unknown>;
 
 function matches(row: Row, where: Where = {}): boolean {
   return Object.entries(where).every(([key, cond]) => {
+    // tenant scopes (server/data/scope.ts) add their filter as an AND term
+    if (key === "AND") return (Array.isArray(cond) ? cond : [cond]).every((term) => matches(row, term as Where));
     if (cond && typeof cond === "object" && !Array.isArray(cond)) {
       const c = cond as Row;
       if ("equals" in c) return c.equals === Prisma.DbNull ? row[key] === null || row[key] === undefined : row[key] === c.equals;

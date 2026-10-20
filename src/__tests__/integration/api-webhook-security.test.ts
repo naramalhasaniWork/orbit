@@ -22,6 +22,7 @@ vi.mock("@/lib/db", async () => {
     },
     webhookDelivery: {
       findFirst: vi.fn(async () => delivery),
+      findUnique: vi.fn(async () => delivery),
       create: (...a: unknown[]) => deliveryCreate(...a),
       update: (...a: unknown[]) => deliveryUpdate(...a),
     },

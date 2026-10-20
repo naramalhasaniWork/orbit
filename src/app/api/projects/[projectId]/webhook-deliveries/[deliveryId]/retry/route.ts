@@ -1,4 +1,3 @@
-import { prisma } from "@/lib/db";
 import { apiSuccess, apiError } from "@/lib/utils/api";
 import { isAllowedWebhookUrl } from "@/lib/integrations/webhook-url";
 import { safeFetch } from "@/lib/utils/ssrf";
@@ -15,18 +14,11 @@ import { route } from "@/server/http/route";
 
 export const POST = route(
   { permission: "integrations.manage" },
-  async ({ params: { projectId, deliveryId }, workspaceId }) => {
-    const project = await prisma.project.findFirst({
-      where: { id: projectId, workspaceId },
-      select: { id: true },
-    });
+  async ({ params: { projectId, deliveryId }, db }) => {
+    const project = await db.project(projectId);
 
-    if (!project) {
-      return apiError("Project not found", "NOT_FOUND", 404);
-    }
-
-    const delivery = await prisma.webhookDelivery.findFirst({
-      where: { id: deliveryId, projectId },
+    const delivery = await project.db.webhookDelivery.findUnique({
+      where: { id: deliveryId },
     });
 
     if (!delivery) {
@@ -34,7 +26,7 @@ export const POST = route(
     }
 
     // The delivery's endpoint; deliveries from before W3 have no endpointId and match by URL
-    const endpoints = await deliverableEndpoints(projectId);
+    const endpoints = await deliverableEndpoints(project.id, project.db);
     const endpoint =
       endpoints.find((e) => delivery.endpointId !== null && e.id === delivery.endpointId) ??
       endpoints.find((e) => e.url === delivery.url);
@@ -65,7 +57,7 @@ export const POST = route(
       signal: AbortSignal.timeout(10000),
     }, { followRedirects: false });
 
-    await prisma.webhookDelivery.update({
+    await project.db.webhookDelivery.update({
       where: { id: deliveryId },
       data: {
         statusCode: response.status,

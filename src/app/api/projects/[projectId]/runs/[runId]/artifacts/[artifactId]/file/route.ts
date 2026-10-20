@@ -1,4 +1,3 @@
-import { prisma } from "@/lib/db";
 import { getStorage } from "@/lib/storage";
 import { apiError } from "@/lib/utils/api";
 import { route } from "@/server/http/route";
@@ -12,18 +11,11 @@ export const dynamic = "force-dynamic";
 // for artifacts — storage keys and file:// paths are never exposed.
 // ============================================================
 
-export const GET = route({}, async ({ params: { projectId, runId, artifactId }, workspaceId }) => {
-  const project = await prisma.project.findFirst({
-    where: { id: projectId, workspaceId },
-    select: { id: true },
-  });
+export const GET = route({}, async ({ params: { projectId, runId, artifactId }, db }) => {
+  const project = await db.project(projectId);
 
-  if (!project) {
-    return apiError("Project not found", "NOT_FOUND", 404);
-  }
-
-  const artifact = await prisma.runArtifact.findFirst({
-    where: { id: artifactId, testRunId: runId, projectId },
+  const artifact = await project.db.runArtifact.findUnique({
+    where: { id: artifactId, testRunId: runId },
     select: { storageKey: true, contentType: true, fileName: true },
   });
 

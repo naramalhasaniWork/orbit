@@ -1,6 +1,5 @@
 import { z } from "zod";
-import { prisma } from "@/lib/db";
-import { apiSuccess, apiError } from "@/lib/utils/api";
+import { apiSuccess } from "@/lib/utils/api";
 import { deleteBinding, getBindingView, saveBinding } from "@/services/preview/binding-service";
 import { listConnectionSummaries } from "@/services/preview/connection-service";
 import { mapPreviewError } from "@/services/preview/http";
@@ -20,15 +19,10 @@ const BindingSchema = z.object({
     .optional(),
 });
 
-async function projectInWorkspace(projectId: string, workspaceId: string): Promise<boolean> {
-  const project = await prisma.project.findFirst({ where: { id: projectId, workspaceId }, select: { id: true } });
-  return !!project;
-}
-
 export const GET = route(
   { permission: "integrations.view", onError: mapPreviewError },
-  async ({ params: { projectId }, workspaceId }) => {
-    if (!(await projectInWorkspace(projectId, workspaceId))) return apiError("Project not found", "NOT_FOUND", 404);
+  async ({ params: { projectId }, workspaceId, db }) => {
+    await db.project(projectId);
 
     const [view, connections] = await Promise.all([getBindingView(projectId), listConnectionSummaries(workspaceId)]);
     return apiSuccess({ ...view, connections });
@@ -41,9 +35,9 @@ export const GET = route(
  */
 export const PUT = route(
   { permission: "integrations.manage", onError: mapPreviewError },
-  async ({ req, params: { projectId }, workspaceId, session }) => {
+  async ({ req, params: { projectId }, workspaceId, session, db }) => {
     assertPermission(session.role, "secrets.manage");
-    if (!(await projectInWorkspace(projectId, workspaceId))) return apiError("Project not found", "NOT_FOUND", 404);
+    await db.project(projectId);
 
     const input = BindingSchema.parse(await req.json());
     const binding = await saveBinding(workspaceId, projectId, input);
@@ -53,8 +47,8 @@ export const PUT = route(
 
 export const DELETE = route(
   { permission: "integrations.manage", onError: mapPreviewError },
-  async ({ params: { projectId }, workspaceId }) => {
-    if (!(await projectInWorkspace(projectId, workspaceId))) return apiError("Project not found", "NOT_FOUND", 404);
+  async ({ params: { projectId }, db }) => {
+    await db.project(projectId);
 
     await deleteBinding(projectId);
     return apiSuccess({ bound: false });

@@ -1,30 +1,19 @@
-import { prisma } from "@/lib/db";
-import { apiSuccess, apiError } from "@/lib/utils/api";
+import { apiSuccess } from "@/lib/utils/api";
 import { route } from "@/server/http/route";
 
 // ============================================================
 // GET /api/projects/[projectId]/webhook-deliveries — List deliveries
 // ============================================================
 
-export const GET = route({}, async ({ req: request, params: { projectId }, workspaceId }) => {
-  const project = await prisma.project.findFirst({
-    where: { id: projectId, workspaceId },
-    select: { id: true },
-  });
-
-  if (!project) {
-    return apiError("Project not found", "NOT_FOUND", 404);
-  }
+export const GET = route({}, async ({ req: request, params: { projectId }, db }) => {
+  const project = await db.project(projectId);
 
   const url = new URL(request.url);
   const limit = Math.min(Number(url.searchParams.get("limit") ?? 50), 100);
   const event = url.searchParams.get("event");
 
-  const deliveries = await prisma.webhookDelivery.findMany({
-    where: {
-      projectId,
-      ...(event ? { event } : {}),
-    },
+  const deliveries = await project.db.webhookDelivery.findMany({
+    where: event ? { event } : {},
     orderBy: { createdAt: "desc" },
     take: limit,
     select: {
@@ -39,9 +28,8 @@ export const GET = route({}, async ({ req: request, params: { projectId }, works
     },
   });
 
-  const stats = await prisma.webhookDelivery.groupBy({
+  const stats = await project.db.webhookDelivery.groupBy({
     by: ["event"],
-    where: { projectId },
     _count: { id: true },
   });
 

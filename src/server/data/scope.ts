@@ -27,6 +27,8 @@ export interface WorkspaceScope {
   db: Db;
   /** The only door to a project's rows: throws NotFoundError when it is not in this workspace. */
   project(id: string): Promise<ProjectScope>;
+  /** project(id) for handlers outside route() that answer a missing project themselves. */
+  findProject(id: string): Promise<ProjectScope | null>;
   tx<T>(fn: (ws: WorkspaceScope) => Promise<T>): Promise<T>;
 }
 
@@ -168,13 +170,19 @@ export function forWorkspace(scope: string | { workspaceId: string }, db: Db = g
     ownerValue: { workspaceId },
   });
 
+  const findProject = async (id: string): Promise<ProjectScope | null> => {
+    const row = id ? await scoped.project.findFirst({ where: { id }, select: { id: true } }) : null;
+    return row ? projectScope(id, workspaceId, db) : null;
+  };
+
   return {
     workspaceId,
     db: scoped,
+    findProject,
     async project(id) {
-      const row = id ? await scoped.project.findFirst({ where: { id }, select: { id: true } }) : null;
-      if (!row) throw new NotFoundError("Project not found");
-      return projectScope(id, workspaceId, db);
+      const project = await findProject(id);
+      if (!project) throw new NotFoundError("Project not found");
+      return project;
     },
     tx: (fn) => withTransaction(db, (tx) => fn(forWorkspace(workspaceId, tx))),
   };

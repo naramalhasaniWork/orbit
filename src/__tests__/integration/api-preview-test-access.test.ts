@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
 
 const db = vi.hoisted(() => ({
+  project: { findFirst: vi.fn() },
   previewBinding: { findFirst: vi.fn() },
   previewDeployment: { findFirst: vi.fn() },
 }));
@@ -28,6 +29,7 @@ const call = (body: unknown) =>
 beforeEach(() => {
   vi.clearAllMocks();
   resetRouteAuth();
+  db.project.findFirst.mockResolvedValue({ id: "p1" });
   db.previewBinding.findFirst.mockResolvedValue({ id: "b1", allowedHostSuffixes: ["pages.dev"] });
   loadAccessSecrets.mockResolvedValue({ clientId: "stored.access", clientSecret: "stored-secret" });
   probeAccess.mockResolvedValue({ protectedWithoutToken: true, allowedWithToken: true, message: "ok" });
@@ -50,7 +52,7 @@ describe("POST preview-binding/test-access", () => {
 
     expect(res.status).toBe(200);
     expect(db.previewDeployment.findFirst).toHaveBeenCalledWith({
-      where: { bindingId: "b1", status: "ready", url: "https://4f2a9c1e.acme.pages.dev" },
+      where: { bindingId: "b1", status: "ready", url: "https://4f2a9c1e.acme.pages.dev", AND: [{ projectId: "p1" }] },
       select: { id: true },
     });
     expect(probeAccess).toHaveBeenCalledWith("https://4f2a9c1e.acme.pages.dev", {

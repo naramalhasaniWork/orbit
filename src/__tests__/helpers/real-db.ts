@@ -13,6 +13,7 @@ export function useRealDb(): void {
 }
 
 export interface TenantFixture {
+  userId: string;
   workspaceId: string;
   projectId: string;
   planId: string;
@@ -20,12 +21,17 @@ export interface TenantFixture {
   runId: string;
   environmentId: string;
   secretId: string;
+  artifactId: string;
+  webhookId: string;
+  deliveryId: string;
 }
 
-/** A workspace with one row of each project-owned kind the id-param routes read. */
+/** A workspace (with an owner) holding one row of each kind the id-param routes read. */
 export async function seedTenant(db: PrismaClient, label: string): Promise<TenantFixture> {
   const tag = `${label}-${randomUUID().slice(0, 8)}`;
+  const user = await db.user.create({ data: { email: `${tag}@w2.test` } });
   const workspace = await db.workspace.create({ data: { name: `w2 ${tag}`, slug: `w2-${tag}` } });
+  await db.workspaceMember.create({ data: { workspaceId: workspace.id, userId: user.id, role: "owner" } });
   const project = await db.project.create({
     data: {
       workspaceId: workspace.id, name: tag, slug: tag,
@@ -42,13 +48,25 @@ export async function seedTenant(db: PrismaClient, label: string): Promise<Tenan
   const secret = await db.secret.create({
     data: { projectId, environmentId: environment.id, key: "API_KEY", encryptedValue: "x", iv: "y" },
   });
+  const artifact = await db.runArtifact.create({
+    data: { projectId, testRunId: run.id, type: "screenshot", storageKey: `w2/${tag}.png` },
+  });
+  const webhook = await db.webhookEndpoint.create({
+    data: { workspaceId: workspace.id, projectId, url: "https://hooks.example.com/w2", events: ["run.completed"] },
+  });
+  const delivery = await db.webhookDelivery.create({
+    data: { projectId, endpointId: webhook.id, event: "run.completed", url: webhook.url, payload: {} },
+  });
   return {
-    workspaceId: workspace.id, projectId, planId: plan.id, testCaseId: testCase.id,
+    userId: user.id, workspaceId: workspace.id, projectId, planId: plan.id, testCaseId: testCase.id,
     runId: run.id, environmentId: environment.id, secretId: secret.id,
+    artifactId: artifact.id, webhookId: webhook.id, deliveryId: delivery.id,
   };
 }
 
-/** Workspace delete cascades to everything seedTenant made. */
+/** Workspace delete cascades to everything seedTenant made except the user. */
 export async function dropTenant(db: PrismaClient, fixture: TenantFixture | undefined): Promise<void> {
-  if (fixture) await db.workspace.delete({ where: { id: fixture.workspaceId } });
+  if (!fixture) return;
+  await db.workspace.delete({ where: { id: fixture.workspaceId } });
+  await db.user.delete({ where: { id: fixture.userId } });
 }

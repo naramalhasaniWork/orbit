@@ -6,6 +6,7 @@ vi.mock("@/lib/db", () => {
     testRun: {
       findMany: vi.fn(),
       findFirst: vi.fn(),
+      findUnique: vi.fn(),
       create: vi.fn(),
       update: vi.fn(),
       count: vi.fn(),
@@ -90,6 +91,7 @@ const mockPrisma = prisma as unknown as {
   testRun: {
     findMany: ReturnType<typeof vi.fn>;
     findFirst: ReturnType<typeof vi.fn>;
+    findUnique: ReturnType<typeof vi.fn>;
     create: ReturnType<typeof vi.fn>;
     update: ReturnType<typeof vi.fn>;
     count: ReturnType<typeof vi.fn>;
@@ -299,7 +301,7 @@ describe("api-runs", () => {
   describe("POST /api/projects/[projectId]/runs/[runId]/cancel", () => {
     it("cancels a queued run", async () => {
       mockPrisma.project.findFirst.mockResolvedValue({ id: "p1" });
-      mockPrisma.testRun.findFirst.mockResolvedValue({
+      mockPrisma.testRun.findUnique.mockResolvedValue({
         id: "run-1",
         status: "queued",
         totalTests: 10,
@@ -327,7 +329,7 @@ describe("api-runs", () => {
 
     it("rejects cancellation of completed run", async () => {
       mockPrisma.project.findFirst.mockResolvedValue({ id: "p1" });
-      mockPrisma.testRun.findFirst.mockResolvedValue({
+      mockPrisma.testRun.findUnique.mockResolvedValue({
         id: "run-1",
         status: "completed",
       });
@@ -346,7 +348,7 @@ describe("api-runs", () => {
 
     it("returns 404 for non-existent run", async () => {
       mockPrisma.project.findFirst.mockResolvedValue({ id: "p1" });
-      mockPrisma.testRun.findFirst.mockResolvedValue(null);
+      mockPrisma.testRun.findUnique.mockResolvedValue(null);
 
       const { POST } = await import(
         "@/app/api/projects/[projectId]/runs/[runId]/cancel/route"

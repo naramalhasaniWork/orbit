@@ -13,8 +13,10 @@ vi.mock("@/lib/db", () => ({
   prisma: {
     workspaceMember: { findUnique: vi.fn(async () => ({ id: "m1", role: role.current, workspace: { deletedAt: null } })) },
     project: { findFirst: vi.fn(async () => ({ id: "p1" })) },
+    testRun: { findUnique: vi.fn(async () => ({ id: "r1" })) },
     environment: {
       findFirst: vi.fn(async () => ({ id: "e1", url: "https://staging.example.com" })),
+      findUnique: vi.fn(async () => ({ id: "e1", url: "https://staging.example.com" })),
       update: vi.fn(async (a: { data: unknown }) => a.data),
       updateMany: vi.fn(),
       create: vi.fn(),

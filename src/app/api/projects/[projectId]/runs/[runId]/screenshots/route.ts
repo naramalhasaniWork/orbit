@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
-import { prisma } from "@/lib/db";
 import { getServerSession } from "@/lib/utils/api";
+import { forWorkspace } from "@/server/data/scope";
 import { getRedis } from "@/lib/redis";
 import { channels } from "@/lib/redis/pubsub";
 import { createSSEStream } from "@/lib/sse/stream";
@@ -24,17 +24,14 @@ export async function GET(
 
   const { projectId, runId } = await params;
 
-  const project = await prisma.project.findFirst({
-    where: { id: projectId, workspaceId: session.workspaceId },
-    select: { id: true },
-  });
+  const project = session.workspaceId ? await forWorkspace(session.workspaceId).findProject(projectId) : null;
 
   if (!project) {
     return new Response("Project not found", { status: 404 });
   }
 
-  const run = await prisma.testRun.findFirst({
-    where: { id: runId, projectId },
+  const run = await project.db.testRun.findUnique({
+    where: { id: runId },
     select: { status: true },
   });
 
@@ -45,10 +42,9 @@ export async function GET(
   // If run already completed, return artifacts instead of streaming
   const terminalStatuses = new Set(["completed", "failed", "cancelled"]);
   if (terminalStatuses.has(run.status)) {
-    const artifacts = await prisma.runArtifact.findMany({
+    const artifacts = await project.db.runArtifact.findMany({
       where: {
         testRunId: runId,
-        projectId,
         type: "screenshot",
         contentType: "image/jpeg",
       },
