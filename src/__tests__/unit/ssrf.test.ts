@@ -3,10 +3,12 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 const dnsMock = vi.hoisted(() => ({ lookup: vi.fn() }));
 vi.mock("dns/promises", () => dnsMock);
 
+const fetchMock = vi.hoisted(() => vi.fn());
+vi.mock("@/lib/utils/ssrf-transport", () => ({ pinnedRequest: fetchMock }));
+
 import { assertPublicUrl, safeFetch, UnsafeUrlError } from "@/lib/utils/ssrf";
 
 const PUBLIC = [{ address: "93.184.216.34", family: 4 }];
-const fetchMock = vi.fn();
 
 function redirect(location: string, status = 302) {
   return new Response(null, { status, headers: { location } });
@@ -15,11 +17,9 @@ function redirect(location: string, status = 302) {
 beforeEach(() => {
   vi.clearAllMocks();
   dnsMock.lookup.mockResolvedValue(PUBLIC);
-  vi.stubGlobal("fetch", fetchMock);
 });
 afterEach(() => {
   vi.unstubAllEnvs();
-  vi.unstubAllGlobals();
 });
 
 describe("assertPublicUrl", () => {
@@ -125,12 +125,6 @@ describe("assertPublicUrl", () => {
 });
 
 describe("safeFetch", () => {
-  it("never lets fetch follow redirects itself", async () => {
-    fetchMock.mockResolvedValue(new Response("ok"));
-    await safeFetch("https://example.com", { redirect: "follow" });
-    expect(fetchMock.mock.calls[0][1].redirect).toBe("manual");
-  });
-
   it("follows a redirect to another public host", async () => {
     fetchMock
       .mockResolvedValueOnce(redirect("https://other.example.com/next"))

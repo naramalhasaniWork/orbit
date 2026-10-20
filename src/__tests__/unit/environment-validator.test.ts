@@ -13,6 +13,11 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 
+// The connect-time transport is covered in ssrf-transport.test.ts; here it just uses (stubbed) fetch
+vi.mock("@/lib/utils/ssrf-transport", () => ({
+  pinnedRequest: (url: URL, init: RequestInit) => globalThis.fetch(url, init),
+}));
+
 // Public DNS answer so the real SSRF guard runs without network access
 vi.mock("dns/promises", () => ({
   lookup: vi.fn(async () => [{ address: "93.184.216.34", family: 4 }]),
