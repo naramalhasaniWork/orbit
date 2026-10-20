@@ -59,7 +59,7 @@ describe("bus message size", () => {
 
   it("covers every event type the client subscribes to", () => {
     // Written by the SSE layer or a route for an already-finished run, never published on the bus.
-    const wireOnly = new Set(["connected", "heartbeat", "timeout", "error", "screenshots:complete"]);
+    const wireOnly = new Set(["connected", "heartbeat", "timeout", "error", "replay_gap", "screenshots:complete"]);
     const clientTypes = DEFAULT_SSE_EVENT_TYPES.filter((t) => !wireOnly.has(t));
     expect(Object.keys(FIXTURES).sort()).toEqual([...clientTypes].sort());
   });

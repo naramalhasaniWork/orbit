@@ -96,9 +96,10 @@ export async function createSSEStream({
   }
 
   let replay: LoggedEvent[] = [];
+  let gap: { firstAvailableId: string } | null = null;
   try {
     if (isStreamId(lastEventId)) {
-      replay = await withTimeout(replaySince(channel, lastEventId), "replay");
+      ({ events: replay, gap } = await withTimeout(replaySince(channel, lastEventId), "replay"));
     } else if (latestCount) {
       replay = await withTimeout(replayLatest(channel, latestCount), "replay");
     }
@@ -156,6 +157,8 @@ export async function createSSEStream({
       // Connection events carry no id, so they never move the client's Last-Event-ID.
       send("connected", { channel, timestamp: Date.now() });
       for (const evt of initialEvents ?? []) send(evt.type, evt.payload);
+      // The log was trimmed past this client's position: tell it to refetch state.
+      if (gap) send("replay_gap", { channel, lastEventId, firstAvailableId: gap.firstAvailableId });
 
       for (const { id, event } of replay) emit(event as WebSocketEvent, id);
       for (const { id, event } of pending.splice(0)) emit(event as WebSocketEvent, id);

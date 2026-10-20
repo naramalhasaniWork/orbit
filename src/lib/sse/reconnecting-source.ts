@@ -9,7 +9,7 @@
 import { compareStreamIds, isStreamId } from "@/lib/sse/stream-id";
 
 /** Events that carry no id of their own; the browser repeats the previous id on them. */
-const UNNUMBERED_EVENT_TYPES = new Set(["connected", "heartbeat", "timeout", "error"]);
+const UNNUMBERED_EVENT_TYPES = new Set(["connected", "heartbeat", "timeout", "error", "replay_gap"]);
 
 export interface SSEMessage {
   type: string;
@@ -52,6 +52,7 @@ export const DEFAULT_SSE_EVENT_TYPES = [
   "heartbeat",
   "timeout",
   "error",
+  "replay_gap",
   "indexing:started",
   "indexing:phase",
   "indexing:node_discovered",

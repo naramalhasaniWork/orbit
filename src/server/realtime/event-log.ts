@@ -1,5 +1,5 @@
 import type Redis from "ioredis";
-import { isStreamId } from "@/lib/sse/stream-id";
+import { compareStreamIds, isStreamId } from "@/lib/sse/stream-id";
 
 /** Largest message the bus will carry: the PUBLISH envelope and the stream entry. */
 export const BUS_MAX_BYTES = 4096;
@@ -34,9 +34,17 @@ function clipLongStrings(event: unknown): unknown {
   return { ...rest, payload: clipped };
 }
 
+/** XADD + EXPIRE + PUBLISH as one atomic round trip: the envelope needs the id XADD returns. */
+const APPEND_AND_PUBLISH = `
+local id = redis.call('XADD', KEYS[1], 'MAXLEN', '~', ARGV[1], '*', 'd', ARGV[2])
+redis.call('EXPIRE', KEYS[1], ARGV[3])
+redis.call('PUBLISH', KEYS[2], '{"id":"' .. id .. '","event":' .. ARGV[2] .. '}')
+return id
+`;
+
 /**
  * XADD the event to the channel's stream, then PUBLISH {id, event} to live
- * subscribers. The stream is the source of truth: a subscriber that was
+ * subscribers (one Lua call). The stream is the source of truth: a subscriber that was
  * disconnected replays from it. Returns null when the event exceeds the bus
  * size limit even after clipping (it is dropped, loudly).
  */
@@ -51,12 +59,8 @@ export async function appendAndPublish(client: Redis, channel: string, event: un
     return null;
   }
 
-  const key = streamKey(channel);
-  const id = await client.xadd(key, "MAXLEN", "~", STREAM_MAXLEN, "*", "d", body);
-  if (!id) return null;
-  await client.expire(key, STREAM_TTL_SECONDS);
-  await client.publish(channel, `{"id":"${id}","event":${body}}`);
-  return id;
+  const id = await client.eval(APPEND_AND_PUBLISH, 2, streamKey(channel), channel, STREAM_MAXLEN, body, STREAM_TTL_SECONDS);
+  return typeof id === "string" ? id : null;
 }
 
 function parseEntries(rows: Array<[string, string[]]>): LoggedEvent[] {
@@ -73,11 +77,25 @@ function parseEntries(rows: Array<[string, string[]]>): LoggedEvent[] {
   return events;
 }
 
-/** Events strictly after `lastId`, oldest first. */
-export async function readSince(client: Redis, channel: string, lastId: string): Promise<LoggedEvent[]> {
-  if (!isStreamId(lastId)) return [];
-  const rows = await client.xrange(streamKey(channel), lastId, "+", "COUNT", REPLAY_BATCH + 1);
-  return parseEntries(rows).filter((e) => e.id !== lastId);
+export interface Replay {
+  events: LoggedEvent[];
+  /** The log no longer reaches back to lastId: it was trimmed past MAXLEN, so events were missed. */
+  gap: { firstAvailableId: string } | null;
+}
+
+/** Events strictly after `lastId`, oldest first, and whether any older ones are gone. */
+export async function readSince(client: Redis, channel: string, lastId: string): Promise<Replay> {
+  if (!isStreamId(lastId)) return { events: [], gap: null };
+  const key = streamKey(channel);
+  const [rows, head] = await Promise.all([
+    client.xrange(key, lastId, "+", "COUNT", REPLAY_BATCH + 1),
+    client.xrange(key, "-", "+", "COUNT", 1),
+  ]);
+  const first = head[0]?.[0];
+  return {
+    events: parseEntries(rows).filter((e) => e.id !== lastId),
+    gap: first && compareStreamIds(lastId, first) < 0 ? { firstAvailableId: first } : null,
+  };
 }
 
 /** The newest `count` events, oldest first. */
