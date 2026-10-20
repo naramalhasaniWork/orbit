@@ -3,6 +3,8 @@ import { emitRunProgress } from "@/lib/websocket";
 import { isRunCancelled } from "./run-manager";
 import type { TestVerdict } from "@/generated/prisma/enums";
 import type { StorageState } from "@/services/execution/browser-manager";
+import { throwIfShuttingDown } from "@/lib/queue/shutdown";
+import { loadRecordedVerdicts, verdictBucket } from "@/services/execution/resume";
 
 /**
  * Partitions test cases into independent groups by journey,
@@ -223,8 +225,16 @@ async function executePartition(
     orderBy: { priorityScore: "desc" },
   });
   const counters = { passed: 0, failed: 0, flaky: 0, skipped: 0 };
+  const recorded = await loadRecordedVerdicts(runId);
 
   for (const tc of testCases) {
+    // A retried job resumes: recorded cases are tallied, not re-run
+    const priorVerdict = recorded.get(tc.id);
+    if (priorVerdict) {
+      counters[verdictBucket(priorVerdict)]++;
+      continue;
+    }
+    throwIfShuttingDown();
     if (await isRunCancelled(runId)) {
       return { ...counters, cancelled: true };
     }

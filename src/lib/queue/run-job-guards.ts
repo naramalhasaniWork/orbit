@@ -1,5 +1,6 @@
 // Guards that keep queue-driven runs from ending anywhere but a terminal
 // status (completed / failed / cancelled) when a worker throws.
+import { ShutdownError } from "@/lib/queue/shutdown";
 
 /** Drive an event-triggered run through the orchestrator pipeline. */
 export async function runPipelineForJob(runId: string, changedFiles?: string[]): Promise<void> {
@@ -7,6 +8,8 @@ export async function runPipelineForJob(runId: string, changedFiles?: string[]):
     const { executePipelineForRun } = await import("@/services/orchestrator/pipeline");
     await executePipelineForRun(runId, { changedFiles });
   } catch (err) {
+    // Retryable: the run stays active and the retry resumes it
+    if (err instanceof ShutdownError) throw err;
     console.error(`[Worker:indexing] Pipeline crashed for run ${runId}:`, err);
     await markRunFailed(runId, `Run could not complete: ${errorMessage(err)}`);
   }

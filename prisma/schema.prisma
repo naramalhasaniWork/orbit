@@ -47,6 +47,12 @@ enum RunTrigger {
   deploy
 }
 
+enum JobFailureStatus {
+  open
+  retried
+  discarded
+}
+
 enum TestVerdict {
   pass
   fail
@@ -644,7 +650,7 @@ model TestResult {
   testCase     TestCase      @relation(fields: [testCaseId], references: [id])
   runArtifacts RunArtifact[]
 
-  @@index([testRunId])
+  @@unique([testRunId, testCaseId])
   @@index([testRunId, verdict])
   @@index([testCaseId])
   @@map("test_results")
@@ -1424,4 +1430,29 @@ model Message {
 
   @@index([conversationId, createdAt])
   @@map("messages")
+}
+
+// ============================================================
+// DEAD-LETTER QUEUE — jobs that exhausted their BullMQ attempts
+// ============================================================
+
+model JobFailure {
+  id           String           @id @default(uuid()) @db.Uuid
+  queue        String
+  jobId        String           @map("job_id")
+  jobName      String           @map("job_name")
+  data         Json
+  error        String
+  stack        String?
+  attemptsMade Int              @map("attempts_made")
+  runId        String?          @map("run_id") @db.Uuid
+  projectId    String?          @map("project_id") @db.Uuid
+  status       JobFailureStatus @default(open)
+  createdAt    DateTime         @default(now()) @map("created_at")
+  resolvedAt   DateTime?        @map("resolved_at")
+  resolvedBy   String?          @map("resolved_by") @db.Uuid
+
+  @@unique([queue, jobId])
+  @@index([status, createdAt])
+  @@map("job_failures")
 }

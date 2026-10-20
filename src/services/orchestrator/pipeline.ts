@@ -11,6 +11,7 @@ import {
   isRunCancelled,
 } from "./run-manager";
 import { canConsume } from "@/lib/auth/tenant";
+import { ShutdownError } from "@/lib/queue/shutdown";
 import type { OperationsMap } from "@/agents/schemas/operations-map";
 import {
   runIndexingPhase,
@@ -102,7 +103,7 @@ export async function executePipelineForRun(
     where: { id: runId },
     select: {
       projectId: true, mode: true, trigger: true, branch: true, commitSha: true,
-      prNumber: true, triggeredById: true, environmentId: true, testPlanId: true,
+      prNumber: true, triggeredById: true, environmentId: true, testPlanId: true, status: true,
     },
   });
   const context = await getProjectContext(run.projectId);
@@ -130,14 +131,18 @@ export async function executePipelineForRun(
     requestedMode: run.mode,
   });
 
-  return runPipeline(runId, input, context, selection);
+  // A retried job (shutdown, stalled worker) finds the run already executing:
+  // skip straight to execution, where recorded cases are skipped.
+  const resuming = run.status === "executing" && !!run.testPlanId;
+  return runPipeline(runId, input, context, selection, resuming ? run.testPlanId : undefined);
 }
 
 async function runPipeline(
   runId: string,
   input: PipelineInput,
   context: ProjectContext,
-  selection: ModeSelection
+  selection: ModeSelection,
+  resumeTestPlanId?: string | null
 ): Promise<PipelineResult> {
   const { mode, reason, skipIndexing, skipPlanning } = selection;
   const tokenBudget = new TokenBudget(
@@ -151,39 +156,43 @@ async function runPipeline(
     const allowance = await canConsume(context.project.workspaceId, "credits");
     if (!allowance.allowed) throw new Error(allowance.reason);
 
-    // Phase 1: Indexing
-    await checkCancellation(runId);
-
-    if (!skipIndexing) {
-      await runIndexingPhase(
-        runId, input.projectId, input.branch, input.changedFiles, context, reason
-      );
-    }
-
-    // Phase 1.5: Code Audit (full runs only)
-    if (mode === "full") {
+    let testPlanId = resumeTestPlanId ?? context.activePlan?.id;
+    if (!resumeTestPlanId) {
+      // Phase 1: Indexing
       await checkCancellation(runId);
-      await runAuditPhase(runId, input.projectId);
-    }
 
-    // Phase 1.75: Operations Analysis (full/manual runs only)
-    let operationsMap: OperationsMap | undefined;
-    if (mode === "full") {
+      if (!skipIndexing) {
+        await runIndexingPhase(
+          runId, input.projectId, input.branch, input.changedFiles, context, reason
+        );
+      }
+
+      // Phase 1.5: Code Audit (full runs only)
+      if (mode === "full") {
+        await checkCancellation(runId);
+        await runAuditPhase(runId, input.projectId);
+      }
+
+      // Phase 1.75: Operations Analysis (full/manual runs only)
+      let operationsMap: OperationsMap | undefined;
+      if (mode === "full") {
+        await checkCancellation(runId);
+        operationsMap = await runOperationsAnalysisPhase(
+          runId, input.projectId, tokenBudget
+        );
+      }
+
+      // Phase 2: Planning
       await checkCancellation(runId);
-      operationsMap = await runOperationsAnalysisPhase(
-        runId, input.projectId, tokenBudget
-      );
+
+      if (!skipPlanning || !testPlanId) {
+        testPlanId = await runPlanningPhase(
+          runId, input.projectId, mode, testPlanId, tokenBudget, operationsMap
+        );
+      }
     }
 
-    // Phase 2: Planning
-    await checkCancellation(runId);
-
-    let testPlanId = context.activePlan?.id;
-    if (!skipPlanning || !testPlanId) {
-      testPlanId = await runPlanningPhase(
-        runId, input.projectId, mode, testPlanId, tokenBudget, operationsMap
-      );
-    }
+    if (!testPlanId) throw new Error("No test plan available for execution");
 
     // Check budget after planning — hard stop before execution to avoid runaway costs
     if (tokenBudget.isOverBudget()) {
@@ -204,6 +213,8 @@ async function runPipeline(
     // Finalize
     return await finalizePipeline(runId, input.projectId, tokenBudget);
   } catch (error) {
+    // Retryable: leave the run active so the retried job resumes it
+    if (error instanceof ShutdownError) throw error;
     if (error instanceof PipelineCancelledError) {
       const updatedRun = await updateRunStats(runId);
       return buildResult(runId, "cancelled", updatedRun, tokenBudget);
