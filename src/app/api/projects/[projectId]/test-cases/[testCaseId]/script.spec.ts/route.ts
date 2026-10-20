@@ -15,7 +15,7 @@ export const GET = route(
   { permission: "plans.view", params: Params },
   async ({ params: { projectId, testCaseId }, db }) => {
     const project = await db.project(projectId);
-    const testCase = await project.db.testCase.findUnique({
+    const testCase = await project.testCase.findUnique({
       where: { id: testCaseId },
       select: { name: true, steps: true },
     });
@@ -28,7 +28,7 @@ export const GET = route(
       return apiError("This test case has no compiled script yet", "NOT_FOUND", 404);
     }
 
-    const environment = await project.db.environment.findFirst({
+    const environment = await project.environment.findFirst({
       where: { id: script.envKey.split(":")[0] },
       select: { url: true },
     });

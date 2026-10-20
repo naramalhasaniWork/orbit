@@ -10,7 +10,7 @@ import { route } from "@/server/http/route";
 export const GET = route({}, async ({ params: { projectId, runId }, db }) => {
   const project = await db.project(projectId);
 
-  const run = await project.db.testRun.findUnique({
+  const run = await project.testRun.findUnique({
     where: { id: runId },
     include: {
       results: {
@@ -67,7 +67,7 @@ export const PATCH = route(
   async ({ req: request, params: { projectId, runId }, db }) => {
     const project = await db.project(projectId);
     // cancelRun works by run id alone, so the run must be this project's first
-    const run = await project.db.testRun.findUnique({ where: { id: runId }, select: { id: true } });
+    const run = await project.testRun.findUnique({ where: { id: runId }, select: { id: true } });
     if (!run) {
       return apiError("Test run not found", "NOT_FOUND", 404);
     }

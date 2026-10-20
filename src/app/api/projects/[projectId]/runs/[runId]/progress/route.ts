@@ -25,7 +25,7 @@ export async function GET(
   }
 
   // Check if run already completed — no need for SSE
-  const run = await project.db.testRun.findUnique({
+  const run = await project.testRun.findUnique({
     where: { id: runId },
     select: { status: true },
   });

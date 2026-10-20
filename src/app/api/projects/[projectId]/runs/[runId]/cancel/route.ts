@@ -14,7 +14,7 @@ export const POST = route(
   async ({ params: { projectId, runId }, db }) => {
     const project = await db.project(projectId);
 
-    const run = await project.db.testRun.findUnique({
+    const run = await project.testRun.findUnique({
       where: { id: runId },
       select: { id: true, status: true, totalTests: true, passed: true, failed: true, flaky: true },
     });
@@ -31,7 +31,7 @@ export const POST = route(
       );
     }
 
-    const updated = await project.db.testRun.update({
+    const updated = await project.testRun.update({
       where: { id: runId },
       data: {
         status: "cancelled",

@@ -6,7 +6,7 @@ export const DELETE = route(
   async ({ params: { projectId, secretId }, db }) => {
     const project = await db.project(projectId);
 
-    const secret = await project.db.secret.findUnique({
+    const secret = await project.secret.findUnique({
       where: { id: secretId },
       select: { id: true },
     });
@@ -15,7 +15,7 @@ export const DELETE = route(
       return apiError("Secret not found", "NOT_FOUND", 404);
     }
 
-    await project.db.secret.delete({ where: { id: secretId } });
+    await project.secret.delete({ where: { id: secretId } });
 
     return apiSuccess({ deleted: true });
   }

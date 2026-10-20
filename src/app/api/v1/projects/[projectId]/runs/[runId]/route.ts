@@ -23,7 +23,7 @@ export async function GET(
     );
   }
 
-  const run = await project.db.testRun.findUnique({
+  const run = await project.testRun.findUnique({
     where: { id: runId },
     include: {
       results: {

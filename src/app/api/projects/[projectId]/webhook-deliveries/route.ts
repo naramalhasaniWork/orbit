@@ -12,7 +12,7 @@ export const GET = route({}, async ({ req: request, params: { projectId }, db })
   const limit = Math.min(Number(url.searchParams.get("limit") ?? 50), 100);
   const event = url.searchParams.get("event");
 
-  const deliveries = await project.db.webhookDelivery.findMany({
+  const deliveries = await project.webhookDelivery.findMany({
     where: event ? { event } : {},
     orderBy: { createdAt: "desc" },
     take: limit,
@@ -28,7 +28,7 @@ export const GET = route({}, async ({ req: request, params: { projectId }, db })
     },
   });
 
-  const stats = await project.db.webhookDelivery.groupBy({
+  const stats = await project.webhookDelivery.groupBy({
     by: ["event"],
     _count: { id: true },
   });

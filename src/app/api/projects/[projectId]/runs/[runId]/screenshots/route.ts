@@ -30,7 +30,7 @@ export async function GET(
     return new Response("Project not found", { status: 404 });
   }
 
-  const run = await project.db.testRun.findUnique({
+  const run = await project.testRun.findUnique({
     where: { id: runId },
     select: { status: true },
   });
@@ -42,7 +42,7 @@ export async function GET(
   // If run already completed, return artifacts instead of streaming
   const terminalStatuses = new Set(["completed", "failed", "cancelled"]);
   if (terminalStatuses.has(run.status)) {
-    const artifacts = await project.db.runArtifact.findMany({
+    const artifacts = await project.runArtifact.findMany({
       where: {
         testRunId: runId,
         type: "screenshot",

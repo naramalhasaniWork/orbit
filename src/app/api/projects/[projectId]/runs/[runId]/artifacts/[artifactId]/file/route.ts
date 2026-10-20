@@ -14,7 +14,7 @@ export const dynamic = "force-dynamic";
 export const GET = route({}, async ({ params: { projectId, runId, artifactId }, db }) => {
   const project = await db.project(projectId);
 
-  const artifact = await project.db.runArtifact.findUnique({
+  const artifact = await project.runArtifact.findUnique({
     where: { id: artifactId, testRunId: runId },
     select: { storageKey: true, contentType: true, fileName: true },
   });

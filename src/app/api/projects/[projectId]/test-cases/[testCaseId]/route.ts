@@ -8,7 +8,7 @@ import { route } from "@/server/http/route";
 export const GET = route({}, async ({ params: { projectId, testCaseId }, db }) => {
   const project = await db.project(projectId);
 
-  const testCase = await project.db.testCase.findUnique({
+  const testCase = await project.testCase.findUnique({
     where: { id: testCaseId },
   });
 
@@ -40,7 +40,7 @@ export const PATCH = route(
   async ({ req: request, params: { projectId, testCaseId }, db }) => {
     const project = await db.project(projectId);
 
-    const existing = await project.db.testCase.findUnique({
+    const existing = await project.testCase.findUnique({
       where: { id: testCaseId },
       select: { id: true },
     });
@@ -97,7 +97,7 @@ export const PATCH = route(
       return apiError("No valid fields to update", "VALIDATION_ERROR", 400);
     }
 
-    const updated = await project.db.testCase.update({
+    const updated = await project.testCase.update({
       where: { id: testCaseId },
       data,
     });
@@ -115,7 +115,7 @@ export const DELETE = route(
   async ({ params: { projectId, testCaseId }, db }) => {
     const project = await db.project(projectId);
 
-    const existing = await project.db.testCase.findUnique({
+    const existing = await project.testCase.findUnique({
       where: { id: testCaseId },
       select: { id: true },
     });
@@ -124,7 +124,7 @@ export const DELETE = route(
       return apiError("Test case not found", "NOT_FOUND", 404);
     }
 
-    await project.db.testCase.delete({ where: { id: testCaseId } });
+    await project.testCase.delete({ where: { id: testCaseId } });
 
     return apiSuccess({ deleted: true });
   }

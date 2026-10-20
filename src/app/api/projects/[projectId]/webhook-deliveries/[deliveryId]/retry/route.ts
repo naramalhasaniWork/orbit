@@ -17,7 +17,7 @@ export const POST = route(
   async ({ params: { projectId, deliveryId }, db }) => {
     const project = await db.project(projectId);
 
-    const delivery = await project.db.webhookDelivery.findUnique({
+    const delivery = await project.webhookDelivery.findUnique({
       where: { id: deliveryId },
     });
 
@@ -26,7 +26,7 @@ export const POST = route(
     }
 
     // The delivery's endpoint; deliveries from before W3 have no endpointId and match by URL
-    const endpoints = await deliverableEndpoints(project.id, project.db);
+    const endpoints = await deliverableEndpoints(project.id, project);
     const endpoint =
       endpoints.find((e) => delivery.endpointId !== null && e.id === delivery.endpointId) ??
       endpoints.find((e) => e.url === delivery.url);
@@ -57,7 +57,7 @@ export const POST = route(
       signal: AbortSignal.timeout(10000),
     }, { followRedirects: false });
 
-    await project.db.webhookDelivery.update({
+    await project.webhookDelivery.update({
       where: { id: deliveryId },
       data: {
         statusCode: response.status,

@@ -26,7 +26,7 @@ export const POST = route(
   async ({ req, params: { projectId }, session, db }) => {
     assertPermission(session.role, "secrets.manage");
     const project = await db.project(projectId);
-    const binding = await project.db.previewBinding.findFirst({
+    const binding = await project.previewBinding.findFirst({
       select: { id: true, allowedHostSuffixes: true },
     });
     if (!binding) return apiError("Choose a preview source first", "NOT_FOUND", 404);
@@ -39,7 +39,7 @@ export const POST = route(
       ? { clientId: input.clientId, clientSecret: input.clientSecret }
       : null;
     if (!typed) {
-      const ownPreview = await project.db.previewDeployment.findFirst({
+      const ownPreview = await project.previewDeployment.findFirst({
         where: { bindingId: binding.id, status: "ready", url: checked.url },
         select: { id: true },
       });

@@ -5,7 +5,7 @@ import { route } from "@/server/http/route";
 export const GET = route({}, async ({ params: { projectId, runId }, db }) => {
   const project = await db.project(projectId);
 
-  const run = await project.db.testRun.findUnique({
+  const run = await project.testRun.findUnique({
     where: { id: runId },
     select: { id: true },
   });

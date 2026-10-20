@@ -4,7 +4,7 @@ import { route } from "@/server/http/route";
 export const GET = route({}, async ({ params: { projectId, envId }, db }) => {
   const project = await db.project(projectId);
 
-  const environment = await project.db.environment.findUnique({
+  const environment = await project.environment.findUnique({
     where: { id: envId },
   });
 
@@ -21,7 +21,7 @@ export const DELETE = route(
   async ({ params: { projectId, envId }, db }) => {
     const project = await db.project(projectId);
 
-    const environment = await project.db.environment.findUnique({
+    const environment = await project.environment.findUnique({
       where: { id: envId },
       select: { id: true },
     });
@@ -30,7 +30,7 @@ export const DELETE = route(
       return apiError("Environment not found", "NOT_FOUND", 404);
     }
 
-    await project.db.environment.delete({ where: { id: envId } });
+    await project.environment.delete({ where: { id: envId } });
 
     return apiSuccess({ deleted: true });
   }

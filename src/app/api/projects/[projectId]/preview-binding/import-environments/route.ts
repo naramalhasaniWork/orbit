@@ -10,7 +10,7 @@ export const POST = route(
   { permission: "secrets.manage", onError: mapPreviewError },
   async ({ params: { projectId }, db }) => {
     const project = await db.project(projectId);
-    const binding = await project.db.previewBinding.findFirst({
+    const binding = await project.previewBinding.findFirst({
       include: { connection: true },
     });
     const target = binding && parseRailwayTarget(binding.targetRef);

@@ -25,7 +25,7 @@ export const PATCH = route(
   async ({ body, params: { projectId, webhookId }, db }) => {
     const project = await db.project(projectId);
 
-    const updated = await updateProjectEndpoint(project.id, webhookId, body, project.db);
+    const updated = await updateProjectEndpoint(project.id, webhookId, body, project);
     if (!updated) return apiError("Webhook not found", "NOT_FOUND", 404);
 
     return { updated: true };
@@ -37,7 +37,7 @@ export const DELETE = route(
   async ({ params: { projectId, webhookId }, db }) => {
     const project = await db.project(projectId);
 
-    const deleted = await deleteProjectEndpoint(project.id, webhookId, project.db);
+    const deleted = await deleteProjectEndpoint(project.id, webhookId, project);
     if (!deleted) return apiError("Webhook not found", "NOT_FOUND", 404);
 
     return { deleted: true };

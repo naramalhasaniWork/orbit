@@ -11,7 +11,7 @@ const Query = z.object({ type: z.enum(["screenshot", "video", "dom_snapshot", "n
 export const GET = route({ query: Query }, async ({ query: { type }, params: { projectId, runId }, db }) => {
   const project = await db.project(projectId);
 
-  const artifacts = await project.db.runArtifact.findMany({
+  const artifacts = await project.runArtifact.findMany({
     where: { testRunId: runId, ...(type ? { type } : {}) },
     orderBy: { createdAt: "asc" },
     select: {

@@ -4,29 +4,29 @@ import { withTenantGuard } from "./tenant-guard";
 import { TENANCY, isCreateOp, isWhereOp, modelOf, type Ownership } from "./tenancy";
 
 /**
- * Tenant-scoped data access. Every query through a scope's `db` gets its owner filter added
- * (workspaceId, projectId or the owning relation, per tenancy.ts), so a row from another
- * tenant reads as missing and can never be updated or deleted. Raw SQL ($queryRaw,
+ * Tenant-scoped data access. A scope is a Prisma client whose every query gets its owner
+ * filter added (workspaceId, projectId or the owning relation, per tenancy.ts), so a row of
+ * another tenant reads as missing and can never be updated or deleted. Raw SQL ($queryRaw,
  * $executeRaw) passes through unscoped and must filter by itself.
  *
- *   const project = await ctx.db.project(projectId);   // NotFound across tenants
- *   const run = await project.db.testRun.findUnique({ where: { id: runId } });
+ *   const keys = await ctx.db.apiKey.findMany();          // this workspace's keys
+ *   const project = await ctx.db.project(projectId);      // NotFound across tenants
+ *   const run = await project.testRun.findUnique({ where: { id: runId } });
  */
 
-export interface ProjectScope {
-  id: string;
-  workspaceId: string;
-  /** Project-owned rows filtered to this project; workspace-owned rows to its workspace. */
-  db: Db;
+export interface ProjectScope extends Db {
+  readonly id: string;
+  readonly workspaceId: string;
   tx<T>(fn: (project: ProjectScope) => Promise<T>): Promise<T>;
 }
 
-export interface WorkspaceScope {
-  workspaceId: string;
-  /** Every tenant table filtered to this workspace. Project-owned rows can be read and changed, not created. */
-  db: Db;
-  /** The only door to a project's rows: throws NotFoundError when it is not in this workspace. */
-  project(id: string): Promise<ProjectScope>;
+/** `ctx.db.project(id)` opens a project; `ctx.db.project.findMany()` lists this workspace's. */
+type ProjectDoor = Db["project"] & ((id: string) => Promise<ProjectScope>);
+
+export interface WorkspaceScope extends Omit<Db, "project"> {
+  readonly workspaceId: string;
+  /** The only door to a project's rows: calling it throws NotFoundError outside this workspace. */
+  project: ProjectDoor;
   /** project(id) for handlers outside route() that answer a missing project themselves. */
   findProject(id: string): Promise<ProjectScope | null>;
   tx<T>(fn: (ws: WorkspaceScope) => Promise<T>): Promise<T>;
@@ -139,6 +139,13 @@ function scopedClient(base: Db, binding: Binding): Db {
   });
 }
 
+/** The scoped client plus the scope's own members (id, tx, ...), which win over model names. */
+function withMembers<T extends object>(client: Db, members: Record<string, unknown>): T {
+  return new Proxy(client, {
+    get: (target, prop) => (typeof prop === "string" && prop in members ? members[prop] : Reflect.get(target, prop)),
+  }) as unknown as T;
+}
+
 let guarded: Db | undefined;
 /** The shared client with tenantGuard on; scopes sit on top of it. */
 function guardedDb(): Db {
@@ -147,16 +154,17 @@ function guardedDb(): Db {
 }
 
 function projectScope(projectId: string, workspaceId: string, base: Db): ProjectScope {
-  return {
+  const client = scopedClient(base, {
+    level: "project",
+    filter: (owner) => owner.inProject(projectId, workspaceId),
+    ownerValue: { workspaceId, projectId },
+  });
+  return withMembers<ProjectScope>(client, {
     id: projectId,
     workspaceId,
-    db: scopedClient(base, {
-      level: "project",
-      filter: (owner) => owner.inProject(projectId, workspaceId),
-      ownerValue: { workspaceId, projectId },
-    }),
-    tx: (fn) => withTransaction(base, (tx) => fn(projectScope(projectId, workspaceId, tx))),
-  };
+    tx: <T>(fn: (project: ProjectScope) => Promise<T>) =>
+      withTransaction(base, (tx) => fn(projectScope(projectId, workspaceId, tx))),
+  });
 }
 
 /** A workspace's view of the database. `db` defaults to the shared guarded client; pass a transaction to join it. */
@@ -164,28 +172,30 @@ export function forWorkspace(scope: string | { workspaceId: string }, db: Db = g
   const workspaceId = typeof scope === "string" ? scope : scope.workspaceId;
   if (!workspaceId) throw new ScopeError("forWorkspace needs a workspace id");
 
-  const scoped = scopedClient(db, {
+  const client = scopedClient(db, {
     level: "workspace",
     filter: (owner) => owner.inWorkspace(workspaceId),
     ownerValue: { workspaceId },
   });
 
   const findProject = async (id: string): Promise<ProjectScope | null> => {
-    const row = id ? await scoped.project.findFirst({ where: { id }, select: { id: true } }) : null;
+    const row = id ? await client.project.findFirst({ where: { id }, select: { id: true } }) : null;
     return row ? projectScope(id, workspaceId, db) : null;
   };
-
-  return {
-    workspaceId,
-    db: scoped,
-    findProject,
-    async project(id) {
-      const project = await findProject(id);
-      if (!project) throw new NotFoundError("Project not found");
-      return project;
-    },
-    tx: (fn) => withTransaction(db, (tx) => fn(forWorkspace(workspaceId, tx))),
+  const openProject = async (id: string): Promise<ProjectScope> => {
+    const project = await findProject(id);
+    if (!project) throw new NotFoundError("Project not found");
+    return project;
   };
+  // Callable to open a project, and still the (scoped) project delegate for lists and updates.
+  const project = new Proxy(openProject, { get: (_fn, op) => Reflect.get(client.project, op) });
+
+  return withMembers<WorkspaceScope>(client, {
+    workspaceId,
+    project,
+    findProject,
+    tx: <T>(fn: (ws: WorkspaceScope) => Promise<T>) => withTransaction(db, (tx) => fn(forWorkspace(workspaceId, tx))),
+  });
 }
 
 /**
