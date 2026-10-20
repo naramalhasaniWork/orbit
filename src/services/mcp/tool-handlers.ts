@@ -1,4 +1,6 @@
 import { prisma } from "@/lib/db";
+import { launchPipelineRun } from "@/services/orchestrator/run-launcher";
+import type { RunMode } from "@/generated/prisma/client";
 
 export async function getTestHealth(projectId: string) {
   const project = await prisma.project.findUnique({
@@ -208,40 +210,30 @@ export async function getCoverage(projectId: string, filePath?: string) {
   };
 }
 
-export async function triggerRun(
-  projectId: string,
-  mode: string,
-  trigger: string
-) {
+const RUN_MODES = new Set<RunMode>(["full", "smoke", "regression", "targeted"]);
+
+/** orbit_trigger_run: starts a real run through the same launcher and gates as webhooks. */
+export async function triggerRun(projectId: string, mode: string) {
   const project = await prisma.project.findUnique({
     where: { id: projectId },
-    select: { id: true, name: true, workspaceId: true },
+    select: { id: true, name: true },
   });
 
   if (!project) return { error: "Project not found" };
 
-  const run = await prisma.testRun.create({
-    data: {
-      projectId,
-      mode: mode as "full" | "smoke" | "regression" | "targeted",
-      trigger: trigger as "api" | "push" | "pr" | "scheduled" | "manual" | "linear" | "deploy",
-      status: "queued",
-      totalTests: 0,
-      passed: 0,
-      failed: 0,
-      flaky: 0,
-      skipped: 0,
-      creditsConsumed: 0,
-    },
-  });
+  const runMode: RunMode = RUN_MODES.has(mode as RunMode) ? (mode as RunMode) : "smoke";
+  const launched = await launchPipelineRun({ projectId, mode: runMode, trigger: "api" });
+  if (!launched.ok) {
+    return { error: launched.reason, code: launched.code };
+  }
 
   return {
-    runId: run.id,
+    runId: launched.runId,
     projectId,
     projectName: project.name,
-    mode: run.mode,
-    trigger: run.trigger,
-    status: run.status,
+    mode: runMode,
+    trigger: "api",
+    status: "queued",
     message: `Test run queued for ${project.name}`,
   };
 }

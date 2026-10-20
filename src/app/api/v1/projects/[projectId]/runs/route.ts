@@ -1,12 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireApiKey, verifyProjectAccess } from "@/lib/auth/api-key";
-import { getExecutionQueue } from "@/lib/queue/queues";
 import { getDefaultEnvironment } from "@/services/execution/environment-validator";
-import { emitRunStarted } from "@/lib/websocket";
-import {
-  dispatchRunStarted,
-} from "@/services/reporting/integrations/outbound-webhooks";
+import { launchPipelineRun, launchErrorStatus } from "@/services/orchestrator/run-launcher";
 
 // ============================================================
 // POST /api/v1/projects/[projectId]/runs — Trigger a test run
@@ -75,77 +71,28 @@ export async function POST(
     );
   }
 
-  const testPlan = await prisma.testPlan.findFirst({
-    where: { projectId, isActive: true },
-    select: { id: true },
-    orderBy: { version: "desc" },
-  });
-
-  if (!testPlan) {
-    return NextResponse.json(
-      { error: "No active test plan. Index the repo first." },
-      { status: 400 }
-    );
-  }
-
+  // Same path and gates as every other trigger: canConsume, then
+  // index → plan → execute → report. Planning runs if there is no plan yet.
   const mode = body.mode ?? "regression";
-
-  const run = await prisma.testRun.create({
-    data: {
-      projectId,
-      environmentId: environment.id,
-      testPlanId: testPlan.id,
-      status: "queued",
-      mode,
-      trigger: "api",
-      branch: body.branch,
-      commitSha: body.commitSha,
-      prNumber: body.prNumber,
-    },
-  });
-
-  const testCases = await prisma.testCase.findMany({
-    where: { testPlanId: testPlan.id, isEnabled: true },
-    select: { id: true },
-  });
-
-  await prisma.testRun.update({
-    where: { id: run.id },
-    data: { totalTests: testCases.length, startedAt: new Date() },
-  });
-
-  const queue = getExecutionQueue();
-  for (const tc of testCases) {
-    await queue.add(`exec-${run.id}-${tc.id}`, {
-      runId: run.id,
-      testCaseId: tc.id,
-      environmentUrl: environment.url,
-      environmentId: environment.id,
-    });
-  }
-
-  await emitRunStarted(run.id, {
-    runId: run.id,
+  const launched = await launchPipelineRun({
     projectId,
     mode,
     trigger: "api",
-    totalTests: testCases.length,
+    branch: body.branch,
+    commitSha: body.commitSha ?? null,
+    prNumber: body.prNumber ?? null,
+    environmentId: environment.id,
   });
 
-  await dispatchRunStarted(projectId, {
-    runId: run.id,
-    mode,
-    trigger: "api",
-  });
+  if (!launched.ok) {
+    return NextResponse.json(
+      { error: launched.reason, code: launched.code },
+      { status: launchErrorStatus(launched.code) }
+    );
+  }
 
   return NextResponse.json(
-    {
-      id: run.id,
-      projectId,
-      status: "queued",
-      mode,
-      totalTests: testCases.length,
-    },
+    { id: launched.runId, projectId, status: "queued", mode },
     { status: 201 }
   );
 }

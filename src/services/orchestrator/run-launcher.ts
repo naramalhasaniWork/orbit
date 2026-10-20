@@ -8,7 +8,10 @@ interface LaunchRunInput {
   projectId: string;
   mode: RunMode;
   trigger: RunTrigger;
-  branch: string;
+  /** Defaults to the project's default branch */
+  branch?: string;
+  /** Explicit environment; otherwise the pipeline uses the project default */
+  environmentId?: string;
   commitSha?: string | null;
   prNumber?: number | null;
   triggeredById?: string;
@@ -51,9 +54,10 @@ export async function enqueueOrDiscard(
 export async function launchPipelineRun(input: LaunchRunInput): Promise<LaunchRunResult> {
   const project = await prisma.project.findUnique({
     where: { id: input.projectId },
-    select: { workspaceId: true },
+    select: { workspaceId: true, defaultBranch: true },
   });
   if (!project) return { ok: false, code: "NOT_FOUND", reason: "Project not found" };
+  const branch = input.branch ?? project.defaultBranch;
 
   const allowance = await canConsume(project.workspaceId, "run");
   if (!allowance.allowed) {
@@ -68,7 +72,8 @@ export async function launchPipelineRun(input: LaunchRunInput): Promise<LaunchRu
       status: "queued",
       mode: input.mode,
       trigger: input.trigger,
-      branch: input.branch,
+      branch,
+      environmentId: input.environmentId,
       commitSha: input.commitSha ?? null,
       prNumber: input.prNumber ?? null,
       triggeredById: input.triggeredById,
@@ -81,7 +86,7 @@ export async function launchPipelineRun(input: LaunchRunInput): Promise<LaunchRu
       `run-${run.id}`,
       {
         projectId: input.projectId,
-        branch: input.branch,
+        branch,
         changedFiles,
         isIncremental: !!changedFiles && changedFiles.length > 0,
         runId: run.id,
@@ -102,6 +107,13 @@ export async function launchPipelineRun(input: LaunchRunInput): Promise<LaunchRu
   });
 
   return { ok: true, runId: run.id };
+}
+
+/** HTTP status for a failed launch, for API callers. */
+export function launchErrorStatus(code: string): number {
+  if (code === "NOT_FOUND") return 404;
+  if (code === "QUEUE_UNAVAILABLE") return 503;
+  return 403; // LIMIT_REACHED, INSUFFICIENT_CREDITS, BUDGET_EXCEEDED
 }
 
 /** Response fields for webhook replies: the run id, or why no run started. */
