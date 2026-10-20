@@ -9,7 +9,7 @@ interface Bucket {
 
 const buckets = new Map<string, Bucket>();
 
-function limits(env: NodeJS.ProcessEnv = process.env): { perMs: number; capacity: number } {
+function limits(env: Record<string, string | undefined> = process.env): { perMs: number; capacity: number } {
   const rpm = Number(env.ORBIT_AI_RPM) > 0 ? Number(env.ORBIT_AI_RPM) : 120;
   const burst = Number(env.ORBIT_AI_BURST) > 0 ? Number(env.ORBIT_AI_BURST) : 20;
   return { perMs: rpm / 60_000, capacity: burst };

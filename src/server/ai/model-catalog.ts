@@ -87,6 +87,6 @@ const TIER_DEFAULTS: Record<ModelTier, string> = {
 };
 
 /** Model for a tier: env override, else the current-generation default. */
-export function modelForTier(tier: ModelTier, env: NodeJS.ProcessEnv = process.env): string {
+export function modelForTier(tier: ModelTier, env: Record<string, string | undefined> = process.env): string {
   return env[TIER_ENV[tier]]?.trim() || TIER_DEFAULTS[tier];
 }

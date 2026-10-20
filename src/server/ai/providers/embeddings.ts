@@ -63,13 +63,13 @@ const byIndex = (json: unknown): number[][] =>
     .sort((a, b) => a.index - b.index)
     .map((d) => d.embedding);
 
-function requireKey(name: string, envVar: string, env: NodeJS.ProcessEnv): string {
+function requireKey(name: string, envVar: string, env: Record<string, string | undefined>): string {
   const key = env[envVar]?.trim();
   if (!key) throw new ProviderError(name, `ORBIT_EMBEDDINGS=${name} requires ${envVar}`, { retryable: false });
   return key;
 }
 
-export function getEmbeddingMode(env: NodeJS.ProcessEnv = process.env): EmbeddingMode {
+export function getEmbeddingMode(env: Record<string, string | undefined> = process.env): EmbeddingMode {
   const raw = env.ORBIT_EMBEDDINGS?.trim().toLowerCase();
   if (raw && MODES.has(raw as EmbeddingMode)) return raw as EmbeddingMode;
   // Unset: keep the historical behaviour (OpenAI) when a key exists, otherwise keyword search.
@@ -77,7 +77,7 @@ export function getEmbeddingMode(env: NodeJS.ProcessEnv = process.env): Embeddin
 }
 
 /** The configured provider, or null in keyword-only ("none") mode. */
-export function getEmbeddingProvider(env: NodeJS.ProcessEnv = process.env): EmbeddingProvider | null {
+export function getEmbeddingProvider(env: Record<string, string | undefined> = process.env): EmbeddingProvider | null {
   const mode = getEmbeddingMode(env);
   const override = env.ORBIT_EMBEDDINGS_MODEL?.trim();
 

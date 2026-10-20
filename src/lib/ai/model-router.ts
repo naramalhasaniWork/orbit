@@ -39,7 +39,7 @@ const DEFAULT_TIER: Record<Exclude<TaskType, "embedding" | "browser_execution">,
  * divergence or parse failures (see services/execution/executor-decision).
  * ORBIT_AGENT_MODEL pins one model and disables escalation.
  */
-export function getAgentModels(env: NodeJS.ProcessEnv = process.env): { primary: string; escalation: string | null } {
+export function getAgentModels(env: Record<string, string | undefined> = process.env): { primary: string; escalation: string | null } {
   const pinned = env.ORBIT_AGENT_MODEL?.trim();
   if (pinned) return { primary: pinned, escalation: null };
   return { primary: modelForTier("fast", env), escalation: modelForTier("balanced", env) };

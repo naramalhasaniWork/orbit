@@ -105,7 +105,7 @@ export async function resolveProvider(
 }
 
 /** Platform-level chat providers configured through env vars. */
-export function configuredEnvProviders(env: NodeJS.ProcessEnv = process.env): Provider[] {
+export function configuredEnvProviders(env: Record<string, string | undefined> = process.env): Provider[] {
   const set = (k: string) => Boolean(env[k]?.trim());
   const out: Provider[] = [];
   if (set("ANTHROPIC_API_KEY")) out.push("anthropic");

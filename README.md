@@ -117,7 +117,7 @@ Required for every deployment:
 | `NEXTAUTH_SECRET` | JWT signing secret |
 | `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | Credentials of your **GitHub App** (login and repo access; plain OAuth Apps are not supported) |
 | `ENCRYPTION_KEY` | Key for the secrets vault; losing it makes stored secrets unreadable |
-| `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` | AI providers. OpenAI is also used for embeddings |
+| `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `OPENROUTER_API_KEY` / `ORBIT_OPENAI_COMPATIBLE_BASE_URL` | AI chat providers; at least one is required (or `ORBIT_AI_KEYS=byok`). `ORBIT_EMBEDDINGS=openai\|voyage\|ollama\|none` picks the embedding provider; `none` uses keyword search |
 | `PLAYWRIGHT_WS_ENDPOINT` | Remote browser (browserless). Falls back to local Chromium if unset |
 
 **GitHub setup:** create one GitHub App for both login and repo access. Set its callback URL to `<NEXTAUTH_URL>/api/auth/callback/github`, its setup URL to `<NEXTAUTH_URL>/api/github/installations/callback`, and enable "Request user authorization (OAuth) during installation". Also set `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY` and `GITHUB_APP_SLUG` (required at boot unless `ORBIT_SELF_HOSTED=true`, where only a warning is logged). Permissions come from the App's configuration; OAuth scopes are not requested. On self-hosted instances `GITHUB_TOKEN` is used only for public repos unless `ORBIT_GITHUB_TOKEN_FALLBACK=true`; it is never used on hosted Orbit.

@@ -402,12 +402,7 @@ const handlers: Record<string, ToolHandler> = {
       ],
       maxTokens: 1024,
       temperature: 0.2,
-    }, {
-      workspaceId: ctx.workspaceId,
-      projectId: ctx.projectId,
-      runId: result.testRun.id,
-      agentPhase: "reporter",
-    });
+    }, { workspaceId: ctx.workspaceId, projectId: ctx.projectId, runId: result.testRun.id, agentPhase: "reporter" });
 
     return {
       testName: result.testCase.name,
