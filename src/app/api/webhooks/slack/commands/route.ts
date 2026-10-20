@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { claimSlackTeam } from "@/server/data/inbound-repo";
+import { auditSettingsChange } from "@/lib/auth/audit";
+import { claimSlackTeam, type SlackLinkResult } from "@/server/data/inbound-repo";
 import { slackWorkspace, verifiedSlackBody } from "@/services/integrations/slack-inbound";
 import {
   handleStatus,
@@ -11,6 +12,7 @@ import {
 interface SlackCommandPayload {
   text: string;
   team_id: string;
+  user_id: string;
 }
 
 function parseCommandPayload(body: string): SlackCommandPayload {
@@ -18,15 +20,32 @@ function parseCommandPayload(body: string): SlackCommandPayload {
   return {
     text: params.get("text") ?? "",
     team_id: params.get("team_id") ?? "",
+    user_id: params.get("user_id") ?? "",
   };
 }
 
 const LINK_REPLIES = {
   linked: "Linked: `/orbit` commands from this Slack workspace now act on your Orbit workspace.",
   pending:
-    "This Slack workspace is already linked to another Orbit workspace. An admin of the Orbit workspace that issued this code must confirm the move in Settings → Integrations → Slack.",
+    "This Slack workspace is already linked to another Orbit workspace. An admin of that workspace must approve the move in its Settings → Integrations → Slack within 24 hours (or disconnect Slack there).",
   invalid: "That link code is invalid or expired. Get a new one in Orbit Settings → Integrations → Slack.",
 } as const;
+
+/** Both workspaces hear about a claim: the claimant's log and the holder's (whose Slack card also shows it). */
+async function auditSlackLink(result: SlackLinkResult, command: SlackCommandPayload) {
+  if (result.outcome === "invalid") return;
+  const slack = { teamId: command.team_id, slackUserId: command.user_id };
+  if (result.outcome === "linked") {
+    await auditSettingsChange(undefined, result.workspaceId, "integration.slack", { action: "team_linked", ...slack });
+    return;
+  }
+  await auditSettingsChange(undefined, result.workspaceId, "integration.slack", {
+    action: "team_claim_pending", holderWorkspaceId: result.holderWorkspaceId, ...slack,
+  });
+  await auditSettingsChange(undefined, result.holderWorkspaceId, "integration.slack", {
+    action: "team_claim_received", claimantWorkspaceId: result.workspaceId, ...slack,
+  });
+}
 
 export async function POST(req: NextRequest) {
   const verified = await verifiedSlackBody(req);
@@ -37,8 +56,9 @@ export async function POST(req: NextRequest) {
 
   // Binding: only a signed request carrying a code issued to an Orbit admin can claim a team
   if (subcommand.toLowerCase() === "link") {
-    const outcome = await claimSlackTeam(rest[0] ?? "", command.team_id);
-    return NextResponse.json({ response_type: "ephemeral", text: LINK_REPLIES[outcome] });
+    const result = await claimSlackTeam(rest[0] ?? "", command.team_id);
+    await auditSlackLink(result, command);
+    return NextResponse.json({ response_type: "ephemeral", text: LINK_REPLIES[result.outcome] });
   }
 
   const workspace = await slackWorkspace(command.team_id);

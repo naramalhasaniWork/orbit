@@ -22,7 +22,7 @@ vi.mock("@/lib/db", async () => {
       // Interactions: honour the workspace scope the route adds to the lookup
       testRun: {
         findFirst: vi.fn(async ({ where }: { where: { id: string; project: { workspaceId: string } } }) =>
-          where.id === RUN_IN_W1 && where.project.workspaceId === "w1"
+          where.id === RUN_IN_W1 && where.project.workspaceId === W1
             ? { projectId: "p1", mode: "full", branch: null, project: { defaultBranch: "main" } }
             : null
         ),
@@ -36,7 +36,8 @@ vi.mock("@/server/http/session", async () => (await import("../helpers/route-aut
 vi.mock("@/server/http/auth", async (orig) =>
   (await import("../helpers/route-auth")).authMock(await orig<Record<string, unknown>>())
 );
-vi.mock("@/lib/auth/audit", () => ({ auditSettingsChange: vi.fn() }));
+const audit = vi.hoisted(() => ({ auditSettingsChange: vi.fn() }));
+vi.mock("@/lib/auth/audit", () => audit);
 
 import { prisma } from "@/lib/db";
 import { fakeOf } from "../helpers/fake-config-db";
@@ -44,6 +45,8 @@ import { resetRouteAuth, routeAuth } from "../helpers/route-auth";
 import { sealSecret } from "@/lib/integrations/secret-field";
 
 const RUN_IN_W1 = "6f1c1d1e-0000-4000-8000-000000000001";
+const W1 = "11111111-1111-4111-8111-111111111111";
+const W2 = "22222222-2222-4222-8222-222222222222";
 const db = fakeOf(prisma);
 const SIGNING = "slack-app-secret";
 
@@ -65,9 +68,9 @@ beforeEach(() => {
   db.reset();
   resetRouteAuth();
   process.env.SLACK_SIGNING_SECRET = SIGNING;
-  for (const ws of ["w1", "w2"]) db.addWorkspace(ws);
-  db.addProject("p1", "w1");
-  db.addProject("p2", "w2");
+  for (const ws of [W1, W2]) db.addWorkspace(ws);
+  db.addProject("p1", W1);
+  db.addProject("p2", W2);
 });
 
 describe("Linear inbound webhook", () => {
@@ -93,8 +96,8 @@ describe("Linear inbound webhook", () => {
   });
 
   it("runs only with the connection's own token, against its workspace's project", async () => {
-    connect("w1", "linear", { externalAccountId: "team-1" });
-    const url = await issueUrl("w1");
+    connect(W1, "linear", { externalAccountId: "team-1" });
+    const url = await issueUrl(W1);
     expect(url.pathname).toMatch(/^\/api\/webhooks\/linear\/[0-9a-f-]{36}$/);
     expect(db.integrations[0].inboundTokenHash).toMatch(/^[0-9a-f]{64}$/);
     expect(JSON.stringify(db.integrations[0])).not.toContain(url.searchParams.get("token"));
@@ -112,22 +115,22 @@ describe("Linear inbound webhook", () => {
   });
 
   it("a rotated URL replaces the old one, and a disconnect closes it", async () => {
-    connect("w1", "linear");
-    const first = await issueUrl("w1");
-    const second = await issueUrl("w1");
+    connect(W1, "linear");
+    const first = await issueUrl(W1);
+    const second = await issueUrl(W1);
     expect((await deliver(first, done)).status).toBe(401);
     expect((await deliver(second, done)).status).toBe(200);
 
     const { DELETE } = await import("@/app/api/workspaces/[workspaceId]/integrations/linear/route");
-    await DELETE(wsReq(), asAdminOf("w1"));
+    await DELETE(wsReq(), asAdminOf(W1));
     expect((await deliver(second, done)).status).toBe(401);
   });
 
   it("ignores other teams, and never picks a project outside the workspace", async () => {
     const foreign = "6f1c1d1e-0000-4000-8000-0000000000f2";
-    db.addProject(foreign, "w2");
-    connect("w1", "linear", { externalAccountId: "team-1", settings: { provider: "linear", inboundProjectId: foreign } });
-    const url = await issueUrl("w1");
+    db.addProject(foreign, W2);
+    connect(W1, "linear", { externalAccountId: "team-1", settings: { provider: "linear", inboundProjectId: foreign } });
+    const url = await issueUrl(W1);
 
     const other = await deliver(url, { ...done, data: { ...done.data, team: { id: "team-2" } } });
     expect((await other.json()).reason).toBe("other_team");
@@ -139,10 +142,10 @@ describe("Linear inbound webhook", () => {
   });
 
   it("the inbound project must be in the workspace", async () => {
-    connect("w1", "linear");
+    connect(W1, "linear");
     const { PATCH } = await import("@/app/api/workspaces/[workspaceId]/integrations/linear/route");
     const body = JSON.stringify({ inboundProjectId: "6f1c1d1e-0000-4000-8000-000000000002" });
-    const res = await PATCH(new NextRequest("http://localhost/x", { method: "PATCH", body }), asAdminOf("w1"));
+    const res = await PATCH(new NextRequest("http://localhost/x", { method: "PATCH", body }), asAdminOf(W1));
     expect(res.status).toBe(404);
   });
 });
@@ -171,51 +174,101 @@ describe("Slack commands route by a verified, uniquely linked team", () => {
   }
 
   it("an unlinked team gets instructions, not another workspace's data", async () => {
-    connect("w1", "slack");
+    connect(W1, "slack");
     expect((await command("status")).text).toContain("not linked");
     expect(commands.handleStatus).not.toHaveBeenCalled();
   });
 
   it("links through a single-use code, then routes to that workspace", async () => {
-    connect("w1", "slack");
-    const code = await linkCode("w1");
+    connect(W1, "slack");
+    const code = await linkCode(W1);
     expect((await command(`link ${code}`)).text).toMatch(/^Linked/);
     expect((await command(`link ${code}`, "T9")).text).toContain("invalid or expired");
 
-    expect((await command("status")).text).toBe("status:w1");
+    expect((await command("status")).text).toBe(`status:${W1}`);
   });
 
   it("an expired code links nothing", async () => {
-    connect("w1", "slack");
-    const code = await linkCode("w1");
+    connect(W1, "slack");
+    const code = await linkCode(W1);
     (db.integrations[0].settings as Record<string, unknown>).linkCodeExpiresAt = new Date(Date.now() - 1000).toISOString();
     expect((await command(`link ${code}`)).text).toContain("invalid or expired");
     expect(db.integrations[0].externalAccountId).toBeNull();
   });
 
-  it("a second workspace claiming the team waits for its admin to confirm", async () => {
-    connect("w1", "slack");
-    connect("w2", "slack");
-    await command(`link ${await linkCode("w1")}`);
+  async function claimFromW2() {
+    connect(W1, "slack");
+    connect(W2, "slack");
+    await command(`link ${await linkCode(W1)}`);
+    return (await command(`link ${await linkCode(W2)}`)).text;
+  }
 
-    expect((await command(`link ${await linkCode("w2")}`)).text).toContain("must confirm");
-    expect((await command("status")).text).toBe("status:w1");
+  async function answer(holder: string, claimant: string, approve: boolean) {
+    const { POST } = await import("@/app/api/workspaces/[workspaceId]/integrations/slack/claims/[claimantWorkspaceId]/route");
+    const req = new NextRequest("http://localhost/x", { method: "POST", body: JSON.stringify({ approve }) });
+    routeAuth.workspaceId = holder;
+    return POST(req, { params: Promise.resolve({ workspaceId: holder, claimantWorkspaceId: claimant }) });
+  }
 
-    const { POST } = await import("@/app/api/workspaces/[workspaceId]/integrations/slack/link/confirm/route");
-    expect((await POST(wsReq(), asAdminOf("w2"))).status).toBe(200);
-    expect((await command("status")).text).toBe("status:w2");
-    expect(db.integrations.find((r) => r.workspaceId === "w1")?.externalAccountId).toBeNull();
+  const linkNow = async (workspaceId: string) =>
+    (await import("@/app/api/workspaces/[workspaceId]/integrations/slack/link/confirm/route")).POST(wsReq(), asAdminOf(workspaceId));
+
+  it("the claiming workspace can't take a held team on its own", async () => {
+    expect(await claimFromW2()).toContain("must approve");
+    expect((await linkNow(W2)).status).toBe(409);
+    // The claimant can't answer its own claim either: it doesn't hold the team
+    expect((await answer(W2, W2, true)).status).toBe(404);
+    expect((await command("status")).text).toBe(`status:${W1}`);
+
+    // Both workspaces get an audit entry; the holder's card lists the request
+    expect(audit.auditSettingsChange).toHaveBeenCalledWith(undefined, W1, "integration.slack", expect.objectContaining({ action: "team_claim_received", claimantWorkspaceId: W2 }));
+    expect(audit.auditSettingsChange).toHaveBeenCalledWith(undefined, W2, "integration.slack", expect.objectContaining({ action: "team_claim_pending", holderWorkspaceId: W1 }));
+    const { incomingSlackClaims } = await import("@/server/data/inbound-repo");
+    expect(await incomingSlackClaims(W1)).toEqual([expect.objectContaining({ workspaceId: W2 })]);
+  });
+
+  it("the holder's approval moves the team; a decline leaves it", async () => {
+    await claimFromW2();
+    expect((await answer(W1, W2, false)).status).toBe(200);
+    expect((await command("status")).text).toBe(`status:${W1}`);
+    expect((await answer(W1, W2, true)).status).toBe(404); // declined claim is gone
+
+    await command(`link ${await linkCode(W2)}`);
+    expect((await answer(W1, W2, true)).status).toBe(200);
+    expect((await command("status")).text).toBe(`status:${W2}`);
+    expect(db.integrations.find((r) => r.workspaceId === W1)?.externalAccountId).toBeNull();
+    expect(audit.auditSettingsChange).toHaveBeenCalledWith("user-1", W1, "integration.slack", expect.objectContaining({ action: "team_transfer_approved" }));
+    expect(audit.auditSettingsChange).toHaveBeenCalledWith(undefined, W2, "integration.slack", expect.objectContaining({ action: "team_transfer_approved" }));
+  });
+
+  it("once the holder disconnects, the claimant can link", async () => {
+    await claimFromW2();
+    const { DELETE } = await import("@/app/api/workspaces/[workspaceId]/integrations/slack/route");
+    await DELETE(wsReq(), asAdminOf(W1));
+    expect((await linkNow(W2)).status).toBe(200);
+    expect((await command("status")).text).toBe(`status:${W2}`);
+  });
+
+  it("a claim lapses after 24 hours", async () => {
+    await claimFromW2();
+    const claimant = db.integrations.find((r) => r.workspaceId === W2) as { settings: Record<string, unknown> };
+    claimant.settings.pendingTeamAt = new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString();
+
+    const { incomingSlackClaims } = await import("@/server/data/inbound-repo");
+    expect(await incomingSlackClaims(W1)).toEqual([]);
+    expect((await answer(W1, W2, true)).status).toBe(404);
+    expect((await command("status")).text).toBe(`status:${W1}`);
   });
 
   it("a team bound to two workspaces is refused, never guessed", async () => {
-    connect("w1", "slack", { externalAccountId: "T1" });
-    connect("w2", "slack", { externalAccountId: "T1" });
+    connect(W1, "slack", { externalAccountId: "T1" });
+    connect(W2, "slack", { externalAccountId: "T1" });
     expect((await command("status")).text).toContain("more than one Orbit workspace");
     expect(commands.handleStatus).not.toHaveBeenCalled();
   });
 
   it("button actions only reach the linked workspace's runs", async () => {
-    connect("w2", "slack", { externalAccountId: "T1" });
+    connect(W2, "slack", { externalAccountId: "T1" });
     const fetchMock = vi.fn(async () => new Response("ok"));
     vi.stubGlobal("fetch", fetchMock);
     const payload = {
