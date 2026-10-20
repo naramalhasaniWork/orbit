@@ -11,7 +11,7 @@ import {
 } from "lucide-react";
 import { StatsCard } from "@/components/admin/stats-card";
 import { Status } from "@/components/telemetry/status";
-import { toneForRun } from "@/lib/status-tone";
+import { runWord, toneForRun } from "@/lib/status-tone";
 
 interface RecentRun {
   id: string;
@@ -145,7 +145,7 @@ export function AdminDashboardClient({ stats, recentRuns }: AdminDashboardClient
                   className="border-b border-border/50 hover:bg-muted/30 transition-colors"
                 >
                   <td className="px-4 py-3">
-                    <Status tone={toneForRun(run.status, run)} label={run.status} mono />
+                    <Status tone={toneForRun(run.status, run)} label={runWord(run.status, run)} mono />
                   </td>
                   <td className="px-4 py-3 font-medium">{run.projectName}</td>
                   <td className="px-4 py-3 text-muted-foreground">

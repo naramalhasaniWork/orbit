@@ -9,7 +9,7 @@ import {
   Settings2,
   BarChart3,
   ScrollText,
-  Orbit,
+  ArrowLeft,
   Cpu,
   FileText,
   Inbox,
@@ -72,14 +72,11 @@ export function AdminSidebar() {
       <div className="p-2 mb-1">
         <Link
           href="/dashboard"
-          className="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-foreground/[0.04] transition-colors"
+          title="Back to the app"
+          className="flex h-9 items-center gap-3 rounded-md px-2 text-[13px] text-tm-t2 transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <div className="h-6 w-6 rounded-md bg-foreground/[0.06] flex items-center justify-center shrink-0">
-            <Orbit className="h-3.5 w-3.5 text-foreground" />
-          </div>
-          <span className="text-xs text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap">
-            Back to Dashboard
-          </span>
+          <ArrowLeft aria-hidden="true" className="size-[18px] shrink-0" strokeWidth={1.6} />
+          <span className="sr-only whitespace-nowrap md:not-sr-only">Back to the app</span>
         </Link>
       </div>
     </aside>

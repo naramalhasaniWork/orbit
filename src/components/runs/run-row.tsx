@@ -6,7 +6,7 @@ import { SelectCheckbox } from "@/components/shared/select-checkbox";
 import { Status } from "@/components/telemetry/status";
 import { cn } from "@/lib/utils";
 import { formatRunTitle } from "@/lib/runs/run-title";
-import { toneForRun } from "@/lib/status-tone";
+import { runWord, toneForRun } from "@/lib/status-tone";
 import {
   type RunListItem,
   RUN_STATUS_CONFIG,
@@ -25,8 +25,7 @@ interface RunRowProps {
 export function RunRow({ run, selected, onToggleSelect }: RunRowProps) {
   const title = formatRunTitle(run);
   const tone = toneForRun(run.status, run);
-  const word =
-    run.status === "completed" ? (tone === "fail" ? "Failed" : tone === "flaky" ? "Flaky" : "Passed") : RUN_STATUS_CONFIG[run.status]?.label ?? run.status;
+  const word = run.status === "completed" ? runWord(run.status, run) : RUN_STATUS_CONFIG[run.status]?.label ?? run.status;
 
   return (
     <div className={cn("flex items-center transition-colors", selected ? "bg-accent" : "hover:bg-accent/60")}>

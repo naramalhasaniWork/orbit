@@ -59,6 +59,13 @@ export function toneForRun(status: string, counts: RunCounts = {}): StatusTone {
   return "untested";
 }
 
+/** The word for a run that agrees with its glyph: a completed run with failures says Failed. */
+export function runWord(status: string, counts: RunCounts = {}): string {
+  const tone = toneForRun(status, counts);
+  if (status === "completed") return tone === "fail" ? "Failed" : tone === "flaky" ? "Flaky" : "Passed";
+  return status.charAt(0).toUpperCase() + status.slice(1);
+}
+
 /** Tone for a TestResult verdict. A healed selector still passed. */
 export function toneForVerdict(verdict: string): StatusTone {
   switch (verdict) {

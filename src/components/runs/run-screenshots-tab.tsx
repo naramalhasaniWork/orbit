@@ -171,7 +171,7 @@ function Lightbox({
             {currentIndex + 1} of {screenshots.length} · {formatDistanceToNow(new Date(current.createdAt), { addSuffix: true })}
           </DialogDescription>
         </DialogHeader>
-        <div className="overflow-auto rounded-md border border-border bg-tm-sunken">
+        <div className="flex min-h-[240px] items-center justify-center overflow-auto rounded-md border border-border bg-tm-sunken">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={current.url} alt={label} className="mx-auto max-h-[70dvh] max-w-full object-contain" />
         </div>
