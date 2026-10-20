@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync, readdirSync } from "fs";
 import { join } from "path";
-import { TIER_LIMITS } from "@/lib/auth/tenant";
+import { TIER_LIMITS } from "@/lib/auth/tier-limits";
 import { getTierConfig } from "@/lib/stripe/prices";
 
 const contentDir = join(process.cwd(), "src/app/(marketing)/content");
@@ -45,6 +45,18 @@ describe("marketing copy matches the product", () => {
       expect(hits.map(([name]) => name)).toEqual([]);
     }
   );
+
+  it("has no unverified trial, rollover, SSO or plugin-authoring claims", () => {
+    const text = content.pricing;
+    for (const phrase of ["trial", "roll over", "okta", "sso", "plugin authoring", "75%", "95%"]) {
+      expect(text.toLowerCase(), phrase).not.toContain(phrase);
+    }
+    expect(JSON.parse(text).creditPacks).toBeUndefined();
+  });
+
+  it("only ships content files the app imports", () => {
+    expect(Object.keys(content).sort()).toEqual(["about", "features", "pricing"]);
+  });
 
   it("has no invented About stats", () => {
     expect(JSON.parse(content.about).stats).toBeUndefined();

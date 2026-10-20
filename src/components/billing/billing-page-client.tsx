@@ -9,9 +9,10 @@ import { PricingSelector } from "./pricing-selector";
 
 interface BillingPageClientProps {
   workspaceId: string;
+  currentTier: string;
 }
 
-export function BillingPageClient({ workspaceId }: BillingPageClientProps) {
+export function BillingPageClient({ workspaceId, currentTier }: BillingPageClientProps) {
   const [showPricing, setShowPricing] = useState(false);
 
   const handleSelectTier = useCallback(
@@ -50,7 +51,7 @@ export function BillingPageClient({ workspaceId }: BillingPageClientProps) {
         {showPricing && (
           <div className="mt-4">
             <PricingSelector
-              currentTier="free"
+              currentTier={currentTier}
               onSelectTier={handleSelectTier}
             />
           </div>

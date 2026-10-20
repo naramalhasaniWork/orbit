@@ -63,8 +63,6 @@ const TIER_CONFIG: Record<WorkspaceTier, TierConfig> = {
       ...tierLimitFeatures("professional"),
       "Admin settings and role-based permissions",
       "Audit logs and compliance exports",
-      "SSO (Google Workspace, Okta)",
-      "Plugin authoring (private plugins)",
       "Priority support via Slack Connect",
     ],
   },
