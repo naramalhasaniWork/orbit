@@ -30,7 +30,7 @@ export function RunsSummaryBar({ runs }: RunsSummaryBarProps) {
           </span>
         ))}
       </div>
-      <GroundTrack ticks={recent} slots={TRACK_RUNS} noun="recent runs" className="min-w-0 flex-1" />
+      <GroundTrack ticks={recent} slots={TRACK_RUNS} noun="recent runs" className="min-w-0 sm:flex-1" />
     </div>
   );
 }

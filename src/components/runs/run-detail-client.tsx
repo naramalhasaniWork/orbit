@@ -159,7 +159,15 @@ export function RunDetailClient({ run, projectId, visualResults = [], previousRu
   // The first failure gets the write-up; the list below starts with it collapsed.
   const firstFailure = isLive ? undefined : mergedResults.find((r) => toneForVerdict(r.verdict) === "fail");
   const failureCount = mergedResults.filter((r) => toneForVerdict(r.verdict) === "fail").length;
-  const ticks: GroundTrackTick[] = mergedResults.map((r) => ({ tone: toneForVerdict(r.verdict) }));
+  // One tick per finished test: from the results when we have them, otherwise from the live counts.
+  const ticks: GroundTrackTick[] =
+    mergedResults.length >= livePassed + liveFailed + liveFlaky
+      ? mergedResults.map((r) => ({ tone: toneForVerdict(r.verdict) }))
+      : [
+          ...Array.from({ length: livePassed }, () => ({ tone: "pass" as const })),
+          ...Array.from({ length: liveFlaky }, () => ({ tone: "flaky" as const })),
+          ...Array.from({ length: liveFailed }, () => ({ tone: "fail" as const })),
+        ];
   if (isLiveRunStatus(liveStatus) && ticks.length < liveTotal) ticks.push({ tone: "live" });
 
   return (

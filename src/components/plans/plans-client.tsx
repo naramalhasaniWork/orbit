@@ -157,7 +157,7 @@ function PageHeader({
   return (
     <div className="flex items-center justify-between">
       <div>
-        <h1 className="text-lg font-medium text-foreground">Test Plans</h1>
+        <h1 className="text-balance text-[26px] font-medium leading-tight tracking-display">Test Plans</h1>
         <p className="text-sm text-muted-foreground mt-0.5">
           {projectName ? `${projectName} — ` : ""}
           {planCount} {planCount === 1 ? "plan" : "plans"}

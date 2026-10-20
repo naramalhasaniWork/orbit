@@ -25,7 +25,8 @@ interface RunRowProps {
 export function RunRow({ run, selected, onToggleSelect }: RunRowProps) {
   const title = formatRunTitle(run);
   const tone = toneForRun(run.status, run);
-  const word = tone === "fail" && run.status === "completed" ? "Failed" : RUN_STATUS_CONFIG[run.status]?.label ?? run.status;
+  const word =
+    run.status === "completed" ? (tone === "fail" ? "Failed" : tone === "flaky" ? "Flaky" : "Passed") : RUN_STATUS_CONFIG[run.status]?.label ?? run.status;
 
   return (
     <div className={cn("flex items-center transition-colors", selected ? "bg-accent" : "hover:bg-accent/60")}>

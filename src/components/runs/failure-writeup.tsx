@@ -28,7 +28,7 @@ export function FailureWriteup({ result, projectId, runId, otherFailures }: Fail
   return (
     <section
       aria-labelledby="what-broke"
-      className="motion-safe:animate-slide-up grid gap-6 rounded-lg border border-border bg-card p-5 lg:grid-cols-[minmax(0,1fr)_280px]"
+      className={`motion-safe:animate-slide-up grid gap-6 rounded-lg border border-border bg-card p-5 ${steps.length > 0 ? "lg:grid-cols-[minmax(0,1fr)_280px]" : ""}`}
     >
       <div className="min-w-0 space-y-4">
         <div className="space-y-2">
@@ -60,9 +60,11 @@ export function FailureWriteup({ result, projectId, runId, otherFailures }: Fail
           runId={runId}
         />
       </div>
-      <aside className="min-w-0 lg:border-l lg:border-border lg:pl-5">
-        <StepLog steps={result.steps} />
-      </aside>
+      {steps.length > 0 && (
+        <aside className="min-w-0 lg:border-l lg:border-border lg:pl-5">
+          <StepLog steps={result.steps} />
+        </aside>
+      )}
     </section>
   );
 }

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useRunEvents } from "@/hooks/use-run-events";
 import { Button } from "@/components/ui/button";
 import { Status } from "@/components/telemetry/status";
+import { toneForRun } from "@/lib/status-tone";
 import { GroundTrack } from "@/components/telemetry/ground-track";
 import Link from "next/link";
 
@@ -64,7 +65,8 @@ export function ActiveRunBar({ initialRun, projectId }: ActiveRunBarProps) {
   const failed = progress?.failed ?? run.failed;
   const isTerminal = progress?.status === "completed" || progress?.status === "failed";
 
-  const tone = isTerminal ? (failed > 0 ? "fail" : "pass") : "live";
+  // The terminal status decides: a "failed" run is a failure even when the event carried no counts.
+  const tone = isTerminal ? toneForRun(progress?.status ?? "completed", { failed }) : "live";
   const ticks = [
     ...Array.from({ length: passed }, () => ({ tone: "pass" as const })),
     ...Array.from({ length: failed }, () => ({ tone: "fail" as const })),
@@ -75,7 +77,7 @@ export function ActiveRunBar({ initialRun, projectId }: ActiveRunBarProps) {
     <div className="flex flex-wrap items-center gap-x-5 gap-y-3 rounded-lg border border-border bg-card px-4 py-3">
       <div className="min-w-0 flex-1 space-y-2">
         <p className="tm-label flex flex-wrap items-center gap-x-2 text-tm-t2">
-          <Status tone={tone} label={isTerminal ? (failed > 0 ? "Failed" : "Passed") : "Live"} mono />
+          <Status tone={tone} label={isTerminal ? (tone === "fail" ? "Failed" : "Passed") : "Live"} mono />
           <span>· {triggerLabels[run.trigger] ?? run.trigger} · {run.mode}</span>
           {total > 0 && <span className="tm-num">· {String(completed).padStart(2, "0")}/{String(total).padStart(2, "0")}</span>}
         </p>

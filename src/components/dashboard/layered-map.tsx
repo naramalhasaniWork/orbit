@@ -69,7 +69,9 @@ export function LayeredMap({ nodes, edges, selectedId, onSelect, mode }: Layered
           const x2 = forward ? b.x : b.x + COL_W;
           const y1 = a.y + NODE_H / 2;
           const y2 = b.y + NODE_H / 2;
-          const mid = a.layer === b.layer ? x1 + 16 : (x1 + x2) / 2;
+          // Spread each source's vertical run across the gap so parallel edges stay readable.
+          const lane = ((Math.round(a.y / ROW_H) % 7) - 3) * 8;
+          const mid = a.layer === b.layer ? x1 + 16 : (x1 + x2) / 2 + lane;
           const on = !!highlight && highlight.has(e.sourceId) && highlight.has(e.targetId);
           return (
             <path

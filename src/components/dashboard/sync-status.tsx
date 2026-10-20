@@ -59,7 +59,7 @@ export function SyncStatus({ projectId, info }: { projectId: string; info: SyncI
           +{diff.added} ~{diff.modified} −{diff.removed} <span className="tm-label">since last sync</span>
         </span>
       )}
-      <Button variant="ghost" size="sm" className="h-7 px-2 text-[12px]" onClick={check} disabled={checking} aria-busy={checking || undefined}>
+      <Button variant="ghost" size="sm" className="h-7 px-2 font-sans text-[12px] normal-case tracking-normal" onClick={check} disabled={checking} aria-busy={checking || undefined}>
         {checking ? "Checking…" : "Check now"}
       </Button>
       {checkError && <span role="alert" className="normal-case text-tm-fail">{checkError}</span>}

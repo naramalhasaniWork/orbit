@@ -129,7 +129,7 @@ export function RunsClient({
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-lg font-medium text-foreground">Test Runs</h1>
+          <h1 className="text-balance text-[26px] font-medium leading-tight tracking-display">Test Runs</h1>
           <p className="text-sm text-muted-foreground mt-0.5">
             {projectName ? `${projectName} — ` : ""}
             {runs.length} {runs.length === 1 ? "run" : "runs"}

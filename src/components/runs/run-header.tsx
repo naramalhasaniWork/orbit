@@ -49,7 +49,7 @@ export function RunHeader({
   cancelError,
 }: RunHeaderProps) {
   // A completed run that had failures reads as failed; the glyph and the word must agree.
-  const word = status === "completed" && tone === "fail" ? "Failed" : status === "completed" && tone === "flaky" ? "Passed, flaky" : RUN_STATUS_CONFIG[status]?.label ?? status;
+  const word = status === "completed" && tone === "fail" ? "Failed" : status === "completed" && tone === "flaky" ? "Passed, flaky" : status === "completed" ? "Passed" : RUN_STATUS_CONFIG[status]?.label ?? status;
   return (
     <header className="flex flex-wrap items-start gap-x-6 gap-y-3">
       <div className="min-w-0 flex-1 space-y-1.5">
