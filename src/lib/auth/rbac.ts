@@ -28,8 +28,6 @@ export async function getRbacContext(workspaceId: string): Promise<RbacContext> 
         workspaceId,
         userId: session.user.id,
       },
-      // A soft-deleted workspace admits nobody
-      workspace: { deletedAt: null },
     },
     select: { id: true, role: true, workspace: { select: { deletedAt: true } } },
   });
