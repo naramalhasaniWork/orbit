@@ -1,4 +1,3 @@
-import { prisma } from "@/lib/db";
 import { apiSuccess, apiError } from "@/lib/utils/api";
 import { route } from "@/server/http/route";
 
@@ -9,14 +8,14 @@ import { route } from "@/server/http/route";
 
 export const PATCH = route(
   { workspace: "param", permission: "settings.manage" },
-  async ({ req: request, params: { pluginName }, workspaceId }) => {
+  async ({ req: request, params: { pluginName }, workspaceId, db }) => {
     const body = await request.json();
     const { enabled, config } = body as {
       enabled?: boolean;
       config?: Record<string, unknown>;
     };
 
-    const installation = await prisma.pluginInstallation.findUnique({
+    const installation = await db.pluginInstallation.findUnique({
       where: {
         plugin_installation_unique: { workspaceId, pluginName },
       },
@@ -47,7 +46,7 @@ export const PATCH = route(
       updateData.config = { ...currentConfig, ...config };
     }
 
-    const updated = await prisma.pluginInstallation.update({
+    const updated = await db.pluginInstallation.update({
       where: { id: installation.id },
       data: updateData,
     });
@@ -63,8 +62,8 @@ export const PATCH = route(
 
 export const DELETE = route(
   { workspace: "param", permission: "settings.manage" },
-  async ({ params: { pluginName }, workspaceId }) => {
-    const installation = await prisma.pluginInstallation.findUnique({
+  async ({ params: { pluginName }, workspaceId, db }) => {
+    const installation = await db.pluginInstallation.findUnique({
       where: {
         plugin_installation_unique: { workspaceId, pluginName },
       },
@@ -78,7 +77,7 @@ export const DELETE = route(
       );
     }
 
-    await prisma.pluginInstallation.delete({
+    await db.pluginInstallation.delete({
       where: { id: installation.id },
     });
 

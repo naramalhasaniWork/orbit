@@ -1,6 +1,5 @@
-import { prisma } from "@/lib/db";
 import { apiSuccess, apiError } from "@/lib/utils/api";
-import type { AgentPhase } from "@/generated/prisma/client";
+import type { AgentPhase } from "@/server/data/types";
 import { route } from "@/server/http/route";
 
 const VALID_PHASES: AgentPhase[] = ["analyst", "planner", "executor", "reporter", "auditor"];
@@ -22,8 +21,8 @@ const AGENT_DEFAULTS: Record<AgentPhase, AgentConfigDefaults> = {
 
 export const GET = route(
   { workspace: "param", permission: "settings.view" },
-  async ({ workspaceId }) => {
-    const configs = await prisma.agentConfig.findMany({
+  async ({ workspaceId, db }) => {
+    const configs = await db.agentConfig.findMany({
       where: { workspaceId },
     });
 
@@ -60,7 +59,7 @@ interface PutBody {
 
 export const PUT = route(
   { workspace: "param", permission: "settings.manage" },
-  async ({ req: request, workspaceId }) => {
+  async ({ req: request, workspaceId, db }) => {
     const body = (await request.json()) as PutBody;
     const { agentPhase, model, temperature, maxInputTokens, maxOutputTokens, customPrompt, isEnabled } = body;
 
@@ -80,7 +79,7 @@ export const PUT = route(
       return apiError("maxOutputTokens must be non-negative", "VALIDATION_ERROR", 400);
     }
 
-    const config = await prisma.agentConfig.upsert({
+    const config = await db.agentConfig.upsert({
       where: {
         agent_config_unique: {
           workspaceId,

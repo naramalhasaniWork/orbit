@@ -24,6 +24,9 @@ export interface TenantFixture {
   artifactId: string;
   webhookId: string;
   deliveryId: string;
+  apiKeyId: string;
+  mcpConnectionId: string;
+  invitationId: string;
 }
 
 /** A workspace (with an owner) holding one row of each kind the id-param routes read. */
@@ -57,7 +60,20 @@ export async function seedTenant(db: PrismaClient, label: string): Promise<Tenan
   const delivery = await db.webhookDelivery.create({
     data: { projectId, endpointId: webhook.id, event: "run.completed", url: webhook.url, payload: {} },
   });
+  const apiKey = await db.apiKey.create({
+    data: { workspaceId: workspace.id, name: "ci", prefix: "orb_w2", keyHash: `w2-${tag}` },
+  });
+  const mcp = await db.mcpConnection.create({
+    data: { workspaceId: workspace.id, name: "mcp", serverUrl: "https://mcp.example.com" },
+  });
+  const invitation = await db.workspaceInvitation.create({
+    data: {
+      workspaceId: workspace.id, email: `invitee-${tag}@w2.test`, token: `w2-${tag}`,
+      invitedById: user.id, expiresAt: new Date(Date.now() + 86_400_000),
+    },
+  });
   return {
+    apiKeyId: apiKey.id, mcpConnectionId: mcp.id, invitationId: invitation.id,
     userId: user.id, workspaceId: workspace.id, projectId, planId: plan.id, testCaseId: testCase.id,
     runId: run.id, environmentId: environment.id, secretId: secret.id,
     artifactId: artifact.id, webhookId: webhook.id, deliveryId: delivery.id,

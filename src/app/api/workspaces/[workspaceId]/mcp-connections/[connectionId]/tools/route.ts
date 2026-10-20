@@ -3,14 +3,13 @@
  * List discovered tools for a specific connection.
  */
 
-import { prisma } from "@/lib/db";
 import { apiSuccess, apiError } from "@/lib/utils/api";
 import { route } from "@/server/http/route";
 
 export const GET = route(
   { workspace: "param", permission: "settings.view" },
-  async ({ params: { connectionId }, workspaceId }) => {
-    const connection = await prisma.mcpConnection.findFirst({
+  async ({ params: { connectionId }, workspaceId, db }) => {
+    const connection = await db.mcpConnection.findFirst({
       where: { id: connectionId, workspaceId },
       select: {
         id: true,

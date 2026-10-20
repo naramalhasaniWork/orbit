@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { prisma } from "@/lib/db";
 import { redactSettings } from "@/lib/integrations/redact";
 import { apiSuccess, apiError } from "@/lib/utils/api";
 import { patchWorkspaceSettings, readWorkspaceSettings } from "@/server/data/settings-repo";
@@ -7,8 +6,8 @@ import { route } from "@/server/http/route";
 
 export const GET = route(
   { workspace: "param", permission: "settings.view" },
-  async ({ workspaceId }) => {
-    const workspace = await prisma.workspace.findUnique({
+  async ({ workspaceId, db }) => {
+    const workspace = await db.workspace.findUnique({
       where: { id: workspaceId },
       select: { settings: true },
     });
@@ -25,7 +24,7 @@ const patchSchema = z.object({ customPrompt: z.string({ message: "customPrompt m
 
 export const PATCH = route(
   { workspace: "param", permission: "settings.manage", body: patchSchema },
-  async ({ body: { customPrompt }, workspaceId }) => {
+  async ({ body: { customPrompt }, workspaceId, db }) => {
     if (customPrompt !== undefined) {
       const saved = await patchWorkspaceSettings(workspaceId, { customPrompt });
       if (!saved) return apiError("Workspace not found", "NOT_FOUND", 404);

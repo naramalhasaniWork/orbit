@@ -14,6 +14,7 @@ const sideEffects = vi.hoisted(() => ({
   cancelRun: vi.fn(), emitRunProgress: vi.fn(), getTraceTree: vi.fn(), download: vi.fn(),
   getBindingView: vi.fn(), saveBinding: vi.fn(), deleteBinding: vi.fn(), loadAccessSecrets: vi.fn(),
   syncEnvironments: vi.fn(), probeAccess: vi.fn(), findLatestLiveScript: vi.fn(), safeFetch: vi.fn(),
+  deliverInviteEmail: vi.fn(), testConnection: vi.fn(), disconnectFromPool: vi.fn(),
 }));
 
 vi.mock("next-auth", () => ({
@@ -33,6 +34,10 @@ vi.mock("@/services/preview/connection-service", () => ({ listConnectionSummarie
 vi.mock("@/services/integrations/railway/environment-sync", () => ({ syncEnvironments: sideEffects.syncEnvironments }));
 vi.mock("@/services/execution/access-headers", () => ({ probeAccess: sideEffects.probeAccess }));
 vi.mock("@/server/engine/replay/script-store", () => ({ findLatestLiveScript: sideEffects.findLatestLiveScript }));
+vi.mock("@/lib/email/invite-email", () => ({ deliverInviteEmail: sideEffects.deliverInviteEmail }));
+vi.mock("@/services/mcp/client", () => ({
+  testConnection: sideEffects.testConnection, disconnectFromPool: sideEffects.disconnectFromPool,
+}));
 vi.mock("@/lib/utils/ssrf", async (orig) => ({ ...(await orig<Record<string, unknown>>()), safeFetch: sideEffects.safeFetch }));
 
 type Handler = (req: Request, segment: { params: Promise<Record<string, string>> }) => Promise<Response>;
@@ -76,6 +81,17 @@ const CASES: Case[] = [
   { name: "GET v1/projects/[projectId]/runs/[runId]", load: () => import("@/app/api/v1/projects/[projectId]/runs/[runId]/route"), method: "GET", params: (a, p) => ({ projectId: p, runId: a.runId }) },
 ];
 
+/** Workspace-level id-param routes: B's own workspace in the path, A's row id. */
+const W = "@/app/api/workspaces/[workspaceId]";
+const WS_CASES: Case[] = [
+  { name: "DELETE api-keys/[keyId]", load: () => import(`${W}/api-keys/[keyId]/route`), method: "DELETE", params: (a, w) => ({ workspaceId: w, keyId: a.apiKeyId }) },
+  { name: "POST invitations/[invitationId]/resend", load: () => import(`${W}/invitations/[invitationId]/resend/route`), method: "POST", params: (a, w) => ({ workspaceId: w, invitationId: a.invitationId }) },
+  { name: "PUT mcp-connections/[connectionId]", load: () => import(`${W}/mcp-connections/[connectionId]/route`), method: "PUT", body: { name: "pwned" }, params: (a, w) => ({ workspaceId: w, connectionId: a.mcpConnectionId }) },
+  { name: "DELETE mcp-connections/[connectionId]", load: () => import(`${W}/mcp-connections/[connectionId]/route`), method: "DELETE", params: (a, w) => ({ workspaceId: w, connectionId: a.mcpConnectionId }) },
+  { name: "POST mcp-connections/[connectionId]/test", load: () => import(`${W}/mcp-connections/[connectionId]/test/route`), method: "POST", params: (a, w) => ({ workspaceId: w, connectionId: a.mcpConnectionId }) },
+  { name: "GET mcp-connections/[connectionId]/tools", load: () => import(`${W}/mcp-connections/[connectionId]/tools/route`), method: "GET", params: (a, w) => ({ workspaceId: w, connectionId: a.mcpConnectionId }) },
+];
+
 describe.skipIf(!realDbUrl)("tenant isolation of id-param routes (real Postgres)", () => {
   let db: typeof import("@/lib/db").prisma;
   let a: TenantFixture;
@@ -99,6 +115,9 @@ describe.skipIf(!realDbUrl)("tenant isolation of id-param routes (real Postgres)
       secret: await db.secret.count({ where: { id: a.secretId } }),
       webhook: await db.webhookEndpoint.findUnique({ where: { id: a.webhookId }, select: { isEnabled: true } }),
       delivery: await db.webhookDelivery.findUnique({ where: { id: a.deliveryId }, select: { attempts: true } }),
+      apiKey: await db.apiKey.findUnique({ where: { id: a.apiKeyId }, select: { revokedAt: true } }),
+      mcp: await db.mcpConnection.findUnique({ where: { id: a.mcpConnectionId }, select: { name: true } }),
+      invitation: await db.workspaceInvitation.findUnique({ where: { id: a.invitationId }, select: { token: true } }),
     };
   }
 
@@ -130,6 +149,19 @@ describe.skipIf(!realDbUrl)("tenant isolation of id-param routes (real Postgres)
       expect(await snapshotOfA()).toEqual(before);
     }
   );
+
+  it.each(WS_CASES.map((c) => [c.name, c] as const))("%s: workspace A's row under workspace B is 404", async (_name, c) => {
+    const before = await snapshotOfA();
+    const res = await call(c, c.params(a, b.workspaceId));
+    expect(res.status).toBe(404);
+    expect(await snapshotOfA()).toEqual(before);
+  });
+
+  it.each(WS_CASES.map((c) => [c.name, c] as const))("%s: workspace A in the path is 403 for B's owner", async (_name, c) => {
+    const before = await snapshotOfA();
+    expect((await call(c, c.params(a, a.workspaceId))).status).toBe(403);
+    expect(await snapshotOfA()).toEqual(before);
+  });
 
   it("never reached a side effect with a foreign id", () => {
     for (const [name, fn] of Object.entries(sideEffects)) {

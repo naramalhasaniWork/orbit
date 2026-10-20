@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
 import { apiSuccess, apiError } from "@/lib/utils/api";
 import { buildAuditCsvRow, CSV_HEADER } from "./csv-utils";
+import type { WorkspaceScope } from "@/server/data/scope";
 import { route } from "@/server/http/route";
 
 // ============================================================
@@ -11,7 +11,7 @@ import { route } from "@/server/http/route";
 
 export const GET = route(
   { workspace: "param", permission: "audit.view" },
-  async ({ req: request, workspaceId }) => {
+  async ({ req: request, workspaceId, db }) => {
     const url = request.nextUrl;
     const page = Math.max(1, parseInt(url.searchParams.get("page") ?? "1", 10));
     const limit = Math.min(100, Math.max(1, parseInt(url.searchParams.get("limit") ?? "50", 10)));
@@ -26,18 +26,18 @@ export const GET = route(
     const where = buildWhereClause(workspaceId, { actionFilter, userId, resourceType, from, to, search });
 
     if (format === "csv") {
-      return streamCsvResponse(where);
+      return streamCsvResponse(db, where);
     }
 
     const [logs, total] = await Promise.all([
-      prisma.auditLog.findMany({
+      db.auditLog.findMany({
         where,
         include: { user: { select: { id: true, name: true, email: true } } },
         orderBy: { createdAt: "desc" },
         skip: (page - 1) * limit,
         take: limit,
       }),
-      prisma.auditLog.count({ where }),
+      db.auditLog.count({ where }),
     ]);
 
     return apiSuccess({
@@ -134,14 +134,14 @@ function serializeLog(log: AuditLogRecord) {
   };
 }
 
-async function streamCsvResponse(where: AuditWhereClause): Promise<NextResponse> {
+async function streamCsvResponse(db: WorkspaceScope, where: AuditWhereClause): Promise<NextResponse> {
   const BATCH_SIZE = 500;
   let cursor: string | undefined;
   let isFirst = true;
 
   const stream = new ReadableStream({
     async pull(controller) {
-      const logs = await prisma.auditLog.findMany({
+      const logs = await db.auditLog.findMany({
         where,
         include: { user: { select: { id: true, name: true, email: true } } },
         orderBy: { createdAt: "desc" },

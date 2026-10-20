@@ -1,4 +1,3 @@
-import { prisma } from "@/lib/db";
 import {
   TIER_LIMITS,
   BUDGET_WARNING_THRESHOLD,
@@ -15,8 +14,8 @@ import { route } from "@/server/http/route";
 
 export const GET = route(
   { workspace: "param", permission: "workspace.view" },
-  async ({ workspaceId }) => {
-    const workspace = await prisma.workspace.findUnique({
+  async ({ workspaceId, db }) => {
+    const workspace = await db.workspace.findUnique({
       where: { id: workspaceId },
       select: {
         tier: true,
@@ -34,8 +33,8 @@ export const GET = route(
 
     // Current counts
     const [memberCount, projectCount] = await Promise.all([
-      prisma.workspaceMember.count({ where: { workspaceId } }),
-      prisma.project.count({ where: { workspaceId, deletedAt: null } }),
+      db.workspaceMember.count({ where: { workspaceId } }),
+      db.project.count({ where: { workspaceId, deletedAt: null } }),
     ]);
 
     // Monthly run count
@@ -43,7 +42,7 @@ export const GET = route(
     monthStart.setDate(1);
     monthStart.setHours(0, 0, 0, 0);
 
-    const monthlyRuns = await prisma.testRun.count({
+    const monthlyRuns = await db.testRun.count({
       where: {
         project: { workspaceId },
         createdAt: { gte: monthStart },
@@ -51,7 +50,7 @@ export const GET = route(
     });
 
     // Monthly credits consumed
-    const monthlyCreditsUsed = await prisma.creditTransaction.aggregate({
+    const monthlyCreditsUsed = await db.creditTransaction.aggregate({
       where: {
         workspaceId,
         type: "consumption",
@@ -61,7 +60,7 @@ export const GET = route(
     });
 
     // Daily run counts for the current month (for the chart)
-    const dailyRuns = await prisma.testRun.groupBy({
+    const dailyRuns = await db.testRun.groupBy({
       by: ["createdAt"],
       where: {
         project: { workspaceId },
@@ -82,7 +81,7 @@ export const GET = route(
       .map(([date, count]) => ({ date, runs: count }));
 
     // Recent credit transactions
-    const recentTransactions = await prisma.creditTransaction.findMany({
+    const recentTransactions = await db.creditTransaction.findMany({
       where: { workspaceId },
       orderBy: { createdAt: "desc" },
       take: 20,

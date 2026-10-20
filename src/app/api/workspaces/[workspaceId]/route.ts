@@ -4,7 +4,6 @@
  */
 
 import { z } from "zod";
-import { prisma } from "@/lib/db";
 import { writeAuditLog } from "@/lib/auth/audit";
 import { apiSuccess, apiError } from "@/lib/utils/api";
 import { route } from "@/server/http/route";
@@ -36,27 +35,27 @@ function isUniqueViolation(error: unknown): boolean {
 
 export const PATCH = route(
   { workspace: "param", permission: "workspace.update" },
-  async ({ req: request, workspaceId, session }) => {
+  async ({ req: request, workspaceId, session, db }) => {
     const parsed = UpdateSchema.safeParse(await request.json());
     if (!parsed.success) {
       return apiError(parsed.error.errors[0]?.message ?? "Validation failed", "VALIDATION_ERROR", 400);
     }
     const { name, slug } = parsed.data;
 
-    const current = await prisma.workspace.findFirst({
+    const current = await db.workspace.findFirst({
       where: { id: workspaceId, deletedAt: null },
       select: { id: true, name: true, slug: true },
     });
     if (!current) return apiError("Workspace not found", "NOT_FOUND", 404);
 
     if (slug && slug !== current.slug) {
-      const taken = await prisma.workspace.findUnique({ where: { slug }, select: { id: true } });
+      const taken = await db.workspace.findUnique({ where: { slug }, select: { id: true } });
       if (taken) return apiError("That slug is already taken", "SLUG_TAKEN", 409);
     }
 
     let updated;
     try {
-      updated = await prisma.workspace.update({
+      updated = await db.workspace.update({
         where: { id: workspaceId },
         data: { ...(name !== undefined ? { name } : {}), ...(slug !== undefined ? { slug } : {}) },
         select: { id: true, name: true, slug: true },
@@ -82,7 +81,7 @@ export const PATCH = route(
 
 export const DELETE = route(
   { workspace: "param", permission: "workspace.delete" },
-  async ({ req: request, workspaceId, session }) => {
+  async ({ req: request, workspaceId, session, db }) => {
     if (session.role !== "owner") {
       return apiError("Only the workspace owner can delete it", "FORBIDDEN", 403);
     }
@@ -92,7 +91,7 @@ export const DELETE = route(
       return apiError("Type the workspace name to confirm", "VALIDATION_ERROR", 400);
     }
 
-    const workspace = await prisma.workspace.findFirst({
+    const workspace = await db.workspace.findFirst({
       where: { id: workspaceId, deletedAt: null },
       select: { id: true, name: true, stripeSubscriptionId: true },
     });
@@ -111,7 +110,7 @@ export const DELETE = route(
       );
     }
 
-    await prisma.workspace.update({
+    await db.workspace.update({
       where: { id: workspaceId },
       data: { deletedAt: new Date() },
     });

@@ -1,6 +1,6 @@
 import { apiSuccess, apiError } from "@/lib/utils/api";
 import { buildPrompt, estimateTokens } from "@/agents/prompts/prompt-builder";
-import type { AgentPhase } from "@/generated/prisma/client";
+import type { AgentPhase } from "@/server/data/types";
 import { route } from "@/server/http/route";
 
 const VALID_PHASES: AgentPhase[] = ["analyst", "planner", "executor", "reporter", "auditor"];
@@ -8,7 +8,7 @@ const MAX_CONTENT_LENGTH = 50000;
 
 export const POST = route(
   { workspace: "param", permission: "settings.view" },
-  async ({ req: request, workspaceId }) => {
+  async ({ req: request, workspaceId, db }) => {
     const body = (await request.json()) as { agentPhase?: string; content?: string };
 
     if (!body.agentPhase || !VALID_PHASES.includes(body.agentPhase as AgentPhase)) {

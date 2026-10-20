@@ -5,12 +5,11 @@
  * DELETE: Remove a knowledge file and its chunks
  */
 
-import { prisma } from "@/lib/db";
 import { apiSuccess, apiError } from "@/lib/utils/api";
 import { getStorage, sanitizeFilename } from "@/lib/storage";
 import { chunkDocument } from "@/services/knowledge/chunker";
 import { embedChunks } from "@/services/knowledge/embedder";
-import type { KnowledgeFileType } from "@/generated/prisma/client";
+import type { KnowledgeFileType } from "@/server/data/types";
 import { route } from "@/server/http/route";
 
 const ALLOWED_EXTENSIONS = [".md", ".txt", ".json", ".yaml", ".yml", ".pdf"];
@@ -48,8 +47,8 @@ function getContentType(ext: string): string {
 
 export const GET = route(
   { workspace: "param", permission: "settings.view" },
-  async ({ workspaceId }) => {
-    const files = await prisma.domainKnowledgeFile.findMany({
+  async ({ workspaceId, db }) => {
+    const files = await db.domainKnowledgeFile.findMany({
       where: { workspaceId },
       orderBy: { createdAt: "desc" },
       select: {
@@ -69,7 +68,7 @@ export const GET = route(
 
 export const POST = route(
   { workspace: "param", permission: "settings.manage" },
-  async ({ req: request, workspaceId, session }) => {
+  async ({ req: request, workspaceId, session, db }) => {
     const formData = await request.formData();
     const file = formData.get("file") as File | null;
     const fileType = formData.get("type") as string | null;
@@ -115,7 +114,7 @@ export const POST = route(
     await storage.upload(storageKey, buffer, getContentType(ext));
 
     // Create the knowledge file record
-    const knowledgeFile = await prisma.domainKnowledgeFile.create({
+    const knowledgeFile = await db.domainKnowledgeFile.create({
       data: {
         workspaceId,
         name: file.name,
@@ -151,7 +150,7 @@ export const POST = route(
 
 export const DELETE = route(
   { workspace: "param", permission: "settings.manage" },
-  async ({ req: request, workspaceId }) => {
+  async ({ req: request, workspaceId, db }) => {
     const { searchParams } = new URL(request.url);
     const fileId = searchParams.get("fileId");
 
@@ -160,7 +159,7 @@ export const DELETE = route(
     }
 
     // Verify file belongs to this workspace
-    const file = await prisma.domainKnowledgeFile.findFirst({
+    const file = await db.domainKnowledgeFile.findFirst({
       where: { id: fileId, workspaceId },
     });
 
@@ -169,7 +168,7 @@ export const DELETE = route(
     }
 
     // Delete the file (cascade deletes chunks)
-    await prisma.domainKnowledgeFile.delete({
+    await db.domainKnowledgeFile.delete({
       where: { id: fileId },
     });
 

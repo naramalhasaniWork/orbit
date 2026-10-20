@@ -1,8 +1,7 @@
-import { prisma } from "@/lib/db";
 import { apiSuccess, apiError } from "@/lib/utils/api";
 import { buildPrompt, estimateTokens } from "@/agents/prompts/prompt-builder";
 import { DEFAULT_USER_PROMPTS } from "@/agents/prompts/default-prompts";
-import type { AgentPhase } from "@/generated/prisma/client";
+import type { AgentPhase } from "@/server/data/types";
 import { route } from "@/server/http/route";
 
 const VALID_PHASES: AgentPhase[] = ["analyst", "planner", "executor", "reporter", "auditor"];
@@ -14,7 +13,7 @@ function validatePhase(phase: string): phase is AgentPhase {
 
 export const GET = route(
   { workspace: "param", permission: "settings.view" },
-  async ({ params: { agentPhase }, workspaceId }) => {
+  async ({ params: { agentPhase }, workspaceId, db }) => {
     if (!validatePhase(agentPhase)) {
       return apiError(
         "Invalid agentPhase. Must be one of: analyst, planner, executor, reporter, auditor",
@@ -23,7 +22,7 @@ export const GET = route(
       );
     }
 
-    const activeVersion = await prisma.promptVersion.findFirst({
+    const activeVersion = await db.promptVersion.findFirst({
       where: {
         workspaceId,
         agentPhase,
@@ -60,7 +59,7 @@ export const GET = route(
 
 export const PUT = route(
   { workspace: "param", permission: "settings.manage" },
-  async ({ req: request, params: { agentPhase }, workspaceId, session }) => {
+  async ({ req: request, params: { agentPhase }, workspaceId, session, db }) => {
     if (!validatePhase(agentPhase)) {
       return apiError(
         "Invalid agentPhase. Must be one of: analyst, planner, executor, reporter, auditor",
@@ -84,7 +83,7 @@ export const PUT = route(
     }
 
     // Get the latest version number for this workspace+phase
-    const latestVersion = await prisma.promptVersion.findFirst({
+    const latestVersion = await db.promptVersion.findFirst({
       where: { workspaceId, agentPhase, promptType: "user" },
       orderBy: { version: "desc" },
       select: { version: true },
@@ -93,7 +92,7 @@ export const PUT = route(
     const nextVersion = (latestVersion?.version ?? 0) + 1;
 
     // Deactivate all existing versions and create the new one in a transaction
-    const newVersion = await prisma.$transaction(async (tx) => {
+    const newVersion = await db.tx(async (tx) => {
       await tx.promptVersion.updateMany({
         where: { workspaceId, agentPhase, promptType: "user", isActive: true },
         data: { isActive: false },
@@ -122,7 +121,7 @@ export const PUT = route(
 
 export const DELETE = route(
   { workspace: "param", permission: "settings.manage" },
-  async ({ params: { agentPhase }, workspaceId }) => {
+  async ({ params: { agentPhase }, workspaceId, db }) => {
     if (!validatePhase(agentPhase)) {
       return apiError(
         "Invalid agentPhase. Must be one of: analyst, planner, executor, reporter, auditor",
@@ -131,7 +130,7 @@ export const DELETE = route(
       );
     }
 
-    await prisma.promptVersion.updateMany({
+    await db.promptVersion.updateMany({
       where: { workspaceId, agentPhase, promptType: "user", isActive: true },
       data: { isActive: false },
     });

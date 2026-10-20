@@ -1,11 +1,11 @@
 import { NextRequest } from "next/server";
-import { prisma } from "@/lib/db";
 import {
   requireWorkspace,
   apiSuccess,
   apiError,
   handleApiError,
 } from "@/lib/utils/api";
+import { forWorkspace } from "@/server/data/scope";
 
 export async function GET(
   _request: NextRequest,
@@ -14,13 +14,14 @@ export async function GET(
   try {
     const { workspaceId: sessionWorkspaceId } = await requireWorkspace();
     const { workspaceId } = await params;
+    const db = forWorkspace(workspaceId);
 
     // Ensure the user can only access their own workspace
     if (workspaceId !== sessionWorkspaceId) {
       return apiError("Forbidden", "FORBIDDEN", 403);
     }
 
-    const projects = await prisma.project.findMany({
+    const projects = await db.project.findMany({
       where: { workspaceId },
       select: {
         id: true,
@@ -34,7 +35,7 @@ export async function GET(
     // Get recent runs across all projects in the workspace
     const projectIds = projects.map((p) => p.id);
 
-    const recentRuns = await prisma.testRun.findMany({
+    const recentRuns = await db.testRun.findMany({
       where: {
         projectId: { in: projectIds },
         status: "completed",
@@ -57,14 +58,14 @@ export async function GET(
     const totalTests = recentRuns.reduce((s, r) => s + r.totalTests, 0);
     const passRate = totalTests > 0 ? Math.round((totalPassed / totalTests) * 100) : null;
 
-    const activeRuns = await prisma.testRun.count({
+    const activeRuns = await db.testRun.count({
       where: {
         projectId: { in: projectIds },
         status: { in: ["queued", "indexing", "planning", "executing", "reporting"] },
       },
     });
 
-    const workspace = await prisma.workspace.findUnique({
+    const workspace = await db.workspace.findUnique({
       where: { id: workspaceId },
       select: { creditBalance: true, monthlyCredits: true },
     });
