@@ -2,6 +2,7 @@ import { decryptToken } from "@/lib/vault/token";
 import { prisma } from "@/lib/db";
 import { isGitHubAppConfigured, getInstallationToken } from "@/lib/github/app";
 import { isSelfHosted } from "@/lib/self-host";
+import { githubRepoUrl } from "@/lib/github/repo-paths";
 
 /**
  * Resolve a GitHub API token for a project.
@@ -86,7 +87,7 @@ export async function resolveGitHubToken(
 async function isPublicRepo(owner: string, repo: string): Promise<boolean> {
   try {
     const res = await fetch(
-      `https://api.github.com/repos/${encodeURIComponent(owner)}/${encodeURIComponent(repo)}`,
+      githubRepoUrl(owner, repo),
       {
         headers: { Accept: "application/vnd.github+json" },
         signal: AbortSignal.timeout(5000),

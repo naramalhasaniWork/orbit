@@ -1,4 +1,5 @@
 import { resolveGitHubToken, getRepoInfo } from "@/lib/github/token";
+import { githubRepoApiUrl, githubContentsUrl } from "@/lib/github/repo-paths";
 
 interface PRDiffFile {
   filename: string;
@@ -28,9 +29,8 @@ export async function fetchPRDiff(
   const repoInfo = await getRepoInfo(projectId);
   if (!repoInfo) return [];
 
-  const url = `https://api.github.com/repos/${repoInfo.owner}/${repoInfo.repo}/pulls/${prNumber}/files?per_page=100`;
-
   try {
+    const url = githubRepoApiUrl(repoInfo.owner, repoInfo.repo, ["pulls", prNumber, "files"], { per_page: "100" });
     const response = await fetch(url, {
       headers: {
         Authorization: `Bearer ${resolved.token}`,
@@ -79,10 +79,8 @@ export async function fetchFileContent(
   const repoInfo = await getRepoInfo(projectId);
   if (!repoInfo) return null;
 
-  const refParam = ref ? `?ref=${encodeURIComponent(ref)}` : "";
-  const url = `https://api.github.com/repos/${repoInfo.owner}/${repoInfo.repo}/contents/${encodeURIComponent(filePath)}${refParam}`;
-
   try {
+    const url = githubContentsUrl(repoInfo.owner, repoInfo.repo, filePath, ref);
     const response = await fetch(url, {
       headers: {
         Authorization: `Bearer ${resolved.token}`,
@@ -117,9 +115,8 @@ export async function createGitHubIssue(
     return { success: false, issueNumber: 0, issueUrl: "" };
   }
 
-  const url = `https://api.github.com/repos/${repoInfo.owner}/${repoInfo.repo}/issues`;
-
   try {
+    const url = githubRepoApiUrl(repoInfo.owner, repoInfo.repo, ["issues"]);
     const response = await fetch(url, {
       method: "POST",
       headers: {
@@ -168,9 +165,8 @@ export async function fetchCommitDiff(
   const repoInfo = await getRepoInfo(projectId);
   if (!repoInfo) return [];
 
-  const url = `https://api.github.com/repos/${repoInfo.owner}/${repoInfo.repo}/commits/${commitSha}`;
-
   try {
+    const url = githubRepoApiUrl(repoInfo.owner, repoInfo.repo, ["commits", commitSha]);
     const response = await fetch(url, {
       headers: {
         Authorization: `Bearer ${resolved.token}`,

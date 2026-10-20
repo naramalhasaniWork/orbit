@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import type { Prisma } from "@/generated/prisma/client";
 import { resolveGitHubToken, getRepoInfo } from "@/lib/github/token";
 import { launchPipelineRun } from "@/services/orchestrator/run-launcher";
+import { githubRepoApiUrl } from "@/lib/github/repo-paths";
 
 const ORBIT_MENTION_PATTERN = /@orbit(?:-testing)?(?:\[bot\])?\s*/i;
 
@@ -54,9 +55,8 @@ async function postReply(
   body: string,
   token: string
 ): Promise<boolean> {
-  const url = `https://api.github.com/repos/${owner}/${repo}/issues/${prNumber}/comments`;
-
   try {
+    const url = githubRepoApiUrl(owner, repo, ["issues", prNumber, "comments"]);
     const res = await fetch(url, {
       method: "POST",
       headers: {
@@ -87,9 +87,8 @@ async function addReaction(
   reaction: string,
   token: string
 ): Promise<void> {
-  const url = `https://api.github.com/repos/${owner}/${repo}/issues/comments/${commentId}/reactions`;
-
   try {
+    const url = githubRepoApiUrl(owner, repo, ["issues", "comments", commentId, "reactions"]);
     await fetch(url, {
       method: "POST",
       headers: {

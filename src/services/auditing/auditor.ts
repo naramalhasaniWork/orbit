@@ -1,6 +1,11 @@
 import { prisma } from "@/lib/db";
 import { getStorage } from "@/lib/storage";
 import { resolveGitHubToken } from "@/lib/github/token";
+import {
+  isSafeRepoPath,
+  githubContentsUrl,
+  repoStorageKey,
+} from "@/lib/github/repo-paths";
 import { createTrackedCompletion } from "@/lib/ai/tracked-completion";
 import { getModelForTask } from "@/lib/ai/model-router";
 import { buildAuditorPrompt } from "@/agents/prompts/auditor-prompt";
@@ -8,9 +13,9 @@ import { AuditResultOutputSchema } from "@/agents/schemas/audit-result";
 import type { AuditIssue, AuditResultOutput } from "@/agents/schemas/audit-result";
 import type { Prisma } from "@/generated/prisma/client";
 
-/** The audit can't run for a reason the user can fix (shown verbatim, 409). */
+/** The audit can't run for a reason the user can fix (shown verbatim). */
 export class AuditUnavailableError extends Error {
-  constructor(message: string) {
+  constructor(message: string, readonly status: 400 | 409 = 409) {
     super(message);
     this.name = "AuditUnavailableError";
   }
@@ -154,32 +159,37 @@ async function loadCodeFiles(
   repoOwner: string,
   repoName: string
 ): Promise<Array<{ path: string; content: string }>> {
-  // Determine which files to load
-  let targetPaths: string[];
+  // Only files the indexer recorded for this project may be read: the paths
+  // go into storage keys and GitHub URLs sent with the project's token.
+  const nodes = await prisma.systemMapNode.findMany({
+    where: { projectId },
+    select: { filePath: true },
+    orderBy: { updatedAt: "desc" },
+  });
+  const known = Array.from(new Set(nodes.map((n) => n.filePath))).filter(isSafeRepoPath);
 
+  let targetPaths: string[];
   if (filePaths && filePaths.length > 0) {
+    const allowed = new Set(known);
+    const unknown = filePaths.filter((p) => !allowed.has(p));
+    if (unknown.length > 0) {
+      throw new AuditUnavailableError(
+        `These files aren't in the project's index: ${unknown.slice(0, 5).join(", ")}`,
+        400
+      );
+    }
     targetPaths = filePaths.slice(0, maxFiles);
   } else {
-    // Get file paths from the system map
-    const nodes = await prisma.systemMapNode.findMany({
-      where: { projectId },
-      select: { filePath: true },
-      orderBy: { updatedAt: "desc" },
-    });
-
-    // Deduplicate and limit
-    const unique = Array.from(new Set(nodes.map((n) => n.filePath)));
-    targetPaths = unique.slice(0, maxFiles);
+    targetPaths = known.slice(0, maxFiles);
   }
 
   // Try loading from storage first
   const storage = getStorage();
-  const storagePrefix = `repos/${projectId}/${branch}`;
   const results: Array<{ path: string; content: string }> = [];
 
   for (const filePath of targetPaths) {
     try {
-      const storageKey = `${storagePrefix}/${filePath}`;
+      const storageKey = repoStorageKey(projectId, branch, filePath);
       const buffer = await storage.download(storageKey);
       const content = buffer.toString("utf-8");
 
@@ -222,9 +232,8 @@ async function fetchFromGitHub(
   branch: string,
   token: string
 ): Promise<string | null> {
-  const url = `https://api.github.com/repos/${owner}/${repo}/contents/${filePath}?ref=${branch}`;
-
   try {
+    const url = githubContentsUrl(owner, repo, filePath, branch);
     const res = await fetch(url, {
       headers: {
         Authorization: `Bearer ${token}`,

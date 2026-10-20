@@ -2,6 +2,7 @@ import type { FileEntry } from "@/services/indexing/clone";
 import { getStorage } from "@/lib/storage";
 import { isInIgnoredDir, isIndexableFile } from "@/services/indexing/file-filters";
 import { describeRateLimit, readRateLimit } from "@/lib/github/public-repo";
+import { githubRepoApiUrl, assertSafeRepoPath, isSafeRepoPath } from "@/lib/github/repo-paths";
 
 // Anonymous GitHub API calls are limited to 60/hour per IP, so this path reads the whole tree
 // with one recursive request and fetches file bodies from raw.githubusercontent.com, which
@@ -38,6 +39,7 @@ export function planPublicClone(tree: readonly TreeItem[]): PublicClonePlan {
 
   for (const item of tree) {
     if (item.type !== "blob" || !isIndexableFile(item.path) || isInIgnoredDir(item.path)) continue;
+    if (!isSafeRepoPath(item.path)) continue;
     const size = item.size ?? 0;
     if (size > MAX_PUBLIC_FILE_BYTES || files.length >= MAX_PUBLIC_FILES) {
       skipped++;
@@ -67,7 +69,7 @@ async function fetchWithTimeout(url: string, init: RequestInit = {}): Promise<Re
 
 async function fetchTree(owner: string, repo: string, branch: string): Promise<TreeResponse> {
   const res = await fetchWithTimeout(
-    `https://api.github.com/repos/${owner}/${repo}/git/trees/${encodeURIComponent(branch)}?recursive=1`,
+    githubRepoApiUrl(owner, repo, ["git", "trees", assertSafeRepoPath(branch, "branch")], { recursive: "1" }),
     { headers: { Accept: "application/vnd.github+json", "X-GitHub-Api-Version": "2022-11-28" } }
   );
 
@@ -109,7 +111,7 @@ export async function clonePublicGitHubRepository(
           `https://raw.githubusercontent.com/${owner}/${repo}/${encodeURIComponent(branch)}/${encoded}`
         );
         if (!res.ok) throw new Error(`Failed to download ${path}: ${res.status}`);
-        await storage.upload(`${storagePrefix}/${path}`, Buffer.from(await res.text()), "text/plain");
+        await storage.upload(`${storagePrefix}/${assertSafeRepoPath(path)}`, Buffer.from(await res.text()), "text/plain");
       })
     );
   }

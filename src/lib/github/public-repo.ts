@@ -1,4 +1,5 @@
 import type { RepoItem } from "@/components/onboarding/onboarding-types";
+import { githubRepoUrl } from "@/lib/github/repo-paths";
 
 export interface RepoRef {
   owner: string;
@@ -83,7 +84,7 @@ export async function fetchPublicRepo(
 ): Promise<PublicRepoResult> {
   let res: Response;
   try {
-    res = await fetchImpl(`https://api.github.com/repos/${owner}/${repo}`, {
+    res = await fetchImpl(githubRepoUrl(owner, repo), {
       headers: {
         Accept: "application/vnd.github+json",
         "X-GitHub-Api-Version": "2022-11-28",

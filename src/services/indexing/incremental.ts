@@ -4,6 +4,7 @@ import { parseFile } from "@/services/indexing/ast-parser";
 import { generateEmbeddingForNode } from "@/services/indexing/embedding-generator";
 import { emitIndexingProgress } from "@/lib/websocket";
 import type { ASTResult } from "@/services/indexing/ast-parser";
+import { repoStorageKey, assertSafeRepoPath } from "@/lib/github/repo-paths";
 
 interface IncrementalResult {
   updatedNodes: number;
@@ -40,7 +41,7 @@ async function loadFileContent(
 ): Promise<string | null> {
   try {
     const storage = getStorage();
-    const buffer = await storage.download(`${localPath}/${filePath}`);
+    const buffer = await storage.download(`${localPath}/${assertSafeRepoPath(filePath)}`);
     return buffer.toString("utf-8");
   } catch {
     return null;
@@ -83,7 +84,7 @@ export async function runIncrementalIndex(
   // Validate project exists
   await prisma.project.findUniqueOrThrow({ where: { id: projectId } });
 
-  const localPath = `repos/${projectId}/${branch}`;
+  const localPath = repoStorageKey(projectId, branch);
 
   await emitIndexingProgress(projectId, {
     projectId,
