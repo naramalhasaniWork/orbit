@@ -4,6 +4,7 @@ import { canConsume } from "@/lib/auth/tenant";
 import { getIndexingQueue } from "@/lib/queue/queues";
 import { withQueueTimeout } from "@/lib/queue/availability";
 import { emitRunStarted } from "@/lib/websocket";
+import { getDefaultEnvironment } from "@/services/execution/environment-validator";
 
 interface LaunchRunInput {
   projectId: string;
@@ -12,6 +13,8 @@ interface LaunchRunInput {
   branch: string;
   commitSha?: string | null;
   prNumber?: number | null;
+  /** The environment to test; omitted means the project's default environment. */
+  environmentId?: string;
   triggeredById?: string;
   changedFiles?: string[];
   metadata?: Prisma.InputJsonValue;
@@ -64,6 +67,7 @@ export async function launchPipelineRun(input: LaunchRunInput): Promise<LaunchRu
   }
 
   const changedFiles = input.changedFiles?.slice(0, 100);
+  const environmentId = input.environmentId ?? (await getDefaultEnvironment(input.projectId));
   const run = await prisma.testRun.create({
     data: {
       projectId: input.projectId,
@@ -73,6 +77,7 @@ export async function launchPipelineRun(input: LaunchRunInput): Promise<LaunchRu
       branch: input.branch,
       commitSha: input.commitSha ?? null,
       prNumber: input.prNumber ?? null,
+      environmentId,
       triggeredById: input.triggeredById,
       metadata: input.metadata ?? {},
     },

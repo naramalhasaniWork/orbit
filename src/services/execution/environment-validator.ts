@@ -142,17 +142,21 @@ export async function getDefaultEnvironment(
   projectId: string
 ): Promise<string | null> {
   const env = await prisma.environment.findFirst({
-    where: { projectId, isDefault: true },
+    where: { projectId, isDefault: true, archivedAt: null },
     select: { id: true },
   });
 
   if (env) return env.id;
 
-  // Fallback: first non-production environment
+  // Fallback: first non-production environment. Per-PR preview environments (source
+  // "preview") never stand in for the default: they test one PR's code.
   const fallback = await prisma.environment.findFirst({
     where: {
       projectId,
       type: { not: "production" },
+      archivedAt: null,
+      // SQL NULL semantics: `source <> 'preview'` alone would drop every hand-made environment.
+      OR: [{ source: null }, { source: { not: "preview" } }],
     },
     select: { id: true },
     orderBy: { createdAt: "asc" },

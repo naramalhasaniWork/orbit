@@ -3,11 +3,13 @@ import { getQueueConnection } from "@/lib/queue";
 import {
   QUEUE_NAMES,
   getSchedulerQueue,
+  getPreviewQueue,
   type IndexingJobData,
   type ExecutionJobData,
   type ReportingJobData,
   type SchedulerJobData,
   type PlanningJobData,
+  type PreviewJobData,
 } from "@/lib/queue/queues";
 import {
   handleIndexingJob,
@@ -52,7 +54,17 @@ export function registerWorkers(): void {
     { connection, concurrency: 2 }
   );
 
-  const workers = [indexingWorker, executionWorker, reportingWorker, schedulerWorker, planningWorker];
+  const previewWorker = new Worker<PreviewJobData>(
+    QUEUE_NAMES.preview,
+    async () => {
+      const { reconcilePreviews } = await import("@/services/preview/reconcile");
+      const result = await reconcilePreviews();
+      if (result.changed > 0) console.log(`[Worker:preview] ${result.changed}/${result.checked} preview(s) moved on`);
+    },
+    { connection, concurrency: 1 }
+  );
+
+  const workers = [indexingWorker, executionWorker, reportingWorker, schedulerWorker, planningWorker, previewWorker];
 
   workers.forEach((worker) => {
     worker.on("completed", (job) => {
@@ -78,7 +90,20 @@ export function registerWorkers(): void {
     console.error("[Workers] Failed to register scheduler repeatable:", err.message);
   });
 
+  registerPreviewRepeatable().catch((err) => {
+    console.error("[Workers] Failed to register preview reconcile repeatable:", err.message);
+  });
+
   console.log("[Workers] All workers registered");
+}
+
+/** Re-resolve pending PR previews every 2 minutes (and time them out after 15). */
+async function registerPreviewRepeatable(): Promise<void> {
+  await getPreviewQueue().upsertJobScheduler(
+    "preview-reconcile",
+    { every: 120_000 },
+    { name: "reconcile_previews", data: { type: "reconcile_previews" as const } }
+  );
 }
 
 async function registerSchedulerRepeatable(): Promise<void> {
