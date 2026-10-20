@@ -32,16 +32,19 @@ export function isModelAllowed(tier: WorkspaceTier, model: string): boolean {
 /** Budget warning threshold (80%). */
 export const BUDGET_WARNING_THRESHOLD = 0.8;
 
-/** Check if workspace is approaching budget limit. Returns percentage used. */
-export function getBudgetPercentage(creditsUsed: number, tier: WorkspaceTier): number {
-  const limit = TIER_LIMITS[tier].monthlyCredits;
-  if (limit === Infinity) return 0;
-  return creditsUsed / limit;
+/**
+ * A workspace's monthly credit allowance: the seat-aware grant synced from
+ * its Stripe subscription (workspace.monthlyCredits), or Infinity on tiers
+ * with unlimited credits.
+ */
+export function monthlyCreditAllowance(tier: WorkspaceTier, workspaceMonthlyCredits: number): number {
+  return TIER_LIMITS[tier].monthlyCredits === Infinity ? Infinity : workspaceMonthlyCredits;
 }
 
-/** Check if workspace is at or above budget warning threshold. */
-export function isBudgetWarning(creditsUsed: number, tier: WorkspaceTier): boolean {
-  return getBudgetPercentage(creditsUsed, tier) >= BUDGET_WARNING_THRESHOLD;
+/** Fraction of the monthly allowance used (0 for unlimited or zero allowances). */
+export function getBudgetPercentage(creditsUsed: number, allowance: number): number {
+  if (allowance === Infinity || allowance <= 0) return 0;
+  return creditsUsed / allowance;
 }
 
 /**
