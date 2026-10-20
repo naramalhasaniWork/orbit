@@ -1,5 +1,7 @@
-import { subscribe } from "@/lib/redis/pubsub";
+import { replayLatest, replaySince, subscribe } from "@/lib/redis/pubsub";
+import { compareStreamIds, isStreamId } from "@/lib/sse/stream-id";
 import type { WebSocketEvent } from "@/lib/websocket/channels";
+import type { LoggedEvent } from "@/server/realtime/event-log";
 
 const HEARTBEAT_INTERVAL_MS = 15_000;
 const MAX_STREAM_DURATION_MS = 10 * 60 * 1000; // 10 minutes
@@ -13,8 +15,10 @@ interface SSEStreamOptions {
   channel: string;
   lastEventId?: string | null;
   onEvent?: (event: WebSocketEvent) => boolean | void;
-  /** Events to send immediately on connection, before pub/sub messages arrive. */
+  /** State snapshots to send on connection, before replayed and live events. They carry no event id. */
   initialEvents?: SSEInitialEvent[];
+  /** On a first connection (no Last-Event-ID), start from the newest N logged events instead of nothing. */
+  latestCount?: number;
 }
 
 const SUBSCRIBE_TIMEOUT_MS = 3000;
@@ -22,67 +26,97 @@ const SUBSCRIBE_TIMEOUT_MS = 3000;
 export const PUBSUB_UNAVAILABLE_MESSAGE =
   "Live updates unavailable: Redis is not reachable";
 
-/**
- * Subscribes before any bytes are sent, so a pub/sub outage surfaces as a
- * 503 the client backs off from, not a 200 stream that immediately errors.
- * ioredis queues commands while disconnected, so the subscribe is bounded.
- */
-async function subscribeWithTimeout(
-  channel: string,
-  callback: (data: unknown) => void
-): Promise<() => Promise<void>> {
+/** ioredis queues commands while disconnected, so every Redis call made before the response starts is bounded. */
+async function withTimeout<T>(pending: Promise<T>, what: string): Promise<T> {
   let timer: ReturnType<typeof setTimeout> | null = null;
-  const pending = subscribe(channel, callback);
   try {
     return await Promise.race([
       pending,
       new Promise<never>((_, reject) => {
-        timer = setTimeout(() => reject(new Error("subscribe timed out")), SUBSCRIBE_TIMEOUT_MS);
+        timer = setTimeout(() => reject(new Error(`${what} timed out`)), SUBSCRIBE_TIMEOUT_MS);
       }),
     ]);
-  } catch (err) {
-    // If the subscribe eventually lands, release it.
-    pending.then((unsub) => unsub()).catch(() => {});
-    throw err;
   } finally {
     if (timer) clearTimeout(timer);
   }
 }
 
 /**
- * Creates an SSE Response that subscribes to a Redis pub/sub channel.
- * Events flow: service publishes -> Redis -> this SSE endpoint -> client.
- *
- * Returns a standard Response with text/event-stream headers, or a 503 when
- * pub/sub is unavailable. The stream auto-closes after MAX_STREAM_DURATION_MS
- * or when the client disconnects.
+ * Subscribes before any bytes are sent, so a pub/sub outage surfaces as a
+ * 503 the client backs off from, not a 200 stream that immediately errors.
  */
-export async function createSSEStream({ channel, lastEventId, onEvent, initialEvents }: SSEStreamOptions): Promise<Response> {
+async function subscribeWithTimeout(
+  channel: string,
+  callback: (data: unknown, id: string) => void
+): Promise<() => Promise<void>> {
+  const pending = subscribe(channel, callback);
+  try {
+    return await withTimeout(pending, "subscribe");
+  } catch (err) {
+    // If the subscribe eventually lands, release it.
+    pending.then((unsub) => unsub()).catch(() => {});
+    throw err;
+  }
+}
+
+/**
+ * Creates an SSE Response that follows a channel. Events flow: service
+ * publishes -> Redis stream + pub/sub -> this endpoint -> client, and each
+ * SSE `id:` is the Redis stream entry id.
+ *
+ * On connect it subscribes first (buffering live events), then replays what
+ * the client missed from the stream (Last-Event-ID), then goes live, skipping
+ * anything it already sent. Returns a 503 when Redis is unavailable. The
+ * stream closes after MAX_STREAM_DURATION_MS (the client reconnects and
+ * replays) or when the client disconnects.
+ */
+export async function createSSEStream({
+  channel,
+  lastEventId,
+  onEvent,
+  initialEvents,
+  latestCount,
+}: SSEStreamOptions): Promise<Response> {
   const encoder = new TextEncoder();
-  let eventCounter = parseInt(lastEventId ?? "0", 10) || 0;
   let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   let timeoutTimer: ReturnType<typeof setTimeout> | null = null;
   let closed = false;
-  let deliver: ((event: WebSocketEvent) => void) | null = null;
+  // Live events that arrive while the replay is being read wait here.
+  const pending: LoggedEvent[] = [];
+  let deliver: (event: WebSocketEvent, id: string) => void = (event, id) => {
+    pending.push({ id, event });
+  };
 
   let unsubscribe: () => Promise<void>;
   try {
-    unsubscribe = await subscribeWithTimeout(channel, (data) => deliver?.(data as WebSocketEvent));
+    unsubscribe = await subscribeWithTimeout(channel, (data, id) => deliver(data as WebSocketEvent, id));
   } catch (err) {
     console.error(`[SSE] Failed to subscribe to ${channel}:`, err instanceof Error ? err.message : err);
-    return new Response(PUBSUB_UNAVAILABLE_MESSAGE, {
-      status: 503,
-      headers: { "Retry-After": "30", "Content-Type": "text/plain" },
-    });
+    return unavailable();
+  }
+
+  let replay: LoggedEvent[] = [];
+  try {
+    if (isStreamId(lastEventId)) {
+      replay = await withTimeout(replaySince(channel, lastEventId), "replay");
+    } else if (latestCount) {
+      replay = await withTimeout(replayLatest(channel, latestCount), "replay");
+    }
+  } catch (err) {
+    // Going live without the gap would lose events silently; let the client retry instead.
+    console.error(`[SSE] Failed to replay ${channel}:`, err instanceof Error ? err.message : err);
+    unsubscribe().catch(() => {});
+    return unavailable();
   }
 
   const stream = new ReadableStream({
     start(controller) {
-      const send = (eventType: string, data: unknown) => {
+      let lastSentId: string | null = null;
+
+      const send = (eventType: string, data: unknown, id?: string) => {
         if (closed) return;
-        eventCounter++;
         const lines = [
-          `id: ${eventCounter}`,
+          ...(id ? [`id: ${id}`] : []),
           `event: ${eventType}`,
           `data: ${JSON.stringify(data)}`,
           "",
@@ -93,10 +127,6 @@ export async function createSSEStream({ channel, lastEventId, onEvent, initialEv
         } catch {
           cleanup();
         }
-      };
-
-      const sendHeartbeat = () => {
-        send("heartbeat", { timestamp: Date.now() });
       };
 
       const cleanup = () => {
@@ -112,31 +142,28 @@ export async function createSSEStream({ channel, lastEventId, onEvent, initialEv
         }
       };
 
-      deliver = (event) => {
+      const emit = (event: WebSocketEvent, id: string) => {
         if (closed) return;
+        // A live event can also be in the replayed gap; ids only move forward.
+        if (isStreamId(id) && lastSentId && compareStreamIds(id, lastSentId) <= 0) return;
+        if (isStreamId(id)) lastSentId = id;
         // Allow caller to intercept and decide to close
-        if (onEvent?.(event) === true) {
-          send(event.type, event.payload);
-          cleanup();
-          return;
-        }
-        send(event.type, event.payload);
+        const terminal = onEvent?.(event) === true;
+        send(event.type, event.payload, id);
+        if (terminal) cleanup();
       };
 
-      // Send initial connected event
+      // Connection events carry no id, so they never move the client's Last-Event-ID.
       send("connected", { channel, timestamp: Date.now() });
+      for (const evt of initialEvents ?? []) send(evt.type, evt.payload);
 
-      // Send any buffered initial events (e.g., latest screenshot for late-joining clients)
-      if (initialEvents) {
-        for (const evt of initialEvents) {
-          send(evt.type, evt.payload);
-        }
-      }
+      for (const { id, event } of replay) emit(event as WebSocketEvent, id);
+      for (const { id, event } of pending.splice(0)) emit(event as WebSocketEvent, id);
+      deliver = emit;
+      if (closed) return; // a replayed terminal event already ended the stream
 
-      // Heartbeat to keep connection alive
-      heartbeatTimer = setInterval(sendHeartbeat, HEARTBEAT_INTERVAL_MS);
+      heartbeatTimer = setInterval(() => send("heartbeat", { timestamp: Date.now() }), HEARTBEAT_INTERVAL_MS);
 
-      // Max stream duration
       timeoutTimer = setTimeout(() => {
         send("timeout", { message: "Stream duration limit reached" });
         cleanup();
@@ -158,5 +185,12 @@ export async function createSSEStream({ channel, lastEventId, onEvent, initialEv
       Connection: "keep-alive",
       "X-Accel-Buffering": "no",
     },
+  });
+}
+
+function unavailable(): Response {
+  return new Response(PUBSUB_UNAVAILABLE_MESSAGE, {
+    status: 503,
+    headers: { "Retry-After": "30", "Content-Type": "text/plain" },
   });
 }

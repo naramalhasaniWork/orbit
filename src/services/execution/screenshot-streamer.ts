@@ -1,23 +1,16 @@
+import { randomUUID } from "node:crypto";
 import type { Page } from "playwright";
 import { publish } from "@/lib/redis/pubsub";
 import { getRedis } from "@/lib/redis";
 import { getStorage } from "@/lib/storage";
 import { artifactFileUrl } from "@/lib/storage/artifact-url";
 import { prisma } from "@/lib/db";
+import type { ScreenshotFrameEvent } from "@/lib/websocket/channels";
+import { frameRedisKey, FRAME_TTL_SECONDS } from "@/server/realtime/frames";
 
 // ============================================================
 // Types
 // ============================================================
-
-export interface ScreenshotFrame {
-  runId: string;
-  testCaseId: string;
-  stepIndex: number;
-  timestamp: number;
-  imageBase64: string;
-  pageUrl: string;
-  viewport: { width: number; height: number };
-}
 
 interface CaptureOptions {
   page: Page;
@@ -42,26 +35,19 @@ export function screenshotChannel(runId: string): string {
   return `run:${runId}:screenshots`;
 }
 
-/** Redis key for the latest screenshot frame (buffered for late-joining clients). */
-export function latestScreenshotKey(runId: string): string {
-  return `run:${runId}:latest-screenshot`;
-}
-
-/** TTL for the buffered latest screenshot (5 minutes). */
-const LATEST_SCREENSHOT_TTL_SECONDS = 300;
-
 // ============================================================
 // Screenshot Capture + Stream
 // ============================================================
 
 const MAX_WIDTH = 1280;
+const MAX_PAGE_URL_CHARS = 512;
 const JPEG_QUALITY = 60;
 
 /**
  * Captures a JPEG screenshot from the Playwright page,
- * publishes it to Redis pub/sub for live streaming,
- * buffers the latest frame in Redis for late-joining clients,
- * and persists it as a RunArtifact for later gallery viewing.
+ * parks the image in a short-lived Redis key and publishes only a pointer to
+ * it (the bus carries at most 4KB per message), and persists it as a
+ * RunArtifact for later gallery viewing.
  *
  * Returns the persisted screenshot's storage key and browser-facing URL,
  * or null on failure.
@@ -115,22 +101,16 @@ async function captureScreenshotFrame(
       await page.setViewportSize(viewportSize);
     }
 
-    const imageBase64 = buffer.toString("base64");
-    const pageUrl = page.url();
     const timestamp = Date.now();
 
-    const frame: ScreenshotFrame = {
+    await publishFrame(buffer, {
       runId,
       testCaseId,
       stepIndex,
       timestamp,
-      imageBase64,
-      pageUrl,
+      pageUrl: page.url().slice(0, MAX_PAGE_URL_CHARS),
       viewport: viewportSize,
-    };
-
-    // Publish to Redis for live streaming + buffer for late-joining clients
-    await publishFrame(runId, frame);
+    });
 
     // Persist to storage for gallery
     return persistScreenshot(
@@ -150,29 +130,20 @@ async function captureScreenshotFrame(
 // ============================================================
 
 async function publishFrame(
-  runId: string,
-  frame: ScreenshotFrame
+  jpeg: Buffer,
+  frame: Omit<ScreenshotFrameEvent, "frameKey">
 ): Promise<void> {
-  const channel = screenshotChannel(runId);
-  const event = { type: "screenshot:frame", payload: frame };
-
+  const frameKey = randomUUID();
   try {
-    // Publish to pub/sub for actively connected clients
-    await publish(channel, event);
-
-    // Buffer the latest frame in a Redis key for late-joining clients.
-    // This ensures clients that connect after the first screenshots are
-    // published still get the current frame immediately.
-    const redis = getRedis();
-    await redis.set(
-      latestScreenshotKey(runId),
-      JSON.stringify(event),
-      "EX",
-      LATEST_SCREENSHOT_TTL_SECONDS
-    );
+    // The image must be fetchable before any client hears about it.
+    await getRedis().set(frameRedisKey(frame.runId, frameKey), jpeg, "EX", FRAME_TTL_SECONDS);
+    await publish(screenshotChannel(frame.runId), {
+      type: "screenshot:frame",
+      payload: { ...frame, frameKey },
+    });
   } catch (err) {
     console.error(
-      `[ScreenshotStreamer] Failed to publish frame for run=${runId}:`,
+      `[ScreenshotStreamer] Failed to publish frame for run=${frame.runId}:`,
       err instanceof Error ? err.message : err
     );
   }

@@ -120,6 +120,21 @@ export interface TestScreenshotEvent {
   timestamp: number;
 }
 
+/**
+ * A live browser frame. The JPEG itself is not on the bus (4KB limit): it sits
+ * in a short-lived Redis key and is fetched, with auth, from
+ * /api/projects/:projectId/runs/:runId/frames/:frameKey.
+ */
+export interface ScreenshotFrameEvent {
+  runId: string;
+  testCaseId: string;
+  stepIndex: number;
+  timestamp: number;
+  frameKey: string;
+  pageUrl: string;
+  viewport: { width: number; height: number };
+}
+
 export interface TestResultEvent {
   runId: string;
   testCaseId: string;
@@ -170,7 +185,8 @@ export type TestEvent =
   | { type: "test:step"; payload: TestStepEvent }
   | { type: "test:completed"; payload: TestCompletedEvent }
   | { type: "test:screenshot"; payload: TestScreenshotEvent }
-  | { type: "test:result"; payload: TestResultEvent };
+  | { type: "test:result"; payload: TestResultEvent }
+  | { type: "screenshot:frame"; payload: ScreenshotFrameEvent };
 
 export type PlanEvent =
   | { type: "plan:progress"; payload: PlanJobState }

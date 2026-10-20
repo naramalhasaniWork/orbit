@@ -1,6 +1,8 @@
 import { createRedisConnection } from "@/lib/redis";
+import { appendAndPublish, readLatest, readSince, type LoggedEvent } from "@/server/realtime/event-log";
 
-type MessageCallback = (data: unknown) => void;
+/** Receives the event and its stream entry id (the SSE event id). */
+type MessageCallback = (data: unknown, id: string) => void;
 
 let pubClient: ReturnType<typeof createRedisConnection> | null = null;
 let subClient: ReturnType<typeof createRedisConnection> | null = null;
@@ -23,10 +25,10 @@ function getSubClient() {
       if (!callbacks) return;
 
       try {
-        const data: unknown = JSON.parse(message);
+        const { id, event } = JSON.parse(message) as { id: string; event: unknown };
         callbacks.forEach((cb) => {
           try {
-            cb(data);
+            cb(event, id);
           } catch (err) {
             console.error(`[PubSub] Callback error on channel ${channel}:`, err);
           }
@@ -39,13 +41,28 @@ function getSubClient() {
   return subClient;
 }
 
-export async function publish(channel: string, data: unknown): Promise<void> {
+/**
+ * Appends the event to the channel's replayable stream (rt:{channel}) and
+ * publishes it live. Resolves to the stream entry id, or null when the
+ * publish failed or the event was too large for the bus.
+ */
+export async function publish(channel: string, data: unknown): Promise<string | null> {
   try {
-    const client = getPubClient();
-    await client.publish(channel, JSON.stringify(data));
+    return await appendAndPublish(getPubClient(), channel, data);
   } catch (err) {
     console.error(`[PubSub] Failed to publish to ${channel}:`, err);
+    return null;
   }
+}
+
+/** Events published after `lastId`, for a client that reconnected. Throws when Redis is unreachable. */
+export function replaySince(channel: string, lastId: string): Promise<LoggedEvent[]> {
+  return readSince(getPubClient(), channel, lastId);
+}
+
+/** The newest `count` events, for a client joining mid-run. Throws when Redis is unreachable. */
+export function replayLatest(channel: string, count: number): Promise<LoggedEvent[]> {
+  return readLatest(getPubClient(), channel, count);
 }
 
 const channelReady = new Map<string, Promise<unknown>>();

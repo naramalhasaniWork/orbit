@@ -10,7 +10,7 @@ interface FakeSource extends EventSourceLike {
   url: string;
   closed: boolean;
   listeners: Map<string, (ev: MessageEvent) => void>;
-  emit: (type: string, data: unknown) => void;
+  emit: (type: string, data: unknown, id?: string) => void;
 }
 
 function makeFactory() {
@@ -28,8 +28,8 @@ function makeFactory() {
       close() {
         source.closed = true;
       },
-      emit(type, data) {
-        listeners.get(type)?.({ type, data: JSON.stringify(data), lastEventId: "7" } as MessageEvent);
+      emit(type, data, id = "7") {
+        listeners.get(type)?.({ type, data: JSON.stringify(data), lastEventId: id } as MessageEvent);
       },
     };
     sources.push(source);
@@ -177,5 +177,38 @@ describe("openReconnectingSource", () => {
     drop(sources[1]);
     vi.advanceTimersByTime(10 * 60_000);
     expect(sources).toHaveLength(2);
+  });
+
+  it("drops a boundary event the server resends after a reconnect, but never a heartbeat", () => {
+    const { sources, create } = makeFactory();
+    const seen: string[] = [];
+    openReconnectingSource({
+      url: "/progress",
+      onMessage: (m) => seen.push(`${m.type}:${m.id}`),
+      createEventSource: create,
+      random: () => 1,
+    });
+
+    open(sources[0]);
+    sources[0].emit("test:step", { stepIndex: 0 }, "1700000000001-0");
+    sources[0].emit("test:step", { stepIndex: 1 }, "1700000000002-0");
+    drop(sources[0]);
+    vi.advanceTimersByTime(2000);
+
+    // Replay starts at the last id seen (inclusive), then new events; heartbeats repeat the old id.
+    open(sources[1]);
+    sources[1].emit("connected", {}, "1700000000002-0");
+    sources[1].emit("test:step", { stepIndex: 1 }, "1700000000002-0");
+    sources[1].emit("heartbeat", {}, "1700000000002-0");
+    sources[1].emit("test:step", { stepIndex: 2 }, "1700000000003-0");
+
+    expect(seen).toEqual([
+      "test:step:1700000000001-0",
+      "test:step:1700000000002-0",
+      "connected:1700000000002-0",
+      "heartbeat:1700000000002-0",
+      "test:step:1700000000003-0",
+    ]);
+    expect(sources[1].url).toBe("/progress?lastEventId=1700000000002-0");
   });
 });

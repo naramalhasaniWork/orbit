@@ -1,20 +1,15 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useSSE } from "@/hooks/use-sse";
+import type { ScreenshotFrameEvent } from "@/lib/websocket/channels";
 
 // ============================================================
 // Types
 // ============================================================
 
-export interface ScreenshotFrame {
-  runId: string;
-  testCaseId: string;
-  stepIndex: number;
-  timestamp: number;
+export interface ScreenshotFrame extends Omit<ScreenshotFrameEvent, "frameKey"> {
   imageBase64: string;
-  pageUrl: string;
-  viewport: { width: number; height: number };
 }
 
 interface UseScreenshotStreamOptions {
@@ -43,6 +38,23 @@ interface UseScreenshotStreamReturn {
 
 const DEFAULT_MAX_HISTORY = 100;
 
+function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result).split(",")[1] ?? "");
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(blob);
+  });
+}
+
+/** Fetches the JPEG behind a frame pointer; null when it expired or is not ours to see. */
+async function fetchFrame(projectId: string, event: ScreenshotFrameEvent): Promise<ScreenshotFrame | null> {
+  const res = await fetch(`/api/projects/${projectId}/runs/${event.runId}/frames/${event.frameKey}`);
+  if (!res.ok) return null;
+  const { frameKey: _frameKey, ...frame } = event;
+  return { ...frame, imageBase64: await blobToBase64(await res.blob()) };
+}
+
 export function useScreenshotStream({
   projectId,
   runId,
@@ -56,6 +68,29 @@ export function useScreenshotStream({
   const [isPaused, setIsPaused] = useState(false);
 
   const isPausedRef = useRef(false);
+  // Frames download in parallel but are applied in event order.
+  const applyQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const generationRef = useRef(0);
+
+  useEffect(() => {
+    generationRef.current += 1; // drop in-flight frames from a previous run
+  }, [projectId, runId]);
+
+  const addFrame = useCallback(
+    (frame: ScreenshotFrame) => {
+      // Always add to history
+      setFrameHistory((prev) => {
+        const next = [...prev, frame];
+        return next.length > maxHistory ? next.slice(-maxHistory) : next;
+      });
+
+      // Only update current frame if not paused
+      if (!isPausedRef.current) {
+        setCurrentFrame(frame);
+      }
+    },
+    [maxHistory]
+  );
 
   const handleEvent = useCallback(
     (event: { type: string; data: unknown }) => {
@@ -68,18 +103,12 @@ export function useScreenshotStream({
         }
 
         case "screenshot:frame": {
-          const frame = payload as unknown as ScreenshotFrame;
-
-          // Always add to history
-          setFrameHistory((prev) => {
-            const next = [...prev, frame];
-            return next.length > maxHistory ? next.slice(-maxHistory) : next;
+          const generation = generationRef.current;
+          const download = fetchFrame(projectId, payload as unknown as ScreenshotFrameEvent).catch(() => null);
+          applyQueueRef.current = applyQueueRef.current.then(async () => {
+            const frame = await download;
+            if (frame && generation === generationRef.current) addFrame(frame);
           });
-
-          // Only update current frame if not paused
-          if (!isPausedRef.current) {
-            setCurrentFrame(frame);
-          }
           break;
         }
 
@@ -91,7 +120,7 @@ export function useScreenshotStream({
         }
       }
     },
-    [maxHistory]
+    [projectId, addFrame]
   );
 
   const url = runId
