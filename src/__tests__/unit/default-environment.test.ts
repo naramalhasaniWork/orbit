@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { pickDefaultEnvironment } from "@/services/execution/default-environment";
+import { isDefaultCandidate, pickDefaultEnvironment } from "@/services/execution/default-environment";
 
 const at = (day: number) => new Date(Date.UTC(2026, 0, day));
 const env = (id: string, type: string, isDefault = false, day = 1) => ({ id, type, isDefault, createdAt: at(day) });
@@ -22,5 +22,14 @@ describe("pickDefaultEnvironment", () => {
   it("never picks production, even when flagged", () => {
     expect(pickDefaultEnvironment([env("prod", "production", true)])).toBeNull();
     expect(pickDefaultEnvironment([env("prod", "production", true), env("q", "qa")])?.id).toBe("q");
+  });
+});
+
+describe("isDefaultCandidate", () => {
+  it("excludes archived environments and per-PR preview environments", () => {
+    expect(isDefaultCandidate({ archivedAt: null, source: null })).toBe(true);
+    expect(isDefaultCandidate({ archivedAt: null, source: "railway" })).toBe(true);
+    expect(isDefaultCandidate({ archivedAt: new Date(), source: null })).toBe(false);
+    expect(isDefaultCandidate({ archivedAt: null, source: "preview" })).toBe(false);
   });
 });
