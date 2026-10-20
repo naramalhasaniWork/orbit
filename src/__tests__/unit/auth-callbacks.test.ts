@@ -8,6 +8,7 @@ vi.mock("@next-auth/prisma-adapter", () => ({ PrismaAdapter: () => ({}) }));
 vi.mock("next-auth/providers/github", () => ({ default: () => ({ id: "github" }) }));
 vi.mock("next-auth/providers/gitlab", () => ({ default: () => ({ id: "gitlab" }) }));
 vi.mock("@/lib/auth/signup-policy", () => ({ evaluateSignIn: vi.fn() }));
+vi.mock("@/lib/auth/rate-limit", () => ({ consumeRateLimit: vi.fn() }));
 vi.mock("@/lib/db", () => ({
   prisma: {
     user: { update: vi.fn(), findUnique: vi.fn(), count: vi.fn() },
@@ -20,6 +21,7 @@ vi.mock("@/lib/db", () => ({
 
 import { prisma } from "@/lib/db";
 import { evaluateSignIn } from "@/lib/auth/signup-policy";
+import { consumeRateLimit } from "@/lib/auth/rate-limit";
 import { authOptions } from "@/lib/auth";
 import { decryptToken } from "@/lib/vault/token";
 
@@ -30,6 +32,7 @@ const db = prisma as unknown as {
   workspace: { create: ReturnType<typeof vi.fn> };
 };
 const evaluate = evaluateSignIn as ReturnType<typeof vi.fn>;
+const limiter = consumeRateLimit as ReturnType<typeof vi.fn>;
 
 const user = { id: "u1", email: "Dev@Acme.com", name: "Dev" } as User;
 const github = { provider: "github", access_token: "gho_realtoken123" } as Account;
@@ -45,6 +48,7 @@ function runJwt(overrides: { user?: User; account?: Account } = {}) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  limiter.mockResolvedValue({ allowed: true });
   vi.stubEnv("SUPER_ADMIN_EMAILS", "");
   vi.stubEnv("ORBIT_SELF_HOSTED", "");
   db.user.update.mockResolvedValue({});
@@ -69,6 +73,13 @@ describe("signIn callback", () => {
     evaluate.mockResolvedValue({ allowed: true });
     expect(await signIn({ user, account: github, profile: undefined })).toBe(true);
     expect(evaluate).toHaveBeenCalledWith("Dev@Acme.com");
+  });
+
+  it("rate limits per account (case-insensitive) before evaluating the policy", async () => {
+    limiter.mockResolvedValue({ allowed: false });
+    expect(await signIn({ user, account: github, profile: undefined })).toBe("/login?error=RateLimited");
+    expect(limiter).toHaveBeenCalledWith("signin:dev@acme.com", 10, 600);
+    expect(evaluate).not.toHaveBeenCalled();
   });
 
   it("redirects to /login with the policy error when denied", async () => {

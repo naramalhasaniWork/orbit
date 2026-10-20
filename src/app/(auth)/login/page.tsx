@@ -11,6 +11,7 @@ const LOGIN_ERRORS: Record<string, string> = {
   SignupInviteOnly: "This instance is invite-only. Ask a workspace admin to invite you, then sign in again.",
   SignupClosed: "New sign-ups are disabled on this instance.",
   EmailDomainNotAllowed: "Your email domain is not allowed to sign in to this instance.",
+  RateLimited: "Too many sign-in attempts. Wait a few minutes and try again.",
   AccessDenied: "Access denied. Your account is not allowed to sign in.",
 };
 

@@ -6,7 +6,11 @@ import { prisma } from "@/lib/db";
 import { generateSlug } from "@/lib/utils/slug";
 import { encryptToken } from "@/lib/vault/token";
 import { evaluateSignIn } from "./signup-policy";
+import { consumeRateLimit } from "./rate-limit";
 import { isSelfHosted } from "@/lib/self-host";
+
+const SIGNIN_ATTEMPTS_PER_ACCOUNT = 10;
+const SIGNIN_WINDOW_SEC = 600;
 
 export const authOptions: AuthOptions = {
   adapter: PrismaAdapter(prisma),
@@ -36,6 +40,13 @@ export const authOptions: AuthOptions = {
   callbacks: {
     async signIn({ user }) {
       if (!user.email) return false;
+      // Second limit keyed on the account, so rotating IPs does not help guess at one account
+      const attempts = await consumeRateLimit(
+        `signin:${user.email.toLowerCase()}`,
+        SIGNIN_ATTEMPTS_PER_ACCOUNT,
+        SIGNIN_WINDOW_SEC
+      );
+      if (!attempts.allowed) return "/login?error=RateLimited";
       const decision = await evaluateSignIn(user.email);
       return decision.allowed ? true : `/login?error=${decision.error}`;
     },

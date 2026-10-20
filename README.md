@@ -140,6 +140,7 @@ pnpm workers
 | `ORBIT_SIGNUP` | No | `open`, `invite` or `closed`. Default: `open` on cloud, `invite` when self-hosted |
 | `ORBIT_ALLOWED_EMAIL_DOMAINS` | No | Comma-separated domains allowed to sign in (default: any) |
 | `ORBIT_ALLOW_PRIVATE_TARGETS` | No | `true` lets environments and MCP servers target localhost/private networks (link-local stays blocked) |
+| `ORBIT_TRUSTED_PROXY_HOPS` | No | Number of reverse proxies in front of Orbit (default `1`, as on Railway); picks the trusted `X-Forwarded-For` entry for rate limiting |
 | `SKIP_ENV_VALIDATION` | No | `true` skips the boot-time check for required variables |
 
 Required variables are validated at startup (`src/lib/env.ts`): the server refuses to boot and lists every missing or invalid one. Missing optional integrations are logged as warnings.

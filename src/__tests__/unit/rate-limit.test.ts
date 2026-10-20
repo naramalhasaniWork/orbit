@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 const redisMock = vi.hoisted(() => {
   const exec = vi.fn();
@@ -12,7 +12,7 @@ vi.mock("@/lib/redis", () => ({
   getRedis: () => ({ multi: redisMock.multi, expire: redisMock.expire }),
 }));
 
-import { consumeRateLimit, checkRateLimit, checkIpRateLimit } from "@/lib/auth/rate-limit";
+import { consumeRateLimit, checkRateLimit, checkIpRateLimit, getClientIp } from "@/lib/auth/rate-limit";
 
 function hit(count: number, ttl: number) {
   redisMock.exec.mockResolvedValueOnce([
@@ -93,5 +93,40 @@ describe("redis rate limiter", () => {
     const res = await checkIpRateLimit("auth", "1.2.3.4", 20);
     expect(res?.status).toBe(429);
     expect(redisMock.chain.incr).toHaveBeenCalledWith("ratelimit:auth:1.2.3.4");
+  });
+});
+
+describe("getClientIp", () => {
+  const h = (xff?: string) => new Headers(xff ? { "x-forwarded-for": xff } : {});
+
+  afterEach(() => vi.unstubAllEnvs());
+
+  it("takes the right-most entry by default (one trusted proxy), ignoring a spoofed prefix", () => {
+    expect(getClientIp(h("6.6.6.6, 1.1.1.1, 203.0.113.9"))).toBe("203.0.113.9");
+    expect(getClientIp(h("203.0.113.9"))).toBe("203.0.113.9");
+  });
+
+  it("rotating the client-supplied prefix does not change the key", () => {
+    const a = getClientIp(h("spoof-a, 203.0.113.9"));
+    const b = getClientIp(h("spoof-b, spoof-c, 203.0.113.9"));
+    expect(a).toBe(b);
+  });
+
+  it("honours ORBIT_TRUSTED_PROXY_HOPS", () => {
+    vi.stubEnv("ORBIT_TRUSTED_PROXY_HOPS", "2");
+    expect(getClientIp(h("6.6.6.6, 198.51.100.7, 10.0.0.1"))).toBe("198.51.100.7");
+    expect(getClientIp(h("only-one"))).toBe("only-one");
+  });
+
+  it("ignores XFF entirely with zero hops, and falls back to a shared bucket with no header", () => {
+    vi.stubEnv("ORBIT_TRUSTED_PROXY_HOPS", "0");
+    expect(getClientIp(h("1.2.3.4"))).toBe("unknown");
+    vi.stubEnv("ORBIT_TRUSTED_PROXY_HOPS", "1");
+    expect(getClientIp(h())).toBe("unknown");
+  });
+
+  it("falls back to the default for invalid values", () => {
+    vi.stubEnv("ORBIT_TRUSTED_PROXY_HOPS", "abc");
+    expect(getClientIp(h("6.6.6.6, 203.0.113.9"))).toBe("203.0.113.9");
   });
 });

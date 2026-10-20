@@ -115,8 +115,25 @@ export async function checkIpRateLimit(
   return tooManyRequests(result, "Too many requests. Try again shortly.");
 }
 
-/** Best-effort client IP behind a proxy (Railway sets x-forwarded-for). */
+const DEFAULT_TRUSTED_PROXY_HOPS = 1;
+
+function trustedProxyHops(): number {
+  const hops = parseInt(process.env.ORBIT_TRUSTED_PROXY_HOPS ?? "", 10);
+  return Number.isInteger(hops) && hops >= 0 ? hops : DEFAULT_TRUSTED_PROXY_HOPS;
+}
+
+/**
+ * Client IP behind N trusted proxies (ORBIT_TRUSTED_PROXY_HOPS, default 1 for Railway).
+ * Each proxy appends the address it saw to X-Forwarded-For, so only the entries from the
+ * right are trustworthy: the client controls everything to the left. We take the entry
+ * N from the right; a spoofed prefix is ignored.
+ */
 export function getClientIp(headers: Headers): string {
-  const forwarded = headers.get("x-forwarded-for")?.split(",")[0]?.trim();
-  return forwarded || headers.get("x-real-ip") || "unknown";
+  const entries = (headers.get("x-forwarded-for") ?? "")
+    .split(",")
+    .map((e) => e.trim())
+    .filter(Boolean);
+  const hops = trustedProxyHops();
+  if (entries.length === 0 || hops === 0) return "unknown";
+  return entries[Math.max(0, entries.length - hops)];
 }
