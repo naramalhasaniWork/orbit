@@ -57,3 +57,25 @@ describe("POST linear-issue", () => {
     expect(JSON.stringify(json)).toContain("Settings");
   });
 });
+
+describe("operator credential fallbacks are single-tenant only", () => {
+  it("getLinearConfig ignores LINEAR_API_KEY on hosted, uses it when self-hosted", async () => {
+    vi.resetModules();
+    vi.doUnmock("@/services/reporting/integrations/linear");
+    vi.doMock("@/lib/db", () => ({
+      prisma: { project: { findUnique: vi.fn(async () => ({ settings: {}, workspace: { settings: {} } })) } },
+    }));
+    vi.stubEnv("LINEAR_API_KEY", "operator-key");
+    vi.stubEnv("LINEAR_TEAM_ID", "operator-team");
+
+    vi.stubEnv("ORBIT_SELF_HOSTED", "");
+    const hosted = await import("@/services/reporting/integrations/linear");
+    expect(await hosted.getLinearConfig("p1")).toBeNull();
+
+    vi.resetModules();
+    vi.stubEnv("ORBIT_SELF_HOSTED", "true");
+    const selfHosted = await import("@/services/reporting/integrations/linear");
+    expect(await selfHosted.getLinearConfig("p1")).toEqual({ apiKey: "operator-key", teamId: "operator-team" });
+    vi.unstubAllEnvs();
+  });
+});
