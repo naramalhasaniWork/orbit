@@ -4,7 +4,6 @@ import { apiError } from "@/lib/utils/api";
 import type { Logger } from "pino";
 import {
   AuthError,
-  BudgetExceededError,
   HttpError,
   NotFoundError,
   ServiceUnavailableError,
@@ -42,8 +41,9 @@ export function mapError(error: unknown, requestId: string, log: Logger): NextRe
     return apiError("A record with these details already exists", "CONFLICT", 409);
   }
 
-  if (error instanceof BudgetExceededError) {
-    return apiError(error.message, error.code, 402);
+  // Matched by name: the AI gateway owns BudgetExceededError, and this layer must not import from it.
+  if (error instanceof Error && error.name === "BudgetExceededError") {
+    return apiError(error.message, "BUDGET_EXCEEDED", 402);
   }
 
   if (error instanceof ServiceUnavailableError) {

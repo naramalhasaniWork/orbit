@@ -54,13 +54,3 @@ export class NotFoundError extends Error {
     this.name = "NotFoundError";
   }
 }
-
-/** The workspace's AI spend budget has no room for this call. */
-export class BudgetExceededError extends Error {
-  code = "BUDGET_EXCEEDED";
-
-  constructor(message = "Monthly AI token budget exceeded") {
-    super(message);
-    this.name = "BudgetExceededError";
-  }
-}

@@ -42,6 +42,7 @@ type SessionOf<A> = A extends "apiKey" ? null : A extends "sessionOrApiKey" ? Or
 export interface AuthInfo<A> {
   userId: A extends "apiKey" ? null : A extends "sessionOrApiKey" ? string | null : string;
   role: MemberRole | null;
+  memberId: A extends "apiKey" ? null : A extends "sessionOrApiKey" ? string | null : string;
   via: A extends "apiKey" ? "apiKey" : A extends "sessionOrApiKey" ? "session" | "apiKey" : "session";
 }
 

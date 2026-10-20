@@ -38,7 +38,7 @@ vi.mock("@/lib/redis", () => ({
 }));
 
 import { route } from "@/server/http/route";
-import { AuthError, BudgetExceededError, NotFoundError, QueueUnavailableError } from "@/server/http/errors";
+import { AuthError, NotFoundError, QueueUnavailableError } from "@/server/http/errors";
 import { logger } from "@/server/observability/logger";
 
 const SEGMENT = { params: Promise.resolve({ projectId: "p1", workspaceId: "ws-2" }) };
@@ -86,7 +86,7 @@ describe("auth modes", () => {
     }))(req(), NO_SEGMENT);
     expect(await json(res)).toEqual({
       success: true,
-      data: { workspaceId: "ws-1", role: "admin", auth: { userId: "user-1", role: "admin", via: "session" } },
+      data: { workspaceId: "ws-1", role: "admin", auth: { userId: "user-1", role: "admin", memberId: "m1", via: "session" } },
     });
   });
 
@@ -123,7 +123,7 @@ describe("auth modes", () => {
     );
     expect((await json(res)).data).toEqual({
       ws: "ws-key",
-      auth: { userId: null, role: null, via: "apiKey" },
+      auth: { userId: null, role: null, memberId: null, via: "apiKey" },
     });
     expect(memberFind).not.toHaveBeenCalled();
   });
@@ -195,6 +195,17 @@ describe("permissions", () => {
 });
 
 describe("one membership read per request", () => {
+  it("the legacy requireWorkspace + requirePermission pair reads twice; route() reads once", async () => {
+    const { requireWorkspace, requirePermission } = await import("@/server/http/auth");
+    await requireWorkspace();
+    await requirePermission("ws-1", "projects.update");
+    expect(memberFind).toHaveBeenCalledTimes(2);
+
+    memberFind.mockClear();
+    await route({ permission: "projects.update" }, () => "ok")(req("PATCH"), NO_SEGMENT);
+    expect(memberFind).toHaveBeenCalledTimes(1);
+  });
+
   it("session workspace + permission", async () => {
     await route({ permission: "projects.update" }, () => "ok")(req("PATCH"), NO_SEGMENT);
     expect(memberFind).toHaveBeenCalledTimes(1);
@@ -270,7 +281,13 @@ describe("error mapping", () => {
   });
 
   it("BudgetExceededError is 402", async () => {
-    expect((await throwing(new BudgetExceededError())).status).toBe(402);
+    // The AI gateway owns this class; the wrapper recognises it by name
+    class BudgetExceededError extends Error {
+      name = "BudgetExceededError";
+    }
+    const res = await throwing(new BudgetExceededError("over budget"));
+    expect(res.status).toBe(402);
+    expect((await json(res)).error).toEqual({ message: "over budget", code: "BUDGET_EXCEEDED" });
   });
 
   it("ServiceUnavailable and QueueUnavailable are 503 with Retry-After", async () => {

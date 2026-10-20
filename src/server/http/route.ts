@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { NextResponse, type NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireApiKey } from "@/lib/auth/api-key";
 import { consumeRateLimit, getClientIp, tooManyRequests } from "@/lib/auth/rate-limit";
@@ -23,10 +23,11 @@ interface Identity {
   session: OrbitSession | null;
   userId: string | null;
   role: MemberRole | null;
+  memberId: string | null;
   via: "session" | "apiKey" | null;
 }
 
-const ANONYMOUS: Identity = { workspaceId: null, session: null, userId: null, role: null, via: null };
+const ANONYMOUS: Identity = { workspaceId: null, session: null, userId: null, role: null, memberId: null, via: null };
 
 function assertSpec(spec: RouteSpec): void {
   const auth = spec.auth ?? "session";
@@ -63,10 +64,10 @@ async function sessionIdentity(spec: RouteSpec, rawParams: Record<string, string
     spec.workspace === "param" ? rawParams[spec.workspaceParam ?? "workspaceId"] : session.workspaceId;
   if (!workspaceId) throw new AuthError("No workspace found", "NO_WORKSPACE", 403);
 
-  const { role } = await loadMembership(session.user.id, workspaceId);
+  const { role, memberId } = await loadMembership(session.user.id, workspaceId);
   if (spec.permission) assertPermission(role, spec.permission);
 
-  return { workspaceId, session: { ...session, role }, userId: session.user.id, role, via: "session" };
+  return { workspaceId, session: { ...session, role }, userId: session.user.id, role, memberId, via: "session" };
 }
 
 /** Resolves who is calling, or the response to send instead (a bad API key keeps its existing 401/429 shape). */
@@ -86,17 +87,17 @@ async function authenticate(
   if (spec.workspace === "param" && rawParams[spec.workspaceParam ?? "workspaceId"] !== key.workspaceId) {
     throw new AuthError("API key does not belong to this workspace", "FORBIDDEN", 403);
   }
-  return { workspaceId: key.workspaceId, session: null, userId: null, role: null, via: "apiKey" };
+  return { workspaceId: key.workspaceId, session: null, userId: null, role: null, memberId: null, via: "apiKey" };
 }
 
 async function execute<S extends RouteSpec>(
   spec: S,
   handler: RouteHandler<S>,
   req: NextRequest,
-  segment: RouteSegment | undefined,
+  segment: unknown,
   requestId: string
 ): Promise<Response> {
-  const rawParams = (await segment?.params) ?? {};
+  const rawParams = (await (segment as Partial<RouteSegment> | undefined)?.params) ?? {};
 
   let rawBody: string | null = null;
   if (typeof spec.auth === "object") {
@@ -129,7 +130,9 @@ async function execute<S extends RouteSpec>(
       req, params, query, body, rawBody, requestId, log: logger, db: prisma,
       workspaceId: identity.workspaceId,
       session: identity.session,
-      auth: identity.via ? { userId: identity.userId, role: identity.role, via: identity.via } : null,
+      auth: identity.via
+        ? { userId: identity.userId, role: identity.role, memberId: identity.memberId, via: identity.via }
+        : null,
     } as unknown as RouteContext<S>;
     const result = await handler(ctx);
     return result instanceof Response ? result : apiSuccess(result);
@@ -151,7 +154,10 @@ async function execute<S extends RouteSpec>(
 export function route<const S extends RouteSpec>(spec: S, handler: RouteHandler<S>) {
   assertSpec(spec);
 
-  return async function handle(req: NextRequest, segment: RouteSegment): Promise<Response> {
+  // `segment` is typed unknown on purpose: Next's build-time route check accepts an optional
+  // second argument only when it is any/unknown, and no-param routes are called without one.
+  return async function handle(input: Request, segment?: unknown): Promise<Response> {
+    const req = input instanceof NextRequest ? input : new NextRequest(input);
     const inbound = req.headers.get("x-request-id");
     const requestId = inbound && REQUEST_ID_PATTERN.test(inbound) ? inbound : randomUUID();
 
