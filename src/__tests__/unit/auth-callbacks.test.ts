@@ -153,3 +153,26 @@ describe("session callback", () => {
     expect(JSON.stringify(session)).not.toContain("glpat_secret");
   });
 });
+
+describe("jwt callback: deleted workspaces", () => {
+  it("the sign-in default pick skips deleted workspaces and takes the most recently joined", async () => {
+    await runJwt();
+    const args = db.workspaceMember.findFirst.mock.calls[0][0];
+    expect(args.where).toEqual({ userId: "u1", workspace: { deletedAt: null } });
+    expect(args.orderBy).toEqual({ createdAt: "desc" });
+  });
+
+  it("switching workspaces refuses a deleted one", async () => {
+    db.workspaceMember.findFirst.mockResolvedValue(null);
+    const token = await authOptions.callbacks!.jwt!({
+      token: { userId: "u1", workspaceId: "ws-old" } as JWT,
+      trigger: "update",
+      session: { workspaceId: "ws-deleted" },
+    } as Parameters<NonNullable<NonNullable<typeof authOptions.callbacks>["jwt"]>>[0]);
+    expect(db.workspaceMember.findFirst.mock.calls[0][0].where).toMatchObject({
+      workspaceId: "ws-deleted",
+      workspace: { deletedAt: null },
+    });
+    expect(token.workspaceId).toBe("ws-old");
+  });
+});

@@ -1,7 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
 
-const state = vi.hoisted(() => ({ membership: { role: "owner" } as { role: string } | null, actorRole: "admin" }));
+const state = vi.hoisted(() => ({
+  membership: { role: "owner" } as { role: string } | null,
+  deletedAt: null as Date | null,
+}));
 
 vi.mock("next-auth", () => ({
   getServerSession: vi.fn(async () => ({
@@ -15,7 +18,7 @@ vi.mock("@/lib/auth/audit", () => ({ writeAuditLog: vi.fn() }));
 vi.mock("@/lib/db", () => ({
   prisma: {
     workspaceMember: {
-      findUnique: vi.fn(async () => (state.membership ? { id: "m-actor", role: state.membership.role } : null)),
+      findUnique: vi.fn(async () => (state.membership ? { id: "m-actor", role: state.membership.role, workspace: { deletedAt: state.deletedAt } } : null)),
       findFirst: vi.fn(async () => ({ id: "m-target", userId: "u2", role: "member" })),
       update: vi.fn(),
     },
@@ -27,6 +30,7 @@ vi.mock("@/lib/db", () => ({
 
 import { prisma } from "@/lib/db";
 import { requireWorkspace } from "@/lib/utils/api";
+import { requirePermission } from "@/lib/auth/rbac";
 import { PATCH } from "@/app/api/workspaces/[workspaceId]/members/route";
 import { POST as invite } from "@/app/api/workspaces/[workspaceId]/invitations/route";
 import { DELETE as disconnectGitHub } from "@/app/api/workspaces/[workspaceId]/integrations/github/route";
@@ -44,6 +48,7 @@ const req = (body: unknown, method = "PATCH") =>
 beforeEach(() => {
   vi.clearAllMocks();
   state.membership = { role: "admin" };
+  state.deletedAt = null;
 });
 
 describe("requireWorkspace", () => {
@@ -56,6 +61,21 @@ describe("requireWorkspace", () => {
     const result = await requireWorkspace();
     expect(result.role).toBe("admin");
     expect(result.session.role).toBe("admin");
+  });
+});
+
+describe("soft-deleted workspaces", () => {
+  it("requireWorkspace rejects with WORKSPACE_DELETED", async () => {
+    state.deletedAt = new Date();
+    await expect(requireWorkspace()).rejects.toMatchObject({ status: 403, code: "WORKSPACE_DELETED" });
+  });
+
+  it("requirePermission rejects with WORKSPACE_DELETED", async () => {
+    state.deletedAt = new Date();
+    await expect(requirePermission("ws-1", "projects.view")).rejects.toMatchObject({
+      status: 403,
+      code: "WORKSPACE_DELETED",
+    });
   });
 });
 

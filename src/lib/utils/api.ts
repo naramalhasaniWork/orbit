@@ -50,11 +50,14 @@ export async function requireWorkspace(): Promise<{
         userId: session.user.id,
       },
     },
-    select: { role: true },
+    select: { role: true, workspace: { select: { deletedAt: true } } },
   });
 
   if (!member) {
     throw new AuthError("Not a member of this workspace", "FORBIDDEN", 403);
+  }
+  if (member.workspace.deletedAt) {
+    throw new AuthError("Workspace has been deleted", "WORKSPACE_DELETED", 403);
   }
 
   return {
