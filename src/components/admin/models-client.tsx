@@ -218,13 +218,13 @@ export function ModelsClient({ initialModels, initialTotal, initialProviders }: 
       </div>
 
       {syncResult && (
-        <div className="rounded-lg border border-white/[0.06] bg-white/[0.02] px-4 py-2 text-sm text-muted-foreground">{syncResult}</div>
+        <div className="rounded-lg border border-border bg-foreground/[0.02] px-4 py-2 text-sm text-muted-foreground">{syncResult}</div>
       )}
 
       <div className="flex items-center gap-3">
         <div className="relative flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); fetchModels(1, e.target.value, providerFilter); }} placeholder="Search models..." className="pl-9 bg-white/[0.03] border-white/[0.06]" />
+          <Input value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); fetchModels(1, e.target.value, providerFilter); }} placeholder="Search models..." className="pl-9 bg-foreground/[0.03] border-border" />
         </div>
         <Select value={providerFilter || "all"} onValueChange={(v) => { const prov = v === "all" ? "" : v; setProviderFilter(prov); setPage(1); fetchModels(1, search, prov); }}>
           <SelectTrigger className="w-40"><SelectValue placeholder="All providers" /></SelectTrigger>

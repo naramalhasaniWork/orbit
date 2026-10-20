@@ -103,7 +103,7 @@ export function ModelSelectorEnhanced({
 
   if (loading) {
     return (
-      <div className="h-9 rounded-md bg-white/[0.04] border border-transparent animate-pulse" />
+      <div className="h-9 rounded-md bg-foreground/[0.04] border border-transparent animate-pulse" />
     );
   }
 
@@ -112,7 +112,7 @@ export function ModelSelectorEnhanced({
       <button
         type="button"
         onClick={() => setOpen(!open)}
-        className="w-full flex items-center justify-between rounded-md bg-white/[0.04] border border-transparent px-3 py-2 text-sm text-foreground hover:border-white/[0.08] focus:outline-none focus:ring-1 focus:ring-orbit-accent transition-colors"
+        className="w-full flex items-center justify-between rounded-md bg-foreground/[0.04] border border-transparent px-3 py-2 text-sm text-foreground hover:border-border focus:outline-none focus:ring-1 focus:ring-orbit-accent transition-colors"
       >
         <span className="truncate">{selectedLabel}</span>
         <ChevronDown className={`h-3.5 w-3.5 text-muted-foreground transition-transform ${open ? "rotate-180" : ""}`} />
@@ -127,8 +127,8 @@ export function ModelSelectorEnhanced({
       )}
 
       {open && (
-        <div className="absolute z-50 mt-1 w-full rounded-lg border border-white/[0.08] bg-card shadow-2xl shadow-black/40 overflow-hidden">
-          <div className="p-2 border-b border-white/[0.06]">
+        <div className="absolute z-50 mt-1 w-full rounded-lg border border-border bg-card shadow-2xl shadow-black/40 overflow-hidden">
+          <div className="p-2 border-b border-border">
             <div className="relative">
               <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
               <input
@@ -136,7 +136,7 @@ export function ModelSelectorEnhanced({
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 placeholder="Search models..."
-                className="w-full rounded-md bg-white/[0.04] border border-transparent pl-8 pr-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-orbit-accent"
+                className="w-full rounded-md bg-foreground/[0.04] border border-transparent pl-8 pr-3 py-1.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-orbit-accent"
                 autoFocus
               />
             </div>
@@ -167,7 +167,7 @@ export function ModelSelectorEnhanced({
                       className={`w-full flex items-center gap-2 px-3 py-2 text-left text-sm transition-colors ${
                         isSelected
                           ? "bg-orbit-accent/10 text-foreground"
-                          : "text-foreground hover:bg-white/[0.04]"
+                          : "text-foreground hover:bg-foreground/[0.04]"
                       }`}
                     >
                       <span className="flex-1 truncate">{model.displayName}</span>

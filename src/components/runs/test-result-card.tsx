@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronRight, ShieldAlert, Image as ImageIcon } from "lucide-react";
-import { springs, expandCollapse } from "@/lib/motion";
+import { tween, expandCollapse } from "@/lib/motion";
 import { Badge } from "@/components/ui/badge";
 import { StatusDot } from "@/components/shared/status-dot";
 import { StepLog } from "@/components/runs/step-log";
@@ -120,7 +120,7 @@ export function TestResultCard({ result, projectId, runId }: TestResultCardProps
           <motion.div
             initial={(result.verdict === "fail" || result.verdict === "flaky") ? { scale: 0.8, opacity: 0 } : false}
             animate={(result.verdict === "fail" || result.verdict === "flaky") ? { scale: 1, opacity: 1 } : undefined}
-            transition={springs.bounce}
+            transition={tween.change}
           >
             <Badge
               className={cn(

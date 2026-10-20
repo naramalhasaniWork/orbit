@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
+import { tween } from "@/lib/motion";
 import {
   LayoutDashboard,
   Building2,
@@ -32,7 +33,7 @@ export function AdminSidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="flex flex-col w-[52px] hover:w-52 transition-all duration-300 ease-in-out surface-1 border-r border-white/[0.04] group overflow-hidden">
+    <aside className="flex flex-col w-[52px] hover:w-52 transition-all duration-300 ease-in-out surface-1 border-r border-border group overflow-hidden">
       {/* Logo */}
       <div className="flex items-center h-14 px-3.5">
         <div className="flex items-center justify-center h-7 w-7 rounded-lg bg-red-500/15 shrink-0 shadow-[0_0_12px_rgba(239,68,68,0.15)]">
@@ -57,15 +58,15 @@ export function AdminSidebar() {
               className={cn(
                 "relative flex items-center gap-3 px-2 py-2 rounded-lg text-[13px] font-medium transition-all duration-200",
                 isActive
-                  ? "text-foreground bg-white/[0.06]"
-                  : "text-muted-foreground hover:text-foreground hover:bg-white/[0.04]"
+                  ? "text-foreground bg-foreground/[0.06]"
+                  : "text-muted-foreground hover:text-foreground hover:bg-foreground/[0.04]"
               )}
             >
               {isActive && (
                 <motion.div
                   layoutId="admin-sidebar-active"
                   className="absolute left-0 top-1/2 -translate-y-1/2 w-[2px] h-4 rounded-r-full bg-red-400 shadow-[0_0_8px_rgba(239,68,68,0.5)]"
-                  transition={{ type: "spring", stiffness: 350, damping: 30 }}
+                  transition={tween.change}
                 />
               )}
               <item.icon
@@ -86,7 +87,7 @@ export function AdminSidebar() {
       <div className="p-2 mb-1">
         <Link
           href="/dashboard"
-          className="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-white/[0.04] transition-colors"
+          className="flex items-center gap-3 px-2 py-2 rounded-lg hover:bg-foreground/[0.04] transition-colors"
         >
           <div className="h-6 w-6 rounded-md bg-orbit-accent/15 flex items-center justify-center shrink-0">
             <Orbit className="h-3.5 w-3.5 text-orbit-accent" />

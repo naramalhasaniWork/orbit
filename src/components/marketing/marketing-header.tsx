@@ -25,14 +25,14 @@ export function MarketingHeader() {
     <header
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
         scrolled
-          ? "bg-background/70 backdrop-blur-xl border-b border-white/[0.04]"
+          ? "bg-background/70 backdrop-blur-xl border-b border-border"
           : "bg-transparent"
       }`}
     >
       <div className="mx-auto max-w-6xl px-6">
         <div className="flex h-16 items-center justify-between">
           <Link href="/" className="flex items-center">
-            <Logo size="md" />
+            <Logo size="md" brand />
           </Link>
 
           <nav className="hidden md:flex items-center gap-8">
@@ -103,7 +103,7 @@ export function MarketingHeader() {
                   {link.label}
                 </Link>
               ))}
-              <div className="pt-4 mt-4 border-t border-white/[0.06] flex flex-col gap-3">
+              <div className="pt-4 mt-4 border-t border-border flex flex-col gap-3">
                 <Link
                   href="/login"
                   className="text-sm text-muted-foreground hover:text-foreground transition-colors"

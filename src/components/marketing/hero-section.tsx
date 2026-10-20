@@ -2,9 +2,9 @@
 
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { springs } from "@/lib/motion";
+import { ease as easeTokens, tween } from "@/lib/motion";
 
-const ease = [0.21, 0.47, 0.32, 0.98];
+const ease = easeTokens.out;
 
 function SystemMapMockup() {
   const nodes = [
@@ -23,13 +23,13 @@ function SystemMapMockup() {
   ];
 
   return (
-    <div className="relative w-full aspect-[4/3] rounded-xl surface-1 border border-white/[0.06] overflow-hidden">
+    <div className="relative w-full aspect-[4/3] rounded-xl surface-1 border border-border overflow-hidden">
       {/* Header bar */}
-      <div className="flex items-center gap-2 px-4 py-3 border-b border-white/[0.06]">
+      <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
         <div className="flex gap-1.5">
-          <span className="w-2.5 h-2.5 rounded-full bg-white/10" />
-          <span className="w-2.5 h-2.5 rounded-full bg-white/10" />
-          <span className="w-2.5 h-2.5 rounded-full bg-white/10" />
+          <span className="w-2.5 h-2.5 rounded-full bg-foreground/10" />
+          <span className="w-2.5 h-2.5 rounded-full bg-foreground/10" />
+          <span className="w-2.5 h-2.5 rounded-full bg-foreground/10" />
         </div>
         <span className="text-[10px] text-muted-foreground ml-2 font-mono">System Map</span>
         <div className="ml-auto flex items-center gap-3">
@@ -98,7 +98,7 @@ function SystemMapMockup() {
 
 export function HeroSection() {
   return (
-    <section className="relative min-h-screen flex items-center overflow-hidden pt-16">
+    <section className="relative min-h-dvh flex items-center overflow-hidden pt-16">
       <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[500px] bg-primary/[0.05] rounded-full blur-[120px] pointer-events-none" />
       <div className="absolute top-2/3 left-1/4 w-[300px] h-[300px] bg-primary/[0.03] rounded-full blur-[80px] pointer-events-none" />
 
@@ -108,7 +108,7 @@ export function HeroSection() {
             <motion.p
               initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ ...springs.smooth, delay: 0 }}
+              transition={{ ...tween.open, delay: 0 }}
               className="text-[13px] font-medium text-primary tracking-widest uppercase mb-6"
             >
               AI-Native Testing Platform
@@ -117,7 +117,7 @@ export function HeroSection() {
             <motion.h1
               initial={{ opacity: 0, y: 24 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ ...springs.gentle, delay: 0.06 }}
+              transition={{ ...tween.layout, delay: 0.06 }}
               className="text-4xl sm:text-5xl lg:text-[3.5rem] font-bold tracking-tight leading-[1.08]"
             >
               Ship faster.
@@ -128,7 +128,7 @@ export function HeroSection() {
             <motion.p
               initial={{ opacity: 0, y: 24 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ ...springs.gentle, delay: 0.12 }}
+              transition={{ ...tween.layout, delay: 0.12 }}
               className="mt-6 text-lg text-muted-foreground leading-relaxed max-w-lg"
             >
               Orbit connects to your repo, understands your code, and runs tests
@@ -138,7 +138,7 @@ export function HeroSection() {
             <motion.div
               initial={{ opacity: 0, y: 24 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ ...springs.gentle, delay: 0.2 }}
+              transition={{ ...tween.layout, delay: 0.2 }}
               className="mt-10 flex flex-wrap items-center gap-4"
             >
               <Link
@@ -149,7 +149,7 @@ export function HeroSection() {
               </Link>
               <Link
                 href="/features"
-                className="inline-flex items-center justify-center font-medium text-muted-foreground hover:text-foreground px-7 py-3.5 rounded-full text-[15px] border border-white/[0.08] hover:border-white/[0.15] transition-all duration-300"
+                className="inline-flex items-center justify-center font-medium text-muted-foreground hover:text-foreground px-7 py-3.5 rounded-full text-[15px] border border-border hover:border-border transition-all duration-300"
               >
                 See How It Works
               </Link>
@@ -158,7 +158,7 @@ export function HeroSection() {
             <motion.p
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              transition={{ ...springs.smooth, delay: 0.35 }}
+              transition={{ ...tween.open, delay: 0.35 }}
               className="mt-6 text-xs text-muted-foreground/50"
             >
               Free for up to 100 credits/month. No credit card required.
@@ -168,7 +168,7 @@ export function HeroSection() {
           <motion.div
             initial={{ opacity: 0, scale: 0.94 }}
             animate={{ opacity: 1, scale: 1 }}
-            transition={{ ...springs.gentle, delay: 0.25 }}
+            transition={{ ...tween.layout, delay: 0.25 }}
             className="relative hidden lg:block"
           >
             <SystemMapMockup />

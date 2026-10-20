@@ -148,7 +148,7 @@ export function AuditLogViewer({ workspaceId, showWorkspace }: AuditLogViewerPro
           <button
             onClick={() => fetchLogs(pagination.page)}
             disabled={loading}
-            className="flex items-center gap-1.5 h-8 px-3 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-white/[0.06] transition-colors"
+            className="flex items-center gap-1.5 h-8 px-3 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-foreground/[0.06] transition-colors"
           >
             <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin")} />
             Refresh
@@ -169,11 +169,11 @@ export function AuditLogViewer({ workspaceId, showWorkspace }: AuditLogViewerPro
       </div>
 
       {/* Table */}
-      <div className="rounded-lg border border-white/[0.06] overflow-hidden">
+      <div className="rounded-lg border border-border overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="surface-2 border-b border-white/[0.06]">
+              <tr className="surface-2 border-b border-border">
                 <th className="px-3 py-2 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Time</th>
                 {showWorkspace && (
                   <th className="px-3 py-2 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Workspace</th>

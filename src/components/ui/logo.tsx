@@ -1,59 +1,30 @@
+import { ClosingO } from "@/components/telemetry/closing-o";
+import type { ClosingOState } from "@/lib/closing-o";
 import { cn } from "@/lib/utils";
 
 interface LogoProps {
   size?: "sm" | "md" | "lg";
   showText?: boolean;
+  state?: ClosingOState;
+  /** Accent dot when idle. Marketing lockups only; in the app the accent means live. */
+  brand?: boolean;
   className?: string;
 }
 
-const sizeMap = {
-  sm: { container: "h-6 w-6", dot: "h-2 w-2", text: "text-sm", ring: "h-4 w-4" },
-  md: { container: "h-8 w-8", dot: "h-3 w-3", text: "text-lg", ring: "h-5 w-5" },
-  lg: { container: "h-10 w-10", dot: "h-3.5 w-3.5", text: "text-xl", ring: "h-6 w-6" },
+// Lockup: mark = ascender height, gap = 2 strokes, wordmark Instrument Sans 500, −0.035em.
+const SIZES = {
+  sm: { mark: 20, text: "text-[17px]", gap: "gap-1.5" },
+  md: { mark: 24, text: "text-[21px]", gap: "gap-2" },
+  lg: { mark: 32, text: "text-[28px]", gap: "gap-2.5" },
 };
 
-export function Logo({ size = "md", showText = true, className }: LogoProps) {
-  const s = sizeMap[size];
-
+export function Logo({ size = "md", showText = true, state = "idle", brand = false, className }: LogoProps) {
+  const s = SIZES[size];
   return (
-    <span className={cn("inline-flex items-center gap-2", className)}>
-      <span
-        className={cn(
-          "relative flex items-center justify-center rounded-lg",
-          "bg-primary/15 border border-primary/25",
-          s.container
-        )}
-      >
-        {/* Orbital ring — subtle SVG ring around center dot */}
-        <svg
-          viewBox="0 0 24 24"
-          fill="none"
-          className={cn("absolute", s.ring)}
-          aria-hidden="true"
-        >
-          <ellipse
-            cx="12"
-            cy="12"
-            rx="10"
-            ry="4"
-            transform="rotate(-30 12 12)"
-            stroke="hsl(var(--primary))"
-            strokeWidth="1"
-            opacity="0.4"
-          />
-        </svg>
-        {/* Center dot */}
-        <span
-          className={cn(
-            "rounded-full bg-primary shadow-glow-sm",
-            s.dot
-          )}
-        />
-      </span>
+    <span className={cn("inline-flex items-center text-tm-t1", s.gap, className)}>
+      <ClosingO size={s.mark} state={state} brand={brand} title={showText ? undefined : "Orbit"} />
       {showText && (
-        <span className={cn("font-semibold tracking-tight", s.text)}>
-          Orbit
-        </span>
+        <span className={cn("font-medium leading-none tracking-[-0.035em]", s.text)}>orbit</span>
       )}
     </span>
   );

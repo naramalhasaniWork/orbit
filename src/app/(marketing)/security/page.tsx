@@ -15,7 +15,7 @@ interface SecuritySectionProps {
 
 function SecuritySection({ icon, title, children }: SecuritySectionProps) {
   return (
-    <div className="rounded-xl border border-white/[0.04] bg-card p-6">
+    <div className="rounded-xl border border-border bg-card p-6">
       <div className="flex gap-4">
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-orbit-accent/10 border border-orbit-accent/20">
           {icon}
@@ -82,7 +82,7 @@ export default function SecurityPage() {
             title="Tenant Isolation"
           >
             <p>
-              Every database table includes a <code className="text-xs bg-white/5 px-1.5 py-0.5 rounded">workspaceId</code> column
+              Every database table includes a <code className="text-xs bg-foreground/5 px-1.5 py-0.5 rounded">workspaceId</code> column
               enforcing strict row-level tenant isolation. No API endpoint can
               access data from a workspace the authenticated user does not
               belong to. Source code, test results, embeddings, and secrets are
@@ -160,7 +160,7 @@ export default function SecurityPage() {
           </SecuritySection>
         </div>
 
-        <div className="mt-12 rounded-xl border border-white/[0.04] bg-card p-6">
+        <div className="mt-12 rounded-xl border border-border bg-card p-6">
           <h3 className="font-semibold mb-2">Compliance Roadmap</h3>
           <p className="text-sm text-muted-foreground leading-relaxed">
             Orbit is an early-stage product and does not currently hold SOC 2

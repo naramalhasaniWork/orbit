@@ -60,7 +60,7 @@ export function PluginCard({
     <div className="rounded-xl surface-1 overflow-hidden">
       <div className="flex items-center justify-between px-4 py-3">
         <div className="flex items-center gap-3 min-w-0">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-white/[0.04] shrink-0">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-foreground/[0.04] shrink-0">
             <Puzzle className="h-4 w-4 text-muted-foreground" />
           </div>
           <div className="min-w-0">
@@ -171,7 +171,7 @@ function PluginConfigPanel({
     JSON.stringify(localConfig) !== JSON.stringify(plugin.config);
 
   return (
-    <div className="border-t border-white/[0.06] px-4 py-3 space-y-3">
+    <div className="border-t border-border px-4 py-3 space-y-3">
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
         <Settings className="h-3 w-3" />
         <span>Configuration</span>
@@ -187,7 +187,7 @@ function PluginConfigPanel({
               <Input
                 value={String(localConfig[key] ?? "")}
                 onChange={(e) => handleFieldChange(key, e.target.value)}
-                className="bg-white/[0.04] text-sm h-8"
+                className="bg-foreground/[0.04] text-sm h-8"
                 placeholder={`Enter ${key}`}
               />
             </div>
@@ -208,7 +208,7 @@ function PluginConfigPanel({
         ))}
       </div>
 
-      <div className="flex items-center justify-between pt-2 border-t border-white/[0.06]">
+      <div className="flex items-center justify-between pt-2 border-t border-border">
         <Button
           size="sm"
           variant="ghost"

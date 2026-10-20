@@ -35,7 +35,7 @@ export function RunRow({ run, selected, onToggleSelect }: RunRowProps) {
     <div
       className={cn(
         "flex items-center transition-colors duration-150",
-        selected ? "bg-orbit-accent/[0.06]" : "hover:bg-white/[0.04]"
+        selected ? "bg-orbit-accent/[0.06]" : "hover:bg-foreground/[0.04]"
       )}
     >
       <div className="pl-5 pr-1 py-3.5">
