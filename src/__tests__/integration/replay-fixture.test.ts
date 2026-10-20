@@ -2,9 +2,6 @@ import { describe, it, expect, vi, beforeAll, afterAll, beforeEach } from "vites
 import { findChromium } from "../helpers/chromium";
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
-import { existsSync, readdirSync } from "node:fs";
-import { homedir } from "node:os";
-import { join } from "node:path";
 import { chromium, type Browser } from "playwright";
 
 // End-to-end compile-and-replay against a deterministic fixture app, in a
