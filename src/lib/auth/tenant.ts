@@ -4,6 +4,7 @@
  */
 
 import { prisma } from "@/lib/db";
+import type { Prisma } from "@/generated/prisma/client";
 import { isSelfHosted } from "@/lib/self-host";
 import { checkBudgetLimit } from "@/lib/billing/usage-aggregator";
 import { TIER_LIMITS, type WorkspaceTier } from "./tier-limits";
@@ -69,11 +70,13 @@ export type ConsumeDecision =
  */
 export async function canConsume(
   workspaceId: string,
-  kind: ConsumptionKind
+  kind: ConsumptionKind,
+  /** Pass a transaction client to evaluate the limit inside the caller's transaction */
+  db: Prisma.TransactionClient = prisma
 ): Promise<ConsumeDecision> {
   // Self-hosted instances have no plans, so nothing is metered.
   if (isSelfHosted()) return { allowed: true };
-  const workspace = await prisma.workspace.findUnique({
+  const workspace = await db.workspace.findUnique({
     where: { id: workspaceId },
     select: { tier: true, creditBalance: true },
   });
@@ -85,16 +88,16 @@ export async function canConsume(
 
   switch (kind) {
     case "project": {
-      const count = await prisma.project.count({ where: { workspaceId, deletedAt: null } });
+      const count = await db.project.count({ where: { workspaceId, deletedAt: null } });
       return count >= limits.projects
         ? limitReached(`Project limit reached (${limits.projects}). Upgrade your plan to create more projects.`)
         : { allowed: true };
     }
     case "member": {
       const [members, pending] = await Promise.all([
-        prisma.workspaceMember.count({ where: { workspaceId } }),
+        db.workspaceMember.count({ where: { workspaceId } }),
         // Expired invites no longer hold a seat
-        prisma.workspaceInvitation.count({
+        db.workspaceInvitation.count({
           where: { workspaceId, status: "pending", expiresAt: { gt: new Date() } },
         }),
       ]);
@@ -106,7 +109,7 @@ export async function canConsume(
       const monthStart = new Date();
       monthStart.setDate(1);
       monthStart.setHours(0, 0, 0, 0);
-      const monthlyRuns = await prisma.testRun.count({
+      const monthlyRuns = await db.testRun.count({
         where: { project: { workspaceId }, createdAt: { gte: monthStart } },
       });
       if (monthlyRuns >= limits.runsPerMonth) {

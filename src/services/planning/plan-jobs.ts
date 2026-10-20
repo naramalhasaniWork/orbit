@@ -1,6 +1,7 @@
 import { getRedis } from "@/lib/redis";
 import { channels, publish } from "@/lib/redis/pubsub";
 import { getPlanningQueue, type PlanningJobData } from "@/lib/queue/queues";
+import { addDeterministicJob, hashInputs } from "@/lib/queue/deterministic-job";
 import { requireQueueAvailable, withQueueTimeout } from "@/lib/queue/availability";
 import { ServiceUnavailableError } from "@/lib/utils/api";
 import type { PlanJobState } from "@/lib/websocket/channels";
@@ -80,7 +81,12 @@ export async function enqueuePlanGeneration(
     await new Promise((r) => setTimeout(r, 200));
   }
 
-  const jobId = `plan-${projectId}-${Date.now()}`;
+  const jobId = `plan:${projectId}:${hashInputs({
+    mode: options.mode,
+    focusAreas: options.focusAreas ?? [],
+    excludePaths: options.excludePaths ?? [],
+    maxTestCases: options.maxTestCases ?? null,
+  })}`;
   const state: PlanJobState = {
     jobId,
     status: "queued",
@@ -92,7 +98,7 @@ export async function enqueuePlanGeneration(
   try {
     await withQueueTimeout(writePlanJobState(projectId, state));
     await withQueueTimeout(
-      getPlanningQueue().add("generate-plan", { kind: "plan", projectId, ...options }, { jobId })
+      addDeterministicJob(getPlanningQueue(), "generate-plan", { kind: "plan", projectId, ...options }, jobId)
     );
   } catch (err) {
     // Don't leave a "queued" state that blocks the next attempt.

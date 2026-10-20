@@ -4,7 +4,7 @@ vi.mock("@/lib/db", () => ({
   prisma: {
     testRun: { findUniqueOrThrow: vi.fn(), update: vi.fn() },
     testCase: { findMany: vi.fn(), update: vi.fn() },
-    testResult: { create: vi.fn() },
+    testResult: { create: vi.fn(), findMany: vi.fn().mockResolvedValue([]) },
   },
 }));
 vi.mock("@/lib/websocket", () => ({ emitRunProgress: vi.fn() }));
@@ -26,6 +26,7 @@ import { executeCaseByType } from "@/services/execution/case-dispatcher";
 import { saveTestResult, recordEnvironmentError } from "@/services/execution/test-result-store";
 import { validateEnvironment } from "@/services/execution/environment-validator";
 import { executeParallel } from "@/services/orchestrator/parallel-executor";
+import { requestShutdown, resetShutdownForTests, ShutdownError } from "@/lib/queue/shutdown";
 
 const db = prisma as unknown as {
   testRun: { findUniqueOrThrow: ReturnType<typeof vi.fn>; update: ReturnType<typeof vi.fn> };
@@ -45,6 +46,8 @@ const okResult = { verdict: "pass", durationMs: 1, steps: [], artifacts: {}, hea
 describe("executeParallel", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    resetShutdownForTests();
+    (prisma.testResult as unknown as { findMany: ReturnType<typeof vi.fn> }).findMany.mockResolvedValue([]);
     db.testRun.findUniqueOrThrow.mockResolvedValue({ projectId: "p1" });
     (validateEnvironment as ReturnType<typeof vi.fn>).mockResolvedValue({
       valid: true, environmentUrl: "https://staging.example.com", credentials: {}, errors: [],
@@ -99,6 +102,29 @@ describe("executeParallel", () => {
     expect(dispatch.mock.calls[1][4]).toEqual({ storageState: session });
   });
 
+  it("resumes a retried run: recorded cases are tallied, not re-executed", async () => {
+    (prisma.testResult as unknown as { findMany: ReturnType<typeof vi.fn> }).findMany.mockResolvedValue([
+      { testCaseId: "tc-1", verdict: "pass" },
+    ]);
+    dispatch.mockResolvedValueOnce(okResult);
+
+    const result = await executeParallel(options);
+
+    expect(dispatch).toHaveBeenCalledTimes(1);
+    expect(dispatch.mock.calls[0][1].id).toBe("tc-v");
+    expect(result.passed).toBe(2);
+  });
+
+  it("throws a retryable ShutdownError between cases once shutdown is requested", async () => {
+    dispatch.mockImplementationOnce(async () => {
+      requestShutdown();
+      return okResult;
+    });
+
+    await expect(executeParallel(options)).rejects.toBeInstanceOf(ShutdownError);
+    expect(dispatch).toHaveBeenCalledTimes(1);
+  });
+
   it("resolves credentials per required role and keeps one session per role", async () => {
     (validateEnvironment as ReturnType<typeof vi.fn>).mockResolvedValue({
       valid: true, environmentUrl: "https://staging.example.com", errors: [],
@@ -133,5 +159,29 @@ describe("executeParallel", () => {
     expect(calls[1][4]).toEqual({ storageState: undefined });
     expect(calls[2][4]).toEqual({ storageState: adminSession });
     expect(calls[3][4]).toEqual({ storageState: memberSession });
+  });
+
+  it("on resume runs the login partition first and re-runs its login case to rebuild the session", async () => {
+    db.testCase.findMany.mockReset();
+    db.testCase.findMany
+      .mockResolvedValueOnce([
+        { id: "login", journey: "auth", name: "Successful login" },
+        { id: "buy", journey: "shop", name: "Checkout" },
+      ])
+      .mockResolvedValueOnce([{ ...row("login", "e2e"), name: "Successful login", journey: "auth" }])
+      .mockResolvedValueOnce([{ ...row("buy", "e2e"), name: "Checkout", journey: "shop" }]);
+    (prisma.testResult as unknown as { findMany: ReturnType<typeof vi.fn> }).findMany.mockResolvedValue([
+      { testCaseId: "login", verdict: "pass" },
+    ]);
+    const session = { cookies: [{ name: "sid" }], origins: [] };
+    dispatch
+      .mockResolvedValueOnce({ ...okResult, storageState: session })
+      .mockResolvedValueOnce(okResult);
+
+    const result = await executeParallel({ ...options, maxConcurrency: 2 });
+
+    expect(dispatch.mock.calls.map((c) => c[1].id)).toEqual(["login", "buy"]);
+    expect(dispatch.mock.calls[1][4]).toEqual({ storageState: session });
+    expect(result.passed).toBe(2);
   });
 });
