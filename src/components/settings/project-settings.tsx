@@ -4,8 +4,11 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { ExternalLink, GitCompare, RefreshCw, CircleDot } from "lucide-react";
+import { ExternalLink, GitCompare, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { apiErrorMessage } from "@/lib/api-client";
+import { InlineError } from "@/components/shared/inline-error";
+import { LastCommitInfo } from "@/components/settings/last-commit-info";
 
 interface ProjectSettingsProps {
   project: { id: string; name: string; slug: string; repoUrl: string | null } | null;
@@ -19,6 +22,16 @@ interface ProjectSyncInfo {
   commitsBehind?: number;
 }
 
+function toSyncInfo(settings: Record<string, unknown>): ProjectSyncInfo {
+  return {
+    autoSync: Boolean(settings.autoSync),
+    lastCommitSha: settings.lastCommitSha as string | undefined,
+    lastCommitMessage: settings.lastCommitMessage as string | undefined,
+    lastCommitAt: settings.lastCommitAt as string | undefined,
+    commitsBehind: settings.commitsBehind as number | undefined,
+  };
+}
+
 export function ProjectSettings({ project }: ProjectSettingsProps) {
   const [name, setName] = useState(project?.name ?? "");
   const [saving, setSaving] = useState(false);
@@ -30,6 +43,7 @@ export function ProjectSettings({ project }: ProjectSettingsProps) {
   const [syncInfoLoaded, setSyncInfoLoaded] = useState(false);
   const [togglingAutoSync, setTogglingAutoSync] = useState(false);
   const [manualPolling, setManualPolling] = useState(false);
+  const [syncError, setSyncError] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/projects?status=archived")
@@ -46,14 +60,7 @@ export function ProjectSettings({ project }: ProjectSettingsProps) {
       .then((r) => r.json())
       .then((json) => {
         if (json.success && json.data?.settings) {
-          const s = json.data.settings as Record<string, unknown>;
-          setSyncInfo({
-            autoSync: Boolean(s.autoSync),
-            lastCommitSha: s.lastCommitSha as string | undefined,
-            lastCommitMessage: s.lastCommitMessage as string | undefined,
-            lastCommitAt: s.lastCommitAt as string | undefined,
-            commitsBehind: s.commitsBehind as number | undefined,
-          });
+          setSyncInfo(toSyncInfo(json.data.settings));
         }
         setSyncInfoLoaded(true);
       })
@@ -148,28 +155,26 @@ export function ProjectSettings({ project }: ProjectSettingsProps) {
   async function handleManualPoll() {
     if (!project?.id) return;
     setManualPolling(true);
+    setSyncError(null);
     try {
       const res = await fetch(`/api/projects/${project.id}/sync`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ branch: undefined }),
+        body: JSON.stringify({}),
       });
-      if (res.ok) {
+      if (!res.ok) {
+        setSyncError(await apiErrorMessage(res, "Sync failed"));
+      } else {
         // Re-fetch to get the updated sync info after re-indexing is queued
         setTimeout(async () => {
           const info = await fetch(`/api/projects/${project.id}`).then((r) => r.json());
           if (info.data?.settings) {
-            const s = info.data.settings as Record<string, unknown>;
-            setSyncInfo({
-              autoSync: Boolean(s.autoSync),
-              lastCommitSha: s.lastCommitSha as string | undefined,
-              lastCommitMessage: s.lastCommitMessage as string | undefined,
-              lastCommitAt: s.lastCommitAt as string | undefined,
-              commitsBehind: s.commitsBehind as number | undefined,
-            });
+            setSyncInfo(toSyncInfo(info.data.settings));
           }
         }, 2000);
       }
+    } catch {
+      setSyncError("Sync failed. Check your connection and try again.");
     } finally {
       setManualPolling(false);
     }
@@ -264,32 +269,7 @@ export function ProjectSettings({ project }: ProjectSettingsProps) {
             </button>
           </div>
 
-          {syncInfo.lastCommitSha && (
-            <div className="space-y-1 border border-white/[0.06] rounded-lg px-3 py-2.5 bg-white/[0.02]">
-              <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-                <CircleDot className={cn(
-                  "h-3 w-3",
-                  (syncInfo.commitsBehind ?? 0) > 0 ? "text-yellow-400" : "text-emerald-400"
-                )} />
-                {(syncInfo.commitsBehind ?? 0) > 0
-                  ? `${syncInfo.commitsBehind} new commit${syncInfo.commitsBehind === 1 ? "" : "s"} since last sync`
-                  : "Up to date with GitHub"}
-              </div>
-              <p className="text-[12px] text-foreground/70 font-mono truncate">
-                {syncInfo.lastCommitSha.slice(0, 7)}
-                {syncInfo.lastCommitMessage && (
-                  <span className="font-sans text-muted-foreground ml-2 not-italic">
-                    {syncInfo.lastCommitMessage}
-                  </span>
-                )}
-              </p>
-              {syncInfo.lastCommitAt && (
-                <p className="text-[10px] text-muted-foreground/60">
-                  {new Date(syncInfo.lastCommitAt).toLocaleString()}
-                </p>
-              )}
-            </div>
-          )}
+          {syncInfo.lastCommitSha && <LastCommitInfo info={syncInfo} sha={syncInfo.lastCommitSha} />}
 
           <div className="flex items-center gap-2">
             <Button
@@ -306,6 +286,7 @@ export function ProjectSettings({ project }: ProjectSettingsProps) {
               Manually trigger a re-index against the latest commit
             </span>
           </div>
+          <InlineError message={syncError} />
         </div>
       )}
 

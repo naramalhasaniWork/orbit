@@ -15,9 +15,3 @@ export async function apiErrorMessage(res: Response, fallback: string): Promise<
   const message = typeof err === "string" ? err : err?.message;
   return message || `${fallback} (HTTP ${res.status})`;
 }
-
-/** Error code from a failed response body, if any. */
-export function apiErrorCode(body: unknown): string | undefined {
-  const err = (body as ApiErrorBody | null)?.error;
-  return typeof err === "object" ? err?.code : undefined;
-}
