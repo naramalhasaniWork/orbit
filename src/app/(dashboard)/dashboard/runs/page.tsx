@@ -49,6 +49,8 @@ export default async function RunsPage({
       take: 100,
       select: {
         id: true,
+        sequenceNumber: true,
+        prNumber: true,
         status: true,
         mode: true,
         trigger: true,
@@ -76,6 +78,8 @@ export default async function RunsPage({
 
   const serializedRuns = runs.map((run) => ({
     id: run.id,
+    sequenceNumber: run.sequenceNumber,
+    prNumber: run.prNumber,
     status: run.status,
     mode: run.mode,
     trigger: run.trigger,

@@ -3,15 +3,18 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useSearchParams, usePathname } from "next/navigation";
 import {
-  Search, Star, Lock, Globe, ChevronRight, Loader2,
-  AlertCircle, GitBranch, Building2, CheckCircle2, Plus,
+  Search, ChevronRight, Loader2,
+  AlertCircle, GitBranch, CheckCircle2,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
 import type { RepoItem } from "../onboarding-types";
+import { RepoList } from "./repo-list";
+import { OrgConnections, type OrgData } from "./org-connections";
+import { GitHubReconnect } from "./github-reconnect";
+import { PublicRepoInput } from "./public-repo-input";
 
 type RepoProvider = "github" | "gitlab" | "bitbucket";
 
@@ -21,45 +24,8 @@ const PROVIDER_CONFIG: Record<RepoProvider, { label: string; color: string }> = 
   bitbucket: { label: "Bitbucket", color: "bg-blue-500/10" },
 };
 
-const LANGUAGE_COLORS: Record<string, string> = {
-  TypeScript: "bg-blue-400",
-  JavaScript: "bg-yellow-300",
-  Go: "bg-cyan-400",
-  Python: "bg-yellow-400",
-  Rust: "bg-orange-400",
-  Ruby: "bg-red-400",
-  Java: "bg-amber-600",
-  Unknown: "bg-gray-400",
-};
-
 interface ConnectRepoProps {
   onSelect: (repo: RepoItem, projectId: string) => void;
-}
-
-interface OrgInfo {
-  login: string;
-  id: number;
-  avatarUrl: string;
-  description: string | null;
-  installed: boolean;
-}
-
-interface OrgData {
-  orgs: OrgInfo[];
-  appConfigured: boolean;
-  installUrl: string | null;
-}
-
-function formatUpdatedAt(dateStr: string): string {
-  const date = new Date(dateStr);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMin = Math.floor(diffMs / 60000);
-  if (diffMin < 60) return `${diffMin}m ago`;
-  const diffHrs = Math.floor(diffMin / 60);
-  if (diffHrs < 24) return `${diffHrs}h ago`;
-  const diffDays = Math.floor(diffHrs / 24);
-  return `${diffDays}d ago`;
 }
 
 export function ConnectRepo({ onSelect }: ConnectRepoProps) {
@@ -71,6 +37,8 @@ export function ConnectRepo({ onSelect }: ConnectRepoProps) {
   const [repos, setRepos] = useState<RepoItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [errorCode, setErrorCode] = useState<string | null>(null);
+  const [publicRepo, setPublicRepo] = useState<RepoItem | null>(null);
   const [creating, setCreating] = useState(false);
   const [provider, setProvider] = useState<RepoProvider>("github");
   const [orgData, setOrgData] = useState<OrgData | null>(null);
@@ -79,10 +47,13 @@ export function ConnectRepo({ onSelect }: ConnectRepoProps) {
   const fetchRepos = useCallback(async () => {
     setLoading(true);
     setError(null);
+    setErrorCode(null);
     try {
       const res = await fetch(`/api/user/repos?per_page=50&provider=${provider}`);
       const json = await res.json();
       if (!res.ok || !json.success) {
+        setRepos([]);
+        setErrorCode(json.error?.code ?? null);
         setError(json.error?.message ?? "Failed to fetch repositories");
         return;
       }
@@ -136,21 +107,26 @@ export function ConnectRepo({ onSelect }: ConnectRepoProps) {
     return () => clearTimeout(t);
   }, [justConnectedOrg]);
 
+  // A pasted public repo is listed first, alongside whatever GitHub returned.
+  const allRepos = useMemo(
+    () => (publicRepo ? [publicRepo, ...repos.filter((r) => r.id !== publicRepo.id)] : repos),
+    [publicRepo, repos]
+  );
+
   const filtered = useMemo(() => {
-    if (!query.trim()) return repos;
+    if (!query.trim()) return allRepos;
     const lower = query.toLowerCase();
-    return repos.filter(
+    return allRepos.filter(
       (r) =>
         r.name.toLowerCase().includes(lower) ||
         r.fullName.toLowerCase().includes(lower) ||
         r.language.toLowerCase().includes(lower)
     );
-  }, [query, repos]);
+  }, [query, allRepos]);
 
-  const selected = repos.find((r) => r.id === selectedId);
+  const selected = allRepos.find((r) => r.id === selectedId);
 
-  const installedOrgs = orgData?.orgs.filter((o) => o.installed) ?? [];
-  const uninstalledOrgs = orgData?.orgs.filter((o) => !o.installed) ?? [];
+  const needsReconnect = errorCode === "NO_GITHUB_TOKEN";
   const showOrgSection = orgData?.appConfigured === true;
 
   const handleContinue = async () => {
@@ -243,155 +219,74 @@ export function ConnectRepo({ onSelect }: ConnectRepoProps) {
       </div>
 
       {/* Organization connections */}
-      {showOrgSection && (
-        <div className="w-full mb-4">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-              Organizations
-            </span>
-            <button
-              type="button"
-              onClick={handleConnectOrg}
-              className="text-xs text-orbit-accent hover:text-orbit-accent/80 flex items-center gap-1 transition-colors"
-            >
-              <Plus className="h-3 w-3" />
-              Connect organization
-            </button>
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            {installedOrgs.map((org) => (
-              <span
-                key={org.id}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 text-xs text-emerald-400"
-              >
-                {org.avatarUrl ? (
-                  <img src={org.avatarUrl} alt="" className="h-3.5 w-3.5 rounded-full" />
-                ) : (
-                  <CheckCircle2 className="h-3 w-3" />
-                )}
-                {org.login}
-              </span>
-            ))}
-
-            {uninstalledOrgs.map((org) => (
-              <button
-                key={org.id}
-                type="button"
-                onClick={handleConnectOrg}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-muted/30 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
-              >
-                {org.avatarUrl ? (
-                  <img src={org.avatarUrl} alt="" className="h-3.5 w-3.5 rounded-full opacity-50" />
-                ) : (
-                  <Building2 className="h-3 w-3" />
-                )}
-                {org.login}
-                <Plus className="h-2.5 w-2.5" />
-              </button>
-            ))}
-
-            {orgData?.orgs.length === 0 && (
-              <button
-                type="button"
-                onClick={handleConnectOrg}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-dashed border-muted-foreground/30 text-xs text-muted-foreground hover:text-foreground hover:border-orbit-accent/40 transition-colors"
-              >
-                <Building2 className="h-3.5 w-3.5" />
-                Connect an organization
-              </button>
-            )}
-          </div>
-        </div>
+      {showOrgSection && !needsReconnect && orgData && (
+        <OrgConnections orgs={orgData.orgs} onConnect={handleConnectOrg} />
       )}
 
-      <div className="relative w-full mb-4">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Search repositories..."
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          className="pl-9 bg-background"
-        />
-      </div>
-
-      {error && (
-        <div className="w-full mb-4 flex items-center gap-2 text-sm text-orbit-fail bg-orbit-fail/10 rounded-md px-3 py-2">
+      {/* One state for "GitHub can't list repos": reconnect, or the error with a retry */}
+      {needsReconnect && <GitHubReconnect />}
+      {error && !needsReconnect && (
+        <div role="alert" className="w-full mb-4 flex items-center gap-2 text-sm text-orbit-fail bg-orbit-fail/10 rounded-md px-3 py-2">
           <AlertCircle className="h-4 w-4 shrink-0" />
-          {error}
-        </div>
-      )}
-
-      <ScrollArea className="w-full h-[340px] rounded-lg surface-1">
-        <div className="p-1">
-          {loading ? (
-            <div className="flex items-center justify-center h-32 gap-2 text-sm text-muted-foreground">
-              <Loader2 className="h-4 w-4 animate-spin" />
-              Loading repositories...
-            </div>
-          ) : filtered.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-32 gap-2 text-sm text-muted-foreground">
-              <span>No repositories match your search.</span>
-              {showOrgSection && (
-                <button
-                  type="button"
-                  onClick={handleConnectOrg}
-                  className="text-orbit-accent hover:underline text-xs"
-                >
-                  Connect an organization to see more repos
-                </button>
-              )}
-            </div>
-          ) : (
-            filtered.map((repo) => (
-              <button
-                key={repo.id}
-                type="button"
-                onClick={() => setSelectedId(repo.id)}
-                className={cn(
-                  "w-full flex items-center gap-3 px-3 py-3 rounded-md text-left transition-colors",
-                  "hover:bg-muted/30",
-                  selectedId === repo.id && "bg-orbit-accent/10"
-                )}
-              >
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-0.5">
-                    <span className="text-sm font-medium text-foreground truncate">
-                      {repo.fullName}
-                    </span>
-                    {repo.isPrivate ? (
-                      <Lock className="h-3 w-3 text-muted-foreground shrink-0" />
-                    ) : (
-                      <Globe className="h-3 w-3 text-muted-foreground shrink-0" />
-                    )}
-                    {repo.source === "installation" && (
-                      <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 border-orbit-accent/30 text-orbit-accent shrink-0">
-                        App
-                      </Badge>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-3 text-xs text-muted-foreground">
-                    <span className="flex items-center gap-1">
-                      <span className={cn("h-2 w-2 rounded-full", LANGUAGE_COLORS[repo.language] ?? "bg-gray-400")} />
-                      {repo.language}
-                    </span>
-                    <span className="flex items-center gap-1">
-                      <Star className="h-3 w-3" />
-                      {repo.stars}
-                    </span>
-                    <span>Updated {formatUpdatedAt(repo.updatedAt)}</span>
-                  </div>
-                </div>
-                {selectedId === repo.id && (
-                  <Badge variant="outline" className="text-orbit-accent border-orbit-accent/40 shrink-0">
-                    Selected
-                  </Badge>
-                )}
-              </button>
-            ))
+          <span className="flex-1">{error}</span>
+          {allRepos.length === 0 && (
+            <button type="button" onClick={fetchRepos} className="text-xs underline underline-offset-2 shrink-0">
+              Try again
+            </button>
           )}
         </div>
-      </ScrollArea>
+      )}
+
+      <PublicRepoInput
+        onResolved={(repo) => {
+          setPublicRepo(repo);
+          setSelectedId(repo.id);
+          setQuery("");
+        }}
+      />
+
+      {(allRepos.length > 0 || loading || (!error && !needsReconnect)) && (
+        <>
+          <div className="relative w-full mb-4">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Search repositories..."
+              aria-label="Search repositories"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              className="pl-9 bg-background"
+            />
+          </div>
+
+          <ScrollArea className="w-full h-[340px] rounded-lg surface-1">
+            <div className="p-1">
+              {loading && allRepos.length === 0 ? (
+                <div className="flex items-center justify-center h-32 gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Loading repositories...
+                </div>
+              ) : filtered.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-32 gap-2 text-sm text-muted-foreground">
+                  <span>
+                    {query.trim() ? "No repositories match your search." : "No repositories found for this account."}
+                  </span>
+                  {showOrgSection && (
+                    <button
+                      type="button"
+                      onClick={handleConnectOrg}
+                      className="text-orbit-accent hover:underline text-xs"
+                    >
+                      Connect an organization to see more repos
+                    </button>
+                  )}
+                </div>
+              ) : (
+                <RepoList repos={filtered} selectedId={selectedId} onSelect={setSelectedId} />
+              )}
+            </div>
+          </ScrollArea>
+        </>
+      )}
 
       <Button
         className="mt-6 bg-orbit-accent hover:bg-orbit-accent/90 text-white gap-2"

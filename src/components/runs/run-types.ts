@@ -1,5 +1,7 @@
 export interface RunListItem {
   id: string;
+  sequenceNumber: number;
+  prNumber: number | null;
   status: string;
   mode: string;
   trigger: string;
@@ -36,6 +38,9 @@ export interface TestResultData {
 
 export interface RunDetailData {
   id: string;
+  sequenceNumber: number;
+  prNumber: number | null;
+  projectName: string;
   status: string;
   mode: string;
   trigger: string;

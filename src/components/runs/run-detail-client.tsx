@@ -33,6 +33,8 @@ import {
   formatDuration,
 } from "@/components/runs/run-types";
 import { formatDistanceToNow } from "date-fns";
+import { formatRunTitle } from "@/lib/runs/run-title";
+import { useBreadcrumbLabel } from "@/components/layout/breadcrumb-context";
 
 interface RunDetailClientProps {
   run: RunDetailData;
@@ -51,6 +53,8 @@ export function RunDetailClient({ run, projectId, visualResults = [], previousRu
   const [localStatus, setLocalStatus] = useState<string | null>(null);
   const [liveResults, setLiveResults] = useState<RunDetailData["results"]>([]);
   const hasRefreshedRef = useRef(false);
+  const title = formatRunTitle(run);
+  useBreadcrumbLabel(formatRunTitle({ ...run, projectName: null }));
 
   const initialLive = LIVE_STATUSES.has(run.status);
 
@@ -193,7 +197,7 @@ export function RunDetailClient({ run, projectId, visualResults = [], previousRu
         <div className="flex-1">
           <div className="flex items-center gap-2">
             <h1 className="text-lg font-semibold text-foreground">
-              Run {run.id.slice(0, 8)}
+              {title}
             </h1>
             <Badge
               className={cn(

@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import dynamic from "next/dynamic";
 import {
   renderNode,
   renderSelectedRing,
@@ -18,9 +17,7 @@ import {
   NODE_TYPE_CONFIG,
 } from "./map-types";
 
-const ForceGraph2D = dynamic(() => import("react-force-graph-2d"), {
-  ssr: false,
-});
+import { ForceGraph2D } from "./force-graph";
 
 interface SystemMapProps {
   nodes: MapNode[];
@@ -269,7 +266,7 @@ export function SystemMap({ nodes, edges, compact = false }: SystemMapProps) {
           </div>
         ) : (
           <ForceGraph2D
-            ref={graphRef}
+            graphRef={graphRef}
             graphData={graphData}
             width={dimensions.width}
             height={dimensions.height}

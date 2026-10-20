@@ -11,6 +11,10 @@ interface JourneyGroupProps {
   journey: string;
   testCases: TestCaseData[];
   projectId?: string;
+  selection?: {
+    selected: ReadonlySet<string>;
+    onToggle: (id: string, shift: boolean) => void;
+  };
 }
 
 function verdictSummary(testCases: TestCaseData[]) {
@@ -24,7 +28,7 @@ function verdictSummary(testCases: TestCaseData[]) {
   return { pass, fail, flaky, untested };
 }
 
-export function JourneyGroup({ journey, testCases, projectId }: JourneyGroupProps) {
+export function JourneyGroup({ journey, testCases, projectId, selection }: JourneyGroupProps) {
   const [isOpen, setIsOpen] = useState(true);
   const summary = verdictSummary(testCases);
 
@@ -76,7 +80,13 @@ export function JourneyGroup({ journey, testCases, projectId }: JourneyGroupProp
           >
             <div className="ml-5 mt-1 space-y-2 pb-1">
               {testCases.map((tc) => (
-                <TestCaseCard key={tc.id} testCase={tc} projectId={projectId} />
+                <TestCaseCard
+                  key={tc.id}
+                  testCase={tc}
+                  projectId={projectId}
+                  selected={selection?.selected.has(tc.id)}
+                  onToggleSelect={selection && ((shift) => selection.onToggle(tc.id, shift))}
+                />
               ))}
             </div>
           </motion.div>
