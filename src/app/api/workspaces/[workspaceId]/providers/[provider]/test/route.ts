@@ -1,9 +1,8 @@
-import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
-import { requirePermission } from "@/lib/auth/rbac";
-import { apiSuccess, apiError, handleApiError } from "@/lib/utils/api";
+import { apiSuccess, apiError } from "@/lib/utils/api";
 import { decrypt } from "@/lib/vault";
 import { safeFetch, UnsafeUrlError } from "@/lib/utils/ssrf";
+import { route } from "@/server/http/route";
 
 // baseUrl is user-supplied and these requests carry the API key, so they go through the SSRF
 // guard and never follow redirects.
@@ -96,14 +95,9 @@ async function testCustom(apiKey: string, baseUrl?: string): Promise<{ success: 
   return { success: false, message: `Custom provider returned HTTP ${res.status}` };
 }
 
-export async function POST(
-  _request: NextRequest,
-  { params }: { params: Promise<{ workspaceId: string; provider: string }> }
-) {
-  try {
-    const { workspaceId, provider } = await params;
-    await requirePermission(workspaceId, "settings.manage");
-
+export const POST = route(
+  { workspace: "param", permission: "settings.manage" },
+  async ({ params: { provider }, workspaceId }) => {
     const config = await prisma.providerConfig.findUnique({
       where: { provider_config_unique: { workspaceId, provider } },
     });
@@ -147,7 +141,5 @@ export async function POST(
       message: result.message,
       latencyMs,
     });
-  } catch (error) {
-    return handleApiError(error);
   }
-}
+);

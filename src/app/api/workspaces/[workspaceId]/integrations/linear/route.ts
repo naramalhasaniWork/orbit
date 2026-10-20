@@ -7,17 +7,16 @@
  * from settings; `linear` holds the display state the settings UI renders.
  */
 
-import { NextRequest } from "next/server";
 import { z } from "zod";
-import { requirePermission } from "@/lib/auth/rbac";
 import { auditSettingsChange } from "@/lib/auth/audit";
-import { apiSuccess, apiError, handleApiError } from "@/lib/utils/api";
+import { apiSuccess, apiError } from "@/lib/utils/api";
 import { sealSecret } from "@/lib/integrations/secret-field";
 import {
   patchWorkspaceSettings,
   readWorkspaceSettings,
 } from "@/lib/integrations/workspace-settings";
 import { lookupLinearTeam } from "@/services/reporting/integrations/linear";
+import { route } from "@/server/http/route";
 
 const connectSchema = z.object({
   apiKey: z.string().trim().min(1, "API key is required"),
@@ -28,11 +27,9 @@ const patchSchema = z.object({ autoCreateIssues: z.boolean() });
 
 type RouteContext = { params: Promise<{ workspaceId: string }> };
 
-export async function POST(request: NextRequest, { params }: RouteContext) {
-  try {
-    const { workspaceId } = await params;
-    const ctx = await requirePermission(workspaceId, "settings.manage");
-
+export const POST = route(
+  { workspace: "param", permission: "settings.manage" },
+  async ({ req: request, workspaceId, session }) => {
     const { apiKey, teamId } = connectSchema.parse(await request.json());
 
     let team: { teamId: string; teamName: string } | null;
@@ -57,22 +54,18 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
     });
     if (!saved) return apiError("Workspace not found", "NOT_FOUND", 404);
 
-    await auditSettingsChange(ctx.session.user.id, workspaceId, "integration.linear", {
+    await auditSettingsChange(session.user.id, workspaceId, "integration.linear", {
       action: "connected",
       teamId: team.teamId,
     });
 
     return apiSuccess({ connected: true, ...team, autoCreateIssues: true });
-  } catch (error) {
-    return handleApiError(error);
   }
-}
+);
 
-export async function PATCH(request: NextRequest, { params }: RouteContext) {
-  try {
-    const { workspaceId } = await params;
-    await requirePermission(workspaceId, "settings.manage");
-
+export const PATCH = route(
+  { workspace: "param", permission: "settings.manage" },
+  async ({ req: request, workspaceId }) => {
     const { autoCreateIssues } = patchSchema.parse(await request.json());
 
     const current = await readWorkspaceSettings(workspaceId);
@@ -85,16 +78,12 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
     await patchWorkspaceSettings(workspaceId, { linear });
 
     return apiSuccess({ autoCreateIssues });
-  } catch (error) {
-    return handleApiError(error);
   }
-}
+);
 
-export async function DELETE(_request: NextRequest, { params }: RouteContext) {
-  try {
-    const { workspaceId } = await params;
-    const ctx = await requirePermission(workspaceId, "settings.manage");
-
+export const DELETE = route(
+  { workspace: "param", permission: "settings.manage" },
+  async ({ workspaceId, session }) => {
     const saved = await patchWorkspaceSettings(
       workspaceId,
       { linear: { connected: false, autoCreateIssues: false } },
@@ -102,12 +91,10 @@ export async function DELETE(_request: NextRequest, { params }: RouteContext) {
     );
     if (!saved) return apiError("Workspace not found", "NOT_FOUND", 404);
 
-    await auditSettingsChange(ctx.session.user.id, workspaceId, "integration.linear", {
+    await auditSettingsChange(session.user.id, workspaceId, "integration.linear", {
       action: "disconnected",
     });
 
     return apiSuccess({ disconnected: true });
-  } catch (error) {
-    return handleApiError(error);
   }
-}
+);

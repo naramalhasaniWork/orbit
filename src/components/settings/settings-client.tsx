@@ -11,6 +11,8 @@ import { WorkspaceSettings } from "@/components/settings/workspace-settings";
 import { ConfigEditor } from "@/components/settings/config-editor";
 import { ScheduleSettings } from "@/components/settings/schedule-settings";
 import { IntegrationSettings } from "@/components/settings/integration-settings";
+import type { PreviewConnectionState } from "@/components/integrations/preview/preview-provider-card";
+import { PreviewSourceSettings } from "@/components/integrations/preview/preview-source-settings";
 import { ApiKeySettings } from "@/components/settings/api-key-settings";
 import { WebhookSettings } from "@/components/settings/webhook-settings";
 import { PluginSettings } from "@/components/settings/plugin-settings";
@@ -28,13 +30,6 @@ interface IntegrationConfig {
       runCompleted: boolean;
       testFailed: boolean;
     };
-  };
-  railway?: {
-    connected: boolean;
-    userName?: string;
-    railwayProjectId?: string;
-    railwayProjectName?: string;
-    serviceCount?: number;
   };
 }
 
@@ -57,6 +52,7 @@ interface SettingsClientProps {
     updatedAt: Date;
   }>;
   integrations?: IntegrationConfig;
+  previewConnections?: Record<string, PreviewConnectionState>;
   role?: string | null;
 }
 
@@ -87,6 +83,7 @@ export function SettingsClient({
   environments,
   secrets,
   integrations,
+  previewConnections = {},
   role = null,
 }: SettingsClientProps) {
   // The tab is in the URL (?tab=) so reload and shared links open the same one.
@@ -140,7 +137,12 @@ export function SettingsClient({
           {activeTab === "project" && <ProjectSettings project={project} />}
           {activeTab === "config" && <ConfigEditor projectId={project?.id ?? null} />}
           {activeTab === "environments" && (
-            <EnvironmentSettings projectId={project?.id ?? null} environments={environments} />
+            <div className="space-y-4">
+              <EnvironmentSettings projectId={project?.id ?? null} environments={environments} />
+              {project && (
+                <PreviewSourceSettings projectId={project.id} onOpenIntegrations={() => setActiveTab("integrations")} />
+              )}
+            </div>
           )}
           {activeTab === "schedules" && (
             <ScheduleSettings projectId={project?.id ?? null} />
@@ -160,8 +162,8 @@ export function SettingsClient({
           {activeTab === "integrations" && (
             <IntegrationSettings
               workspaceId={workspace?.id ?? null}
-              projectId={project?.id ?? null}
               integrations={integrations ?? {}}
+              previewConnections={previewConnections}
             />
           )}
           {activeTab === "webhooks" && (

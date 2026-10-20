@@ -1,8 +1,7 @@
 import { prisma } from "@/lib/db";
-import { pickDefaultEnvironment } from "@/services/execution/default-environment";
-import { findSimilarNodes } from "@/lib/db/vector";
-import { createEmbedding } from "@/lib/ai";
-import type { AgentPhase } from "./token-budget";
+import { isDefaultCandidate, pickDefaultEnvironment } from "@/services/execution/default-environment";
+import { search } from "@/server/ai/search";
+import type { AgentPhase } from "@/server/ai/types";
 
 interface RetrievedNode {
   id: string;
@@ -49,16 +48,14 @@ export async function retrieveAgentContext(
 }
 
 /**
- * Semantic retrieval using cosine similarity via pgvector HNSW index.
+ * Retrieval via search.semantic: pgvector similarity, or keyword match without embeddings.
  */
 export async function retrieveRelevantNodes(
   projectId: string,
   query: string,
   topK = 10
 ): Promise<RetrievedNode[]> {
-  const queryEmbedding = await createEmbedding(query);
-
-  const results = await findSimilarNodes(projectId, queryEmbedding, topK);
+  const results = await search.semantic(projectId, query, topK);
   return results.map((r) => ({
     id: r.id,
     type: r.type,
@@ -162,7 +159,7 @@ export async function getProjectContext(projectId: string) {
 
   return {
     project,
-    defaultEnvironment: pickDefaultEnvironment(project.environments),
+    defaultEnvironment: pickDefaultEnvironment(project.environments.filter(isDefaultCandidate)),
     systemMapStats: { nodes: nodeCount, edges: edgeCount },
     activePlan: activePlan
       ? { id: activePlan.id, version: activePlan.version, testCaseCount: activePlan._count.testCases }

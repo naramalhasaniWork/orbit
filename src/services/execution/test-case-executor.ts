@@ -12,6 +12,11 @@ import { detectAuthState } from "@/services/execution/auth-detector";
 import { loadTestingNotes } from "@/agents/prompts/context-loader";
 import { runAllInvariants, collectPageState } from "@/services/execution/invariant-checker";
 import type { InvariantResult } from "@/services/execution/invariant-checker";
+import { isRunAbort } from "@/services/execution/run-abort";
+import { isProviderError } from "@/services/execution/error-classifier";
+import {
+  ACCESS_REJECTED_MESSAGE, installAccessHeaders, isAccessRejection, splitAccessCredentials,
+} from "@/services/execution/access-headers";
 
 // ============================================================
 // Types
@@ -31,17 +36,6 @@ interface TestCaseForExecution {
   requiredRole?: string;
 }
 
-/**
- * AI provider errors (billing, auth, quota, model access) — platform
- * problems that must never masquerade as failures of the app under test.
- */
-const PROVIDER_ERROR_RE =
-  /credit balance|invalid_request_error|authentication_error|permission_error|api key|insufficient_quota|billing|model_not_found|overloaded_error/i;
-
-export function isProviderError(message: string): boolean {
-  return PROVIDER_ERROR_RE.test(message);
-}
-
 interface TestCaseResult {
   verdict: string;
   durationMs: number;
@@ -52,6 +46,18 @@ interface TestCaseResult {
   invariants?: InvariantResult;
 }
 
+/** A result that blames the environment or platform, not the app under test. */
+function environmentErrorResult(action: string, expected: string, actual: string, startTime: number): TestCaseResult {
+  const durationMs = Date.now() - startTime;
+  return {
+    verdict: "environment_error",
+    durationMs,
+    steps: [{ stepIndex: 0, action, expected, actual, status: "failed", durationMs }],
+    artifacts: {},
+    healedSelectors: [],
+  };
+}
+
 // ============================================================
 // Single Test Case Execution
 // ============================================================
@@ -60,11 +66,13 @@ export async function executeTestCase(
   runId: string,
   testCase: TestCaseForExecution,
   environmentUrl: string,
-  credentials: Record<string, string>,
+  rawCredentials: Record<string, string>,
   options?: { viewport?: { width: number; height: number }; storageState?: StorageState }
 ): Promise<TestCaseResult> {
   let browserInstance: BrowserInstance | null = null;
   const startTime = Date.now();
+  // The Cloudflare Access token becomes request headers, never a credential the model sees.
+  const { headers: accessHeaders, credentials } = splitAccessCredentials(rawCredentials);
 
   const log = (msg: string) => console.log(`[TestCase:${testCase.id.slice(0, 8)}] ${msg}`);
 
@@ -79,6 +87,7 @@ export async function executeTestCase(
     });
     log("Browser connected");
     const { page, context } = browserInstance;
+    if (accessHeaders) await installAccessHeaders(context, environmentUrl, accessHeaders);
 
     log(`Navigating to ${environmentUrl}...`);
     await page.goto(environmentUrl, {
@@ -86,6 +95,9 @@ export async function executeTestCase(
       timeout: 30_000,
     });
     log(`Page loaded: ${page.url()}`);
+    if (isAccessRejection(page.url())) {
+      return environmentErrorResult("cloudflare_access", "The environment loads through Cloudflare Access", ACCESS_REJECTED_MESSAGE, startTime);
+    }
 
     // Detect and handle auth state mismatches before test execution
     const authState = await detectAuthState(page, testCase.name, log);
@@ -164,7 +176,7 @@ export async function executeTestCase(
     let finalVerdict: string = result.verdict;
     if (result.verdict === "fail") {
       const retryResult = await retryTestCase(
-        runId, testCase, environmentUrl, credentials
+        runId, testCase, environmentUrl, rawCredentials
       );
 
       if (retryResult) {
@@ -237,26 +249,16 @@ export async function executeTestCase(
       invariants,
     };
   } catch (err) {
+    // Shutdown, lost run lock or exhausted AI budget: stop the run, not just this case.
+    if (isRunAbort(err)) throw err;
     const errorMsg = err instanceof Error ? err.message : "Unknown execution error";
     log(`EXECUTION ERROR: ${errorMsg}`);
 
     // Platform-side AI provider failures (billing, auth, quota) are not
     // app failures — recording them as test FAILs produces false errors.
     if (isProviderError(errorMsg)) {
-      return {
-        verdict: "environment_error",
-        durationMs: Date.now() - startTime,
-        steps: [{
-          stepIndex: 0,
-          action: "ai_provider",
-          expected: "Orbit's AI provider responds to executor requests",
-          actual: `Orbit platform error (not an app failure): ${errorMsg}`,
-          status: "failed",
-          durationMs: Date.now() - startTime,
-        }],
-        artifacts: {},
-        healedSelectors: [],
-      };
+      return environmentErrorResult("ai_provider", "Orbit's AI provider responds to executor requests",
+        `Orbit platform error (not an app failure): ${errorMsg}`, startTime);
     }
 
     return {
@@ -284,17 +286,19 @@ export async function executeTestCase(
 // Retry Logic
 // ============================================================
 
-async function retryTestCase(
+export async function retryTestCase(
   runId: string,
   testCase: TestCaseForExecution,
   environmentUrl: string,
-  credentials: Record<string, string>
+  rawCredentials: Record<string, string>
 ): Promise<{ verdict: string } | null> {
   let retryBrowser: BrowserInstance | null = null;
+  const { headers: accessHeaders, credentials } = splitAccessCredentials(rawCredentials);
 
   try {
     retryBrowser = await launchBrowser({ headless: true });
-    const { page } = retryBrowser;
+    const { page, context } = retryBrowser;
+    if (accessHeaders) await installAccessHeaders(context, environmentUrl, accessHeaders);
 
     await page.goto(environmentUrl, { waitUntil: "domcontentloaded" });
 
@@ -321,9 +325,7 @@ async function retryTestCase(
   } catch {
     return null;
   } finally {
-    if (retryBrowser) {
-      await closeBrowser(retryBrowser);
-    }
+    if (retryBrowser) await closeBrowser(retryBrowser);
   }
 }
 

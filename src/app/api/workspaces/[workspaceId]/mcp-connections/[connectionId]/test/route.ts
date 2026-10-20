@@ -3,20 +3,14 @@
  * Test connection and rediscover tools.
  */
 
-import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
-import { requirePermission } from "@/lib/auth/rbac";
-import { apiSuccess, apiError, handleApiError } from "@/lib/utils/api";
+import { apiSuccess, apiError } from "@/lib/utils/api";
 import { testConnection } from "@/services/mcp/client";
+import { route } from "@/server/http/route";
 
-export async function POST(
-  _request: NextRequest,
-  { params }: { params: Promise<{ workspaceId: string; connectionId: string }> }
-) {
-  try {
-    const { workspaceId, connectionId } = await params;
-    await requirePermission(workspaceId, "settings.manage");
-
+export const POST = route(
+  { workspace: "param", permission: "settings.manage" },
+  async ({ params: { connectionId }, workspaceId }) => {
     const connection = await prisma.mcpConnection.findFirst({
       where: { id: connectionId, workspaceId },
     });
@@ -49,7 +43,5 @@ export async function POST(
       tools: updated?.toolsDiscovered ?? [],
       lastConnectedAt: updated?.lastConnectedAt,
     });
-  } catch (error) {
-    return handleApiError(error);
   }
-}
+);

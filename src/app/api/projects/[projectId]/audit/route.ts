@@ -9,50 +9,41 @@ import {
 import { requirePermission } from "@/lib/auth/rbac";
 import { runCodeAudit, AuditUnavailableError } from "@/services/auditing/auditor";
 import { isProjectIndexed, INDEX_REQUIRED_MESSAGE } from "@/services/indexing/index-status";
+import { route } from "@/server/http/route";
 
 // ============================================================
 // GET /api/projects/[projectId]/audit — List past audits
 // ============================================================
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ projectId: string }> }
-) {
-  try {
-    const { workspaceId } = await requireWorkspace();
-    const { projectId } = await params;
+export const GET = route({}, async ({ req: request, params: { projectId }, workspaceId }) => {
+  const project = await prisma.project.findFirst({
+    where: { id: projectId, workspaceId },
+    select: { id: true },
+  });
 
-    const project = await prisma.project.findFirst({
-      where: { id: projectId, workspaceId },
-      select: { id: true },
-    });
-
-    if (!project) {
-      return apiError("Project not found", "NOT_FOUND", 404);
-    }
-
-    const limit = Number(request.nextUrl.searchParams.get("limit")) || 20;
-
-    const audits = await prisma.auditResult.findMany({
-      where: { projectId },
-      orderBy: { createdAt: "desc" },
-      take: Math.min(limit, 50),
-      select: {
-        id: true,
-        overallScore: true,
-        issueCount: true,
-        criticalCount: true,
-        categories: true,
-        metadata: true,
-        createdAt: true,
-      },
-    });
-
-    return apiSuccess(audits);
-  } catch (error) {
-    return handleApiError(error);
+  if (!project) {
+    return apiError("Project not found", "NOT_FOUND", 404);
   }
-}
+
+  const limit = Number(request.nextUrl.searchParams.get("limit")) || 20;
+
+  const audits = await prisma.auditResult.findMany({
+    where: { projectId },
+    orderBy: { createdAt: "desc" },
+    take: Math.min(limit, 50),
+    select: {
+      id: true,
+      overallScore: true,
+      issueCount: true,
+      criticalCount: true,
+      categories: true,
+      metadata: true,
+      createdAt: true,
+    },
+  });
+
+  return apiSuccess(audits);
+});
 
 // ============================================================
 // POST /api/projects/[projectId]/audit — Trigger a new audit

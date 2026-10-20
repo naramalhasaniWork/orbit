@@ -1,22 +1,17 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { requirePermission } from "@/lib/auth/rbac";
-import { apiSuccess, apiError, handleApiError } from "@/lib/utils/api";
+import { apiSuccess, apiError } from "@/lib/utils/api";
 import { buildAuditCsvRow, CSV_HEADER } from "./csv-utils";
+import { route } from "@/server/http/route";
 
 // ============================================================
 // GET /api/workspaces/[workspaceId]/audit-logs
 // Supports JSON (default) and CSV (?format=csv) responses
 // ============================================================
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ workspaceId: string }> }
-) {
-  try {
-    const { workspaceId } = await params;
-    await requirePermission(workspaceId, "audit.view");
-
+export const GET = route(
+  { workspace: "param", permission: "audit.view" },
+  async ({ req: request, workspaceId }) => {
     const url = request.nextUrl;
     const page = Math.max(1, parseInt(url.searchParams.get("page") ?? "1", 10));
     const limit = Math.min(100, Math.max(1, parseInt(url.searchParams.get("limit") ?? "50", 10)));
@@ -54,10 +49,8 @@ export async function GET(
         totalPages: Math.ceil(total / limit),
       },
     });
-  } catch (error) {
-    return handleApiError(error);
   }
-}
+);
 
 // ============================================================
 // Helpers

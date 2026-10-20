@@ -9,6 +9,7 @@
 
 import { z } from "zod";
 import { getSignupMode, isSelfHosted, type Env } from "@/lib/self-host";
+import { validateAiEnv } from "@/server/ai/env";
 
 const RequiredEnvSchema = z.object({
   DATABASE_URL: z.string().regex(/^postgres(ql)?:\/\//, "must be a postgres:// connection string"),
@@ -18,7 +19,6 @@ const RequiredEnvSchema = z.object({
   GITHUB_CLIENT_ID: z.string(),
   GITHUB_CLIENT_SECRET: z.string(),
   ENCRYPTION_KEY: z.string().min(32, "must be at least 32 characters (try: openssl rand -hex 32)"),
-  ANTHROPIC_API_KEY: z.string(),
 });
 
 /** Optional groups: warn only when none of the group's variables is set. */
@@ -34,7 +34,6 @@ interface OptionalGroup {
 const OPTIONAL_GROUPS: OptionalGroup[] = [
   { vars: ["GITHUB_APP_ID", "GITHUB_APP_PRIVATE_KEY", "GITHUB_APP_SLUG"], feature: "GitHub App installation flow (public repos still work via GITHUB_TOKEN)", selfHostedOnly: true },
   { vars: ["GITHUB_WEBHOOK_SECRET"], feature: "GitHub webhook signature verification" },
-  { vars: ["OPENROUTER_API_KEY"], feature: "OpenRouter model fallback" },
   { vars: ["SLACK_SIGNING_SECRET"], feature: "Slack interactions" },
   { vars: ["LINEAR_API_KEY"], feature: "Linear issue creation" },
   { vars: ["BROWSERBASE_API_KEY"], feature: "Browserbase cloud browsers (local Playwright is used)" },
@@ -76,6 +75,10 @@ export function validateEnv(env: Env = process.env): EnvReport {
       );
     }
   }
+
+  const ai = validateAiEnv(env);
+  errors.push(...ai.errors);
+  warnings.push(...ai.warnings);
 
   const selfHosted = isSelfHosted(env);
 

@@ -6,12 +6,10 @@
  * outbound-webhooks.ts reads. Secrets are stored sealed and never listed.
  */
 
-import { NextRequest } from "next/server";
 import { randomBytes, randomUUID } from "crypto";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { requirePermission } from "@/lib/auth/rbac";
-import { requireWorkspace, apiSuccess, apiError, handleApiError } from "@/lib/utils/api";
+import { apiSuccess, apiError } from "@/lib/utils/api";
 import { sealSecret } from "@/lib/integrations/secret-field";
 import { isAllowedWebhookUrl } from "@/lib/integrations/webhook-url";
 import { WEBHOOK_EVENTS } from "@/services/reporting/integrations/outbound-webhooks";
@@ -20,6 +18,7 @@ import {
   updateProjectWebhooks,
   type StoredWebhook,
 } from "@/services/reporting/integrations/webhook-store";
+import { route } from "@/server/http/route";
 
 const eventNames = Object.keys(WEBHOOK_EVENTS) as [string, ...string[]];
 
@@ -49,12 +48,9 @@ async function findProject(projectId: string, workspaceId: string) {
   });
 }
 
-export async function GET(_request: NextRequest, { params }: RouteContext) {
-  try {
-    const { workspaceId } = await requireWorkspace();
-    const { projectId } = await params;
-    await requirePermission(workspaceId, "projects.view");
-
+export const GET = route(
+  { permission: "projects.view" },
+  async ({ params: { projectId }, workspaceId }) => {
     const project = await findProject(projectId, workspaceId);
     if (!project) return apiError("Project not found", "NOT_FOUND", 404);
 
@@ -69,17 +65,12 @@ export async function GET(_request: NextRequest, { params }: RouteContext) {
     }
 
     return apiSuccess(webhooks.map((w) => toEndpointView(w as StoredWebhook & { id: string })));
-  } catch (error) {
-    return handleApiError(error);
   }
-}
+);
 
-export async function POST(request: NextRequest, { params }: RouteContext) {
-  try {
-    const { workspaceId } = await requireWorkspace();
-    const { projectId } = await params;
-    await requirePermission(workspaceId, "integrations.manage");
-
+export const POST = route(
+  { permission: "integrations.manage" },
+  async ({ req: request, params: { projectId }, workspaceId }) => {
     const { url, events } = createSchema.parse(await request.json());
 
     const project = await findProject(projectId, workspaceId);
@@ -97,7 +88,5 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
     await updateProjectWebhooks(projectId, (all) => [...all, endpoint]);
 
     return apiSuccess({ secret, endpoint: toEndpointView(endpoint) }, 201);
-  } catch (error) {
-    return handleApiError(error);
   }
-}
+);

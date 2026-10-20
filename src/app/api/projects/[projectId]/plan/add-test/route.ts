@@ -1,27 +1,15 @@
-import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
-import {
-  requireWorkspace,
-  apiSuccess,
-  apiError,
-  handleApiError,
-} from "@/lib/utils/api";
-import { requirePermission } from "@/lib/auth/rbac";
+import { apiSuccess, apiError } from "@/lib/utils/api";
+import { route } from "@/server/http/route";
 
 // ============================================================
 // POST /api/projects/[projectId]/plan/add-test
 // Add a new test case to the active plan
 // ============================================================
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ projectId: string }> }
-) {
-  try {
-    const { workspaceId } = await requireWorkspace();
-    await requirePermission(workspaceId, "plans.update");
-    const { projectId } = await params;
-
+export const POST = route(
+  { permission: "plans.update" },
+  async ({ req: request, params: { projectId }, workspaceId }) => {
     const project = await prisma.project.findFirst({
       where: { id: projectId, workspaceId },
       select: { id: true },
@@ -127,7 +115,5 @@ export async function POST(
       },
       201
     );
-  } catch (error) {
-    return handleApiError(error);
   }
-}
+);

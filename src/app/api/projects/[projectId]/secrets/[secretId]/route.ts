@@ -1,22 +1,10 @@
-import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
-import {
-  requireWorkspace,
-  apiSuccess,
-  apiError,
-  handleApiError,
-} from "@/lib/utils/api";
-import { requirePermission } from "@/lib/auth/rbac";
+import { apiSuccess, apiError } from "@/lib/utils/api";
+import { route } from "@/server/http/route";
 
-export async function DELETE(
-  _request: NextRequest,
-  { params }: { params: Promise<{ projectId: string; secretId: string }> }
-) {
-  try {
-    const { workspaceId } = await requireWorkspace();
-    await requirePermission(workspaceId, "secrets.manage");
-    const { projectId, secretId } = await params;
-
+export const DELETE = route(
+  { permission: "secrets.manage" },
+  async ({ params: { projectId, secretId }, workspaceId }) => {
     const project = await prisma.project.findFirst({
       where: { id: projectId, workspaceId },
       select: { id: true },
@@ -38,7 +26,5 @@ export async function DELETE(
     await prisma.secret.delete({ where: { id: secretId } });
 
     return apiSuccess({ deleted: true });
-  } catch (error) {
-    return handleApiError(error);
   }
-}
+);

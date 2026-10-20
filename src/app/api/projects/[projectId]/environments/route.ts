@@ -8,34 +8,25 @@ import {
   handleApiError,
 } from "@/lib/utils/api";
 import { requirePermission } from "@/lib/auth/rbac";
+import { route } from "@/server/http/route";
 
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: Promise<{ projectId: string }> }
-) {
-  try {
-    const { workspaceId } = await requireWorkspace();
-    const { projectId } = await params;
+export const GET = route({}, async ({ params: { projectId }, workspaceId }) => {
+  const project = await prisma.project.findFirst({
+    where: { id: projectId, workspaceId },
+    select: { id: true },
+  });
 
-    const project = await prisma.project.findFirst({
-      where: { id: projectId, workspaceId },
-      select: { id: true },
-    });
-
-    if (!project) {
-      return apiError("Project not found", "NOT_FOUND", 404);
-    }
-
-    const environments = await prisma.environment.findMany({
-      where: { projectId },
-      orderBy: { createdAt: "asc" },
-    });
-
-    return apiSuccess(environments);
-  } catch (error) {
-    return handleApiError(error);
+  if (!project) {
+    return apiError("Project not found", "NOT_FOUND", 404);
   }
-}
+
+  const environments = await prisma.environment.findMany({
+    where: { projectId },
+    orderBy: { createdAt: "asc" },
+  });
+
+  return apiSuccess(environments);
+});
 
 const ENVIRONMENT_TYPES = ["staging", "preview", "qa", "production"] as const;
 const RUN_MODES = ["full", "smoke", "regression"] as const;
@@ -57,15 +48,9 @@ const CreateEnvironmentSchema = z.object({
  * Project secrets are sent to whatever URL an environment points at, so creating or
  * re-pointing one needs secrets.manage, not just projects.update.
  */
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ projectId: string }> }
-) {
-  try {
-    const { workspaceId } = await requireWorkspace();
-    await requirePermission(workspaceId, "secrets.manage");
-    const { projectId } = await params;
-
+export const POST = route(
+  { permission: "secrets.manage" },
+  async ({ req: request, params: { projectId }, workspaceId }) => {
     const project = await prisma.project.findFirst({
       where: { id: projectId, workspaceId },
       select: { id: true },
@@ -107,10 +92,8 @@ export async function POST(
     });
 
     return apiSuccess(environment, 201);
-  } catch (error) {
-    return handleApiError(error);
   }
-}
+);
 
 // ============================================================
 // PATCH /api/projects/[projectId]/environments — Update an environment

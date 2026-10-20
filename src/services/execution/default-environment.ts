@@ -7,6 +7,14 @@
  */
 const TYPE_PREFERENCE: Record<string, number> = { staging: 0, qa: 1, preview: 2 };
 
+/**
+ * Archived environments and the per-PR environments the preview coordinator creates
+ * (source "preview") are never a default: the latter test one PR's code.
+ */
+export function isDefaultCandidate(env: { archivedAt?: Date | null; source?: string | null }): boolean {
+  return !env.archivedAt && env.source !== "preview";
+}
+
 interface EnvironmentCandidate {
   type: string;
   isDefault: boolean;

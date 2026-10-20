@@ -1,21 +1,11 @@
-import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
-import { requirePermission } from "@/lib/auth/rbac";
 import { redactSettings } from "@/lib/integrations/redact";
-import {
-  apiSuccess,
-  apiError,
-  handleApiError,
-} from "@/lib/utils/api";
+import { apiSuccess, apiError } from "@/lib/utils/api";
+import { route } from "@/server/http/route";
 
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: Promise<{ workspaceId: string }> }
-) {
-  try {
-    const { workspaceId } = await params;
-    await requirePermission(workspaceId, "settings.view");
-
+export const GET = route(
+  { workspace: "param", permission: "settings.view" },
+  async ({ workspaceId }) => {
     const workspace = await prisma.workspace.findUnique({
       where: { id: workspaceId },
       select: { settings: true },
@@ -26,19 +16,12 @@ export async function GET(
     }
 
     return apiSuccess(redactSettings(workspace.settings));
-  } catch (error) {
-    return handleApiError(error);
   }
-}
+);
 
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: Promise<{ workspaceId: string }> }
-) {
-  try {
-    const { workspaceId } = await params;
-    await requirePermission(workspaceId, "settings.manage");
-
+export const PATCH = route(
+  { workspace: "param", permission: "settings.manage" },
+  async ({ req: request, workspaceId }) => {
     const body = await request.json();
     const { customPrompt } = body as { customPrompt?: string };
 
@@ -67,7 +50,5 @@ export async function PATCH(
     });
 
     return apiSuccess(redactSettings(updatedSettings));
-  } catch (error) {
-    return handleApiError(error);
   }
-}
+);

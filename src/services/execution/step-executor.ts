@@ -1,7 +1,7 @@
 import type { Page } from "playwright";
 import type { StepResult } from "@/agents/schemas/execution-result";
 import type { ExecutorContext } from "@/agents/prompts/executor-prompt";
-import { getNextAction, type BillingInfo } from "@/services/execution/executor-decision";
+import { createAgentModelState, getNextAction, type BillingInfo } from "@/services/execution/executor-decision";
 import { loadMcpToolSession, performToolCall } from "@/services/execution/mcp-tool-step";
 import { getPageState } from "@/services/execution/browser-manager";
 import type { PageState } from "@/services/execution/browser-manager";
@@ -96,6 +96,8 @@ export async function executeTestSteps(
   };
 
   const mcpTools = await loadMcpToolSession(project.workspaceId, runId);
+  // Cheap model first, escalating within this test on repeated divergence
+  const agentModels = await createAgentModelState(project.workspaceId);
 
   const stepResults: StepResult[] = [];
   const healedSelectors: string[] = [];
@@ -161,7 +163,7 @@ export async function executeTestSteps(
       mcpToolsPrompt: mcpTools.prompt || undefined,
     };
 
-    const action = await getNextAction(context, billing);
+    const action = await getNextAction(context, billing, agentModels);
 
     if (action.action === "verdict") {
       let verdictValue: StepExecutionResult["verdict"] =

@@ -1,11 +1,13 @@
 /**
- * Knowledge Embedder — generates embeddings for knowledge chunks
- * and provides pgvector-based semantic search.
+ * Knowledge Embedder — stores knowledge chunks (with embeddings when a provider is
+ * configured) and searches them through search.knowledge.
  */
 
 import { prisma } from "@/lib/db";
-import { createEmbeddings, createEmbedding } from "@/lib/ai/providers/openai";
-import { ensureDimension } from "@/lib/db/vector";
+import { storeChunkEmbedding } from "@/lib/db/vector";
+import { embed } from "@/server/ai/gateway";
+import { ensureEmbeddingConfig } from "@/server/ai/embedding-config";
+import { search } from "@/server/ai/search";
 import type { Chunk } from "./chunker";
 import type { Prisma } from "@/generated/prisma/client";
 
@@ -28,8 +30,12 @@ export async function embedChunks(
 ): Promise<number[][]> {
   if (chunks.length === 0) return [];
 
-  const texts = chunks.map((c) => c.content);
-  const embeddings = await createEmbeddings(texts);
+  // Keyword-only mode (ORBIT_EMBEDDINGS=none) stores chunks without vectors.
+  const result = await embed(chunks.map((c) => c.content), workspaceId);
+  const embeddings = result?.vectors ?? [];
+  if (result && embeddings[0]) {
+    await ensureEmbeddingConfig(result.provider, result.model, embeddings[0].length);
+  }
 
   // Store chunks with embeddings in a transaction
   await prisma.$transaction(async (tx) => {
@@ -46,11 +52,6 @@ export async function embedChunks(
       });
     }
 
-    // Ensure column dimension matches before writing
-    if (embeddings.length > 0 && embeddings[0]) {
-      await ensureDimension("knowledge_chunks", "embedding", embeddings[0].length);
-    }
-
     const createdChunks = await tx.knowledgeChunk.findMany({
       where: { knowledgeFileId },
       orderBy: { chunkIndex: "asc" },
@@ -61,12 +62,7 @@ export async function embedChunks(
       const embedding = embeddings[record.chunkIndex];
       if (!embedding) continue;
 
-      const vectorStr = `[${embedding.join(",")}]`;
-      await tx.$executeRawUnsafe(
-        `UPDATE knowledge_chunks SET embedding = $1::vector WHERE id = $2::uuid`,
-        vectorStr,
-        record.id
-      );
+      await storeChunkEmbedding(tx, record.id, embedding);
     }
 
     // Update the parent file's chunk count
@@ -80,44 +76,17 @@ export async function embedChunks(
 }
 
 /**
- * Search knowledge chunks by semantic similarity using pgvector.
- * Returns the most relevant chunks above the similarity threshold.
+ * Search knowledge chunks: vector similarity when available, keyword match otherwise.
  */
 export async function searchKnowledge(
   workspaceId: string,
   query: string,
   limit: number = 10
 ): Promise<SearchResult[]> {
-  const queryEmbedding = await createEmbedding(query);
-  const vectorStr = `[${queryEmbedding.join(",")}]`;
-
-  const results = await prisma.$queryRawUnsafe<
-    Array<{
-      content: string;
-      metadata: Record<string, unknown>;
-      type: string;
-      name: string;
-      similarity: number;
-    }>
-  >(
-    `
-    SELECT kc.content, kc.metadata, dkf.type, dkf.name,
-      1 - (kc.embedding <=> $1::vector) as similarity
-    FROM knowledge_chunks kc
-    JOIN domain_knowledge_files dkf ON kc.knowledge_file_id = dkf.id
-    WHERE kc.workspace_id = $2::uuid
-      AND kc.embedding IS NOT NULL
-    ORDER BY kc.embedding <=> $1::vector
-    LIMIT $3
-    `,
-    vectorStr,
-    workspaceId,
-    limit
-  );
-
+  const results = await search.knowledge(workspaceId, query, limit);
   return results.map((r) => ({
     content: r.content,
-    score: r.similarity,
+    score: Number(r.similarity),
     fileType: r.type,
     fileName: r.name,
     section: r.metadata?.section as string | undefined,

@@ -3,23 +3,18 @@
  * Rotates the token (invalidating the old link), extends the expiry and re-sends the email.
  */
 
-import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
-import { requirePermission, assertCanManageRole } from "@/lib/auth/rbac";
+import { assertCanManageRole } from "@/lib/auth/rbac";
 import { canConsume } from "@/lib/auth/tenant";
 import { writeAuditLog } from "@/lib/auth/audit";
-import { apiSuccess, apiError, handleApiError } from "@/lib/utils/api";
+import { apiSuccess, apiError } from "@/lib/utils/api";
 import { newInviteExpiry, newInviteToken } from "@/lib/invitations";
 import { deliverInviteEmail } from "@/lib/email/invite-email";
+import { route } from "@/server/http/route";
 
-export async function POST(
-  _request: NextRequest,
-  { params }: { params: Promise<{ workspaceId: string; invitationId: string }> }
-) {
-  try {
-    const { workspaceId, invitationId } = await params;
-    const ctx = await requirePermission(workspaceId, "members.invite");
-
+export const POST = route(
+  { workspace: "param", permission: "members.invite" },
+  async ({ params: { invitationId }, workspaceId, session }) => {
     const invitation = await prisma.workspaceInvitation.findFirst({
       where: { id: invitationId, workspaceId, status: { in: ["pending", "expired"] } },
     });
@@ -28,7 +23,7 @@ export async function POST(
     }
 
     // Same ceiling as creating an invite: you cannot re-issue an invite for a role at or above your own
-    assertCanManageRole(ctx.role, invitation.role);
+    assertCanManageRole(session.role, invitation.role);
 
     // A lapsed invitation no longer holds a seat, so reviving it needs room again
     const lapsed = invitation.status === "expired" || invitation.expiresAt <= new Date();
@@ -48,11 +43,11 @@ export async function POST(
       },
     });
 
-    const emailResult = await deliverInviteEmail(workspaceId, updated, ctx.session.user.name ?? null);
+    const emailResult = await deliverInviteEmail(workspaceId, updated, session.user.name ?? null);
 
     await writeAuditLog({
       workspaceId,
-      userId: ctx.session.user.id,
+      userId: session.user.id,
       action: "member.invited",
       resourceType: "workspace_invitation",
       resourceId: updated.id,
@@ -67,7 +62,5 @@ export async function POST(
       expiresAt: updated.expiresAt,
       emailSent: emailResult.sent,
     });
-  } catch (error) {
-    return handleApiError(error);
   }
-}
+);

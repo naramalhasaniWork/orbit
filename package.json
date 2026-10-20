@@ -16,11 +16,12 @@
     "db:studio": "prisma studio",
     "db:seed": "prisma db seed",
     "workers": "tsx src/workers/index.ts",
+    "build:worker": "tsup",
     "test": "vitest run",
     "test:watch": "vitest"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.39.0",
+    "@anthropic-ai/sdk": "^0.131.0",
     "@aws-sdk/client-s3": "^3.994.0",
     "@aws-sdk/s3-request-presigner": "^3.994.0",
     "@browserbasehq/stagehand": "^3.0.8",
@@ -57,6 +58,7 @@
     "next-auth": "^4.24.11",
     "openai": "^4.77.0",
     "pg": "^8.13.1",
+    "pino": "^9.14.0",
     "playwright": "^1.58.2",
     "prisma": "^7.4.1",
     "react": "^18.3.1",
@@ -91,6 +93,7 @@
     "eslint-config-next": "^14.2.20",
     "postcss": "^8.4.49",
     "tailwindcss": "^3.4.17",
+    "tsup": "^9.0.0",
     "tsx": "^4.19.2",
     "typescript": "^5.7.0",
     "vitest": "^4.0.18"

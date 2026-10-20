@@ -15,6 +15,7 @@ import {
   Orbit,
   Cpu,
   FileText,
+  Inbox,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -25,6 +26,7 @@ const navigation = [
   { name: "Models", href: "/admin/models", icon: Cpu },
   { name: "Prompts", href: "/admin/prompts", icon: FileText },
   { name: "System", href: "/admin/system", icon: Settings2 },
+  { name: "Jobs", href: "/admin/jobs", icon: Inbox },
   { name: "Analytics", href: "/admin/analytics", icon: BarChart3 },
   { name: "Audit Log", href: "/admin/audit", icon: ScrollText },
 ];

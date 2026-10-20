@@ -1,8 +1,7 @@
 import { createHash } from "crypto";
-import Anthropic from "@anthropic-ai/sdk";
 import { getStorage } from "@/lib/storage";
 import { getModelForTask } from "@/lib/ai/model-router";
-import { recordTokenUsage } from "@/lib/billing/token-tracker";
+import { complete } from "@/server/ai/gateway";
 
 // ============================================================
 // Types
@@ -60,12 +59,6 @@ async function analyzeWithVision(
   ignoreRegions?: DiffRegion[],
   billing?: BillingContext
 ): Promise<VisionDiffResponse> {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
-    throw new Error("ANTHROPIC_API_KEY is required for visual diff analysis");
-  }
-
-  const client = new Anthropic({ apiKey });
   const model = await getModelForTask("visual_analysis");
 
   const baselineB64 = baselineData.toString("base64");
@@ -75,23 +68,17 @@ async function analyzeWithVision(
     ? `\nIgnore changes in these regions: ${JSON.stringify(ignoreRegions)}`
     : "";
 
-  const response = await client.messages.create({
+  const response = await complete({
     model,
-    max_tokens: 2048,
+    maxTokens: 2048,
     temperature: 0,
     system: `You are a visual QA analyst. Compare two screenshots and identify visual differences. Output ONLY valid JSON.`,
     messages: [
       {
         role: "user",
         content: [
-          {
-            type: "image",
-            source: { type: "base64", media_type: "image/png", data: baselineB64 },
-          },
-          {
-            type: "image",
-            source: { type: "base64", media_type: "image/png", data: currentB64 },
-          },
+          { type: "image", mediaType: "image/png", data: baselineB64 },
+          { type: "image", mediaType: "image/png", data: currentB64 },
           {
             type: "text",
             text: `Compare these two screenshots (first = baseline, second = current). Identify all visual differences.${ignoreInstruction}
@@ -117,24 +104,14 @@ Focus on meaningful visual changes: layout shifts, color changes, text differenc
         ],
       },
     ],
+  }, {
+    workspaceId: billing?.workspaceId ?? "system",
+    projectId: billing?.projectId,
+    runId: billing?.runId,
+    agentPhase: "executor",
   });
 
-  // Track billing
-  if (billing) {
-    recordTokenUsage({
-      workspaceId: billing.workspaceId,
-      projectId: billing.projectId,
-      runId: billing.runId,
-      model,
-      inputTokens: response.usage.input_tokens,
-      outputTokens: response.usage.output_tokens,
-      cachedTokens: 0,
-      agentPhase: "executor",
-    }).catch((err) => console.error("[VisualDiff] Token tracking error:", err));
-  }
-
-  const textBlock = response.content.find((b) => b.type === "text");
-  const raw = textBlock ? textBlock.text : "{}";
+  const raw = response.content || "{}";
 
   const cleaned = raw
     .replace(/^```(?:json)?\s*\n?/m, "")

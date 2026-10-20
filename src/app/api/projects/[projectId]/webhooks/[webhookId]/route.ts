@@ -3,13 +3,12 @@
  * DELETE /api/projects/:projectId/webhooks/:webhookId — Remove an endpoint
  */
 
-import { NextRequest } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { requirePermission } from "@/lib/auth/rbac";
-import { requireWorkspace, apiSuccess, apiError, handleApiError } from "@/lib/utils/api";
+import { apiSuccess, apiError } from "@/lib/utils/api";
 import { WEBHOOK_EVENTS } from "@/services/reporting/integrations/outbound-webhooks";
 import { updateProjectWebhooks } from "@/services/reporting/integrations/webhook-store";
+import { route } from "@/server/http/route";
 
 const eventNames = Object.keys(WEBHOOK_EVENTS) as [string, ...string[]];
 
@@ -29,11 +28,9 @@ function findProject(projectId: string, workspaceId: string) {
   });
 }
 
-export async function PATCH(request: NextRequest, { params }: RouteContext) {
-  try {
-    const { projectId, webhookId } = await params;
-    const { workspaceId } = await requireWorkspace();
-    await requirePermission(workspaceId, "integrations.manage");
+export const PATCH = route(
+  { permission: "integrations.manage" },
+  async ({ req: request, params: { projectId, webhookId }, workspaceId }) => {
     const project = await findProject(projectId, workspaceId);
     if (!project) return apiError("Project not found", "NOT_FOUND", 404);
 
@@ -54,16 +51,12 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
     if (!found) return apiError("Webhook not found", "NOT_FOUND", 404);
 
     return apiSuccess({ updated: true });
-  } catch (error) {
-    return handleApiError(error);
   }
-}
+);
 
-export async function DELETE(_request: NextRequest, { params }: RouteContext) {
-  try {
-    const { projectId, webhookId } = await params;
-    const { workspaceId } = await requireWorkspace();
-    await requirePermission(workspaceId, "integrations.manage");
+export const DELETE = route(
+  { permission: "integrations.manage" },
+  async ({ params: { projectId, webhookId }, workspaceId }) => {
     const project = await findProject(projectId, workspaceId);
     if (!project) return apiError("Project not found", "NOT_FOUND", 404);
 
@@ -77,7 +70,5 @@ export async function DELETE(_request: NextRequest, { params }: RouteContext) {
     if (!found) return apiError("Webhook not found", "NOT_FOUND", 404);
 
     return apiSuccess({ deleted: true });
-  } catch (error) {
-    return handleApiError(error);
   }
-}
+);

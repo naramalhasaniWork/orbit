@@ -3,21 +3,15 @@
  * The owner must transfer ownership first.
  */
 
-import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
-import { requirePermission } from "@/lib/auth/rbac";
 import { writeAuditLog } from "@/lib/auth/audit";
-import { apiSuccess, apiError, handleApiError } from "@/lib/utils/api";
+import { apiSuccess, apiError } from "@/lib/utils/api";
+import { route } from "@/server/http/route";
 
-export async function POST(
-  _request: NextRequest,
-  { params }: { params: Promise<{ workspaceId: string }> }
-) {
-  try {
-    const { workspaceId } = await params;
-    const ctx = await requirePermission(workspaceId, "workspace.view");
-
-    if (ctx.role === "owner") {
+export const POST = route(
+  { workspace: "param", permission: "workspace.view" },
+  async ({ workspaceId, session, auth }) => {
+    if (session.role === "owner") {
       const owners = await prisma.workspaceMember.count({
         where: { workspaceId, role: "owner" },
       });
@@ -30,19 +24,17 @@ export async function POST(
       }
     }
 
-    await prisma.workspaceMember.delete({ where: { id: ctx.memberId } });
+    await prisma.workspaceMember.delete({ where: { id: auth.memberId } });
 
     await writeAuditLog({
       workspaceId,
-      userId: ctx.session.user.id,
+      userId: session.user.id,
       action: "member.left",
       resourceType: "workspace_member",
-      resourceId: ctx.memberId,
-      metadata: { role: ctx.role },
+      resourceId: auth.memberId,
+      metadata: { role: session.role },
     });
 
     return apiSuccess({ left: true });
-  } catch (error) {
-    return handleApiError(error);
   }
-}
+);

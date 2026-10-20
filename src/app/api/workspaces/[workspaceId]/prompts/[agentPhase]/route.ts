@@ -1,10 +1,9 @@
-import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
-import { requirePermission } from "@/lib/auth/rbac";
-import { apiSuccess, apiError, handleApiError } from "@/lib/utils/api";
+import { apiSuccess, apiError } from "@/lib/utils/api";
 import { buildPrompt, estimateTokens } from "@/agents/prompts/prompt-builder";
 import { DEFAULT_USER_PROMPTS } from "@/agents/prompts/default-prompts";
 import type { AgentPhase } from "@/generated/prisma/client";
+import { route } from "@/server/http/route";
 
 const VALID_PHASES: AgentPhase[] = ["analyst", "planner", "executor", "reporter", "auditor"];
 const MAX_CONTENT_LENGTH = 50000;
@@ -13,14 +12,9 @@ function validatePhase(phase: string): phase is AgentPhase {
   return VALID_PHASES.includes(phase as AgentPhase);
 }
 
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: Promise<{ workspaceId: string; agentPhase: string }> }
-) {
-  try {
-    const { workspaceId, agentPhase } = await params;
-    await requirePermission(workspaceId, "settings.view");
-
+export const GET = route(
+  { workspace: "param", permission: "settings.view" },
+  async ({ params: { agentPhase }, workspaceId }) => {
     if (!validatePhase(agentPhase)) {
       return apiError(
         "Invalid agentPhase. Must be one of: analyst, planner, executor, reporter, auditor",
@@ -61,19 +55,12 @@ export async function GET(
       createdAt: activeVersion?.createdAt ?? null,
       createdBy: activeVersion?.createdBy ?? null,
     });
-  } catch (error) {
-    return handleApiError(error);
   }
-}
+);
 
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: Promise<{ workspaceId: string; agentPhase: string }> }
-) {
-  try {
-    const { workspaceId, agentPhase } = await params;
-    const ctx = await requirePermission(workspaceId, "settings.manage");
-
+export const PUT = route(
+  { workspace: "param", permission: "settings.manage" },
+  async ({ req: request, params: { agentPhase }, workspaceId, session }) => {
     if (!validatePhase(agentPhase)) {
       return apiError(
         "Invalid agentPhase. Must be one of: analyst, planner, executor, reporter, auditor",
@@ -120,7 +107,7 @@ export async function PUT(
           content: body.content!,
           version: nextVersion,
           isActive: true,
-          createdById: ctx.session.user.id,
+          createdById: session.user.id,
           changelog: body.changelog ?? null,
         },
         include: {
@@ -130,19 +117,12 @@ export async function PUT(
     });
 
     return apiSuccess(newVersion, 201);
-  } catch (error) {
-    return handleApiError(error);
   }
-}
+);
 
-export async function DELETE(
-  _request: NextRequest,
-  { params }: { params: Promise<{ workspaceId: string; agentPhase: string }> }
-) {
-  try {
-    const { workspaceId, agentPhase } = await params;
-    await requirePermission(workspaceId, "settings.manage");
-
+export const DELETE = route(
+  { workspace: "param", permission: "settings.manage" },
+  async ({ params: { agentPhase }, workspaceId }) => {
     if (!validatePhase(agentPhase)) {
       return apiError(
         "Invalid agentPhase. Must be one of: analyst, planner, executor, reporter, auditor",
@@ -157,7 +137,5 @@ export async function DELETE(
     });
 
     return apiSuccess({ reverted: true, agentPhase });
-  } catch (error) {
-    return handleApiError(error);
   }
-}
+);

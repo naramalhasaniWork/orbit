@@ -1,6 +1,5 @@
 import { prisma } from "@/lib/db";
 import type { RunMode } from "@/generated/prisma/client";
-import { TokenBudget } from "./token-budget";
 import { getProjectContext } from "./context-manager";
 import { updateRunStatus } from "./run-manager";
 import { startTrace, completeTrace, failTrace } from "@/services/tracing";
@@ -72,8 +71,7 @@ export async function runAuditPhase(runId: string, projectId: string): Promise<v
 
 export async function runOperationsAnalysisPhase(
   runId: string,
-  projectId: string,
-  tokenBudget: TokenBudget
+  projectId: string
 ): Promise<OperationsMap | undefined> {
   const traceId = await startTrace({
     runId,
@@ -86,12 +84,6 @@ export async function runOperationsAnalysisPhase(
     const { analyzeOperations } = await import("@/services/planning/operations-analyzer");
     const result = await analyzeOperations(projectId);
 
-    tokenBudget.record(
-      result.tokensUsed.input,
-      result.tokensUsed.output,
-      0,
-      "planner"
-    );
 
     await completeTrace(traceId, {
       outputSummary: `Identified ${result.operationsMap.metadata.totalOperations} operations in ${result.operationsMap.metadata.totalFlows} flows`,
@@ -114,7 +106,6 @@ export async function runPlanningPhase(
   projectId: string,
   mode: RunMode,
   existingPlanId: string | undefined,
-  tokenBudget: TokenBudget,
   operationsMap?: OperationsMap
 ): Promise<string> {
   // If we already have a plan and mode doesn't require regeneration, use it
@@ -134,12 +125,6 @@ export async function runPlanningPhase(
     const { generatePlan } = await import("@/services/planning/planner");
     const planResult = await generatePlan({ projectId, mode, operationsMap });
 
-    tokenBudget.record(
-      planResult.tokensUsed.input,
-      planResult.tokensUsed.output,
-      0,
-      "planner"
-    );
 
     await prisma.testRun.update({
       where: { id: runId },
