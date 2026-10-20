@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
-vi.mock("@/lib/db", () => ({
-  prisma: {
+vi.mock("@/lib/db", () => {
+  const prisma = {
     project: { findFirst: vi.fn() },
     testRun: {
       findMany: vi.fn(),
@@ -15,8 +15,13 @@ vi.mock("@/lib/db", () => ({
     testPlan: { findFirst: vi.fn() },
     testCase: { findMany: vi.fn(), count: vi.fn() },
     workspace: { findUnique: vi.fn() },
-  },
-}));
+    $queryRaw: vi.fn(),
+    $transaction: vi.fn(),
+  };
+  // launchers create runs inside a transaction that locks the workspace row
+  prisma.$transaction.mockImplementation(async (fn: (tx: typeof prisma) => unknown) => fn(prisma));
+  return { prisma };
+});
 
 vi.mock("@/lib/utils/api", async () => {
   const { NextResponse } = await import("next/server");
@@ -234,6 +239,21 @@ describe("api-runs", () => {
       expect(response.status).toBe(403);
       expect(json.error.code).toBe("INSUFFICIENT_CREDITS");
       expect(mockPrisma.testRun.create).not.toHaveBeenCalled();
+    });
+
+    it("re-checks the allowance inside the insert transaction and creates nothing when it is gone", async () => {
+      mockRunnableProject();
+      // Passes the fail-fast check, then a concurrent launch used the last slot
+      (canConsume as ReturnType<typeof vi.fn>)
+        .mockResolvedValueOnce({ allowed: true })
+        .mockResolvedValueOnce({ allowed: false, code: "LIMIT_REACHED", reason: "Run limit reached." });
+
+      const response = await postRun();
+
+      expect(response.status).toBe(403);
+      expect((await response.json()).error.code).toBe("LIMIT_REACHED");
+      expect(mockPrisma.testRun.create).not.toHaveBeenCalled();
+      expect(queueAdd).not.toHaveBeenCalled();
     });
 
     it("blocks production environment", async () => {
