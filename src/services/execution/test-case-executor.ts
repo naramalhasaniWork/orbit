@@ -22,6 +22,8 @@ interface TestCaseForExecution {
   id: string;
   name: string;
   type?: string;
+  /** Cases in the same journey run in order on one worker (they may share state) */
+  journey?: string | null;
   steps: Array<{
     action: string;
     expected: string;

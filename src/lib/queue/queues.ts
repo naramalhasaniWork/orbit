@@ -18,7 +18,8 @@ export const IndexingJobDataSchema = z.object({
 
 export const ExecutionJobDataSchema = z.object({
   runId: z.string().uuid(),
-  testCaseId: z.union([z.string().uuid(), z.literal("__full_run__")]),
+  /** Always a full run; per-case jobs were never enqueued and are no longer accepted */
+  testCaseId: z.literal("__full_run__"),
   environmentUrl: z.string().url(),
   environmentId: z.string().uuid(),
 });
