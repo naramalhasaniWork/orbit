@@ -9,8 +9,8 @@ import { ChatPanelWrapper } from "@/components/chat/chat-panel-wrapper";
 import { GlobalActivityBar } from "@/components/dashboard/global-activity-bar";
 import { getActiveOperations } from "@/lib/dashboard/active-operations";
 import { SWRProvider } from "@/components/layout/swr-provider";
-import { WorkspaceRecovery } from "@/components/layout/workspace-recovery";
 import { isSelfHosted } from "@/lib/self-host";
+import { WorkspaceRecovery } from "@/components/layout/workspace-recovery";
 
 export const dynamic = "force-dynamic";
 

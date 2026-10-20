@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { emitRunProgress } from "@/lib/websocket";
 import { isRunCancelled } from "./run-manager";
+import type { TestVerdict } from "@/generated/prisma/enums";
 
 /**
  * Partitions test cases into independent groups by journey,
@@ -178,11 +179,11 @@ async function executePartition(
   const { validateEnvironment } = await import(
     "@/services/execution/environment-validator"
   );
-  const { executeTestCase } = await import(
-    "@/services/execution/test-case-executor"
+  const { executeCaseByType } = await import(
+    "@/services/execution/case-dispatcher"
   );
-  const { executeApiTestCase } = await import(
-    "@/services/execution/api-test-executor"
+  const { saveTestResult } = await import(
+    "@/services/execution/test-result-store"
   );
   const { isTestQuarantined } = await import(
     "@/services/execution/flaky-registry"
@@ -244,24 +245,27 @@ async function executePartition(
         isCritical: tc.isCritical,
       };
 
-      // API contract tests run over HTTP; browser only as fallback
-      let result =
-        tc.type === "api_contract"
-          ? await executeApiTestCase(
-              runId, caseForExecution, validation.environmentUrl, validation.credentials
-            )
-          : null;
-      if (!result) {
-        result = await executeTestCase(
-          runId, caseForExecution, validation.environmentUrl, validation.credentials
-        );
-      }
+      const result = await executeCaseByType(
+        runId, caseForExecution, validation.environmentUrl, validation.credentials
+      );
+
+      // Record every executed case so the run report and billing see it
+      await saveTestResult(
+        runId, tc.id, result.verdict as TestVerdict, result.durationMs,
+        result.steps, result.artifacts, result.healedSelectors
+      );
+      await prisma.testCase.update({
+        where: { id: tc.id },
+        data: { lastVerdict: result.verdict as TestVerdict, lastRunAt: new Date() },
+      });
 
       const verdictMap: Record<string, keyof typeof counters> = {
         pass: "passed",
         fail: "failed",
         flaky: "flaky",
         healed: "passed",
+        environment_error: "skipped",
+        skipped: "skipped",
       };
       const key = verdictMap[result.verdict] ?? "failed";
       counters[key]++;
