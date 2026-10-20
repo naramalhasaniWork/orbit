@@ -112,7 +112,7 @@ async function resolveRailway({ access, targetRef, commitSha, hint }: ResolveInp
   return { state: "pending" };
 }
 
-function wrapApiError(err: unknown): never {
+export function wrapRailwayError(err: unknown): never {
   if (err instanceof RailwayApiError) {
     const unauthorized = err.statusCode === 401 || err.statusCode === 403 || /not authorized/i.test(err.message);
     throw new PreviewProviderError(
@@ -127,11 +127,11 @@ export const railwayProvider: PreviewProvider = {
   id: PREVIEW_PROVIDER_IDS.railway,
 
   async verify(access) {
-    await listProjectsWithServices(access.token).catch(wrapApiError);
+    await listProjectsWithServices(access.token).catch(wrapRailwayError);
   },
 
   async listTargets(access) {
-    const projects = await listProjectsWithServices(access.token).catch(wrapApiError);
+    const projects = await listProjectsWithServices(access.token).catch(wrapRailwayError);
     return projects.flatMap((project) =>
       project.services.map((service) => ({
         ref: `${project.id}/${service.id}`,
@@ -148,5 +148,5 @@ export const railwayProvider: PreviewProvider = {
     return !hint.refs.serviceId || hint.refs.serviceId === target.serviceId;
   },
 
-  resolve: (input) => resolveRailway(input).catch(wrapApiError),
+  resolve: (input) => resolveRailway(input).catch(wrapRailwayError),
 };
