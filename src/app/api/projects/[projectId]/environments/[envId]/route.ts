@@ -6,6 +6,7 @@ import {
   apiError,
   handleApiError,
 } from "@/lib/utils/api";
+import { requirePermission } from "@/lib/auth/rbac";
 
 export async function GET(
   _request: NextRequest,
@@ -44,6 +45,7 @@ export async function DELETE(
 ) {
   try {
     const { workspaceId } = await requireWorkspace();
+    await requirePermission(workspaceId, "projects.update");
     const { projectId, envId } = await params;
 
     const project = await prisma.project.findFirst({

@@ -151,7 +151,7 @@ export async function DELETE(
     const { workspaceId } = await requireWorkspace();
     const { projectId } = await params;
 
-    await requirePermission(workspaceId, "projects.update");
+    await requirePermission(workspaceId, "projects.delete");
 
     const project = await prisma.project.findFirst({
       where: { id: projectId, workspaceId },

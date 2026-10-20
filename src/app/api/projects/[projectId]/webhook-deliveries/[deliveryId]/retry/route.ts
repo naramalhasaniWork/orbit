@@ -7,6 +7,7 @@ import {
   handleApiError,
 } from "@/lib/utils/api";
 import { signPayload } from "@/services/reporting/integrations/outbound-webhooks";
+import { requirePermission } from "@/lib/auth/rbac";
 
 // ============================================================
 // POST /api/projects/[projectId]/webhook-deliveries/[deliveryId]/retry
@@ -18,6 +19,7 @@ export async function POST(
 ) {
   try {
     const { workspaceId } = await requireWorkspace();
+    await requirePermission(workspaceId, "integrations.manage");
     const { projectId, deliveryId } = await params;
 
     const project = await prisma.project.findFirst({

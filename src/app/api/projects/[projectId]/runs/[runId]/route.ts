@@ -8,6 +8,7 @@ import {
   handleApiError,
 } from "@/lib/utils/api";
 import { cancelRun } from "@/services/orchestrator/run-manager";
+import { requirePermission } from "@/lib/auth/rbac";
 
 // ============================================================
 // GET /api/projects/[projectId]/runs/[runId] — Get run details
@@ -92,6 +93,7 @@ export async function PATCH(
 ) {
   try {
     const { workspaceId } = await requireWorkspace();
+    await requirePermission(workspaceId, "runs.create");
     const { projectId, runId } = await params;
 
     const project = await prisma.project.findFirst({

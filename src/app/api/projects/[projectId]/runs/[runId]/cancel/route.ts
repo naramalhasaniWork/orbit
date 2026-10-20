@@ -7,6 +7,7 @@ import {
   handleApiError,
 } from "@/lib/utils/api";
 import { emitRunProgress } from "@/lib/websocket";
+import { requirePermission } from "@/lib/auth/rbac";
 
 const CANCELLABLE_STATUSES = new Set([
   "queued",
@@ -21,6 +22,7 @@ export async function POST(
 ) {
   try {
     const { workspaceId } = await requireWorkspace();
+    await requirePermission(workspaceId, "runs.cancel");
     const { projectId, runId } = await params;
 
     const project = await prisma.project.findFirst({
