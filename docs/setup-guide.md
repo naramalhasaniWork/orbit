@@ -101,7 +101,7 @@ Visit **http://localhost:3000** and sign in with one of the [test accounts](#tes
 
 | Variable | Required | Description |
 |---|---|---|
-| `GITHUB_WEBHOOK_SECRET` | No | Shared secret for verifying GitHub webhook payloads. |
+| `GITHUB_WEBHOOK_SECRET` | For webhooks | Shared secret for verifying GitHub webhook payloads. Unsigned or unverifiable deliveries are rejected (503 when unset). |
 
 ### Integrations (Optional)
 
@@ -110,7 +110,7 @@ Visit **http://localhost:3000** and sign in with one of the [test accounts](#tes
 | `LINEAR_API_KEY` | No | Linear API key for creating bug reports from test failures. |
 | `LINEAR_TEAM_ID` | No | Linear team to file issues against. |
 | `SLACK_BOT_TOKEN` | No | Slack bot token for sending test run notifications. |
-| `SLACK_SIGNING_SECRET` | No | Slack signing secret for verifying requests. |
+| `SLACK_SIGNING_SECRET` | For Slack | Slack signing secret for verifying requests. Slack endpoints return 503 when unset. |
 | `SLACK_WEBHOOK_URL` | No | Slack incoming webhook URL for notifications. |
 
 ---

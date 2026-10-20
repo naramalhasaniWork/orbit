@@ -134,8 +134,8 @@ pnpm workers
 | `S3_ENDPOINT` | No | Custom S3 endpoint (for R2) |
 | `LINEAR_API_KEY` | No | Linear integration API key |
 | `SLACK_BOT_TOKEN` | No | Slack bot OAuth token |
-| `SLACK_SIGNING_SECRET` | No | Slack request signing secret |
-| `GITHUB_WEBHOOK_SECRET` | No | GitHub webhook HMAC secret |
+| `SLACK_SIGNING_SECRET` | For Slack | Slack request signing secret. Slack endpoints return 503 when unset |
+| `GITHUB_WEBHOOK_SECRET` | For webhooks | GitHub webhook HMAC secret. The webhook returns 503 when unset |
 
 ## Available Scripts
 
