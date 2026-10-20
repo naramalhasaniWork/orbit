@@ -104,9 +104,18 @@ export async function rotateWebhookToken(workspaceId: string, provider: PreviewP
   return fresh.token;
 }
 
-/** Deletes the connection; its bindings and preview deployments cascade. */
+/**
+ * Deletes the connection row, which removes the encrypted token and the webhook token hash;
+ * bindings and preview deployments cascade. Any legacy Railway IntegrationConfig row (the
+ * token's old home, removed by migration 20261022) goes too, so no copy of the token survives.
+ */
 export async function disconnectProvider(workspaceId: string, provider: PreviewProviderId): Promise<boolean> {
-  const result = await prisma.previewConnection.deleteMany({ where: { workspaceId, provider } });
+  const [result] = await prisma.$transaction([
+    prisma.previewConnection.deleteMany({ where: { workspaceId, provider } }),
+    ...(provider === "railway"
+      ? [prisma.integrationConfig.deleteMany({ where: { workspaceId, provider: "railway" } })]
+      : []),
+  ]);
   return result.count > 0;
 }
 

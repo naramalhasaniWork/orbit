@@ -109,3 +109,8 @@ WHERE ic."provider" = 'railway'
   AND ic."credentials" ? 'encryptedToken'
   AND ic."credentials" ? 'iv'
 ON CONFLICT ("workspace_id", "provider", "label") DO NOTHING;
+
+-- PreviewConnection is now the only home for the Railway token. Nothing reads Railway
+-- IntegrationConfig rows any more, so remove them (enabled or not): a leftover copy of the
+-- token would survive a disconnect.
+DELETE FROM "integration_configs" WHERE "provider" = 'railway';
