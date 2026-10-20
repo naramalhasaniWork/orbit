@@ -3,6 +3,7 @@
 #   all     (default) web server + in-process workers; applies migrations first
 #   web     web server only; no workers, no migrations
 #   worker  BullMQ workers only (dist/worker.mjs); no HTTP, no migrations
+#   migrate apply migrations (and backfills, see below), then exit
 # In split mode (web + worker) run migrations once as a release step, not per
 # container: Railway preDeployCommand or `docker compose run --rm web migrate`
 # (see docs/self-hosting/railway.md). ORBIT_SKIP_MIGRATIONS=true skips them for role=all.
@@ -46,7 +47,7 @@ case "$ROLE" in
     migrate
     ;;
   *)
-    echo "[start] Unknown ORBIT_ROLE '$ROLE' (expected all, web, worker)" >&2
+    echo "[start] Unknown ORBIT_ROLE '$ROLE' (expected all, web, worker, migrate)" >&2
     exit 1
     ;;
 esac
