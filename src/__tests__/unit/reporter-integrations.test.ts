@@ -45,7 +45,7 @@ vi.mock("@/services/reporting/integrations/outbound-webhooks", () => ({
 
 import { prisma } from "@/lib/db";
 import { fakeOf } from "../helpers/fake-config-db";
-import { sealSecret } from "@/lib/integrations/secret-field";
+import { sealSecret } from "@/server/data/sealing";
 import { runReportingPipeline } from "@/services/reporting/reporter";
 
 const db = fakeOf(prisma);

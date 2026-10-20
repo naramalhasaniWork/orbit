@@ -1,9 +1,9 @@
 import type { NextRequest } from "next/server";
 import type { z, ZodTypeAny } from "zod";
 import type { Logger } from "pino";
-import type { prisma } from "@/lib/db";
 import type { MemberRole, Permission } from "@/lib/auth/permissions";
 import type { OrbitSession } from "@/lib/utils/types";
+import type { WorkspaceScope } from "@/server/data/scope";
 
 /** Throws AuthError when the signature does not verify. Gets the raw body, since signatures cover exact bytes. */
 export type WebhookVerifier = (req: NextRequest, rawBody: string) => void | Promise<void>;
@@ -57,17 +57,18 @@ interface BaseContext<S> {
   rawBody: string | null;
   requestId: string;
   log: Logger;
-  db: typeof prisma;
 }
 
 interface WorkspaceContext<A> {
   workspaceId: string;
+  /** The caller's workspace view of the database; `await ctx.db.project(id)` for project rows. */
+  db: WorkspaceScope;
   session: SessionOf<A>;
   auth: AuthInfo<A>;
 }
 
 export type RouteContext<S extends RouteSpec> = BaseContext<S> &
-  (IsAnonymous<AuthOf<S>> extends true ? { auth: null } : WorkspaceContext<AuthOf<S>>);
+  (IsAnonymous<AuthOf<S>> extends true ? { auth: null; db: null } : WorkspaceContext<AuthOf<S>>);
 
 /** A handler returns a Response (apiSuccess/apiError) or a plain value, which is sent as apiSuccess(value). */
 export type RouteHandler<S extends RouteSpec> = (ctx: RouteContext<S>) => unknown;

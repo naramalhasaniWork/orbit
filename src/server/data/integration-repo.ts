@@ -1,5 +1,5 @@
 import { Prisma, type IntegrationStatus } from "@/generated/prisma/client";
-import { openSecret, sealSecret } from "@/lib/integrations/secret-field";
+import { openSecret, sealSecret } from "@/server/data/sealing";
 import { parseIntegrationSettings, type SettingsFor, type TypedProvider } from "@/server/domain/config";
 import { defaultDb, type Db } from "./db";
 import { jsonbMerge } from "./json-patch";

@@ -1,4 +1,4 @@
-import { openSecret, sealSecret } from "@/lib/integrations/secret-field";
+import { openSecret, sealSecret } from "@/server/data/sealing";
 import { LegacyWebhookSchema, PROJECT_SETTINGS_VERSION, parseLegacyList } from "@/server/domain/config";
 import { defaultDb, type Db } from "./db";
 import { recordLegacyRead } from "./legacy-reads";

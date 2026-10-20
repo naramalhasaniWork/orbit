@@ -16,7 +16,7 @@ vi.mock("@/lib/auth/audit", () => ({ auditSettingsChange: vi.fn() }));
 import { resetRouteAuth, routeAuth } from "../helpers/route-auth";
 import { fakeOf } from "../helpers/fake-config-db";
 import { prisma } from "@/lib/db";
-import { openSecret, sealSecret } from "@/lib/integrations/secret-field";
+import { openSecret, sealSecret } from "@/server/data/sealing";
 
 const db = fakeOf(prisma);
 

@@ -1,3 +1,8 @@
+/**
+ * Sealing lives in the data layer: repos seal credentials on write and open them on read, so
+ * nothing above server/data handles ciphertext. lib/vault stays the AES primitive; this file is
+ * the only data-layer door to it.
+ */
 import { decrypt, encrypt } from "@/lib/vault";
 
 export interface SealedSecret {
@@ -27,7 +32,7 @@ export function openSecret(value: unknown): string | null {
     return decrypt(value.encrypted, value.iv);
   } catch (error) {
     console.warn(
-      "[secret-field] Failed to decrypt stored secret:",
+      "[sealing] Failed to decrypt stored secret:",
       error instanceof Error ? error.message : error
     );
     return null;

@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
 
 vi.mock("@/lib/db", () => ({
-  prisma: { testCase: { findFirst: vi.fn() }, environment: { findFirst: vi.fn() } },
+  prisma: { project: { findFirst: vi.fn() }, testCase: { findUnique: vi.fn() }, environment: { findFirst: vi.fn() } },
 }));
 vi.mock("@/server/http/session", async () => (await import("../helpers/route-auth")).sessionMock());
 vi.mock("@/server/http/auth", async (orig) =>
@@ -16,7 +16,11 @@ import { GET } from "@/app/api/projects/[projectId]/test-cases/[testCaseId]/scri
 import { resetRouteAuth, routeAuth } from "../helpers/route-auth";
 
 type Mocked = ReturnType<typeof vi.fn>;
-const db = prisma as unknown as { testCase: { findFirst: Mocked }; environment: { findFirst: Mocked } };
+const db = prisma as unknown as {
+  project: { findFirst: Mocked };
+  testCase: { findUnique: Mocked };
+  environment: { findFirst: Mocked };
+};
 const PROJECT = "11111111-1111-4111-8111-111111111111";
 const CASE = "22222222-2222-4222-8222-222222222222";
 const ENV = "33333333-3333-4333-8333-333333333333";
@@ -31,7 +35,8 @@ describe("GET test-cases/[testCaseId]/script.spec.ts", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     resetRouteAuth();
-    db.testCase.findFirst.mockResolvedValue({ name: "Sign in works", steps: [{ action: "Click Sign in", expected: "Dashboard" }] });
+    db.project.findFirst.mockResolvedValue({ id: PROJECT });
+    db.testCase.findUnique.mockResolvedValue({ name: "Sign in works", steps: [{ action: "Click Sign in", expected: "Dashboard" }] });
     db.environment.findFirst.mockResolvedValue({ url: "https://staging.example.com/" });
     (findLatestLiveScript as Mocked).mockResolvedValue({
       version: 2, envKey: `${ENV}:DEFAULT:1280x720`,
@@ -44,11 +49,14 @@ describe("GET test-cases/[testCaseId]/script.spec.ts", () => {
 
   it("scopes the case to the caller's workspace and the environment to the project", async () => {
     await call();
-    expect(db.testCase.findFirst).toHaveBeenCalledWith(expect.objectContaining({
-      where: { id: CASE, projectId: PROJECT, project: { workspaceId: "ws-1" } },
+    expect(db.project.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: PROJECT, AND: [{ workspaceId: "ws-1" }] },
+    }));
+    expect(db.testCase.findUnique).toHaveBeenCalledWith(expect.objectContaining({
+      where: { id: CASE, AND: [{ projectId: PROJECT }] },
     }));
     expect(db.environment.findFirst).toHaveBeenCalledWith(expect.objectContaining({
-      where: { id: ENV, projectId: PROJECT },
+      where: { id: ENV, AND: [{ projectId: PROJECT }] },
     }));
   });
 
@@ -65,7 +73,10 @@ describe("GET test-cases/[testCaseId]/script.spec.ts", () => {
     (findLatestLiveScript as Mocked).mockResolvedValue(null);
     expect((await call()).status).toBe(404);
 
-    db.testCase.findFirst.mockResolvedValue(null);
+    db.testCase.findUnique.mockResolvedValue(null);
+    expect((await call()).status).toBe(404);
+
+    db.project.findFirst.mockResolvedValue(null);
     expect((await call()).status).toBe(404);
   });
 
