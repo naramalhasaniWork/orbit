@@ -16,6 +16,8 @@ import {
 } from "@/lib/queue/worker-handlers";
 import { handleSchedulerJob } from "@/lib/queue/scheduler-handler";
 import { handlePlanningJob } from "@/lib/queue/planning-handler";
+import { recordJobFailure } from "@/lib/queue/dead-letter";
+import { requestShutdown } from "@/lib/queue/shutdown";
 
 const activeWorkers: Worker[] = [];
 
@@ -64,6 +66,7 @@ export function registerWorkers(): void {
         `[Worker:${worker.name}] Job ${job?.id} failed:`,
         err.message
       );
+      void recordJobFailure(worker.name, job, err);
     });
 
     worker.on("error", (err) => {
@@ -98,6 +101,8 @@ async function registerSchedulerRepeatable(): Promise<void> {
 
 export async function shutdownWorkers(): Promise<void> {
   console.log("[Workers] Shutting down...");
+  // Lets running jobs stop between test cases; close() then waits for them.
+  requestShutdown();
   await Promise.all(activeWorkers.map((w) => w.close()));
   activeWorkers.length = 0;
   console.log("[Workers] All workers shut down");
