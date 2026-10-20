@@ -235,7 +235,7 @@ export function Header({ projects = [], activeProjectId, healthStatus }: HeaderP
         <span className="text-muted-foreground/40 text-sm">/</span>
         <span className="text-sm text-muted-foreground">{title}</span>
 
-        <HealthBadge status={healthStatus ?? (active?.healthStatus as "healthy" | "degraded" | "failing") ?? "healthy"} />
+        <HealthBadge projectStatus={healthStatus ?? active?.healthStatus} />
       </div>
 
       <div className="flex items-center gap-2">
