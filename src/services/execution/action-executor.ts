@@ -1,6 +1,7 @@
 import type { Page } from "playwright";
 import type { ExecutorAction } from "@/agents/schemas/execution-result";
 import { healSelector, persistHealing } from "@/services/execution/self-healer";
+import { getFlag } from "@/lib/system-config";
 import { performAction } from "@/services/execution/action-performer";
 import { classifyError } from "@/services/execution/error-classifier";
 import { prisma } from "@/lib/db";
@@ -80,7 +81,7 @@ export async function executeAction(
       }
 
       // Selector not found — use existing healing cascade
-      if (errorClass === "selector_not_found" && action.selector) {
+      if (errorClass === "selector_not_found" && action.selector && (await getFlag("self_healing"))) {
         const healing = await healSelector(
           page, projectId, action.selector, action.reason ?? action.action, runId
         );
