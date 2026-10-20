@@ -27,10 +27,12 @@ interface OptionalGroup {
   feature: string;
   /** Skip the warning on self-hosted instances. */
   cloudOnly?: boolean;
+  /** Skip the warning when hosted (the variables are required there instead). */
+  selfHostedOnly?: boolean;
 }
 
 const OPTIONAL_GROUPS: OptionalGroup[] = [
-  { vars: ["GITHUB_APP_ID", "GITHUB_APP_PRIVATE_KEY", "GITHUB_APP_SLUG"], feature: "GitHub App installation flow" },
+  { vars: ["GITHUB_APP_ID", "GITHUB_APP_PRIVATE_KEY", "GITHUB_APP_SLUG"], feature: "GitHub App installation flow (public repos still work via GITHUB_TOKEN)", selfHostedOnly: true },
   { vars: ["GITHUB_WEBHOOK_SECRET"], feature: "GitHub webhook signature verification" },
   { vars: ["OPENROUTER_API_KEY"], feature: "OpenRouter model fallback" },
   { vars: ["SLACK_SIGNING_SECRET"], feature: "Slack interactions" },
@@ -76,15 +78,30 @@ export function validateEnv(env: Env = process.env): EnvReport {
   }
 
   const selfHosted = isSelfHosted(env);
+
+  // Hosted Orbit has no operator-token fallback, so repo access needs the GitHub App.
+  // Self-hosted instances can still index public repos without it (warning below).
+  if (!selfHosted) {
+    for (const name of ["GITHUB_APP_ID", "GITHUB_APP_PRIVATE_KEY", "GITHUB_APP_SLUG"]) {
+      if (!isSet(env, name)) errors.push(`${name} is missing (required for GitHub repo access when not self-hosted)`);
+    }
+  }
+
   for (const group of OPTIONAL_GROUPS) {
     if (group.cloudOnly && selfHosted) continue;
+    if (group.selfHostedOnly && !selfHosted) continue;
     if (group.vars.some((name) => isSet(env, name))) continue;
     warnings.push(`${group.vars.join(" / ")} not set: ${group.feature} disabled`);
   }
 
-  if (env.STORAGE_PROVIDER === "s3") {
-    const missing = ["S3_BUCKET", "S3_ACCESS_KEY", "S3_SECRET_KEY"].filter((n) => !isSet(env, n));
-    if (missing.length > 0) errors.push(`STORAGE_PROVIDER=s3 requires ${missing.join(", ")}`);
+  const storage = env.STORAGE_PROVIDER?.trim() || "local";
+  if (!["local", "s3", "r2"].includes(storage)) {
+    errors.push(`STORAGE_PROVIDER=${storage} is not supported (use local, s3 or r2)`);
+  }
+  if (storage === "s3" || storage === "r2") {
+    const needed = ["S3_BUCKET", "S3_ACCESS_KEY", "S3_SECRET_KEY", ...(storage === "r2" ? ["S3_ENDPOINT"] : [])];
+    const missing = needed.filter((n) => !isSet(env, n));
+    if (missing.length > 0) errors.push(`STORAGE_PROVIDER=${storage} requires ${missing.join(", ")}`);
   }
 
   if (selfHosted && getSignupMode(env) === "open") {
