@@ -59,7 +59,8 @@ describe("Closing O", () => {
     expect(markTileSvg("failed", 32)).toContain("<rect x=");
     expect(markTileSvg("passed", 32)).toContain('r="8.5"');
     expect(markTileSvg("running", 32)).toContain('cy="20.5"');
-    expect(markTileSvg("idle", 16)).toContain(SMALL_CUT.arc);
+    expect(markTileSvg("idle", 32)).toContain(SMALL_CUT.arc);
+    expect(markTileSvg("idle", 180)).toContain(DISPLAY_CUT.arc);
   });
 });
 

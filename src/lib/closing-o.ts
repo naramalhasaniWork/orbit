@@ -57,7 +57,8 @@ export const MARK_HEX = {
  * Static by design: favicons are swapped per state, never animated.
  */
 export function markTileSvg(state: ClosingOState, px: number): string {
-  const cut = cutForSize(px);
+  // Tab-sized tiles (browsers draw them at 16px) always take the small cut.
+  const cut = px <= 32 ? SMALL_CUT : DISPLAY_CUT;
   const stroke = +(cut.stroke * 0.96).toFixed(2);
   let mark: string;
   if (state === "running") {
