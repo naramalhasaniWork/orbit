@@ -15,3 +15,8 @@ export function newInviteExpiry(from: Date = new Date()): Date {
 export function normalizeInviteEmail(email: string): string {
   return email.trim().toLowerCase();
 }
+
+/** True when a signed-in user's email differs from the address an invite was sent to. */
+export function isInviteEmailMismatch(inviteEmail: string, signedInEmail: string | null | undefined): boolean {
+  return !!signedInEmail && normalizeInviteEmail(signedInEmail) !== normalizeInviteEmail(inviteEmail);
+}
