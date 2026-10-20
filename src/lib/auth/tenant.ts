@@ -3,6 +3,8 @@
  * Ensures all queries are scoped to the correct workspace.
  */
 
+import { isSelfHosted } from "@/lib/self-host";
+
 /** Returns a Prisma `where` clause that filters by workspace_id. */
 export function withWorkspace(workspaceId: string) {
   return { workspaceId } as const;
@@ -20,7 +22,16 @@ export function withWorkspaceAnd<T extends Record<string, unknown>>(
  * Tier limits configuration.
  * Maps tier names to their resource limits.
  */
-export const TIER_LIMITS = {
+interface TierLimitValues {
+  members: number;
+  projects: number;
+  runsPerMonth: number;
+  monthlyCredits: number;
+  rateLimit: number;
+  allowedModels: readonly string[];
+}
+
+const CLOUD_TIER_LIMITS = {
   free: {
     members: 2,
     projects: 1,
@@ -53,9 +64,19 @@ export const TIER_LIMITS = {
     rateLimit: Infinity,
     allowedModels: ["claude-haiku-4-5-20251001", "claude-sonnet-4-6", "claude-opus-4-6"] as readonly string[],
   },
-} as const;
+} satisfies Record<string, TierLimitValues>;
 
-export type WorkspaceTier = keyof typeof TIER_LIMITS;
+export type WorkspaceTier = keyof typeof CLOUD_TIER_LIMITS;
+
+/** Self-hosted instances have no plans: every tier gets the unlimited enterprise limits. */
+export const TIER_LIMITS: Record<WorkspaceTier, TierLimitValues> = isSelfHosted()
+  ? {
+      free: CLOUD_TIER_LIMITS.enterprise,
+      starter: CLOUD_TIER_LIMITS.enterprise,
+      professional: CLOUD_TIER_LIMITS.enterprise,
+      enterprise: CLOUD_TIER_LIMITS.enterprise,
+    }
+  : CLOUD_TIER_LIMITS;
 
 /** Check if a workspace tier allows a specific model. */
 export function isModelAllowed(tier: WorkspaceTier, model: string): boolean {

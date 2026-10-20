@@ -7,6 +7,13 @@ import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Orbit } from "lucide-react";
 
+const LOGIN_ERRORS: Record<string, string> = {
+  SignupInviteOnly: "This instance is invite-only. Ask a workspace admin to invite you, then sign in again.",
+  SignupClosed: "New sign-ups are disabled on this instance.",
+  EmailDomainNotAllowed: "Your email domain is not allowed to sign in to this instance.",
+  AccessDenied: "Access denied. Your account is not allowed to sign in.",
+};
+
 function isRelativePath(url: string): boolean {
   return url.startsWith("/") && !url.startsWith("//");
 }
@@ -24,6 +31,10 @@ function LoginContent() {
   const rawCallback = searchParams.get("callbackUrl");
   const callbackUrl =
     rawCallback && isRelativePath(rawCallback) ? rawCallback : "/dashboard";
+  const errorCode = searchParams.get("error");
+  const errorMessage = errorCode
+    ? (LOGIN_ERRORS[errorCode] ?? "Sign-in failed. Please try again.")
+    : null;
 
   return (
     <div className="flex min-h-screen items-center justify-center surface-0 relative overflow-hidden">
@@ -77,6 +88,14 @@ function LoginContent() {
           transition={{ delay: 0.3, duration: 0.4 }}
           className="flex flex-col gap-3 w-full"
         >
+          {errorMessage && (
+            <p
+              role="alert"
+              className="rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-400 text-center"
+            >
+              {errorMessage}
+            </p>
+          )}
           <Button
             onClick={() => signIn("github", { callbackUrl })}
             size="lg"

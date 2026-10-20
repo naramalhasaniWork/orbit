@@ -1,9 +1,12 @@
 import { getServerSession } from "next-auth";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { BillingPageClient } from "@/components/billing/billing-page-client";
+import { isSelfHosted } from "@/lib/self-host";
 
 export default async function BillingSettingsPage() {
+  if (isSelfHosted()) notFound();
+
   const session = await getServerSession(authOptions);
   if (!session) redirect("/login");
 

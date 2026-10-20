@@ -9,6 +9,7 @@ import { ChatPanelWrapper } from "@/components/chat/chat-panel-wrapper";
 import { GlobalActivityBar } from "@/components/dashboard/global-activity-bar";
 import { getActiveOperations } from "@/lib/dashboard/active-operations";
 import { SWRProvider } from "@/components/layout/swr-provider";
+import { isSelfHosted } from "@/lib/self-host";
 
 export const dynamic = "force-dynamic";
 
@@ -73,7 +74,7 @@ export default async function DashboardLayout({
   return (
     <SWRProvider fallback={{ "/api/projects": projects }}>
       <div className="flex h-screen surface-0 overflow-hidden">
-        <Sidebar />
+        <Sidebar hideBilling={isSelfHosted()} />
         <div className="flex flex-col flex-1 min-w-0">
           <Suspense>
             <DashboardHeader projects={projects} />
