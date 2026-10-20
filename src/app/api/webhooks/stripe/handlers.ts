@@ -1,7 +1,8 @@
 import { stripe } from "@/lib/stripe/client";
 import { prisma } from "@/lib/db";
 import { syncSubscriptionToWorkspace, downgradeToFree } from "@/lib/stripe/subscriptions";
-import { getMonthlyCreditGrant } from "@/lib/stripe/prices";
+import { getMonthlyCreditGrant, getTierFromPriceId } from "@/lib/stripe/prices";
+import type { WorkspaceTier } from "@/lib/auth/tier-limits";
 import { fulfillCreditPurchase } from "@/lib/stripe/credits";
 import type Stripe from "stripe";
 
@@ -124,19 +125,33 @@ export async function handleInvoicePaid(invoice: Stripe.Invoice) {
     },
   });
 
-  // workspace.monthlyCredits already reflects tier and seat count (synced
-  // from the subscription); unlimited tiers have nothing to grant
-  const tier = workspace.tier;
-  const grant = getMonthlyCreditGrant(tier) === null ? null : workspace.monthlyCredits;
-  if (!grant || grant <= 0) return;
+  // Grant from what this invoice billed, not the synced workspace fields:
+  // the first invoice.paid can arrive before the subscription sync.
+  const plan = getInvoicedPlan(invoice);
+  if (!plan) return; // not a subscription invoice (or unknown price)
+  const grant = getMonthlyCreditGrant(plan.tier, plan.seats);
+  if (!grant || grant <= 0) return; // unlimited tier
 
+  // Stripe retries webhooks: grant at most once per invoice
+  const alreadyGranted = await prisma.creditTransaction.findFirst({
+    where: {
+      workspaceId: workspace.id,
+      type: "monthly_grant",
+      metadata: { path: ["stripeInvoiceId"], equals: invoice.id },
+    },
+    select: { id: true },
+  });
+  if (alreadyGranted) return;
+
+  const seatsLabel = plan.seats > 1 ? `, ${plan.seats} seats` : "";
   await prisma.creditTransaction.create({
     data: {
       workspaceId: workspace.id,
       type: "monthly_grant",
       amount: grant,
       balance: workspace.creditBalance + grant,
-      description: `Monthly credit grant (${tier} plan)`,
+      description: `Monthly credit grant (${plan.tier} plan${seatsLabel})`,
+      metadata: { stripeInvoiceId: invoice.id, tier: plan.tier, seats: plan.seats },
     },
   });
 
@@ -144,6 +159,22 @@ export async function handleInvoicePaid(invoice: Stripe.Invoice) {
     where: { id: workspace.id },
     data: { creditBalance: { increment: grant } },
   });
+}
+
+/**
+ * Tier and seat count an invoice billed: the first non-proration
+ * subscription line whose price maps to a tier.
+ */
+function getInvoicedPlan(invoice: Stripe.Invoice): { tier: WorkspaceTier; seats: number } | null {
+  for (const line of invoice.lines?.data ?? []) {
+    const item = line.parent?.subscription_item_details;
+    if (!item || item.proration) continue;
+    const price = line.pricing?.price_details?.price;
+    const priceId = typeof price === "string" ? price : price?.id;
+    const tier = priceId ? getTierFromPriceId(priceId) : null;
+    if (tier) return { tier, seats: line.quantity ?? 1 };
+  }
+  return null;
 }
 
 export async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {

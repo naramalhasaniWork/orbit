@@ -9,10 +9,11 @@ import {
 import { publish, channels } from "@/lib/redis/pubsub";
 import { validateEnvironment } from "@/services/execution/environment-validator";
 import { isTestQuarantined } from "@/services/execution/flaky-registry";
-import { executeTestCase } from "@/services/execution/test-case-executor";
-import { executeApiTestCase } from "@/services/execution/api-test-executor";
+import { executeCaseByType } from "@/services/execution/case-dispatcher";
 import { loadTestCases } from "@/services/execution/test-case-loader";
 import { chargeRunCredits } from "@/lib/billing/run-credits";
+import { saveTestResult } from "@/services/execution/test-result-store";
+import { clearRunToolCallCount } from "@/services/mcp/tool-injector";
 import type { StorageState } from "@/services/execution/browser-manager";
 import { isRunCancelled } from "@/services/orchestrator/run-manager";
 import { executeParallel } from "@/services/orchestrator/parallel-executor";
@@ -48,6 +49,7 @@ export async function executeRun(options: RunOptions): Promise<void> {
       console.error(`[Runner] Could not mark run ${runId} failed:`, failErr)
     );
   } finally {
+    clearRunToolCallCount(runId);
     await releaseLock(lock);
   }
 }
@@ -151,20 +153,10 @@ async function executeRunInner(options: RunOptions): Promise<void> {
       const useAuth = !needsFreshBrowser && !isLoginTest && authState ? authState : undefined;
       const roleCredentials = resolveRoleCredentials(validation.credentials, testCase.requiredRole);
 
-      // API contract tests run over plain HTTP — no browser, no per-step
-      // LLM loop. Falls back to the browser when the plan needs UI.
-      let result =
-        testCase.type === "api_contract"
-          ? await executeApiTestCase(
-              runId, testCase, validation.environmentUrl, roleCredentials
-            )
-          : null;
-      if (!result) {
-        result = await executeTestCase(
-          runId, testCase, validation.environmentUrl, roleCredentials,
-          { storageState: useAuth }
-        );
-      }
+      const result = await executeCaseByType(
+        runId, testCase, validation.environmentUrl, roleCredentials,
+        { storageState: useAuth }
+      );
 
       // Always update auth state from passing tests (not just first time)
       if (result.storageState) {
@@ -351,7 +343,8 @@ export async function runTestSuiteParallel(
     return;
   }
 
-  const result = await executeParallel({ runId, testPlanId, environmentId: run.environmentId, mode, maxConcurrency });
+  const result = await executeParallel({ runId, testPlanId, environmentId: run.environmentId, mode, maxConcurrency })
+    .finally(() => clearRunToolCallCount(runId));
   if (result.cancelled) {
     await prisma.testRun.update({ where: { id: runId }, data: { status: "cancelled", completedAt: new Date() } });
     await chargeRunCredits(runId);
@@ -360,41 +353,6 @@ export async function runTestSuiteParallel(
 
   const totalTests = result.passed + result.failed + result.flaky + result.skipped;
   await completeRun(runId, totalTests, result);
-}
-
-const SAVE_RESULT_MAX_RETRIES = 3;
-const SAVE_RESULT_BASE_DELAY_MS = 500;
-
-async function saveTestResult(
-  runId: string, testCaseId: string, verdict: TestVerdict, durationMs: number,
-  steps: Array<Record<string, unknown>>, artifacts: Record<string, string>, healedSelectors: string[]
-): Promise<void> {
-  const data = {
-    testRunId: runId, testCaseId, verdict, durationMs,
-    steps: JSON.parse(JSON.stringify(steps)),
-    artifacts: JSON.parse(JSON.stringify(artifacts)),
-    healedSelectors: JSON.parse(JSON.stringify(healedSelectors)),
-  };
-
-  for (let attempt = 1; attempt <= SAVE_RESULT_MAX_RETRIES; attempt++) {
-    try {
-      await prisma.testResult.create({ data });
-      return;
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      if (attempt < SAVE_RESULT_MAX_RETRIES) {
-        const delay = SAVE_RESULT_BASE_DELAY_MS * Math.pow(2, attempt - 1);
-        console.warn(`[Runner] saveTestResult attempt ${attempt}/${SAVE_RESULT_MAX_RETRIES} failed: ${msg} — retrying in ${delay}ms`);
-        await new Promise((r) => setTimeout(r, delay));
-      } else {
-        console.error(
-          `[Runner] CRITICAL: saveTestResult failed after ${SAVE_RESULT_MAX_RETRIES} attempts. ` +
-          `Data lost for run=${runId} test=${testCaseId} verdict=${verdict}. Error: ${msg}. ` +
-          `Full result: ${JSON.stringify(data)}`
-        );
-      }
-    }
-  }
 }
 
 /**
