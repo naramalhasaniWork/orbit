@@ -1,3 +1,4 @@
+import { assertPublicUrl, UnsafeUrlError } from "@/lib/utils/ssrf";
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { requirePermission } from "@/lib/auth/rbac";
@@ -38,6 +39,19 @@ export async function PUT(
 
     const body = (await request.json()) as PutBody;
     const { displayName, apiKey, baseUrl, isActive, isDefault, settings } = body;
+
+    // baseUrl is later called with the API key attached: reject internal targets up front
+    // (the test route re-checks at call time)
+    if (baseUrl) {
+      try {
+        await assertPublicUrl(baseUrl);
+      } catch (err) {
+        if (err instanceof UnsafeUrlError) {
+          return apiError(`Base URL is not allowed: ${err.message}`, "VALIDATION_ERROR", 400);
+        }
+        throw err;
+      }
+    }
 
     let apiKeyEncrypted: string | null | undefined;
     if (apiKey !== undefined) {
