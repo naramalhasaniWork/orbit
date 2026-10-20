@@ -40,6 +40,7 @@ interface AnalyticsData {
   models: ModelBreakdown[];
   projects: ProjectBreakdown[];
   daily: DailySpend[];
+  alerts: UsageAlert[];
 }
 
 interface CostDashboardProps {
@@ -48,7 +49,6 @@ interface CostDashboardProps {
 
 export function CostDashboard({ workspaceId }: CostDashboardProps) {
   const [data, setData] = useState<AnalyticsData | null>(null);
-  const [alerts] = useState<UsageAlert[]>([]);
   const [loading, setLoading] = useState(true);
   const [showPurchase, setShowPurchase] = useState(false);
   const [period, setPeriod] = useState<"7d" | "30d" | "90d">("30d");
@@ -95,7 +95,7 @@ export function CostDashboard({ workspaceId }: CostDashboardProps) {
   return (
     <div className="space-y-6">
       {/* Alerts */}
-      {alerts.map((alert) => (
+      {data.alerts.map((alert) => (
         <AlertBanner key={alert.id} alert={alert} />
       ))}
 
