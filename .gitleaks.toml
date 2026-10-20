@@ -1,0 +1,29 @@
+title = "Orbit gitleaks config"
+
+[extend]
+useDefault = true
+
+# Default rules miss connection strings with an inline password.
+[[rules]]
+id = "url-inline-credentials"
+description = "Connection URL with an inline password (scheme://user:pass@host)"
+regex = '''(?i)\b(?:postgres(?:ql)?|redis|rediss|mysql|mongodb(?:\+srv)?|amqps?):\/\/([^\s:@\/"'`<>]+):([^\s@\/"'`<>]{3,})@[^\s"'`<>]+'''
+secretGroup = 2
+keywords = ["postgres", "redis", "mysql", "mongodb", "amqp"]
+
+  [[rules.allowlists]]
+  regexTarget = "secret"
+  regexes = [
+    '''^\*+$''',
+    '''^<[^>]*>$''',
+    '''^\$\{+[^}]*\}+$''',
+    '''^\$[A-Za-z_]+$''',
+    '''^(?i:pass(?:word)?|pw|secret|changeme|your-?password|xxx+|x+)$''',
+  ]
+
+  [[rules.allowlists]]
+  regexTarget = "match"
+  regexes = [
+    '''(?i)postgres(?:ql)?:\/\/postgres:postgres@(?:localhost|127\.0\.0\.1)''',
+    '''(?i)postgres(?:ql)?:\/\/user:pass@host''',
+  ]
