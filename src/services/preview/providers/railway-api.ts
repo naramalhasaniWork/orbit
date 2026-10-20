@@ -19,8 +19,11 @@ export const RAILWAY_DEPLOYMENT_STATUS = {
   gone: new Set(["REMOVED", "REMOVING"]),
 } as const;
 
-/** UNVERIFIED: webhook event types that mean the deployment or environment was removed. */
-export const RAILWAY_REMOVED_EVENTS = new Set(["Deployment.removed", "Deployment.deleted", "Environment.deleted"]);
+/**
+ * UNVERIFIED: webhook event types (besides Deployment.*) worth a look. They only trigger a
+ * re-check; whether anything is gone is decided by deployment status from the API.
+ */
+export const RAILWAY_EXTRA_EVENTS = new Set(["Environment.deleted"]);
 
 /**
  * UNVERIFIED: `projects` with a workspace token. Railway documents that workspace tokens
@@ -39,6 +42,11 @@ const DOMAINS_QUERY = `query domains($projectId: String!, $environmentId: String
     serviceDomains { domain }
     customDomains { domain }
   }
+}`;
+
+/** UNVERIFIED: `deployment(id)` exposes projectId, serviceId, environmentId and meta.{branch,commitHash}. */
+const DEPLOYMENT_QUERY = `query deployment($id: String!) {
+  deployment(id: $id) { id status projectId serviceId environmentId meta }
 }`;
 
 const ENVIRONMENTS_QUERY = `query project($id: String!) {
@@ -111,4 +119,30 @@ export async function environmentDomain(
   const domains = result.data?.domains;
   const domain = domains?.serviceDomains[0]?.domain ?? domains?.customDomains[0]?.domain ?? null;
   return domain ? `https://${domain}` : null;
+}
+
+export interface RailwayDeploymentDetail {
+  id: string;
+  status: string;
+  projectId: string;
+  serviceId: string;
+  environmentId: string;
+  branch: string | null;
+  commitHash: string | null;
+}
+
+export async function getDeployment(token: string, id: string): Promise<RailwayDeploymentDetail | null> {
+  const result = await railwayGraphQL<{
+    deployment: {
+      id: string; status: string; projectId: string; serviceId: string; environmentId: string;
+      meta: Record<string, unknown> | null;
+    } | null;
+  }>(token, DEPLOYMENT_QUERY, { id });
+  const d = result.data?.deployment;
+  if (!d) return null;
+  const text = (v: unknown) => (typeof v === "string" && v ? v : null);
+  return {
+    id: d.id, status: d.status, projectId: d.projectId, serviceId: d.serviceId, environmentId: d.environmentId,
+    branch: text(d.meta?.branch), commitHash: text(d.meta?.commitHash)?.toLowerCase() ?? null,
+  };
 }

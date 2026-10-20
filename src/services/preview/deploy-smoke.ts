@@ -1,24 +1,23 @@
 import { prisma } from "@/lib/db";
 import type { IntegrationProvider, Prisma } from "@/generated/prisma/client";
 import { launchPipelineRun, launchSummary } from "@/services/orchestrator/run-launcher";
-import type { PreviewHint } from "./types";
+import type { VerifiedDeploy } from "./types";
 
 /**
- * A successful deploy of a long-lived (non-PR) environment triggers a smoke run on each bound
- * project's default environment, as the old Railway webhook did. Provider webhooks are
- * delivered at least once, so the deployment id is recorded and repeats are skipped.
+ * A successful deploy of a long-lived (non-PR) environment triggers a smoke run on the bound
+ * project's default environment, as the old Railway webhook did. Only deployments the provider
+ * API confirmed reach here. Webhooks are delivered at least once, so each verified deployment
+ * id is recorded and repeats are skipped.
  */
 export async function launchDeploySmokeRuns(
   provider: IntegrationProvider,
-  bindings: Array<{ projectId: string }>,
-  hint: PreviewHint
+  deploys: Array<VerifiedDeploy & { projectId: string }>
 ): Promise<Array<Record<string, string>>> {
-  if (hint.isPreview || !hint.succeeded || !hint.externalId) return [];
-
   const results: Array<Record<string, string>> = [];
-  for (const { projectId } of bindings) {
+  for (const deploy of deploys) {
+    const { projectId, deploymentId } = deploy;
     const seen = await prisma.webhookEvent.findFirst({
-      where: { projectId, provider, externalId: hint.externalId, status: "processed" },
+      where: { projectId, provider, externalId: deploymentId, status: "processed" },
       select: { id: true },
     });
     if (seen) continue;
@@ -27,22 +26,21 @@ export async function launchDeploySmokeRuns(
       data: {
         projectId,
         provider,
-        event: hint.event,
-        externalId: hint.externalId,
-        payload: { ...hint } as unknown as Prisma.InputJsonValue,
+        event: "deploy.verified",
+        externalId: deploymentId,
+        payload: { ...deploy } as unknown as Prisma.InputJsonValue,
         status: "processed",
         processedAt: new Date(),
       },
     });
 
-    const project = await prisma.project.findUnique({ where: { id: projectId }, select: { defaultBranch: true } });
     const launched = await launchPipelineRun({
       projectId,
       mode: "smoke",
       trigger: "deploy",
-      branch: hint.branch ?? project?.defaultBranch ?? "main",
-      commitSha: hint.commitSha,
-      metadata: { provider, deploymentId: hint.externalId, ...hint.refs } as Prisma.InputJsonValue,
+      branch: deploy.branch ?? undefined,
+      commitSha: deploy.commitSha,
+      metadata: { provider, deploymentId } as Prisma.InputJsonValue,
     });
     results.push({ projectId, ...launchSummary(launched) });
   }

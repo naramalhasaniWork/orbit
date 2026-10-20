@@ -49,7 +49,9 @@ result on the PR. Without this, PRs are tested against the project's default env
    long-lived Railway environments (production, staging). PR environments are not imported.
 
 Successful deploys of long-lived environments (not PR environments) start a smoke run on the
-project's default environment, once per deployment.
+project's default environment, once per deployment. Orbit first fetches that deployment from the
+Railway API and only runs if it belongs to the bound service, succeeded and is not a PR
+environment; branch and commit come from the API, not the webhook body.
 
 ## Notes
 
@@ -58,5 +60,6 @@ project's default environment, once per deployment.
 - `/api/webhooks/railway?connection=<connection-id>` is kept as an alias of the URL above.
 - Not yet verified against a live Railway account (all isolated in
   `src/services/preview/providers/railway-api.ts`): the deployment status values
-  (`SUCCESS`, `FAILED`, `CRASHED`, `REMOVED`), the removal event names, listing projects with a
-  workspace token, `deployments(...).meta.commitHash`, and the `domains` query.
+  (`SUCCESS`, `FAILED`, `CRASHED`, `REMOVED`), listing projects with a workspace token,
+  `deployments(...).meta.commitHash`, `deployment(id)` with its project/service/environment ids
+  and `meta.branch`, and the `domains` query.

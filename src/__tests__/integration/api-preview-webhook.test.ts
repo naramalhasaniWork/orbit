@@ -10,6 +10,12 @@ const handleProviderSignal = vi.hoisted(() => vi.fn());
 vi.mock("@/services/preview/coordinator", () => ({ handleProviderSignal }));
 const launchDeploySmokeRuns = vi.hoisted(() => vi.fn());
 vi.mock("@/services/preview/deploy-smoke", () => ({ launchDeploySmokeRuns }));
+vi.mock("@/lib/vault", () => ({ encrypt: vi.fn(), decrypt: (v: string) => v }));
+const railwayApi = vi.hoisted(() => ({ getDeployment: vi.fn(), listEphemeralEnvironments: vi.fn() }));
+vi.mock("@/services/preview/providers/railway-api", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/services/preview/providers/railway-api")>()),
+  ...railwayApi,
+}));
 
 import { POST } from "@/app/api/webhooks/preview/[provider]/[connectionId]/route";
 import { POST as legacyPOST } from "@/app/api/webhooks/railway/route";
@@ -20,6 +26,8 @@ const { token, hash } = generateWebhookToken();
 const connection = {
   id: CONNECTION_ID,
   webhookTokenHash: hash,
+  credentials: { encryptedToken: "railway-token", iv: "iv" },
+  config: {},
   bindings: [{ projectId: "p1", targetRef: "rw-project-1/rw-service-web" }],
 };
 
@@ -68,18 +76,38 @@ describe("POST /api/webhooks/preview/[provider]/[connectionId]", () => {
     );
   });
 
-  it("starts deploy smoke runs only for bindings on the deployed Railway project", async () => {
+  it("starts a smoke run only for a deployment the Railway API confirms, with the API's commit", async () => {
     findFirst.mockResolvedValueOnce({
       ...connection,
       bindings: [...connection.bindings, { projectId: "p2", targetRef: "other-project/svc" }],
     });
+    railwayApi.listEphemeralEnvironments.mockResolvedValue(["rw-env-pr-42"]);
+    railwayApi.getDeployment.mockResolvedValue({
+      id: "d7b1c2e0-0000-4000-8000-000000000002", status: "SUCCESS", projectId: "rw-project-1",
+      serviceId: "rw-service-web", environmentId: "rw-env-production", branch: "main", commitHash: "api-sha",
+    });
+
     await call(railwayProd, { "x-orbit-token": token });
-    expect(launchDeploySmokeRuns).toHaveBeenCalledWith(
-      "railway",
-      [{ projectId: "p1", targetRef: "rw-project-1/rw-service-web" }],
-      expect.objectContaining({ isPreview: false })
-    );
+
+    expect(railwayApi.getDeployment).toHaveBeenCalledWith("railway-token", "d7b1c2e0-0000-4000-8000-000000000002");
+    expect(launchDeploySmokeRuns).toHaveBeenCalledWith("railway", [
+      { projectId: "p1", deploymentId: "d7b1c2e0-0000-4000-8000-000000000002", branch: "main", commitSha: "api-sha" },
+    ]);
     expect(handleProviderSignal).not.toHaveBeenCalled();
+  });
+
+  it("starts no run for a forged deploy event the API does not back up", async () => {
+    railwayApi.listEphemeralEnvironments.mockResolvedValue(["rw-env-pr-42"]);
+    const real = {
+      id: "d7b1c2e0-0000-4000-8000-000000000002", status: "SUCCESS", projectId: "rw-project-1",
+      serviceId: "rw-service-web", environmentId: "rw-env-production", branch: "main", commitHash: "x",
+    };
+    // Claimed long-lived, but really a PR environment; still building; unknown deployment id.
+    for (const api of [{ ...real, environmentId: "rw-env-pr-42" }, { ...real, status: "BUILDING" }, null]) {
+      railwayApi.getDeployment.mockResolvedValueOnce(api);
+      await call(railwayProd, { "x-orbit-token": token });
+    }
+    expect(launchDeploySmokeRuns.mock.calls.every(([, deploys]) => deploys.length === 0)).toBe(true);
   });
 
   it("ignores payloads in the old, undocumented shape", async () => {

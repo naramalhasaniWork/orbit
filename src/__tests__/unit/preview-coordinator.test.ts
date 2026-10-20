@@ -1,23 +1,24 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const db = vi.hoisted(() => ({
-  previewDeployment: { findUnique: vi.fn(), findMany: vi.fn(), updateMany: vi.fn(), update: vi.fn() },
+  previewDeployment: { findUnique: vi.fn(), findMany: vi.fn(), updateMany: vi.fn(), update: vi.fn(), create: vi.fn() },
+  previewConnection: { findUnique: vi.fn() },
+  previewBinding: { findUnique: vi.fn() },
   environment: { findFirst: vi.fn(), create: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
 }));
 vi.mock("@/lib/db", () => ({ prisma: db }));
 const launchPipelineRun = vi.hoisted(() => vi.fn());
 vi.mock("@/services/orchestrator/run-launcher", () => ({ launchPipelineRun }));
 const upsertCheckRun = vi.hoisted(() => vi.fn());
-vi.mock("@/services/reporting/integrations/github-checks", () => ({
-  upsertCheckRun,
-  findOpenPullRequestsForCommit: vi.fn().mockResolvedValue([]),
-}));
+const findOpenPullRequestsForCommit = vi.hoisted(() => vi.fn());
+vi.mock("@/services/reporting/integrations/github-checks", () => ({ upsertCheckRun, findOpenPullRequestsForCommit }));
 const resolve = vi.hoisted(() => vi.fn());
 vi.mock("@/services/preview/registry", () => ({ getPreviewProvider: () => ({ id: "railway", resolve }) }));
 vi.mock("@/services/preview/connections", () => ({ connectionAccess: () => ({ token: "t", config: {} }) }));
 vi.mock("@/lib/utils/ssrf", () => ({ assertPublicUrl: vi.fn().mockResolvedValue(undefined), UnsafeUrlError: Error }));
 
-import { advancePreviewDeployment, closePreviewsForPullRequest } from "@/services/preview/coordinator";
+import { advancePreviewDeployment, closePreviewsForPullRequest, handleProviderSignal } from "@/services/preview/coordinator";
+import type { PreviewHint } from "@/services/preview/types";
 
 function row(overrides: Record<string, unknown> = {}) {
   return {
@@ -108,5 +109,49 @@ describe("closePreviewsForPullRequest", () => {
     expect(db.environment.updateMany).toHaveBeenCalledWith(expect.objectContaining({
       where: expect.objectContaining({ projectId: "p1", source: "preview", sourceId: { endsWith: ":42" } }),
     }));
+  });
+});
+
+describe("handleProviderSignal with forged webhook bodies", () => {
+  const hint: PreviewHint = {
+    event: "Deployment.succeeded", externalId: "dep-x", commitSha: "ABC", branch: "feat", isPreview: true,
+    refs: { projectId: "rp", environmentId: "attacker-env" },
+  };
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    db.previewConnection.findUnique.mockResolvedValue({
+      provider: "railway", credentials: {}, config: {}, bindings: [{ id: "b1", projectId: "p1", targetRef: "rp/rs" }],
+    });
+  });
+
+  it("does nothing without a commit: no fan-out to every pending row", async () => {
+    expect(await handleProviderSignal("c1", { ...hint, commitSha: null })).toEqual({ advanced: 0 });
+    expect(db.previewDeployment.findUnique).not.toHaveBeenCalled();
+    expect(db.previewDeployment.updateMany).not.toHaveBeenCalled();
+  });
+
+  it("does not create a row for an untracked commit the provider API has no deployment for", async () => {
+    db.previewDeployment.findUnique.mockResolvedValue(null);
+    resolve.mockResolvedValue({ state: "pending" });
+    findOpenPullRequestsForCommit.mockResolvedValue([{ number: 9, branch: "feat" }]);
+
+    expect(await handleProviderSignal("c1", hint)).toEqual({ advanced: 0 });
+    expect(db.previewDeployment.create).not.toHaveBeenCalled();
+    expect(launchPipelineRun).not.toHaveBeenCalled();
+  });
+
+  it("a fake 'removed' event with a wrong environment leaves a pending row pending", async () => {
+    db.previewDeployment.findUnique
+      .mockResolvedValueOnce({ id: "pd1", status: "pending" })
+      .mockResolvedValueOnce(row());
+    resolve.mockResolvedValue({ state: "pending" }); // the API still sees the build running
+
+    await handleProviderSignal("c1", { ...hint, event: "Environment.deleted" });
+
+    expect(resolve).toHaveBeenCalledWith(expect.objectContaining({ commitSha: "abc", hint: expect.objectContaining({ event: "Environment.deleted" }) }));
+    expect(db.previewDeployment.updateMany).not.toHaveBeenCalled();
+    expect(launchPipelineRun).not.toHaveBeenCalled();
+    expect(upsertCheckRun).not.toHaveBeenCalled();
   });
 });

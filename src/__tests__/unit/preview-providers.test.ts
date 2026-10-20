@@ -11,6 +11,7 @@ const api = vi.hoisted(() => ({
   listDeployments: vi.fn(),
   environmentDomain: vi.fn(),
   listProjectsWithServices: vi.fn(),
+  getDeployment: vi.fn(),
 }));
 vi.mock("@/services/preview/providers/railway-api", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/services/preview/providers/railway-api")>()),
@@ -31,14 +32,12 @@ describe("Railway webhook parsing", () => {
       commitSha: SHA,
       branch: "feature/checkout",
       isPreview: true,
-      removed: false,
-      succeeded: true,
       refs: { projectId: "rw-project-1", environmentId: "rw-env-pr-42", serviceId: "rw-service-web" },
     });
   });
 
   it("marks long-lived environments as not previews", () => {
-    expect(parseRailwayEvent(railwayProd)).toMatchObject({ isPreview: false, succeeded: true });
+    expect(parseRailwayEvent(railwayProd)).toMatchObject({ isPreview: false });
   });
 
   it("ignores the old payload shape the previous handler expected, URL and all", () => {
@@ -46,12 +45,39 @@ describe("Railway webhook parsing", () => {
     expect(parseRailwayEvent("nope")).toBeNull();
   });
 
-  it("matches bindings by Railway project and service", () => {
-    const hint = parseRailwayEvent(railwayPr)!;
-    expect(railwayProvider.matchesTarget!("rw-project-1/rw-service-web", hint)).toBe(true);
-    expect(railwayProvider.matchesTarget!("rw-project-1/rw-service-api", hint)).toBe(false);
-    expect(railwayProvider.matchesTarget!("rw-project-2/rw-service-web", hint)).toBe(false);
+  it("rejects malformed targets", () => {
     expect(parseRailwayTarget("a/b/c")).toBeNull();
+    expect(parseRailwayTarget("a")).toBeNull();
+  });
+});
+
+describe("Railway verifyDeploy (non-PR deploy webhooks)", () => {
+  const hint = parseRailwayEvent(railwayProd)!;
+  const deployment = {
+    id: hint.externalId, status: "SUCCESS", projectId: "rw-project-1", serviceId: "rw-service-web",
+    environmentId: "rw-env-production", branch: "main-from-api", commitHash: "c0ffee",
+  };
+  beforeEach(() => {
+    vi.clearAllMocks();
+    api.listEphemeralEnvironments.mockResolvedValue(["rw-env-pr-42"]);
+  });
+
+  it("returns the API's branch and commit for a successful long-lived deployment of the target", async () => {
+    api.getDeployment.mockResolvedValue(deployment);
+    expect(await railwayProvider.verifyDeploy!(access, "rw-project-1/rw-service-web", hint)).toEqual({
+      deploymentId: hint.externalId, branch: "main-from-api", commitSha: "c0ffee",
+    });
+  });
+
+  it("rejects deployments of another service, not successful, in a PR environment, or unknown", async () => {
+    api.getDeployment.mockResolvedValueOnce({ ...deployment, serviceId: "rw-service-api" });
+    expect(await railwayProvider.verifyDeploy!(access, "rw-project-1/rw-service-web", hint)).toBeNull();
+    api.getDeployment.mockResolvedValueOnce({ ...deployment, status: "BUILDING" });
+    expect(await railwayProvider.verifyDeploy!(access, "rw-project-1/rw-service-web", hint)).toBeNull();
+    api.getDeployment.mockResolvedValueOnce({ ...deployment, environmentId: "rw-env-pr-42" });
+    expect(await railwayProvider.verifyDeploy!(access, "rw-project-1/rw-service-web", hint)).toBeNull();
+    api.getDeployment.mockResolvedValueOnce(null);
+    expect(await railwayProvider.verifyDeploy!(access, "rw-project-1/rw-service-web", hint)).toBeNull();
   });
 });
 
@@ -72,12 +98,18 @@ describe("Railway resolve", () => {
     expect(api.environmentDomain).toHaveBeenCalledWith("t", "p1", "env-b", "s1");
   });
 
-  it("only looks at the hinted environment when a webhook names one", async () => {
+  it("narrows to the hinted environment only when the API lists it as a PR environment", async () => {
+    api.listEphemeralEnvironments.mockResolvedValue(["rw-env-pr-42", "env-other"]);
     api.listDeployments.mockResolvedValue([{ id: "dep-1", status: "BUILDING", createdAt: "", commitHash: SHA }]);
     const hint = parseRailwayEvent(railwayPr)!;
-    const result = await railwayProvider.resolve({ access, targetRef: "rw-project-1/rw-service-web", commitSha: SHA, hint });
-    expect(result).toEqual({ state: "pending" });
-    expect(api.listEphemeralEnvironments).not.toHaveBeenCalled();
+    expect(await railwayProvider.resolve({ access, targetRef: "rw-project-1/rw-service-web", commitSha: SHA, hint })).toEqual({ state: "pending" });
+    expect(api.listDeployments).toHaveBeenCalledTimes(1);
+
+    // A forged environment id is ignored: every API-listed PR environment is scanned instead.
+    api.listDeployments.mockClear().mockResolvedValue([]);
+    const forged = { ...hint, refs: { ...hint.refs, environmentId: "attacker-env" } };
+    await railwayProvider.resolve({ access, targetRef: "rw-project-1/rw-service-web", commitSha: SHA, hint: forged });
+    expect(api.listDeployments.mock.calls.map((c) => c[2])).toEqual(["rw-env-pr-42", "env-other"]);
   });
 
   it("fails with an explanation when the PR environment has no domain", async () => {

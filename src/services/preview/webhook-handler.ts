@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { webhookTokenMatches } from "./connections";
+import { connectionAccess, webhookTokenMatches } from "./connections";
 import { getPreviewProvider } from "./registry";
 import { handleProviderSignal } from "./coordinator";
 import { launchDeploySmokeRuns } from "./deploy-smoke";
-import { PREVIEW_PROVIDER_IDS } from "./types";
+import { PREVIEW_PROVIDER_IDS, type VerifiedDeploy } from "./types";
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const MAX_BODY_BYTES = 256 * 1024;
@@ -26,7 +26,10 @@ export async function handlePreviewWebhook(req: NextRequest, providerId: string,
     connectionId && UUID_RE.test(connectionId)
       ? await prisma.previewConnection.findFirst({
           where: { id: connectionId, provider: provider.id },
-          select: { id: true, webhookTokenHash: true, bindings: { select: { projectId: true, targetRef: true } } },
+          select: {
+            id: true, webhookTokenHash: true, credentials: true, config: true,
+            bindings: { select: { projectId: true, targetRef: true } },
+          },
         })
       : null;
   if (!connection || !webhookTokenMatches(req.headers.get("x-orbit-token"), connection.webhookTokenHash)) {
@@ -48,11 +51,18 @@ export async function handlePreviewWebhook(req: NextRequest, providerId: string,
   if (!hint) return NextResponse.json({ status: "ignored" });
 
   if (!hint.isPreview) {
-    const bindings = connection.bindings.filter((b) => provider.matchesTarget?.(b.targetRef, hint) ?? true);
-    const smoke = provider.id === PREVIEW_PROVIDER_IDS.railway
-      ? await launchDeploySmokeRuns("railway", bindings, hint)
-      : [];
-    return NextResponse.json({ status: "deploy_processed", event: hint.event, runs: smoke });
+    // Smoke runs only for a deployment the Railway API confirms: right project/service,
+    // succeeded, not a PR environment. Branch and commit come from the API, not the body.
+    const access = connectionAccess(connection);
+    const verified: Array<VerifiedDeploy & { projectId: string }> = [];
+    if (access && provider.verifyDeploy) {
+      for (const binding of connection.bindings) {
+        const deploy = await provider.verifyDeploy(access, binding.targetRef, hint);
+        if (deploy) verified.push({ projectId: binding.projectId, ...deploy });
+      }
+    }
+    const runs = provider.id === PREVIEW_PROVIDER_IDS.railway ? await launchDeploySmokeRuns("railway", verified) : [];
+    return NextResponse.json({ status: "deploy_processed", event: hint.event, runs });
   }
 
   const { advanced } = await handleProviderSignal(connection.id, hint);

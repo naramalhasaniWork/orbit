@@ -36,7 +36,11 @@ export interface PreviewTarget {
   label: string;
 }
 
-/** What a provider webhook told us, after parsing. Never trusted for the URL. */
+/**
+ * What a provider webhook told us, after parsing. Webhooks are unsigned hints: no field here
+ * may scope which rows change or decide a transition. Everything is re-read from the provider
+ * API (resolve / verifyDeploy) with the connection's own credentials.
+ */
 export interface PreviewHint {
   /** Provider event name, e.g. "Deployment.succeeded" */
   event: string;
@@ -45,12 +49,15 @@ export interface PreviewHint {
   branch: string | null;
   /** True for a PR/preview environment, false for a long-lived one (production, staging) */
   isPreview: boolean;
-  /** The event reports the deployment or its environment was removed */
-  removed: boolean;
-  /** The event reports a successful deployment (still re-checked via the API for previews) */
-  succeeded: boolean;
-  /** Provider-specific ids used to match bindings and to resolve, e.g. Railway environment id */
+  /** Provider-specific ids, e.g. the Railway environment id; only used after API validation */
   refs: Record<string, string>;
+}
+
+/** A long-lived (non-PR) deployment confirmed by the provider API, with API-sourced facts. */
+export interface VerifiedDeploy {
+  deploymentId: string;
+  branch: string | null;
+  commitSha: string | null;
 }
 
 export interface ResolveInput {
@@ -73,8 +80,11 @@ export interface PreviewProvider {
   listTargets(access: ProviderAccess): Promise<PreviewTarget[]>;
   /** Parse a webhook body. Returns null for events Orbit ignores. Providers without webhooks omit it. */
   parseEvent?(body: unknown): PreviewHint | null;
-  /** True when a hint concerns this binding's target. */
-  matchesTarget?(targetRef: string, hint: PreviewHint): boolean;
+  /**
+   * For a non-preview deploy event: fetch the deployment named by the hint from the API and
+   * return it only if it belongs to this target, succeeded and is not a PR environment.
+   */
+  verifyDeploy?(access: ProviderAccess, targetRef: string, hint: PreviewHint): Promise<VerifiedDeploy | null>;
   /** Ask the provider API for the preview of one commit. */
   resolve(input: ResolveInput): Promise<ResolveResult>;
 }

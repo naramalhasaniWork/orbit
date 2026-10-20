@@ -7,7 +7,7 @@ import { getPreviewProvider } from "./registry";
 import { validatePreviewUrl } from "./url-policy";
 import { ACCESS_MODES, archivePreviewEnvironments, upsertPreviewEnvironment } from "./environments";
 import { PREVIEW_CHECK_NAME, decideTransition, previewCheckText, type Transition } from "./state-machine";
-import { PREVIEW_STATUS, type PreviewHint, type PreviewStatus } from "./types";
+import { PREVIEW_STATUS, type PreviewHint, type PreviewStatus, type ResolveResult } from "./types";
 
 /**
  * Preview coordinator: pending → ready | failed | gone.
@@ -109,56 +109,57 @@ export async function closePreviewsForPullRequest(projectId: string, prNumber: n
 }
 
 /**
- * A provider webhook arrived for this connection. Map it to bindings and commits, then resolve.
- * Fails closed: a commit with no pending row and no open PR on GitHub is ignored.
+ * A provider webhook arrived for this connection. The body is an unsigned hint: it only makes
+ * Orbit look sooner. It never picks which bindings or rows change and never decides a
+ * transition; resolve() re-reads everything from the provider API. Fails closed: no commit,
+ * or a commit with no pending row whose deployment the API can't confirm, changes nothing.
  */
 export async function handleProviderSignal(connectionId: string, hint: PreviewHint): Promise<{ advanced: number }> {
   const connection = await prisma.previewConnection.findUnique({
     where: { id: connectionId },
-    select: { provider: true, bindings: { select: { id: true, projectId: true, targetRef: true } } },
+    select: {
+      provider: true, credentials: true, config: true,
+      bindings: { select: { id: true, projectId: true, targetRef: true } },
+    },
   });
   const provider = connection && getPreviewProvider(connection.provider);
-  if (!connection || !provider) return { advanced: 0 };
+  const access = connection && connectionAccess(connection);
+  // Without a commit there is nothing to match safely; the reconcile job covers it.
+  if (!connection || !provider || !access || !hint.isPreview || !hint.commitSha) return { advanced: 0 };
 
-  const bindings = connection.bindings.filter((b) => provider.matchesTarget?.(b.targetRef, hint) ?? true);
+  const commitSha = hint.commitSha.toLowerCase();
   let advanced = 0;
-  for (const binding of bindings) {
-    const ids = await pendingRowsForHint(binding, hint);
-    for (const id of ids) {
-      await advancePreviewDeployment(id, hint);
-      advanced++;
-    }
+  for (const binding of connection.bindings) {
+    const id = await pendingRowForCommit(binding, commitSha, () =>
+      provider.resolve({ access, targetRef: binding.targetRef, commitSha })
+    );
+    if (!id) continue;
+    await advancePreviewDeployment(id, hint);
+    advanced++;
   }
   return { advanced };
 }
 
-async function pendingRowsForHint(
+async function pendingRowForCommit(
   binding: { id: string; projectId: string },
-  hint: PreviewHint
-): Promise<string[]> {
-  if (!hint.isPreview) return [];
-  if (!hint.commitSha) {
-    const rows = await prisma.previewDeployment.findMany({
-      where: { bindingId: binding.id, status: PREVIEW_STATUS.pending },
-      select: { id: true },
-    });
-    return rows.map((r) => r.id);
-  }
-
-  const commitSha = hint.commitSha.toLowerCase();
+  commitSha: string,
+  confirmWithProvider: () => Promise<ResolveResult>
+): Promise<string | null> {
   const row = await prisma.previewDeployment.findUnique({
     where: { preview_deployment_commit: { bindingId: binding.id, commitSha } },
     select: { id: true, status: true },
   });
-  if (row) return row.status === PREVIEW_STATUS.pending ? [row.id] : [];
+  if (row) return row.status === PREVIEW_STATUS.pending ? row.id : null;
 
-  // The PR webhook may be late or missing: ask GitHub which open PR has this head commit.
+  // The PR webhook may be late or missing. Only start tracking the commit when the provider API
+  // has a deployment for it on this target and GitHub has an open PR with it as head.
+  if ((await confirmWithProvider()).state === "pending") return null;
   const [pr] = await findOpenPullRequestsForCommit(binding.projectId, commitSha);
-  if (!pr) return [];
+  if (!pr) return null;
   const created = await startPreviewForPullRequest(binding.projectId, {
     number: pr.number, headSha: commitSha, branch: pr.branch, isFork: false,
   });
-  return created?.status === PREVIEW_STATUS.pending ? [created.id] : [];
+  return created?.status === PREVIEW_STATUS.pending ? created.id : null;
 }
 
 /** Ask the provider about one pending preview deployment and apply the transition. */
