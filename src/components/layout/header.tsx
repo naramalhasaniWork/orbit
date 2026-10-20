@@ -189,7 +189,7 @@ export function Header({ projects = [], activeProjectId, healthStatus }: HeaderP
         <span className="hidden sm:inline text-sm text-muted-foreground truncate">{title}</span>
 
         <div className="hidden sm:block">
-          <HealthBadge status={healthStatus ?? (active?.healthStatus as "healthy" | "degraded" | "failing") ?? "healthy"} />
+          <HealthBadge projectStatus={healthStatus ?? active?.healthStatus} />
         </div>
       </div>
 

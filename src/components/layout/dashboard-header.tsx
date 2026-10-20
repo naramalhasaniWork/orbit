@@ -33,9 +33,7 @@ export function DashboardHeader({ projects }: DashboardHeaderProps) {
     <Header
       projects={projects}
       activeProjectId={activeProjectId}
-      healthStatus={
-        (activeProject?.healthStatus as "healthy" | "degraded" | "failing") ?? "healthy"
-      }
+      healthStatus={activeProject?.healthStatus as "healthy" | "degraded" | "failing" | undefined}
     />
   );
 }

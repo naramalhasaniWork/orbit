@@ -7,6 +7,7 @@ import {
   type ExecutionJobData,
   type ReportingJobData,
   type SchedulerJobData,
+  type PlanningJobData,
 } from "@/lib/queue/queues";
 import {
   handleIndexingJob,
@@ -14,6 +15,7 @@ import {
   handleReportingJob,
 } from "@/lib/queue/worker-handlers";
 import { handleSchedulerJob } from "@/lib/queue/scheduler-handler";
+import { handlePlanningJob } from "@/lib/queue/planning-handler";
 
 const activeWorkers: Worker[] = [];
 
@@ -44,7 +46,13 @@ export function registerWorkers(): void {
     { connection, concurrency: 1 }
   );
 
-  const workers = [indexingWorker, executionWorker, reportingWorker, schedulerWorker];
+  const planningWorker = new Worker<PlanningJobData>(
+    QUEUE_NAMES.planning,
+    handlePlanningJob,
+    { connection, concurrency: 2 }
+  );
+
+  const workers = [indexingWorker, executionWorker, reportingWorker, schedulerWorker, planningWorker];
 
   workers.forEach((worker) => {
     worker.on("completed", (job) => {

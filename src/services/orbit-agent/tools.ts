@@ -1,11 +1,11 @@
 /**
- * Orbit Agent Tools — 8 tools that map to existing services.
- * Each tool wraps existing service functions and returns structured data
- * that the LLM can summarize in natural language.
+ * Orbit Agent Tools — each wraps an existing service and returns structured
+ * data that the LLM can summarize in natural language.
  */
 
 import { prisma } from "@/lib/db";
 import type { ToolDefinition } from "@/lib/ai/providers/anthropic-tools";
+import { ENVIRONMENT_TOOLS, environmentHandlers, listProjectEnvironments } from "./environments";
 
 // ============================================================
 // Tool Context (passed to every tool execution)
@@ -59,7 +59,7 @@ export const ORBIT_TOOLS: ToolDefinition[] = [
   {
     name: "generate_test_plan",
     description:
-      "Generate or regenerate the test plan based on the current system map. Returns a summary of the generated plan with test case count and coverage.",
+      "Start generating (or regenerating) the test plan from the current system map. Runs in the background for a few minutes; returns a job ID, and progress shows on the Test Plans page.",
     input_schema: {
       type: "object",
       properties: {
@@ -75,7 +75,7 @@ export const ORBIT_TOOLS: ToolDefinition[] = [
   {
     name: "run_tests",
     description:
-      "Start a test run against the staging environment. This is a long operation (1-10min) that runs in the background. Returns a run ID.",
+      "Start a test run against the project's run environment (see list_environments). This is a long operation (1-10min) that runs in the background. Returns a run ID.",
     input_schema: {
       type: "object",
       properties: {
@@ -148,6 +148,7 @@ export const ORBIT_TOOLS: ToolDefinition[] = [
       required: ["runId"],
     },
   },
+  ...ENVIRONMENT_TOOLS,
 ];
 
 // ============================================================
@@ -155,13 +156,15 @@ export const ORBIT_TOOLS: ToolDefinition[] = [
 // ============================================================
 
 const handlers: Record<string, ToolHandler> = {
+  ...environmentHandlers,
   get_project_status: async (_args, ctx) => {
     const { getProjectContext } = await import("@/services/orchestrator/context-manager");
     const { getMemorySnapshot } = await import("@/services/orchestrator/agent-memory");
 
-    const [context, memory] = await Promise.all([
+    const [context, memory, environments] = await Promise.all([
       getProjectContext(ctx.projectId),
       getMemorySnapshot(ctx.projectId, 5),
+      listProjectEnvironments(ctx.projectId, ctx.workspaceId),
     ]);
 
     return {
@@ -175,9 +178,7 @@ const handlers: Record<string, ToolHandler> = {
       systemMap: context.systemMapStats,
       activePlan: context.activePlan,
       lastRun: context.lastRun,
-      defaultEnvironment: context.defaultEnvironment
-        ? { name: context.defaultEnvironment.name, url: context.defaultEnvironment.url }
-        : null,
+      environments,
       memory: {
         averagePassRate: memory.averagePassRate,
         totalRuns: memory.totalRuns,
@@ -215,21 +216,18 @@ const handlers: Record<string, ToolHandler> = {
   },
 
   generate_test_plan: async (args, ctx) => {
-    const { generatePlan } = await import("@/services/planning/planner");
+    const { enqueuePlanGeneration } = await import("@/services/planning/plan-jobs");
     const mode = (args.mode as string) || "full";
 
-    const result = await generatePlan({
-      projectId: ctx.projectId,
+    // Generation takes minutes; queue it rather than holding the chat turn.
+    const { state, alreadyRunning } = await enqueuePlanGeneration(ctx.projectId, {
       mode: mode as "full" | "smoke" | "regression" | "targeted",
     });
 
-    return {
-      planId: result.plan.id,
-      version: result.plan.version,
-      testCaseCount: result.testCases.length,
-      summary: (result.plan.summary as Record<string, unknown>) ?? {},
-      tokensUsed: result.tokensUsed,
-    };
+    const message = alreadyRunning
+      ? "A plan generation is already in progress. Progress is on the Test Plans page."
+      : "Plan generation started in the background; it usually takes a few minutes. Progress is on the Test Plans page.";
+    return { jobId: state.jobId, status: state.status, alreadyRunning, message };
   },
 
   run_tests: async (args, ctx) => {

@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import type { Prisma, RunMode, RunTrigger } from "@/generated/prisma/client";
 import { canConsume } from "@/lib/auth/tenant";
 import { getIndexingQueue } from "@/lib/queue/queues";
+import { withQueueTimeout } from "@/lib/queue/availability";
 import { emitRunStarted } from "@/lib/websocket";
 
 interface LaunchRunInput {
@@ -30,7 +31,8 @@ export async function enqueueOrDiscard(
   enqueue: () => Promise<unknown>
 ): Promise<{ ok: true } | { ok: false; reason: string }> {
   try {
-    await enqueue();
+    // Bounded: BullMQ waits indefinitely for Redis instead of failing.
+    await withQueueTimeout(enqueue());
     return { ok: true };
   } catch (err) {
     const reason = err instanceof Error ? err.message : String(err);

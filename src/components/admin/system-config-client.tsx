@@ -9,7 +9,6 @@ import { Badge } from "@/components/ui/badge";
 import { FeatureFlagToggle } from "@/components/admin/feature-flag-toggle";
 import {
   Settings,
-  Shield,
   Bell,
   AlertTriangle,
   Save,
@@ -17,20 +16,14 @@ import {
 import { cn } from "@/lib/utils";
 
 const FLAG_LABELS: Record<string, { label: string; description: string }> = {
-  self_healing: { label: "Self-Healing", description: "Auto-repair broken selectors using AI" },
-  ai_suggestions: { label: "AI Suggestions", description: "Show AI-powered test suggestions" },
-  parallel_execution: { label: "Parallel Execution", description: "Run tests in parallel browsers" },
-  visual_regression: { label: "Visual Regression", description: "Screenshot comparison testing" },
-  plugin_marketplace: { label: "Plugin Marketplace", description: "Third-party plugin ecosystem" },
+  self_healing: { label: "Self-Healing", description: "Repair broken selectors with AI during runs" },
+  ai_suggestions: { label: "AI Suggestions", description: "Generate test suggestions on the Test Plans page" },
+  parallel_execution: { label: "Parallel Execution", description: "Partition full and smoke runs across parallel browsers" },
+  visual_regression: { label: "Visual Regression", description: "Add one screenshot-comparison case per route group to generated plans" },
 };
 
 interface SystemConfigClientProps {
   featureFlags: Record<string, boolean>;
-  rateLimits: {
-    runs_per_hour: number;
-    api_requests_per_minute: number;
-    concurrent_runs: number;
-  };
   maintenanceMode: boolean;
   maintenanceMessage: string;
   systemAnnouncement: string;
@@ -38,13 +31,11 @@ interface SystemConfigClientProps {
 
 export function SystemConfigClient({
   featureFlags: initialFlags,
-  rateLimits: initialLimits,
   maintenanceMode: initialMaintenance,
   maintenanceMessage: initialMaintenanceMsg,
   systemAnnouncement: initialAnnouncement,
 }: SystemConfigClientProps) {
   const [featureFlags, setFeatureFlags] = useState(initialFlags);
-  const [rateLimits, setRateLimits] = useState(initialLimits);
   const [maintenanceMode, setMaintenanceMode] = useState(initialMaintenance);
   const [maintenanceMessage, setMaintenanceMessage] = useState(initialMaintenanceMsg);
   const [systemAnnouncement, setSystemAnnouncement] = useState(initialAnnouncement);
@@ -57,7 +48,6 @@ export function SystemConfigClient({
     // The API stores one config key per request.
     const entries: Array<[string, unknown]> = [
       ["feature_flags", featureFlags],
-      ["rate_limits", rateLimits],
       ["maintenance_mode", maintenanceMode],
       ["maintenance_message", maintenanceMessage],
       ["system_announcement", systemAnnouncement],
@@ -88,7 +78,7 @@ export function SystemConfigClient({
         <div>
           <h2 className="text-lg font-semibold text-foreground">System Configuration</h2>
           <p className="text-sm text-muted-foreground">
-            Manage platform-wide settings, feature flags, and rate limits.
+            Platform-wide feature flags, maintenance mode, and announcements.
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -129,58 +119,6 @@ export function SystemConfigClient({
         </div>
       </div>
 
-      {/* Rate Limits */}
-      <div className="rounded-xl surface-1 border border-border p-5 space-y-4">
-        <div className="flex items-center gap-2">
-          <Shield className="h-4 w-4 text-orbit-accent" />
-          <h3 className="text-sm font-medium text-foreground">Rate Limits</h3>
-        </div>
-        <div className="grid grid-cols-3 gap-4">
-          <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground">Runs / Hour</Label>
-            <Input
-              type="number"
-              value={rateLimits.runs_per_hour}
-              onChange={(e) =>
-                setRateLimits((prev) => ({
-                  ...prev,
-                  runs_per_hour: parseInt(e.target.value) || 0,
-                }))
-              }
-              className="h-8 text-sm"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground">API Requests / Min</Label>
-            <Input
-              type="number"
-              value={rateLimits.api_requests_per_minute}
-              onChange={(e) =>
-                setRateLimits((prev) => ({
-                  ...prev,
-                  api_requests_per_minute: parseInt(e.target.value) || 0,
-                }))
-              }
-              className="h-8 text-sm"
-            />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs text-muted-foreground">Concurrent Runs</Label>
-            <Input
-              type="number"
-              value={rateLimits.concurrent_runs}
-              onChange={(e) =>
-                setRateLimits((prev) => ({
-                  ...prev,
-                  concurrent_runs: parseInt(e.target.value) || 0,
-                }))
-              }
-              className="h-8 text-sm"
-            />
-          </div>
-        </div>
-      </div>
-
       {/* Maintenance Mode */}
       <div className="rounded-xl surface-1 border border-border p-5 space-y-4">
         <div className="flex items-center justify-between">
@@ -216,7 +154,7 @@ export function SystemConfigClient({
         </div>
         <div className="space-y-1.5">
           <Label className="text-xs text-muted-foreground">
-            Displayed as a banner to all users (leave empty to hide)
+            Shown as a banner across the dashboard (leave empty to hide)
           </Label>
           <Input
             value={systemAnnouncement}

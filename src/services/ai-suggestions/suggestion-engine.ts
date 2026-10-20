@@ -18,36 +18,37 @@ import type {
 const MAX_SUGGESTIONS = 12;
 
 // ============================================================
-// Main Entry Point
+// Entry Points
 // ============================================================
 
-export async function generateSuggestions(
-  projectId: string,
-  includeLLM = true
-): Promise<Suggestion[]> {
-  const context = await buildSuggestionContext(projectId);
-  const suggestions: Suggestion[] = [];
+/** Rule-based suggestions: cheap DB analysis, safe to compute per request. */
+export async function generateRuleSuggestions(projectId: string): Promise<Suggestion[]> {
+  return ruleSuggestionsFrom(await buildSuggestionContext(projectId));
+}
 
-  // Rule-based suggestions (no LLM cost)
-  suggestions.push(
+/** LLM suggestions: slow and paid, so callers cache the result. */
+export async function generateLLMSuggestionsForProject(projectId: string): Promise<Suggestion[]> {
+  const context = await buildSuggestionContext(projectId);
+  return generateLLMSuggestions(context, ruleSuggestionsFrom(context));
+}
+
+function ruleSuggestionsFrom(context: SuggestionContext): Suggestion[] {
+  return [
     ...coverageGapSuggestions(context),
     ...flakyPatternSuggestions(context),
     ...failureTrendSuggestions(context),
     ...missingTestTypeSuggestions(context),
     ...optimizationSuggestions(context),
-  );
+  ];
+}
 
-  // LLM-powered suggestions for deeper insights
-  if (includeLLM && suggestions.length < MAX_SUGGESTIONS) {
-    const llmSuggestions = await generateLLMSuggestions(context, suggestions);
-    suggestions.push(...llmSuggestions);
-  }
-
-  // Sort: critical first, then warning, then info
+/** Critical first, then warning, then info; capped. */
+export function mergeSuggestions(...groups: Suggestion[][]): Suggestion[] {
   const order: Record<string, number> = { critical: 0, warning: 1, info: 2 };
-  suggestions.sort((a, b) => (order[a.severity] ?? 2) - (order[b.severity] ?? 2));
-
-  return suggestions.slice(0, MAX_SUGGESTIONS);
+  return groups
+    .flat()
+    .sort((a, b) => (order[a.severity] ?? 2) - (order[b.severity] ?? 2))
+    .slice(0, MAX_SUGGESTIONS);
 }
 
 // ============================================================

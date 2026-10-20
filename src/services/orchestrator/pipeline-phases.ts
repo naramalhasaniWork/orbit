@@ -177,8 +177,9 @@ export async function runExecutionPhase(
     await updateRunStatus(runId, "executing", "Running tests");
 
     // Use parallel execution for full/smoke runs (journey-based partitioning),
-    // sequential for targeted/regression runs
-    if (mode === "full" || mode === "smoke") {
+    // sequential for targeted/regression runs or when an admin disabled it
+    const { getFlag } = await import("@/lib/system-config");
+    if ((mode === "full" || mode === "smoke") && (await getFlag("parallel_execution"))) {
       const { runTestSuiteParallel } = await import("@/services/execution/runner");
       await runTestSuiteParallel(runId, testPlanId, mode);
     } else {

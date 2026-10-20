@@ -8,6 +8,7 @@ import { Switch } from "@/components/ui/switch";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
+import { usePlanGeneration } from "@/hooks/use-plan-generation";
 import type { PlanTestCase } from "../onboarding-types";
 
 type Priority = "critical" | "high" | "medium" | "low";
@@ -38,54 +39,44 @@ interface PlanPreviewProps {
 export function PlanPreview({ projectId, onContinue, onBack }: PlanPreviewProps) {
   const [tests, setTests] = useState<PlanTestCase[]>([]);
   const [loading, setLoading] = useState(true);
-  const [generating, setGenerating] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [localError, setError] = useState<string | null>(null);
   const toggledIds = useRef(new Set<string>());
+
+  const loadPlan = useCallback(async (): Promise<boolean> => {
+    const res = await fetch(`/api/projects/${projectId}/plan`);
+    const json = await res.json();
+    if (!res.ok || !json.success || !(json.data.testCases?.length > 0)) return false;
+    setTests(json.data.testCases);
+    return true;
+  }, [projectId]);
+
+  // Generation runs as a background job; this resumes one already in flight.
+  const generation = usePlanGeneration({
+    projectId,
+    onCompleted: () => {
+      loadPlan()
+        .catch(() => setError("Failed to load the generated plan"))
+        .finally(() => setLoading(false));
+    },
+  });
+  const { start } = generation;
+  const generating = generation.active || generation.starting;
 
   const fetchOrGenerate = useCallback(async () => {
     setLoading(true);
     setError(null);
-
     try {
-      // First try to get an existing plan
-      const getRes = await fetch(`/api/projects/${projectId}/plan`);
-      const getJson = await getRes.json();
-
-      if (getRes.ok && getJson.success && getJson.data.testCases?.length > 0) {
-        setTests(getJson.data.testCases);
+      if (await loadPlan()) {
         setLoading(false);
         return;
       }
-
-      // No existing plan — generate one
-      setGenerating(true);
-      const postRes = await fetch(`/api/projects/${projectId}/plan`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: "full" }),
-      });
-
-      const postJson = await postRes.json();
-      if (!postRes.ok || !postJson.success) {
-        setError(postJson.error?.message ?? "Failed to generate test plan");
-        return;
-      }
-
-      // Fetch the full plan with test cases
-      const refetchRes = await fetch(`/api/projects/${projectId}/plan`);
-      const refetchJson = await refetchRes.json();
-
-      if (refetchRes.ok && refetchJson.success) {
-        setTests(refetchJson.data.testCases ?? []);
-      }
+      await start({ mode: "full" });
     } catch {
       setError("Failed to connect to server");
-    } finally {
       setLoading(false);
-      setGenerating(false);
     }
-  }, [projectId]);
+  }, [loadPlan, start]);
 
   useEffect(() => {
     fetchOrGenerate();
@@ -140,7 +131,9 @@ export function PlanPreview({ projectId, onContinue, onBack }: PlanPreviewProps)
     return Array.from(map.entries());
   }, [tests]);
 
-  if (loading) {
+  const error = localError ?? generation.error;
+
+  if (loading && !error) {
     return (
       <div className="flex flex-col items-center w-full max-w-2xl mx-auto">
         <div className="text-center mb-6">
@@ -150,7 +143,7 @@ export function PlanPreview({ projectId, onContinue, onBack }: PlanPreviewProps)
           <p className="text-sm text-muted-foreground flex items-center justify-center gap-2">
             <Loader2 className="h-4 w-4 animate-spin" />
             {generating
-              ? "Orbit is analyzing your codebase and creating test cases"
+              ? generation.job?.message ?? "Orbit is analyzing your codebase and creating test cases"
               : "Loading existing plan"}
           </p>
         </div>
