@@ -18,10 +18,16 @@ interface Invitation {
   invitedBy: { name: string | null };
 }
 
+interface InviteResult {
+  token?: string;
+  emailSent?: boolean;
+}
+
 interface InviteFormProps {
   workspaceId: string;
   invitations: Invitation[];
-  onInvite: (email: string, role: string) => Promise<{ token?: string } | null>;
+  onInvite: (email: string, role: string) => Promise<InviteResult | null>;
+  onResend: (invitationId: string) => Promise<InviteResult | null>;
   onRevoke: (invitationId: string) => Promise<void>;
 }
 
@@ -32,13 +38,15 @@ const ROLE_OPTIONS = [
   { value: "billing", label: "Billing" },
 ];
 
-export function InviteForm({ workspaceId, invitations, onInvite, onRevoke }: InviteFormProps) {
+export function InviteForm({ invitations, onInvite, onResend, onRevoke }: InviteFormProps) {
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("member");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copiedToken, setCopiedToken] = useState<string | null>(null);
   const [lastToken, setLastToken] = useState<string | null>(null);
+  const [lastEmail, setLastEmail] = useState<{ to: string; sent: boolean } | null>(null);
+  const [resendingId, setResendingId] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -47,17 +55,36 @@ export function InviteForm({ workspaceId, invitations, onInvite, onRevoke }: Inv
     setLoading(true);
     setError(null);
     setLastToken(null);
+    setLastEmail(null);
 
     try {
-      const result = await onInvite(email.trim(), role);
+      const to = email.trim();
+      const result = await onInvite(to, role);
       if (result?.token) {
         setLastToken(result.token);
+        setLastEmail({ to, sent: Boolean(result.emailSent) });
         setEmail("");
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to send invitation");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleResend(invitation: Invitation) {
+    setResendingId(invitation.id);
+    setError(null);
+    try {
+      const result = await onResend(invitation.id);
+      if (result?.token) {
+        setLastToken(result.token);
+        setLastEmail({ to: invitation.email, sent: Boolean(result.emailSent) });
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to resend invitation");
+    } finally {
+      setResendingId(null);
     }
   }
 
@@ -125,7 +152,9 @@ export function InviteForm({ workspaceId, invitations, onInvite, onRevoke }: Inv
         {lastToken && (
           <div className="flex items-center gap-2 p-3 rounded-lg bg-orbit-accent/10 border border-orbit-accent/20">
             <span className="text-xs text-orbit-accent flex-1">
-              Invitation created. Share this link:
+              {lastEmail?.sent
+                ? `Email sent to ${lastEmail.to}. You can also share the link:`
+                : "Email not sent. Share this link instead:"}
             </span>
             <Button
               type="button"
@@ -201,6 +230,16 @@ export function InviteForm({ workspaceId, invitations, onInvite, onRevoke }: Inv
                       ) : (
                         <Copy className="h-3.5 w-3.5" />
                       )}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 w-7 p-0"
+                      onClick={() => handleResend(inv)}
+                      disabled={resendingId === inv.id}
+                      title="Resend invitation (issues a new link)"
+                    >
+                      <RotateCcw className={cn("h-3.5 w-3.5", resendingId === inv.id && "animate-spin")} />
                     </Button>
                     <Button
                       variant="ghost"
