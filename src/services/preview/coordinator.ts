@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import type { Prisma } from "@/generated/prisma/client";
 import { launchPipelineRun } from "@/services/orchestrator/run-launcher";
+import { cancelRun } from "@/services/orchestrator/run-manager";
 import { upsertCheckRun, findOpenPullRequestsForCommit } from "@/services/reporting/integrations/github-checks";
 import { connectionAccess } from "./connections";
 import { getPreviewProvider } from "./registry";
@@ -232,6 +233,9 @@ async function launchPreviewRun(
   ready: Extract<Transition, { kind: "ready" }>
 ): Promise<void> {
   const prNumber = row.prNumber ?? 0;
+  // The PR's environment is about to point at this commit; a run still going for an older
+  // commit would otherwise switch URLs mid-run.
+  await cancelSupersededRuns(binding.id, prNumber, row.commitSha);
   const environmentId = await upsertPreviewEnvironment({
     projectId: row.projectId,
     bindingId: binding.id,
@@ -259,4 +263,14 @@ async function launchPreviewRun(
   await setCheck(row.projectId, row.commitSha, row.checkRunId, launched.ok
     ? { status: "completed", conclusion: "success", ...previewCheckText(ready) }
     : { status: "completed", conclusion: "neutral", title: "Preview ready, run not started", summary: launched.reason });
+}
+
+async function cancelSupersededRuns(bindingId: string, prNumber: number, commitSha: string): Promise<void> {
+  const older = await prisma.previewDeployment.findMany({
+    where: { bindingId, prNumber, runId: { not: null }, NOT: { commitSha } },
+    select: { runId: true },
+  });
+  for (const { runId } of older) {
+    if (runId) await cancelRun(runId); // no-op for runs that already finished
+  }
 }

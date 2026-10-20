@@ -9,6 +9,8 @@ const db = vi.hoisted(() => ({
 vi.mock("@/lib/db", () => ({ prisma: db }));
 const launchPipelineRun = vi.hoisted(() => vi.fn());
 vi.mock("@/services/orchestrator/run-launcher", () => ({ launchPipelineRun }));
+const cancelRun = vi.hoisted(() => vi.fn());
+vi.mock("@/services/orchestrator/run-manager", () => ({ cancelRun }));
 const upsertCheckRun = vi.hoisted(() => vi.fn());
 const findOpenPullRequestsForCommit = vi.hoisted(() => vi.fn());
 vi.mock("@/services/reporting/integrations/github-checks", () => ({ upsertCheckRun, findOpenPullRequestsForCommit }));
@@ -36,6 +38,7 @@ describe("advancePreviewDeployment", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     db.previewDeployment.updateMany.mockResolvedValue({ count: 1 });
+    db.previewDeployment.findMany.mockResolvedValue([]);
     db.environment.findFirst.mockResolvedValue(null);
     db.environment.create.mockResolvedValue({ id: "env-pr-42" });
     launchPipelineRun.mockResolvedValue({ ok: true, runId: "run-1" });
@@ -59,6 +62,21 @@ describe("advancePreviewDeployment", () => {
     expect(upsertCheckRun).toHaveBeenCalledWith("p1", expect.objectContaining({
       checkRunId: "check-1", status: "completed", conclusion: "success",
     }));
+  });
+
+  it("cancels a run still going for an older commit before re-pointing the PR's environment", async () => {
+    db.previewDeployment.findUnique.mockResolvedValue(row());
+    db.previewDeployment.findMany.mockResolvedValue([{ runId: "run-old" }]);
+    resolve.mockResolvedValue({ state: "ready", url: "https://web-pr-42.up.railway.app", externalId: "dep-2" });
+
+    await advancePreviewDeployment("pd1");
+
+    expect(db.previewDeployment.findMany).toHaveBeenCalledWith({
+      where: { bindingId: "b1", prNumber: 42, runId: { not: null }, NOT: { commitSha: "abc" } },
+      select: { runId: true },
+    });
+    expect(cancelRun).toHaveBeenCalledWith("run-old");
+    expect(cancelRun.mock.invocationCallOrder[0]).toBeLessThan(db.environment.create.mock.invocationCallOrder[0]);
   });
 
   it("does not launch when another worker already moved the row (no double runs)", async () => {
