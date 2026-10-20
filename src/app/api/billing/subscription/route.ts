@@ -1,3 +1,4 @@
+import { billingWorkspaceId } from "@/lib/billing/workspace-header";
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
@@ -15,7 +16,7 @@ import type { WorkspaceTier } from "@/lib/auth/tenant";
 export async function GET(request: NextRequest) {
   try {
     const ctx = await requirePermission(
-      request.headers.get("x-workspace-id") ?? "",
+      await billingWorkspaceId(request),
       "billing.view"
     );
 
@@ -65,7 +66,7 @@ const patchSchema = z.object({
 export async function PATCH(request: NextRequest) {
   try {
     const ctx = await requirePermission(
-      request.headers.get("x-workspace-id") ?? "",
+      await billingWorkspaceId(request),
       "billing.manage"
     );
 
@@ -117,7 +118,7 @@ export async function PATCH(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   try {
     const ctx = await requirePermission(
-      request.headers.get("x-workspace-id") ?? "",
+      await billingWorkspaceId(request),
       "billing.manage"
     );
 

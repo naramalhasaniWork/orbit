@@ -1,3 +1,4 @@
+import { billingWorkspaceId } from "@/lib/billing/workspace-header";
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
@@ -40,7 +41,7 @@ interface DailySpend {
 export async function GET(request: NextRequest) {
   try {
     const ctx = await requirePermission(
-      request.headers.get("x-workspace-id") ?? "",
+      await billingWorkspaceId(request),
       "billing.view"
     );
 

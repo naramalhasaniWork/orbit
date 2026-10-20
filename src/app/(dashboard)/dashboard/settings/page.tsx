@@ -98,6 +98,7 @@ export default async function SettingsPage() {
       environments={environments}
       secrets={secrets}
       integrations={integrations}
+      role={(session as { role?: string }).role ?? null}
     />
   );
 }

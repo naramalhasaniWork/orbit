@@ -56,6 +56,7 @@ interface SettingsClientProps {
     updatedAt: Date;
   }>;
   integrations?: IntegrationConfig;
+  role?: string | null;
 }
 
 const tabs = [
@@ -85,6 +86,7 @@ export function SettingsClient({
   environments,
   secrets,
   integrations,
+  role = null,
 }: SettingsClientProps) {
   // The tab is in the URL (?tab=) so reload and shared links open the same one.
   const [{ tab }, setUrlParams] = useUrlParams(URL_DEFAULTS);
@@ -170,7 +172,7 @@ export function SettingsClient({
           {activeTab === "plugins" && (
             <PluginSettings workspaceId={workspace?.id ?? null} />
           )}
-          {activeTab === "workspace" && <WorkspaceSettings workspace={workspace} />}
+          {activeTab === "workspace" && <WorkspaceSettings workspace={workspace} role={role} />}
           {activeTab === "audit" && workspace && <AuditLogViewer workspaceId={workspace.id} />}
         </motion.div>
       </AnimatePresence>

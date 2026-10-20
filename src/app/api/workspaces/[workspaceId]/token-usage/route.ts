@@ -5,6 +5,7 @@ import {
   TIER_LIMITS,
   BUDGET_WARNING_THRESHOLD,
   getBudgetPercentage,
+  monthlyCreditAllowance,
   type WorkspaceTier,
 } from "@/lib/auth/tenant";
 import { apiSuccess, apiError, handleApiError } from "@/lib/utils/api";
@@ -137,8 +138,8 @@ export async function GET(
     });
 
     const creditsConsumed = Math.abs(creditsUsed._sum.amount ?? 0);
-    const monthlyLimit = TIER_LIMITS[tier].monthlyCredits;
-    const budgetPercentage = getBudgetPercentage(creditsConsumed, tier);
+    const monthlyLimit = monthlyCreditAllowance(tier, workspace.monthlyCredits);
+    const budgetPercentage = getBudgetPercentage(creditsConsumed, monthlyLimit);
 
     // Search param for additional filtering
     const url = new URL(request.url);

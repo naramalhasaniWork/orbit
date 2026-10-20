@@ -12,6 +12,7 @@ import {
   generateConfigTemplate,
   validateConfig,
 } from "@/services/planning/orbit-config";
+import { requirePermission } from "@/lib/auth/rbac";
 
 // ============================================================
 // GET /api/projects/[projectId]/config — Get orbit config
@@ -56,6 +57,7 @@ export async function PUT(
 ) {
   try {
     const { workspaceId } = await requireWorkspace();
+    await requirePermission(workspaceId, "settings.manage");
     const { projectId } = await params;
 
     const project = await prisma.project.findFirst({

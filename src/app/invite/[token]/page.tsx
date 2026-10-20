@@ -2,9 +2,11 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { useSession } from "next-auth/react";
-import { Orbit, CheckCircle, XCircle, Clock, Loader2 } from "lucide-react";
+import { useSession, signOut } from "next-auth/react";
+import { Orbit, CheckCircle, XCircle, Clock, Loader2, Copy, Check, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { isInviteEmailMismatch } from "@/lib/invitations";
+import { setWorkspaceCookie } from "@/lib/workspace-cookie";
 
 interface InvitationInfo {
   email: string;
@@ -17,7 +19,7 @@ interface InvitationInfo {
 
 export default function AcceptInvitationPage() {
   const { token } = useParams<{ token: string }>();
-  const { data: session, status: authStatus } = useSession();
+  const { data: session, status: authStatus, update } = useSession();
   const router = useRouter();
 
   const [invitation, setInvitation] = useState<InvitationInfo | null>(null);
@@ -25,6 +27,8 @@ export default function AcceptInvitationPage() {
   const [accepting, setAccepting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [mismatch, setMismatch] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     async function fetchInvitation() {
@@ -69,9 +73,12 @@ export default function AcceptInvitationPage() {
 
       if (json.success) {
         setSuccess(true);
-        setTimeout(() => {
-          router.push("/dashboard");
-        }, 2000);
+        // Move the session and the preference cookie to the workspace just joined
+        await update({ workspaceId: json.data.workspaceId });
+        setWorkspaceCookie(json.data.workspaceId);
+        window.location.href = "/dashboard";
+      } else if (json.error?.code === "EMAIL_MISMATCH") {
+        setMismatch(true);
       } else {
         setError(json.error?.message ?? "Failed to accept invitation");
       }
@@ -80,6 +87,18 @@ export default function AcceptInvitationPage() {
     } finally {
       setAccepting(false);
     }
+  }
+
+  const signedInEmail = session?.user?.email ?? null;
+  const emailMismatch =
+    mismatch ||
+    (!!invitation && isInviteEmailMismatch(invitation.email, signedInEmail));
+
+  function copyResendRequest() {
+    if (!signedInEmail) return;
+    navigator.clipboard.writeText(`Please resend my Orbit invitation to ${signedInEmail}.`);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
   }
 
   if (loading || authStatus === "loading") {
@@ -148,7 +167,33 @@ export default function AcceptInvitationPage() {
                     <p className="text-xs text-red-400 text-center">{error}</p>
                   )}
 
-                  {!session ? (
+                  {session && emailMismatch ? (
+                    <div className="space-y-3">
+                      <div className="flex gap-2 p-3 rounded-lg bg-amber-400/10 border border-amber-400/20">
+                        <AlertTriangle className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
+                        <p className="text-sm text-foreground">
+                          This invitation was sent to <strong>{invitation.email}</strong>, but you&apos;re
+                          signed in as <strong>{signedInEmail}</strong>.
+                        </p>
+                      </div>
+                      <Button variant="outline" className="w-full gap-2" onClick={copyResendRequest}>
+                        {copied ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                        {copied
+                          ? "Copied"
+                          : `Copy: ask the admin to resend to ${signedInEmail}`}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        className="w-full"
+                        onClick={() => signOut({ callbackUrl: `/login?callbackUrl=/invite/${token}` })}
+                      >
+                        Sign in with a different GitHub account
+                      </Button>
+                      <p className="text-[11px] text-muted-foreground text-center">
+                        If GitHub signs you straight back in, switch accounts on github.com first.
+                      </p>
+                    </div>
+                  ) : !session ? (
                     <Button
                       className="w-full"
                       onClick={() => router.push(`/login?callbackUrl=/invite/${token}`)}
@@ -177,7 +222,7 @@ export default function AcceptInvitationPage() {
                 You&apos;ve joined the workspace.
               </p>
               <p className="text-xs text-muted-foreground">
-                Redirecting to dashboard...
+                Switching to the new workspace...
               </p>
             </div>
           )}

@@ -3,7 +3,7 @@ export {
   getTierConfig,
   getAllTierConfigs,
   getTierFromPriceId,
-  getTierLimits,
+  getMonthlyCreditGrant,
 } from "./prices";
 export {
   createCheckoutSession,

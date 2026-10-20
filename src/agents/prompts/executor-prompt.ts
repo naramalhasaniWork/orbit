@@ -1,4 +1,9 @@
 import { buildPrompt, type UserLayerInput } from "@/agents/prompts/prompt-builder";
+import {
+  CREDENTIAL_PLACEHOLDER_INSTRUCTIONS,
+  describeCredentialPlaceholders,
+  redactCredentials,
+} from "@/lib/utils/credentials";
 
 interface TestStep {
   action: string;
@@ -38,6 +43,8 @@ export interface ExecutorContext {
   testCredentials?: Record<string, string>;
   workspaceName?: string;
   testingNotes?: TestingNoteInput[];
+  /** Tools from the workspace's connected MCP servers (formatToolsForPrompt) */
+  mcpToolsPrompt?: string;
 }
 
 function buildWaitStrategy(): string {
@@ -93,41 +100,49 @@ export function buildExecutorPrompt(
     previousActions,
     testCredentials,
     testingNotes,
+    mcpToolsPrompt,
   } = context;
 
-  const stepsStr = steps
-    .map((s, i) => {
-      const marker = i === currentStepIndex ? " <-- CURRENT" : "";
-      const status = i < currentStepIndex ? " [DONE]" : "";
-      return `  ${i + 1}. Action: ${s.action}${s.selectorHint ? ` (hint: ${s.selectorHint})` : ""}
-     Expected: ${s.expected}${marker}${status}`;
-    })
-    .join("\n");
+  // Secret values never reach the model: it sees credential placeholders, and any value
+  // that leaks in via page content, action history, plan steps or user notes is scrubbed
+  // back to its placeholder.
+  const scrub = (text: string) => redactCredentials(text, testCredentials);
+  const credStr = describeCredentialPlaceholders(testCredentials);
 
-  const elementsStr = pageState.interactiveElements
-    .slice(0, 30)
-    .map(
-      (el) =>
-        `  - <${el.tag}${el.role ? ` role="${el.role}"` : ""}${el.type ? ` type="${el.type}"` : ""}> "${el.text ?? ""}" -> ${el.selector}`
-    )
-    .join("\n");
+  const stepsStr = scrub(
+    steps
+      .map((s, i) => {
+        const marker = i === currentStepIndex ? " <-- CURRENT" : "";
+        const status = i < currentStepIndex ? " [DONE]" : "";
+        return `  ${i + 1}. Action: ${s.action}${s.selectorHint ? ` (hint: ${s.selectorHint})` : ""}
+     Expected: ${s.expected}${marker}${status}`;
+      })
+      .join("\n")
+  );
+
+  const elementsStr = scrub(
+    pageState.interactiveElements
+      .slice(0, 30)
+      .map(
+        (el) =>
+          `  - <${el.tag}${el.role ? ` role="${el.role}"` : ""}${el.type ? ` type="${el.type}"` : ""}> "${el.text ?? ""}" -> ${el.selector}`
+      )
+      .join("\n")
+  );
 
   const historyStr =
     previousActions.length > 0
-      ? previousActions
-          .map((a) => `  - Action: ${a.action} -> Result: ${a.result}`)
-          .join("\n")
+      ? scrub(
+          previousActions
+            .map((a) => `  - Action: ${a.action} -> Result: ${a.result}`)
+            .join("\n")
+        )
       : "  (none)";
 
-  const credStr = testCredentials
-    ? Object.entries(testCredentials)
-        .map(([k, v]) => `  - ${k}: ${v}`)
-        .join("\n")
-    : "  (none provided)";
-
-  const notesStr = testingNotes && testingNotes.length > 0
-    ? testingNotes.map((n) => `  - [${n.category}] ${n.content}`).join("\n")
-    : "";
+  const notesStr =
+    testingNotes && testingNotes.length > 0
+      ? scrub(testingNotes.map((n) => `  - [${n.category}] ${n.content}`).join("\n"))
+      : "";
 
   const agentInstructions = `## Agent Role: Executor
 You control a browser to execute test steps one at a time. You observe the current page state, decide the next browser action, and output it as structured JSON. You are methodical, precise, and never guess.
@@ -154,9 +169,9 @@ ${buildFailureHandling()}
 ${stepsStr}
 
 ## Current Page State
-- **URL:** ${pageState.url}
-- **Title:** ${pageState.title}
-- **Visible Text (excerpt):** ${pageState.visibleText.slice(0, 500)}
+- **URL:** ${scrub(pageState.url)}
+- **Title:** ${scrub(pageState.title)}
+- **Visible Text (excerpt):** ${scrub(pageState.visibleText.slice(0, 500))}
 
 ## Authentication State Analysis
 Read the Current Page State above carefully. Determine:
@@ -170,7 +185,7 @@ Read the Current Page State above carefully. Determine:
 - If the current step says "navigate to dashboard" but you see a login form → You need to authenticate first using the test credentials below.
 
 ## Screenshot Description
-${screenshotDescription}
+${scrub(screenshotDescription)}
 
 ## Interactive Elements on Page
 ${elementsStr}
@@ -179,11 +194,15 @@ ${elementsStr}
 ${historyStr}
 
 ## Test Credentials
+You do not have access to the credential values, only to placeholders. ${CREDENTIAL_PLACEHOLDER_INSTRUCTIONS}
 ${credStr}
 ${notesStr ? `
 ## Project Testing Notes (from the user — high priority)
 ${notesStr}
 Respect these notes. If an "instruction" note says to skip something, skip it. If a "known-issue" note describes a broken feature, expect it to be broken. If a "context" note gives navigation hints, use them.
+` : ""}${mcpToolsPrompt ? `
+${mcpToolsPrompt}
+Use tool_call only for tools listed above and only when a step needs data or setup the browser cannot provide (e.g. reading a verification code, seeding a record). A tool call does not complete the current step; the result appears in Previous Actions.
 ` : ""}
 ## Output Schema
 Your response MUST be valid JSON with exactly these fields:

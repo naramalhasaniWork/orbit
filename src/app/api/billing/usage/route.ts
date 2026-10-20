@@ -1,3 +1,4 @@
+import { billingWorkspaceId } from "@/lib/billing/workspace-header";
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { requirePermission } from "@/lib/auth/rbac";
@@ -7,7 +8,7 @@ import { getWorkspaceUsage, getDailyUsage, checkBudgetLimit } from "@/lib/billin
 export async function GET(request: NextRequest) {
   try {
     const ctx = await requirePermission(
-      request.headers.get("x-workspace-id") ?? "",
+      await billingWorkspaceId(request),
       "billing.view"
     );
 

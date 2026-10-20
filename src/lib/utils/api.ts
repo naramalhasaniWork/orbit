@@ -2,6 +2,7 @@ import { getServerSession as nextAuthGetServerSession } from "next-auth";
 import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/db";
 import type { OrbitSession } from "@/lib/utils/types";
 
 interface ApiError {
@@ -26,9 +27,15 @@ export async function requireAuth(): Promise<OrbitSession> {
   return session;
 }
 
+/**
+ * The session's workspace, with membership and role re-read from the database on
+ * every call. The JWT lives for hours, so it must not decide who is still a member
+ * or what role they hold.
+ */
 export async function requireWorkspace(): Promise<{
   session: OrbitSession;
   workspaceId: string;
+  role: string;
 }> {
   const session = await requireAuth();
 
@@ -36,7 +43,30 @@ export async function requireWorkspace(): Promise<{
     throw new AuthError("No workspace found", "NO_WORKSPACE", 403);
   }
 
-  return { session, workspaceId: session.workspaceId };
+  const member = await prisma.workspaceMember.findUnique({
+    where: {
+      workspace_member_unique: {
+        workspaceId: session.workspaceId,
+        userId: session.user.id,
+      },
+      // A soft-deleted workspace admits nobody
+      workspace: { deletedAt: null },
+    },
+    select: { role: true, workspace: { select: { deletedAt: true } } },
+  });
+
+  if (!member) {
+    throw new AuthError("Not a member of this workspace", "FORBIDDEN", 403);
+  }
+  if (member.workspace.deletedAt) {
+    throw new AuthError("Workspace has been deleted", "WORKSPACE_DELETED", 403);
+  }
+
+  return {
+    session: { ...session, role: member.role },
+    workspaceId: session.workspaceId,
+    role: member.role,
+  };
 }
 
 export async function requireSuperAdmin(): Promise<OrbitSession> {

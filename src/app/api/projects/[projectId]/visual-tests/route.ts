@@ -7,6 +7,7 @@ import {
   handleApiError,
 } from "@/lib/utils/api";
 import { runVisualTest } from "@/services/visual-qa/visual-test-runner";
+import { requirePermission } from "@/lib/auth/rbac";
 
 // ============================================================
 // POST /api/projects/[projectId]/visual-tests
@@ -27,6 +28,7 @@ export async function POST(
 ) {
   try {
     const { workspaceId } = await requireWorkspace();
+    await requirePermission(workspaceId, "runs.create");
     const { projectId } = await params;
 
     const project = await prisma.project.findFirst({

@@ -94,7 +94,7 @@ describe("api-projects", () => {
       workspaceId: "ws-1",
     });
     // Default: workspace exists with free tier, under project limit
-    mockPrisma.workspace.findUnique.mockResolvedValue({ tier: "free", projectLimit: 3 });
+    mockPrisma.workspace.findUnique.mockResolvedValue({ tier: "free" });
     mockPrisma.project.count.mockResolvedValue(0);
     // Default mocks for enrichment in GET /projects/[projectId]
     mockPrisma.systemMapNode.count.mockResolvedValue(0);

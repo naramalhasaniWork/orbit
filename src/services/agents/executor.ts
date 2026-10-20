@@ -7,6 +7,7 @@
 import { createTrackedCompletion } from "@/lib/ai/tracked-completion";
 import { getSubAgentDef } from "@/services/agents/registry";
 import { windowContext, estimateContextTokens } from "@/services/agents/context-window";
+import { serializeContextWithoutSecrets } from "@/lib/utils/credentials";
 import { buildSubAgentPrompt } from "@/services/agents/prompt-router";
 
 export interface SubAgentInput {
@@ -271,7 +272,7 @@ function buildUserMessage(
   return (
     `Execute your task as the ${agentType} sub-agent. ` +
     `Context fields provided:\n${contextSummary}\n\n` +
-    `Full context:\n${JSON.stringify(context, null, 2)}\n\n` +
+    `Full context:\n${serializeContextWithoutSecrets(context)}\n\n` +
     `Output valid JSON only. Follow the output schema exactly.`
   );
 }

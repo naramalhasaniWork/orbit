@@ -25,6 +25,8 @@ import { cn } from "@/lib/utils";
 import { WorkspaceSwitcher } from "@/components/team/workspace-switcher";
 import { useMobileNav } from "@/components/layout/mobile-nav-context";
 
+const BILLING_HREF = "/dashboard/settings/billing";
+
 const navigation = [
   { name: "Agent", href: "/dashboard/agent", icon: Sparkles },
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -38,10 +40,15 @@ const navigation = [
   { name: "Providers", href: "/dashboard/settings/providers", icon: KeyRound },
   { name: "MCP Tools", href: "/dashboard/settings/mcp", icon: Plug },
   { name: "Team", href: "/dashboard/settings/members", icon: Users },
-  { name: "Billing", href: "/dashboard/settings/billing", icon: CreditCard },
+  { name: "Billing", href: BILLING_HREF, icon: CreditCard },
 ];
 
-export function Sidebar() {
+interface SidebarProps {
+  /** Hide the billing entry (self-hosted instances have no billing). */
+  hideBilling?: boolean;
+}
+
+export function Sidebar({ hideBilling = false }: SidebarProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { data: session } = useSession();
@@ -57,6 +64,10 @@ export function Sidebar() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [open, setOpen]);
+
+  const navItems = hideBilling
+    ? navigation.filter((item) => item.href !== BILLING_HREF)
+    : navigation;
 
   return (
     <>
@@ -87,7 +98,7 @@ export function Sidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 py-3 px-2 space-y-1">
-        {navigation.map((item) => {
+        {navItems.map((item) => {
           const isActive =
             pathname === item.href ||
             (item.href !== "/dashboard" && pathname?.startsWith(item.href));

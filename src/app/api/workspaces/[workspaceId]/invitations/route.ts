@@ -1,13 +1,12 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
-import { randomBytes } from "crypto";
 import { prisma } from "@/lib/db";
-import { requirePermission } from "@/lib/auth/rbac";
+import { requirePermission, assertCanManageRole } from "@/lib/auth/rbac";
 import { canConsume } from "@/lib/auth/tenant";
 import { apiSuccess, apiError, handleApiError } from "@/lib/utils/api";
 import { writeAuditLog } from "@/lib/auth/audit";
-
-const INVITE_EXPIRY_DAYS = 7;
+import { newInviteExpiry, newInviteToken, normalizeInviteEmail } from "@/lib/invitations";
+import { deliverInviteEmail } from "@/lib/email/invite-email";
 
 // ============================================================
 // GET /api/workspaces/[workspaceId]/invitations — List invitations
@@ -42,7 +41,7 @@ export async function GET(
 // ============================================================
 
 const CreateInvitationSchema = z.object({
-  email: z.string().email("Valid email required"),
+  email: z.string().trim().email("Valid email required"),
   role: z.enum(["admin", "member", "viewer", "billing"]).default("member"),
 });
 
@@ -60,48 +59,55 @@ export async function POST(
       return apiError(parsed.error.errors[0]?.message ?? "Validation failed", "VALIDATION_ERROR", 400);
     }
 
-    const { email, role } = parsed.data;
+    const { role } = parsed.data;
+    const email = normalizeInviteEmail(parsed.data.email);
+    const now = new Date();
+
+    // Cannot invite someone at or above your own level
+    assertCanManageRole(ctx.role, role);
 
     const allowance = await canConsume(workspaceId, "member");
     if (!allowance.allowed) {
       return apiError(allowance.reason, allowance.code, allowance.code === "NOT_FOUND" ? 404 : 403);
     }
 
-    // Check if already a member
-    const existingMember = await prisma.workspaceMember.findFirst({
-      where: {
-        workspaceId,
-        user: { email },
-      },
+    // Check if already a member. Candidates are narrowed by the database and
+    // compared exactly in code, since insensitive equality treats % and _ as wildcards.
+    const candidates = await prisma.workspaceMember.findMany({
+      where: { workspaceId, user: { email: { equals: email, mode: "insensitive" } } },
+      select: { user: { select: { email: true } } },
     });
-
-    if (existingMember) {
+    if (candidates.some((m) => m.user.email?.toLowerCase() === email)) {
       return apiError("User is already a member", "ALREADY_MEMBER", 409);
     }
 
-    // Check for existing pending invitation
-    const existingInvite = await prisma.workspaceInvitation.findFirst({
+    // A live pending invitation blocks a duplicate; an expired one is replaced
+    const pending = await prisma.workspaceInvitation.findMany({
       where: { workspaceId, email, status: "pending" },
+      select: { id: true, expiresAt: true },
     });
-
-    if (existingInvite) {
+    if (pending.some((i) => i.expiresAt > now)) {
       return apiError("Pending invitation already exists for this email", "DUPLICATE_INVITE", 409);
     }
-
-    const token = randomBytes(32).toString("hex");
-    const expiresAt = new Date();
-    expiresAt.setDate(expiresAt.getDate() + INVITE_EXPIRY_DAYS);
+    if (pending.length > 0) {
+      await prisma.workspaceInvitation.updateMany({
+        where: { id: { in: pending.map((i) => i.id) } },
+        data: { status: "expired" },
+      });
+    }
 
     const invitation = await prisma.workspaceInvitation.create({
       data: {
         workspaceId,
-        email: email.toLowerCase().trim(),
+        email,
         role,
-        token,
+        token: newInviteToken(),
         invitedById: ctx.session.user.id,
-        expiresAt,
+        expiresAt: newInviteExpiry(now),
       },
     });
+
+    const emailResult = await deliverInviteEmail(workspaceId, invitation, ctx.session.user.name ?? null);
 
     await writeAuditLog({
       workspaceId,
@@ -118,6 +124,7 @@ export async function POST(
       role: invitation.role,
       token: invitation.token,
       expiresAt: invitation.expiresAt,
+      emailSent: emailResult.sent,
     }, 201);
   } catch (error) {
     return handleApiError(error);

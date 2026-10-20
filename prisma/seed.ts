@@ -36,10 +36,10 @@ async function main() {
 
   const workspace = await prisma.workspace.upsert({
     where: { slug: "orbit-demo" },
-    update: { name: "Orbit Demo", creditBalance: 5000, plan: "pro" },
+    update: { name: "Orbit Demo", creditBalance: 5000, tier: "starter" },
     create: {
       id: IDS.workspace, name: "Orbit Demo", slug: "orbit-demo",
-      plan: "pro", creditBalance: 5000, monthlyCredits: 5000,
+      tier: "starter", creditBalance: 5000, monthlyCredits: 5000,
       settings: { theme: "dark", notifications: true },
     },
   });

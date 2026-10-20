@@ -1,5 +1,7 @@
 import { createHmac } from "crypto";
 import { prisma } from "@/lib/db";
+import { isAllowedWebhookUrl } from "@/lib/integrations/webhook-url";
+import { safeFetch } from "@/lib/utils/ssrf";
 import { readStoredWebhooks, resolveWebhookSecret } from "./webhook-store";
 import type { RunSummary, FailureSummary } from "@/agents/schemas/run-summary";
 
@@ -46,6 +48,13 @@ function signPayload(payload: string, secret: string): string {
   return createHmac("sha256", secret).update(payload).digest("hex");
 }
 
+/** Stored delivery responses are capped; target bodies are never persisted in full. */
+const MAX_STORED_RESPONSE_CHARS = 500;
+
+export function truncateResponse(text: string): string {
+  return text.length > MAX_STORED_RESPONSE_CHARS ? text.slice(0, MAX_STORED_RESPONSE_CHARS) : text;
+}
+
 // ============================================================
 // Delivery with Retry
 // ============================================================
@@ -57,12 +66,18 @@ async function deliverWebhook(
   endpoint: WebhookEndpoint,
   payload: WebhookPayload
 ): Promise<DeliveryResult> {
+  // Re-checked on every delivery: settings may predate validation or have been edited directly
+  if (!isAllowedWebhookUrl(endpoint.url)) {
+    console.warn(`[outbound-webhook] Refusing delivery to disallowed URL: ${endpoint.url}`);
+    return { success: false, statusCode: null, attempts: 0 };
+  }
+
   const body = JSON.stringify(payload);
   const signature = signPayload(body, endpoint.secret);
 
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     try {
-      const response = await fetch(endpoint.url, {
+      const response = await safeFetch(endpoint.url, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -72,7 +87,7 @@ async function deliverWebhook(
         },
         body,
         signal: AbortSignal.timeout(10000),
-      });
+      }, { followRedirects: false });
 
       // Log delivery
       await prisma.webhookDelivery.create({
@@ -91,8 +106,9 @@ async function deliverWebhook(
         return { success: true, statusCode: response.status, attempts: attempt };
       }
 
-      // Don't retry on 4xx (client errors) except 429 (rate limit)
-      if (response.status >= 400 && response.status < 500 && response.status !== 429) {
+      // Redirects are never followed, and 4xx (except 429) are not retried
+      const isRedirect = response.status >= 300 && response.status < 400;
+      if (isRedirect || (response.status >= 400 && response.status < 500 && response.status !== 429)) {
         return { success: false, statusCode: response.status, attempts: attempt };
       }
     } catch (error) {
@@ -110,7 +126,7 @@ async function deliverWebhook(
           payload: payload as unknown as Record<string, string>,
           statusCode: null,
           attempts: attempt,
-          response: error instanceof Error ? error.message : String(error),
+          response: truncateResponse(error instanceof Error ? error.message : String(error)),
         },
       });
     }

@@ -6,6 +6,7 @@ import {
   apiError,
   handleApiError,
 } from "@/lib/utils/api";
+import { requirePermission } from "@/lib/auth/rbac";
 
 // ============================================================
 // GET /api/projects/[projectId]/test-cases/[testCaseId]
@@ -64,6 +65,7 @@ export async function PATCH(
 ) {
   try {
     const { workspaceId } = await requireWorkspace();
+    await requirePermission(workspaceId, "plans.update");
     const { projectId, testCaseId } = await params;
 
     const project = await prisma.project.findFirst({
@@ -153,6 +155,7 @@ export async function DELETE(
 ) {
   try {
     const { workspaceId } = await requireWorkspace();
+    await requirePermission(workspaceId, "plans.update");
     const { projectId, testCaseId } = await params;
 
     const project = await prisma.project.findFirst({

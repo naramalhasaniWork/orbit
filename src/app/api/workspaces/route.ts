@@ -9,13 +9,15 @@ import {
 } from "@/lib/utils/api";
 import { generateSlug } from "@/lib/utils/slug";
 
+const MAX_SLUG_ATTEMPTS = 5;
+
 export async function GET() {
   try {
     const session = await requireAuth();
 
     // Return all workspaces the user belongs to
     const memberships = await prisma.workspaceMember.findMany({
-      where: { userId: session.user.id },
+      where: { userId: session.user.id, workspace: { deletedAt: null } },
       include: {
         workspace: {
           select: {
@@ -23,7 +25,6 @@ export async function GET() {
             name: true,
             slug: true,
             tier: true,
-            plan: true,
             creditBalance: true,
             createdAt: true,
           },
@@ -61,19 +62,25 @@ export async function POST(request: NextRequest) {
     }
 
     const { name } = parsed.data;
-    const slug = generateSlug(name);
 
-    const workspace = await prisma.workspace.create({
-      data: { name: name.trim(), slug },
-    });
-
-    await prisma.workspaceMember.create({
-      data: {
-        workspaceId: workspace.id,
-        userId: session.user.id,
-        role: "owner",
-      },
-    });
+    // Workspace and owner membership are created in one statement so a failure
+    // can never leave an ownerless workspace; a slug collision retries with a new suffix.
+    let workspace;
+    for (let attempt = 1; ; attempt++) {
+      try {
+        workspace = await prisma.workspace.create({
+          data: {
+            name: name.trim(),
+            slug: generateSlug(name),
+            members: { create: { userId: session.user.id, role: "owner" } },
+          },
+        });
+        break;
+      } catch (error) {
+        const code = (error as { code?: string } | null)?.code;
+        if (code !== "P2002" || attempt >= MAX_SLUG_ATTEMPTS) throw error;
+      }
+    }
 
     return apiSuccess(workspace, 201);
   } catch (error) {

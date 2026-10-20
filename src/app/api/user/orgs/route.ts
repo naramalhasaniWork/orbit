@@ -1,3 +1,4 @@
+import { decryptToken } from "@/lib/vault/token";
 import { prisma } from "@/lib/db";
 import {
   requireWorkspace,
@@ -5,7 +6,7 @@ import {
   apiError,
   handleApiError,
 } from "@/lib/utils/api";
-import { isGitHubAppConfigured, getInstallUrl } from "@/lib/github/app";
+import { isGitHubAppConfigured } from "@/lib/github/app";
 
 export const dynamic = "force-dynamic";
 
@@ -33,13 +34,14 @@ export async function GET() {
       select: { access_token: true },
     });
 
-    if (!account?.access_token) {
+    const accessToken = decryptToken(account?.access_token);
+    if (!accessToken) {
       return apiError("No GitHub token", "NO_GITHUB_TOKEN", 401);
     }
 
     const res = await fetch("https://api.github.com/user/orgs?per_page=100", {
       headers: {
-        Authorization: `Bearer ${account.access_token}`,
+        Authorization: `Bearer ${accessToken}`,
         Accept: "application/vnd.github+json",
         "X-GitHub-Api-Version": "2022-11-28",
       },
@@ -76,7 +78,7 @@ export async function GET() {
     return apiSuccess({
       orgs: items,
       appConfigured: isGitHubAppConfigured(),
-      installUrl: isGitHubAppConfigured() ? getInstallUrl() : null,
+      installUrl: isGitHubAppConfigured() ? "/api/github/install" : null,
     });
   } catch (error) {
     return handleApiError(error);

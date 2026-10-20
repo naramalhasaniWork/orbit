@@ -1,8 +1,6 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { StatsCard } from "@/components/admin/stats-card";
 import { cn } from "@/lib/utils";
@@ -12,8 +10,8 @@ import {
   Play,
   CreditCard,
   ArrowLeft,
-  Eye,
 } from "lucide-react";
+import { TIER_DISPLAY_NAMES, type WorkspaceTier } from "@/lib/auth/tier-limits";
 
 interface Member {
   id: string;
@@ -54,7 +52,7 @@ interface WorkspaceDetailClientProps {
     id: string;
     name: string;
     slug: string;
-    plan: string;
+    tier: WorkspaceTier;
     creditBalance: number;
     monthlyCredits: number;
     createdAt: string;
@@ -91,17 +89,6 @@ export function WorkspaceDetailClient({
   recentRuns,
   usageStats,
 }: WorkspaceDetailClientProps) {
-  const [impersonating, setImpersonating] = useState(false);
-
-  async function handleImpersonate() {
-    const res = await fetch("/api/admin/impersonate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ workspaceId: workspace.id }),
-    });
-    if (res.ok) setImpersonating(true);
-  }
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -118,20 +105,11 @@ export function WorkspaceDetailClient({
             <span className="text-sm text-muted-foreground">
               {workspace.slug}
             </span>
-            <Badge className="text-[10px] border capitalize bg-muted/50 text-muted-foreground border-border">
-              {workspace.plan}
+            <Badge className="text-[10px] border bg-muted/50 text-muted-foreground border-border">
+              {TIER_DISPLAY_NAMES[workspace.tier]}
             </Badge>
           </div>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleImpersonate}
-          disabled={impersonating}
-        >
-          <Eye className="h-3.5 w-3.5 mr-1.5" />
-          {impersonating ? "Impersonating..." : "Impersonate"}
-        </Button>
       </div>
 
       {/* Stats */}

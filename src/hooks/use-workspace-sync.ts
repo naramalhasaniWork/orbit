@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { useSession } from "next-auth/react";
+import { clearWorkspaceCookie, readWorkspaceCookie } from "@/lib/workspace-cookie";
 
 /**
  * Syncs the JWT workspace with the `orbit_workspace` cookie.
@@ -15,22 +16,20 @@ export function useWorkspaceSync() {
   useEffect(() => {
     if (synced.current || !session) return;
 
-    const cookieMatch = document.cookie
-      .split("; ")
-      .find((c) => c.startsWith("orbit_workspace="));
-    const cookieWorkspaceId = cookieMatch?.split("=")[1];
+    const cookieWorkspaceId = readWorkspaceCookie();
+    const sessionWorkspaceId = (session as { workspaceId?: string }).workspaceId;
+    synced.current = true;
 
-    if (
-      cookieWorkspaceId &&
-      cookieWorkspaceId !== (session as { workspaceId?: string }).workspaceId
-    ) {
-      synced.current = true;
+    if (cookieWorkspaceId && cookieWorkspaceId !== sessionWorkspaceId) {
       // Trigger JWT update to match the cookie preference
-      update({ workspaceId: cookieWorkspaceId }).then(() => {
-        window.location.reload();
+      update({ workspaceId: cookieWorkspaceId }).then((updated) => {
+        if ((updated as { workspaceId?: string } | null)?.workspaceId === cookieWorkspaceId) {
+          window.location.reload();
+        } else {
+          // Not a member (anymore), e.g. the workspace was deleted: drop the stale preference
+          clearWorkspaceCookie();
+        }
       });
-    } else {
-      synced.current = true;
     }
   }, [session, update]);
 }

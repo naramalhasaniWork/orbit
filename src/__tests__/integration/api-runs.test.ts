@@ -99,7 +99,7 @@ describe("api-runs", () => {
       workspaceId: "ws-1",
     });
     // Default workspace and count mocks
-    mockPrisma.workspace.findUnique.mockResolvedValue({ tier: "free", runLimit: 50 });
+    mockPrisma.workspace.findUnique.mockResolvedValue({ tier: "free" });
     mockPrisma.testRun.count.mockResolvedValue(0);
     mockPrisma.testCase.count.mockResolvedValue(2);
   });

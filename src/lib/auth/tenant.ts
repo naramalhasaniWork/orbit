@@ -4,6 +4,7 @@
  */
 
 import { prisma } from "@/lib/db";
+import { isSelfHosted } from "@/lib/self-host";
 import { checkBudgetLimit } from "@/lib/billing/usage-aggregator";
 import { TIER_LIMITS, type WorkspaceTier } from "./tier-limits";
 
@@ -24,6 +25,7 @@ export function withWorkspaceAnd<T extends Record<string, unknown>>(
 
 /** Check if a workspace tier allows a specific model. */
 export function isModelAllowed(tier: WorkspaceTier, model: string): boolean {
+  if (isSelfHosted()) return true;
   const limits = TIER_LIMITS[tier];
   if (limits.rateLimit === Infinity) return true; // enterprise
   return limits.allowedModels.includes(model);
@@ -32,16 +34,19 @@ export function isModelAllowed(tier: WorkspaceTier, model: string): boolean {
 /** Budget warning threshold (80%). */
 export const BUDGET_WARNING_THRESHOLD = 0.8;
 
-/** Check if workspace is approaching budget limit. Returns percentage used. */
-export function getBudgetPercentage(creditsUsed: number, tier: WorkspaceTier): number {
-  const limit = TIER_LIMITS[tier].monthlyCredits;
-  if (limit === Infinity) return 0;
-  return creditsUsed / limit;
+/**
+ * A workspace's monthly credit allowance: the seat-aware grant synced from
+ * its Stripe subscription (workspace.monthlyCredits), or Infinity on tiers
+ * with unlimited credits.
+ */
+export function monthlyCreditAllowance(tier: WorkspaceTier, workspaceMonthlyCredits: number): number {
+  return TIER_LIMITS[tier].monthlyCredits === Infinity ? Infinity : workspaceMonthlyCredits;
 }
 
-/** Check if workspace is at or above budget warning threshold. */
-export function isBudgetWarning(creditsUsed: number, tier: WorkspaceTier): boolean {
-  return getBudgetPercentage(creditsUsed, tier) >= BUDGET_WARNING_THRESHOLD;
+/** Fraction of the monthly allowance used (0 for unlimited or zero allowances). */
+export function getBudgetPercentage(creditsUsed: number, allowance: number): number {
+  if (allowance === Infinity || allowance <= 0) return 0;
+  return creditsUsed / allowance;
 }
 
 /**
@@ -66,6 +71,8 @@ export async function canConsume(
   workspaceId: string,
   kind: ConsumptionKind
 ): Promise<ConsumeDecision> {
+  // Self-hosted instances have no plans, so nothing is metered.
+  if (isSelfHosted()) return { allowed: true };
   const workspace = await prisma.workspace.findUnique({
     where: { id: workspaceId },
     select: { tier: true, creditBalance: true },
@@ -86,7 +93,10 @@ export async function canConsume(
     case "member": {
       const [members, pending] = await Promise.all([
         prisma.workspaceMember.count({ where: { workspaceId } }),
-        prisma.workspaceInvitation.count({ where: { workspaceId, status: "pending" } }),
+        // Expired invites no longer hold a seat
+        prisma.workspaceInvitation.count({
+          where: { workspaceId, status: "pending", expiresAt: { gt: new Date() } },
+        }),
       ]);
       return members + pending >= limits.members
         ? limitReached(`Member limit reached (${limits.members}). Upgrade your plan to add more members.`)

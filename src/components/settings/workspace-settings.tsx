@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { WorkspaceLifecycle } from "@/components/settings/workspace-lifecycle";
 
 interface WorkspaceSettings {
   customPrompt?: string;
@@ -16,10 +17,12 @@ interface WorkspaceSettingsProps {
     slug: string;
     settings?: WorkspaceSettings;
   } | null;
+  role?: string | null;
 }
 
-export function WorkspaceSettings({ workspace }: WorkspaceSettingsProps) {
+export function WorkspaceSettings({ workspace, role = null }: WorkspaceSettingsProps) {
   const [name, setName] = useState(workspace?.name ?? "");
+  const [slug, setSlug] = useState(workspace?.slug ?? "");
   const [customPrompt, setCustomPrompt] = useState(
     workspace?.settings?.customPrompt ?? ""
   );
@@ -40,15 +43,17 @@ export function WorkspaceSettings({ workspace }: WorkspaceSettingsProps) {
     setSaving(true);
     setError(null);
     try {
-      const res = await fetch("/api/workspaces", {
-        method: "POST",
+      const res = await fetch(`/api/workspaces/${workspace?.id}`, {
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: workspace?.id, name }),
+        body: JSON.stringify({ name, slug }),
       });
-      if (!res.ok) {
-        const json = await res.json().catch(() => null);
-        setError(json?.error?.message ?? "Failed to save workspace");
+      if (res.ok) {
+        window.location.reload();
+        return;
       }
+      const json = await res.json().catch(() => null);
+      setError(json?.error?.message ?? "Failed to save workspace");
     } catch {
       setError("Network error — could not save");
     } finally {
@@ -102,10 +107,13 @@ export function WorkspaceSettings({ workspace }: WorkspaceSettingsProps) {
           </div>
 
           <div className="space-y-2">
-            <Label className="text-xs text-muted-foreground">Slug</Label>
-            <div className="text-sm text-foreground font-mono bg-white/[0.04] rounded-md px-3 py-2 border border-transparent">
-              {workspace.slug}
-            </div>
+            <Label htmlFor="ws-slug" className="text-xs text-muted-foreground">Slug</Label>
+            <Input
+              id="ws-slug"
+              value={slug}
+              onChange={(e) => setSlug(e.target.value.toLowerCase())}
+              className="bg-white/[0.04] font-mono"
+            />
           </div>
         </div>
 
@@ -117,7 +125,7 @@ export function WorkspaceSettings({ workspace }: WorkspaceSettingsProps) {
           <Button
             type="button"
             onClick={handleSave}
-            disabled={saving || name === workspace.name}
+            disabled={saving || (name === workspace.name && slug === workspace.slug)}
             size="sm"
             className="bg-orbit-accent hover:bg-orbit-accent/90 text-white"
           >
@@ -156,6 +164,7 @@ export function WorkspaceSettings({ workspace }: WorkspaceSettingsProps) {
         </Button>
       </div>
 
+      <WorkspaceLifecycle workspace={workspace} role={role} />
     </div>
   );
 }

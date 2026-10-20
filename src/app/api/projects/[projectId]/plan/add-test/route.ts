@@ -6,6 +6,7 @@ import {
   apiError,
   handleApiError,
 } from "@/lib/utils/api";
+import { requirePermission } from "@/lib/auth/rbac";
 
 // ============================================================
 // POST /api/projects/[projectId]/plan/add-test
@@ -18,6 +19,7 @@ export async function POST(
 ) {
   try {
     const { workspaceId } = await requireWorkspace();
+    await requirePermission(workspaceId, "plans.update");
     const { projectId } = await params;
 
     const project = await prisma.project.findFirst({
