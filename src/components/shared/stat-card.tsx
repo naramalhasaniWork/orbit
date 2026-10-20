@@ -5,7 +5,7 @@ import { motion, useSpring, useTransform } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { Sparkline } from "@/components/shared/sparkline";
-import { springs } from "@/lib/motion";
+import { tween } from "@/lib/motion";
 
 interface StatCardProps {
   label: string;
@@ -95,7 +95,7 @@ export function StatCard({
           <motion.span
             initial={{ opacity: 0, x: -4 }}
             animate={{ opacity: 1, x: 0 }}
-            transition={springs.snappy}
+            transition={tween.change}
             className={cn(
               "flex items-center gap-0.5 text-xs font-medium pb-1",
               trendPositive && "text-orbit-pass",

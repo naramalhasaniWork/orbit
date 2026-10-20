@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { springs } from "@/lib/motion";
+import { tween } from "@/lib/motion";
 
 export function CtaSection() {
   return (
@@ -15,7 +15,7 @@ export function CtaSection() {
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-100px" }}
-          transition={springs.smooth}
+          transition={tween.open}
           className="text-center"
         >
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight">
@@ -25,7 +25,7 @@ export function CtaSection() {
             initial={{ opacity: 0, y: 12 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            transition={{ ...springs.smooth, delay: 0.08 }}
+            transition={{ ...tween.open, delay: 0.08 }}
             className="mt-6 text-lg text-muted-foreground max-w-md mx-auto"
           >
             Get started in under 2 minutes. Connect your repo and let Orbit handle the rest.
@@ -34,7 +34,7 @@ export function CtaSection() {
             initial={{ opacity: 0, y: 12 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            transition={{ ...springs.smooth, delay: 0.16 }}
+            transition={{ ...tween.open, delay: 0.16 }}
             className="mt-10 flex flex-col items-center gap-3"
           >
             <Link

@@ -24,7 +24,7 @@ export function ContentTransition({ children, className }: ContentTransitionProp
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        transition={{ duration: durations.fast }}
+        transition={{ duration: durations.change }}
         className={className}
       >
         {children}

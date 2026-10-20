@@ -10,7 +10,7 @@ import {
   SkipForward,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { springs, progressSpring } from "@/lib/motion";
+import { tween } from "@/lib/motion";
 import type { TestItem } from "@/hooks/use-run-events";
 
 interface TestTimelinePanelProps {
@@ -56,7 +56,7 @@ export function TestTimelinePanel({
             className="h-full bg-orbit-accent shadow-[2px_0_6px_hsl(var(--orbit-accent)/0.5)]"
             initial={{ width: 0 }}
             animate={{ width: `${(completed / totalTests) * 100}%` }}
-            transition={progressSpring}
+            transition={tween.layout}
           />
         </div>
       )}
@@ -90,7 +90,7 @@ function TestEntry({ test, index }: { test: TestItem; index: number }) {
     <motion.div
       initial={{ opacity: 0, x: -12 }}
       animate={{ opacity: 1, x: 0 }}
-      transition={springs.smooth}
+      transition={tween.open}
       className={cn(
         "flex items-center gap-2 px-2 py-1.5 rounded-md transition-colors group",
         isRunning && "bg-orbit-accent/[0.06]",

@@ -98,7 +98,7 @@ export default async function DashboardLayout({
   return (
     <SWRProvider fallback={{ "/api/projects": projects }}>
       <DashboardProviders>
-        <div className="flex h-screen surface-0 overflow-hidden">
+        <div className="flex h-dvh surface-0 overflow-hidden">
           <Sidebar hideBilling={isSelfHosted()} />
           <div className="flex flex-col flex-1 min-w-0">
             <Suspense>

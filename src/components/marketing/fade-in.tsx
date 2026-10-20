@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { springs } from "@/lib/motion";
+import { tween } from "@/lib/motion";
 
 interface FadeInProps {
   children: React.ReactNode;
@@ -29,7 +29,7 @@ export function FadeIn({
 }: FadeInProps) {
   const initial = { opacity: 0, ...directionOffset[direction] };
   const target = { opacity: 1, x: 0, y: 0 };
-  const transition = { ...springs.smooth, delay };
+  const transition = { ...tween.open, delay };
 
   if (onMount) {
     return (

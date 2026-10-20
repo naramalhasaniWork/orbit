@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
+import { tween } from "@/lib/motion";
 import {
   LayoutDashboard,
   Building2,
@@ -65,7 +66,7 @@ export function AdminSidebar() {
                 <motion.div
                   layoutId="admin-sidebar-active"
                   className="absolute left-0 top-1/2 -translate-y-1/2 w-[2px] h-4 rounded-r-full bg-red-400 shadow-[0_0_8px_rgba(239,68,68,0.5)]"
-                  transition={{ type: "spring", stiffness: 350, damping: 30 }}
+                  transition={tween.change}
                 />
               )}
               <item.icon

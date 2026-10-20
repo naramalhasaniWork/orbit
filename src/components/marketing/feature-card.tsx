@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { springs } from "@/lib/motion";
+import { tween } from "@/lib/motion";
 
 const FEATURES = [
   {
@@ -30,7 +30,7 @@ export function FeatureGrid() {
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-100px" }}
-          transition={springs.smooth}
+          transition={tween.open}
           className="mb-20"
         >
           <p className="text-[13px] font-medium text-primary tracking-widest uppercase mb-4">
@@ -48,7 +48,7 @@ export function FeatureGrid() {
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true, margin: "-50px" }}
-              transition={{ ...springs.smooth, delay: i * 0.06 }}
+              transition={{ ...tween.open, delay: i * 0.06 }}
               whileHover={{ backgroundColor: "rgba(255,255,255,0.02)" }}
               className="bg-background p-8 lg:p-10 transition-shadow hover:shadow-[0_0_24px_rgba(255,255,255,0.02)]"
             >

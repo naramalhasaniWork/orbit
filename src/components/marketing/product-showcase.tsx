@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { springs } from "@/lib/motion";
+import { tween } from "@/lib/motion";
 
 function DashboardMockup() {
   return (
@@ -73,7 +73,7 @@ export function ProductShowcase() {
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-100px" }}
-          transition={springs.smooth}
+          transition={tween.open}
           className="text-center mb-16"
         >
           <p className="text-[13px] font-medium text-primary tracking-widest uppercase mb-4">
@@ -91,7 +91,7 @@ export function ProductShowcase() {
           initial={{ opacity: 0, y: 32, scale: 0.97 }}
           whileInView={{ opacity: 1, y: 0, scale: 1 }}
           viewport={{ once: true, margin: "-100px" }}
-          transition={springs.gentle}
+          transition={tween.layout}
         >
           <DashboardMockup />
         </motion.div>

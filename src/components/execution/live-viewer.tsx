@@ -10,7 +10,7 @@ import {
   Loader2,
   Cpu,
 } from "lucide-react";
-import { springs } from "@/lib/motion";
+import { tween } from "@/lib/motion";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useScreenshotStream } from "@/hooks/use-screenshot-stream";
@@ -110,7 +110,7 @@ export function LiveExecutionViewer({
                   initial={{ opacity: 0, scale: 0.985 }}
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 1.005 }}
-                  transition={springs.snappy}
+                  transition={tween.change}
                 />
               ) : (
                 <motion.div
@@ -139,7 +139,7 @@ export function LiveExecutionViewer({
                 key={frameCount}
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
-                transition={springs.snappy}
+                transition={tween.change}
                 className="absolute bottom-2 right-2 text-[10px] tabular-nums text-white/50 bg-black/40 rounded px-1.5 py-0.5 backdrop-blur-sm"
               >
                 {frameCount} frames

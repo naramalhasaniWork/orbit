@@ -8,8 +8,7 @@ import { ArrowLeft, GitBranch, Clock, Hash, XCircle, Loader2 } from "lucide-reac
 import {
   staggerContainer,
   staggerScaleItem,
-  springs,
-  progressSpring,
+  tween,
   crossfade,
 } from "@/lib/motion";
 import { Badge } from "@/components/ui/badge";
@@ -183,7 +182,7 @@ export function RunDetailClient({ run, projectId, visualResults = [], previousRu
     <motion.div
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={springs.smooth}
+      transition={tween.open}
       className="space-y-6"
     >
       {/* Header */}
@@ -281,7 +280,7 @@ export function RunDetailClient({ run, projectId, visualResults = [], previousRu
 
         {isLive && (
           <TabsContent value="live" className="mt-4">
-            <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={springs.snappy}>
+            <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={tween.change}>
               {projectId ? (
                 <LiveExecutionViewer
                   projectId={projectId}
@@ -300,7 +299,7 @@ export function RunDetailClient({ run, projectId, visualResults = [], previousRu
         )}
 
         <TabsContent value="results" className="mt-4 space-y-4">
-          <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={springs.snappy} className="space-y-4">
+          <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={tween.change} className="space-y-4">
             <VerdictFilterBar results={mergedResults} selected={verdictFilter} onSelect={setVerdictFilter} />
             <div className="space-y-2">
               {filteredResults.map((result, i) => (
@@ -308,7 +307,7 @@ export function RunDetailClient({ run, projectId, visualResults = [], previousRu
                   key={result.id}
                   initial={{ opacity: 0, y: 8 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ ...springs.smooth, delay: Math.min(i * 0.03, 0.3) }}
+                  transition={{ ...tween.open, delay: Math.min(i * 0.03, 0.3) }}
                 >
                   <TestResultCard result={result} projectId={projectId} runId={run.id} />
                 </motion.div>
@@ -327,7 +326,7 @@ export function RunDetailClient({ run, projectId, visualResults = [], previousRu
         </TabsContent>
 
         <TabsContent value="traces" className="mt-4">
-          <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={springs.snappy}>
+          <motion.div initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={tween.change}>
             {projectId ? (
               <TraceViewer projectId={projectId} runId={run.id} />
             ) : (
@@ -403,7 +402,7 @@ function LiveResultsBar({
             )}
             initial={{ width: 0 }}
             animate={{ width: `${(seg.count / total) * 100}%` }}
-            transition={progressSpring}
+            transition={tween.layout}
           />
         )
       )}

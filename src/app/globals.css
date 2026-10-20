@@ -45,11 +45,14 @@
     --tm-radius-control: 4px;
     --tm-radius-card: 6px;
     --tm-radius-frame: 10px;
-    --tm-ease: cubic-bezier(0.2, 0.7, 0, 1);
-    --tm-d-feedback: 120ms;
-    --tm-d-change: 180ms;
-    --tm-d-open: 240ms;
-    --tm-d-layout: 280ms;
+    /* Motion — mirrors src/lib/motion.ts, the single source. */
+    --ease-out: cubic-bezier(0.2, 0.7, 0, 1);
+    --ease-in: cubic-bezier(0.4, 0, 1, 1);
+    --ease-in-out: cubic-bezier(0.6, 0, 0.2, 1);
+    --dur-feedback: 120ms;
+    --dur-change: 180ms;
+    --dur-open: 240ms;
+    --dur-layout: 280ms;
     --tm-row-compact: 32px;
     --tm-row: 36px;
     --tm-row-touch: 44px;

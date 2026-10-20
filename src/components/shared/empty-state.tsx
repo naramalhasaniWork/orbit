@@ -3,7 +3,7 @@
 import { type LucideIcon } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
-import { springs } from "@/lib/motion";
+import { tween } from "@/lib/motion";
 
 interface EmptyStateProps {
   icon: LucideIcon;
@@ -33,7 +33,7 @@ export function EmptyState({
       <motion.div
         initial={{ scale: 0.5, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        transition={springs.bounce}
+        transition={tween.change}
         className="flex items-center justify-center h-14 w-14 rounded-2xl bg-orbit-accent/[0.06] border border-orbit-accent/[0.12] mb-5"
       >
         <Icon className="h-6 w-6 text-orbit-accent/70" />
@@ -41,7 +41,7 @@ export function EmptyState({
       <motion.h3
         initial={{ opacity: 0, y: 6 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ ...springs.smooth, delay: 0.15 }}
+        transition={{ ...tween.open, delay: 0.15 }}
         className="text-sm font-medium text-foreground mb-1.5"
       >
         {title}
@@ -49,7 +49,7 @@ export function EmptyState({
       <motion.p
         initial={{ opacity: 0, y: 6 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ ...springs.smooth, delay: 0.22 }}
+        transition={{ ...tween.open, delay: 0.22 }}
         className="text-[13px] text-muted-foreground max-w-sm mb-5 leading-relaxed"
       >
         {description}
@@ -58,7 +58,7 @@ export function EmptyState({
         <motion.div
           initial={{ opacity: 0, y: 6 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ ...springs.smooth, delay: 0.3 }}
+          transition={{ ...tween.open, delay: 0.3 }}
         >
           {action}
         </motion.div>

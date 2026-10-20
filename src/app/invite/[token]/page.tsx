@@ -103,14 +103,14 @@ export default function AcceptInvitationPage() {
 
   if (loading || authStatus === "loading") {
     return (
-      <div className="min-h-screen flex items-center justify-center surface-0">
+      <div className="min-h-dvh flex items-center justify-center surface-0">
         <Loader2 className="h-6 w-6 text-orbit-accent animate-spin" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center surface-0 p-4">
+    <div className="min-h-dvh flex items-center justify-center surface-0 p-4">
       <div className="w-full max-w-md space-y-6">
         {/* Logo */}
         <div className="flex justify-center">

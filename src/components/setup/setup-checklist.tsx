@@ -36,7 +36,7 @@ export function SetupChecklist({ checks, github }: { checks: SetupCheck[]; githu
   const groups = Array.from(new Set(checks.map((c) => c.group)));
 
   return (
-    <div className="min-h-screen surface-0 p-4 py-12">
+    <div className="min-h-dvh surface-0 p-4 py-12">
       <div className="max-w-2xl mx-auto space-y-8">
         <div className="space-y-2">
           <h1 className="text-xl font-semibold text-foreground">Set up Orbit</h1>
