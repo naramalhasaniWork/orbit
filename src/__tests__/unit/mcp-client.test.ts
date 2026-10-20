@@ -8,6 +8,11 @@ const mockPrisma = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/db", () => ({ prisma: mockPrisma }));
+// Public DNS answer so the real SSRF guard runs without network access
+vi.mock("dns/promises", () => ({
+  lookup: vi.fn(async () => [{ address: "93.184.216.34", family: 4 }]),
+}));
+
 vi.mock("@/lib/vault", () => ({
   decrypt: vi.fn().mockReturnValue("decrypted-api-key"),
 }));
@@ -65,6 +70,31 @@ describe("mcp client", () => {
 
   afterEach(() => {
     globalThis.fetch = originalFetch;
+  });
+
+  describe("SSRF protection", () => {
+    it("refuses to contact a private serverUrl and never calls fetch", async () => {
+      mockPrisma.mcpConnection.findUniqueOrThrow.mockResolvedValueOnce({
+        ...MOCK_CONNECTION,
+        serverUrl: "http://169.254.169.254/latest/meta-data",
+      });
+      const fetchSpy = vi.fn();
+      globalThis.fetch = fetchSpy;
+
+      await expect(discoverTools("conn-1")).rejects.toThrow(/blocked/);
+      expect(fetchSpy).not.toHaveBeenCalled();
+    });
+
+    it("refuses a redirect from a public server to an internal address", async () => {
+      mockPrisma.mcpConnection.findUniqueOrThrow.mockResolvedValueOnce(MOCK_CONNECTION);
+      const fetchSpy = vi.fn().mockResolvedValueOnce(
+        new Response(null, { status: 302, headers: { location: "http://10.0.0.1/admin" } })
+      );
+      globalThis.fetch = fetchSpy;
+
+      await expect(discoverTools("conn-1")).rejects.toThrow(/blocked/);
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe("discoverTools", () => {
