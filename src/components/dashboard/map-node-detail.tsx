@@ -1,6 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
+import { tween } from "@/lib/motion";
 import { X, FileCode2, ArrowRightLeft, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -42,8 +43,8 @@ export function MapNodeDetail({
     <motion.div
       initial={{ opacity: 0, x: 12 }}
       animate={{ opacity: 1, x: 0 }}
-      transition={{ duration: 0.2, ease: "easeOut" }}
-      className="w-72 surface-1 border-l border-border flex flex-col h-full"
+      transition={tween.open}
+      className="flex h-full w-72 shrink-0 flex-col overflow-y-auto border-l border-border bg-card"
     >
       {/* Header */}
       <div className="flex items-start justify-between p-4">

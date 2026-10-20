@@ -183,8 +183,6 @@ export function CoverageMap({ cells, className }: CoverageMapProps) {
                   {groupCells.map((cell) => (
                     <motion.button
                       key={cell.nodeId}
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
                       onClick={() =>
                         setSelectedCell(
                           selectedCell?.nodeId === cell.nodeId ? null : cell
