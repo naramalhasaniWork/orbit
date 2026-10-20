@@ -1,7 +1,8 @@
 "use client";
 
 import { useRef, useEffect, useState, useCallback } from "react";
-import { Send, Trash2, Orbit, ChevronRight } from "lucide-react";
+import { Send, Trash2, ChevronRight } from "lucide-react";
+import { ClosingO } from "@/components/telemetry/closing-o";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { useChat } from "@/hooks/use-chat";
@@ -114,7 +115,7 @@ export function AgentPageClient({
         <div className="shrink-0 flex items-center justify-between px-6 py-3 border-b border-border">
           <div className="flex items-center gap-3">
             <div className="h-8 w-8 rounded-lg bg-foreground/[0.06] flex items-center justify-center">
-              <Orbit className="h-4.5 w-4.5 text-foreground" />
+              <ClosingO size={20} />
             </div>
             <div>
               <h1 className="text-sm font-medium text-foreground">
@@ -177,7 +178,7 @@ export function AgentPageClient({
                 <button
                   key={s}
                   onClick={() => handleSuggestion(s)}
-                  className="text-xs px-3.5 py-2 rounded-full bg-foreground/[0.03] border border-border text-muted-foreground hover:text-foreground hover:border-border hover:bg-foreground/[0.05] transition-all"
+                  className="h-8 rounded-md border border-border px-3 text-[12px] text-tm-t2 transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   {s}
                 </button>

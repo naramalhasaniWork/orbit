@@ -59,6 +59,12 @@ const PAGE_TITLES: Record<string, string> = {
   "/dashboard/settings/billing": "Billing & Usage",
   "/dashboard/onboarding": "Onboarding",
   "/dashboard/profile": "Profile",
+  "/dashboard/agent": "Agent",
+  "/dashboard/audit": "Code Audit",
+  "/dashboard/operations": "Operations",
+  "/dashboard/projects": "Projects",
+  "/dashboard/settings/providers": "Providers",
+  "/dashboard/settings/mcp": "MCP tools",
 };
 
 

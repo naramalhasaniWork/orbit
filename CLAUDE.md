@@ -47,7 +47,7 @@ Orbit is an AI-native testing platform that combines deep code-awareness (like C
 - **AST Parsing:** web-tree-sitter with WASM binaries, regex fallback (`src/services/indexing/ast-parser-regex.ts`)
 - **AI:** Anthropic Claude + OpenAI, model routing per task type (`src/lib/ai/model-router.ts`)
 - **Auth:** NextAuth v4 with GitHub OAuth, JWT strategy, auto workspace provisioning
-- **UI:** shadcn/ui (New York style), react-force-graph-2d for System Map, Geist font
+- **UI:** shadcn/ui primitives on the Telemetry tokens (`src/app/globals.css`), Instrument Sans + Martian Mono + Geist Mono, motion from `src/lib/motion.ts`
 - **Testing:** Vitest (`pnpm test`)
 - **Deployment:** Dockerfile (Railway via `railway.toml`, or `docker-compose.yml` for self-hosting); see `docs/self-hosting/`
 
@@ -180,10 +180,11 @@ const model = getModelForTask("test_planning"); // Returns appropriate model ID
 Task types: `classification`, `extraction`, `test_planning`, `browser_execution`, `failure_analysis`, `report_generation`, `security_testing`
 
 ### System Map Visualization
-Uses `react-force-graph-2d` with Canvas rendering for 500+ node performance:
-- Custom node renderer in `src/components/dashboard/map-canvas-renderer.ts`
-- Node colors by test status: green (pass), red (fail), yellow (flaky), gray (untested)
-- Click-to-inspect with detail panel
+The default view is a layered left→right map (routes → components → APIs → data), not force-directed:
+- Layout, journey path and change impact in `src/lib/map/layered.ts`; rendering in `src/components/dashboard/layered-map.tsx`
+- Border style encodes node type (solid route, dashed component, double API, filled data); a 4px mark carries test status
+- `?view=impact` highlights nodes changed in the last sync plus their dependents; `?view=3d` lazy-loads `system-map-3d.tsx`
+- Click-to-inspect with detail panel (`?node=`)
 
 ## Coding Standards
 

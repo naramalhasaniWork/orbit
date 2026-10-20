@@ -76,7 +76,7 @@ function OperationsHeader({
   return (
     <div className="flex items-center justify-between px-1 pb-3">
       <div>
-        <h1 className="text-lg font-medium text-foreground">Operations</h1>
+        <h1 className="text-balance text-[26px] font-medium leading-tight tracking-display">Operations</h1>
         <p className="text-xs text-muted-foreground">
           {projectName}
           {operationCount > 0 && (

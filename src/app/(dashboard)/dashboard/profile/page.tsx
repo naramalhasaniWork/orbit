@@ -1,4 +1,5 @@
 "use client";
+import { Pending } from "@/components/telemetry/pending";
 
 import Image from "next/image";
 import { useSession, signOut } from "next-auth/react";
@@ -40,7 +41,7 @@ export default function ProfilePage() {
   if (status === "loading") {
     return (
       <div className="flex items-center justify-center h-full">
-        <div className="h-6 w-6 border-2 border-tm-line-strong border-t-transparent rounded-full animate-spin" />
+        <Pending label="Loading profile" showLabel />
       </div>
     );
   }

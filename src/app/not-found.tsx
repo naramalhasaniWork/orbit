@@ -1,25 +1,20 @@
 import Link from "next/link";
-import { Orbit } from "lucide-react";
+import { ClosingO } from "@/components/telemetry/closing-o";
 
 export default function NotFound() {
   return (
-    <div className="flex min-h-dvh items-center justify-center surface-0">
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-orbit-accent/[0.04] via-transparent to-transparent" />
-      <div className="relative text-center">
-        <div className="flex items-center justify-center h-12 w-12 rounded-xl bg-foreground/[0.06] mx-auto mb-6">
-          <Orbit className="h-6 w-6 text-foreground" />
-        </div>
-        <h1 className="text-5xl font-medium text-muted-foreground/20 mb-2 tabular-nums">404</h1>
-        <p className="text-sm text-muted-foreground mb-6">
-          This page drifted out of orbit
-        </p>
+    <main className="flex min-h-dvh items-center justify-center bg-background px-4">
+      <div className="flex flex-col items-center gap-3 text-center">
+        <ClosingO size={40} />
+        <p className="tm-label text-tm-t3">Error 404</p>
+        <h1 className="text-balance text-[26px] font-medium leading-tight tracking-display">This page isn&apos;t on the map.</h1>
         <Link
           href="/dashboard"
-          className="inline-flex items-center gap-2 text-sm text-foreground hover:text-foreground transition-colors"
+          className="mt-2 inline-flex h-9 items-center rounded-md border border-tm-line-strong px-4 text-[13px] font-medium hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
-          Back to Dashboard
+          Back to home
         </Link>
       </div>
-    </div>
+    </main>
   );
 }

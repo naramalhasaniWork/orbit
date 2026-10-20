@@ -8,7 +8,7 @@ import {
   Code2,
   Gauge,
   Accessibility,
-  Sparkles,
+  BookCheck,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -27,7 +27,7 @@ const CATEGORY_META: Record<
   quality: { label: "Code Quality", icon: Code2 },
   performance: { label: "Performance", icon: Gauge },
   accessibility: { label: "Accessibility", icon: Accessibility },
-  bestPractices: { label: "Best Practices", icon: Sparkles },
+  bestPractices: { label: "Best Practices", icon: BookCheck },
 };
 
 function getBarColor(score: number): string {

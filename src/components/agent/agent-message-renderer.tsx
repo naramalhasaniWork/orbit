@@ -1,7 +1,8 @@
 "use client";
 
 import { memo } from "react";
-import { Bot, User, Sparkles } from "lucide-react";
+import { Bot, User } from "lucide-react";
+import { ClosingO } from "@/components/telemetry/closing-o";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { AgentToolCard } from "@/components/agent/agent-tool-card";
@@ -97,7 +98,7 @@ const UserBubble = memo(function UserBubble({ content }: { content: string }) {
       transition={{ duration: 0.2 }}
       className="flex items-start gap-3 justify-end"
     >
-      <div className="max-w-[70%] rounded-2xl rounded-tr-md px-4 py-3 bg-foreground/[0.06] border border-tm-line-strong">
+      <div className="max-w-[70%] rounded-lg px-4 py-3 bg-primary text-primary-foreground">
         <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
           {content}
         </p>
@@ -149,7 +150,7 @@ const AssistantBubble = memo(function AssistantBubble({
 
         {/* Text content with markdown rendering */}
         {content && (
-          <div className="rounded-2xl rounded-tl-md px-4 py-3 bg-foreground/[0.03] border border-border">
+          <div className="rounded-lg px-4 py-3 bg-muted">
             <MarkdownRenderer content={content} />
             {isLast && isStreaming && (
               <span className="inline-block w-[6px] h-[14px] bg-foreground/[0.06] ml-0.5 rounded-sm" />
@@ -182,9 +183,7 @@ function EmptyState() {
         transition={{ duration: 0.3 }}
         className="text-center space-y-4 max-w-md"
       >
-        <div className="h-16 w-16 rounded-2xl bg-foreground/[0.06] border border-tm-line-strong flex items-center justify-center mx-auto">
-          <Sparkles className="h-7 w-7 text-foreground" />
-        </div>
+        <ClosingO size={36} />
         <div className="space-y-2">
           <h3 className="text-base font-medium text-foreground">
             Orbit Agent
