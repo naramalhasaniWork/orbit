@@ -151,6 +151,7 @@ export const authOptions: AuthOptions = {
                   email: user.email!.toLowerCase(),
                   status: "pending",
                   expiresAt: { gt: new Date() },
+                  workspace: { deletedAt: null },
                 },
                 include: {
                   workspace: { select: { id: true, slug: true } },
