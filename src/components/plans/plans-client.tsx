@@ -14,6 +14,10 @@ import {
   computePlanStats,
 } from "@/components/plans/plan-types";
 import { cn } from "@/lib/utils";
+import { useUrlParams } from "@/hooks/use-url-state";
+import { resolveExpandedPlanId } from "@/lib/plans/test-case-filter";
+
+const URL_DEFAULTS = { plan: "" };
 
 interface CoverageNode {
   id: string;
@@ -39,9 +43,9 @@ interface PlansClientProps {
 
 export function PlansClient({ projectId, projectName, plans, coverageNodes = [] }: PlansClientProps) {
   const router = useRouter();
-  const [expandedPlanId, setExpandedPlanId] = useState<string | null>(
-    plans.find((p) => p.isActive)?.id ?? null
-  );
+  // Which plan is open is part of the URL (empty = the active plan, "none" = all collapsed).
+  const [urlState, setUrlState] = useUrlParams(URL_DEFAULTS);
+  const expandedPlanId = resolveExpandedPlanId(urlState.plan, plans);
   const [generating, setGenerating] = useState(false);
   const [currentPhase, setCurrentPhase] = useState<PlanPhase | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -181,7 +185,7 @@ export function PlansClient({ projectId, projectName, plans, coverageNodes = [] 
                 plan={plan}
                 stats={stats}
                 isExpanded={isExpanded}
-                onToggle={() => setExpandedPlanId(isExpanded ? null : plan.id)}
+                onToggle={() => setUrlState({ plan: isExpanded ? "none" : plan.id })}
                 projectId={projectId}
               />
             );
