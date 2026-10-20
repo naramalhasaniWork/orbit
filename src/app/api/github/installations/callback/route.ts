@@ -1,13 +1,12 @@
 import { NextRequest } from "next/server";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
-import { prisma } from "@/lib/db";
 import { requireWorkspace } from "@/lib/utils/api";
+import { requirePermission } from "@/lib/auth/rbac";
 import { safeReturnPath } from "@/lib/utils/safe-redirect";
-import {
-  isGitHubAppConfigured,
-  getInstallationInfo,
-} from "@/lib/github/app";
+import { isGitHubAppConfigured } from "@/lib/github/app";
+import { verifyInstallState } from "@/lib/github/install-state";
+import { linkInstallation, listInstallationsForUser } from "@/services/github-installation-sync";
 
 export const dynamic = "force-dynamic";
 
@@ -16,10 +15,17 @@ export async function GET(request: NextRequest) {
   const returnTo = safeReturnPath(cookieStore.get("orbit_install_return")?.value);
 
   try {
-    const { workspaceId } = await requireWorkspace();
+    const { session, workspaceId } = await requireWorkspace();
+    await requirePermission(workspaceId, "integrations.manage");
 
     if (!isGitHubAppConfigured()) {
       redirect(`${returnTo}?error=github_app_not_configured`);
+    }
+
+    // The signed state proves this flow was started by this user for this workspace
+    const state = verifyInstallState(request.nextUrl.searchParams.get("state"));
+    if (!state || state.workspaceId !== workspaceId || state.userId !== session.user.id) {
+      redirect(`${returnTo}?error=invalid_state`);
     }
 
     const installationId = request.nextUrl.searchParams.get("installation_id");
@@ -34,59 +40,21 @@ export async function GET(request: NextRequest) {
       redirect(`${returnTo}?error=invalid_installation_id`);
     }
 
-    const info = await getInstallationInfo(numericId);
+    // installation_id comes from the query string: only link it if GitHub says this user can access it
+    const accessible = await listInstallationsForUser(session.user.id);
+    if (!accessible) {
+      redirect(`${returnTo}?error=reauth_required`);
+    }
+    const installation = accessible.find((i) => i.id === numericId);
+    if (!installation) {
+      redirect(`${returnTo}?error=installation_not_accessible`);
+    }
 
-    await prisma.gitHubInstallation.upsert({
-      where: {
-        workspace_installation_unique: {
-          workspaceId,
-          installationId: numericId,
-        },
-      },
-      create: {
-        workspaceId,
-        installationId: numericId,
-        accountLogin: info.account.login,
-        accountType: info.account.type,
-        avatarUrl: info.account.avatar_url,
-      },
-      update: {
-        accountLogin: info.account.login,
-        accountType: info.account.type,
-        avatarUrl: info.account.avatar_url,
-      },
-    });
-
-    // Sync workspace.settings.github so the UI shows connected status
-    const workspace = await prisma.workspace.findUnique({
-      where: { id: workspaceId },
-      select: { settings: true },
-    });
-    const currentSettings = (workspace?.settings as Record<string, unknown>) ?? {};
-
-    // Gather all installation accounts for this workspace
-    const allInstalls = await prisma.gitHubInstallation.findMany({
-      where: { workspaceId },
-      select: { installationId: true, accountLogin: true },
-    });
-
-    await prisma.workspace.update({
-      where: { id: workspaceId },
-      data: {
-        settings: {
-          ...currentSettings,
-          github: {
-            connected: true,
-            installationId: String(numericId),
-            repos: allInstalls.map((i) => i.accountLogin),
-          },
-        },
-      },
-    });
+    await linkInstallation(workspaceId, installation);
 
     cookieStore.delete("orbit_install_return");
 
-    redirect(`${returnTo}?org_connected=${info.account.login}`);
+    redirect(`${returnTo}?org_connected=${encodeURIComponent(installation.account.login)}`);
   } catch (error) {
     // Next.js redirect() throws a special error — rethrow it
     if (error instanceof Error && error.message === "NEXT_REDIRECT") {

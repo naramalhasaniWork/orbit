@@ -17,9 +17,11 @@ export function isGitHubAppConfigured(): boolean {
   return getAppConfig() !== null;
 }
 
-export function getInstallUrl(): string {
+/** GitHub echoes `state` back to the setup callback; always pass a signed one. */
+export function getInstallUrl(state?: string): string {
   const appSlug = process.env.GITHUB_APP_SLUG ?? "orbit-testing";
-  return `https://github.com/apps/${appSlug}/installations/new`;
+  const base = `https://github.com/apps/${appSlug}/installations/new`;
+  return state ? `${base}?state=${encodeURIComponent(state)}` : base;
 }
 
 async function generateAppJwt(): Promise<string> {
@@ -140,25 +142,33 @@ export async function listInstallationRepos(
   return data.repositories ?? [];
 }
 
+/** Installation of the GitHub App that a user can access, as seen by GitHub for that user. */
+export interface UserInstallation {
+  id: number;
+  account: { login: string; type: string; avatar_url: string };
+}
+
 /**
- * List all installations for this GitHub App.
- * Useful for syncing installations that were created outside of Orbit's callback.
+ * Installations of this app that the token's user can access (GET /user/installations).
+ * Requires a user-to-server token, so GitHub itself decides what the user may link.
  */
-export async function listAllAppInstallations(): Promise<GitHubInstallationInfo[]> {
-  const jwt = await generateAppJwt();
-
-  const res = await fetch(`${GITHUB_API}/app/installations`, {
-    headers: {
-      Authorization: `Bearer ${jwt}`,
-      Accept: "application/vnd.github+json",
-      "X-GitHub-Api-Version": "2022-11-28",
-    },
-  });
-
-  if (!res.ok) {
-    const text = await res.text();
-    throw new Error(`Failed to list app installations: ${res.status} ${text}`);
+export async function listUserInstallations(userToken: string): Promise<UserInstallation[]> {
+  const found: UserInstallation[] = [];
+  for (let page = 1; page <= 10; page++) {
+    const res = await fetch(`${GITHUB_API}/user/installations?per_page=100&page=${page}`, {
+      headers: {
+        Authorization: `Bearer ${userToken}`,
+        Accept: "application/vnd.github+json",
+        "X-GitHub-Api-Version": "2022-11-28",
+      },
+    });
+    if (!res.ok) {
+      throw new Error(`Failed to list user installations: ${res.status}`);
+    }
+    const data = (await res.json()) as { installations?: UserInstallation[] };
+    const batch = data.installations ?? [];
+    found.push(...batch);
+    if (batch.length < 100) break;
   }
-
-  return res.json();
+  return found;
 }
