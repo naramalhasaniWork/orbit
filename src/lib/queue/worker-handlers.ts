@@ -13,6 +13,7 @@ import {
   emitIndexingProgress,
   emitIndexingFailed,
 } from "@/lib/websocket";
+import { runPipelineForJob, markRunFailed, errorMessage } from "@/lib/queue/run-job-guards";
 
 export async function handleIndexingJob(job: Job<IndexingJobData>): Promise<void> {
   const data = IndexingJobDataSchema.parse(job.data);
@@ -23,6 +24,15 @@ export async function handleIndexingJob(job: Job<IndexingJobData>): Promise<void
   });
 
   await job.updateProgress(10);
+
+  // Event-triggered run: the orchestrator owns indexing → planning →
+  // execution → reporting and the run's terminal status. Not retried by the
+  // queue, since a retry would repeat phases on a run already marked failed.
+  if (data.runId) {
+    await runPipelineForJob(data.runId, data.changedFiles);
+    await job.updateProgress(100);
+    return;
+  }
 
   try {
     if (data.isIncremental && data.changedFiles && data.changedFiles.length > 0) {
@@ -79,7 +89,8 @@ export async function handleExecutionJob(job: Job<ExecutionJobData>): Promise<vo
 
   await job.updateProgress(10);
 
-  // Full-run execution: delegate to the unified runner
+  // Full-run execution: delegate to the unified runner. executeRun records
+  // its own crashes; this guards failures before it starts (e.g. import).
   if (data.testCaseId === "__full_run__") {
     try {
       const runnerModule = await import("@/services/execution/runner");
@@ -89,7 +100,7 @@ export async function handleExecutionJob(job: Job<ExecutionJobData>): Promise<vo
         ? `${importErr.name}: ${importErr.message}\n${importErr.stack}`
         : String(importErr);
       console.error(`[Worker:execution] Runner import/execute failed:\n${msg}`);
-      throw importErr;
+      await markRunFailed(data.runId, `Execution could not start: ${errorMessage(importErr)}`);
     }
     await job.updateProgress(100);
     return;

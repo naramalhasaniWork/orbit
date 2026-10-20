@@ -3,6 +3,12 @@
  * Ensures all queries are scoped to the correct workspace.
  */
 
+import { prisma } from "@/lib/db";
+import { checkBudgetLimit } from "@/lib/billing/usage-aggregator";
+import { TIER_LIMITS, type WorkspaceTier } from "./tier-limits";
+
+export { TIER_LIMITS, type WorkspaceTier };
+
 /** Returns a Prisma `where` clause that filters by workspace_id. */
 export function withWorkspace(workspaceId: string) {
   return { workspaceId } as const;
@@ -15,47 +21,6 @@ export function withWorkspaceAnd<T extends Record<string, unknown>>(
 ) {
   return { workspaceId, ...conditions };
 }
-
-/**
- * Tier limits configuration.
- * Maps tier names to their resource limits.
- */
-export const TIER_LIMITS = {
-  free: {
-    members: 2,
-    projects: 1,
-    runsPerMonth: 100,
-    monthlyCredits: 100,
-    rateLimit: 60, // requests per minute
-    allowedModels: ["claude-haiku-4-5-20251001"] as readonly string[],
-  },
-  starter: {
-    members: 5,
-    projects: 5,
-    runsPerMonth: 500,
-    monthlyCredits: 1000,
-    rateLimit: 120,
-    allowedModels: ["claude-haiku-4-5-20251001", "claude-sonnet-4-6"] as readonly string[],
-  },
-  professional: {
-    members: 10,
-    projects: Infinity,
-    runsPerMonth: 5000,
-    monthlyCredits: 2000,
-    rateLimit: 300,
-    allowedModels: ["claude-haiku-4-5-20251001", "claude-sonnet-4-6", "claude-opus-4-6"] as readonly string[],
-  },
-  enterprise: {
-    members: Infinity,
-    projects: Infinity,
-    runsPerMonth: Infinity,
-    monthlyCredits: Infinity,
-    rateLimit: Infinity,
-    allowedModels: ["claude-haiku-4-5-20251001", "claude-sonnet-4-6", "claude-opus-4-6"] as readonly string[],
-  },
-} as const;
-
-export type WorkspaceTier = keyof typeof TIER_LIMITS;
 
 /** Check if a workspace tier allows a specific model. */
 export function isModelAllowed(tier: WorkspaceTier, model: string): boolean {
@@ -77,4 +42,100 @@ export function getBudgetPercentage(creditsUsed: number, tier: WorkspaceTier): n
 /** Check if workspace is at or above budget warning threshold. */
 export function isBudgetWarning(creditsUsed: number, tier: WorkspaceTier): boolean {
   return getBudgetPercentage(creditsUsed, tier) >= BUDGET_WARNING_THRESHOLD;
+}
+
+/**
+ * What a caller is about to consume:
+ *  - run:     start a new test run (monthly run count + credits)
+ *  - credits: spend credits on an already-created run (balance + token budget)
+ *  - project: create a project
+ *  - member:  invite a member (pending invites count)
+ */
+export type ConsumptionKind = "run" | "credits" | "project" | "member";
+
+export type ConsumeDecision =
+  | { allowed: true }
+  | { allowed: false; code: "LIMIT_REACHED" | "INSUFFICIENT_CREDITS" | "BUDGET_EXCEEDED" | "NOT_FOUND"; reason: string };
+
+/**
+ * The single choke point for every plan limit and credit check.
+ * Limits come from TIER_LIMITS keyed by `workspace.tier` only (never the
+ * legacy `plan` string or the per-workspace *Limit columns).
+ */
+export async function canConsume(
+  workspaceId: string,
+  kind: ConsumptionKind
+): Promise<ConsumeDecision> {
+  const workspace = await prisma.workspace.findUnique({
+    where: { id: workspaceId },
+    select: { tier: true, creditBalance: true },
+  });
+  if (!workspace) {
+    return { allowed: false, code: "NOT_FOUND", reason: "Workspace not found" };
+  }
+
+  const limits = TIER_LIMITS[workspace.tier];
+
+  switch (kind) {
+    case "project": {
+      const count = await prisma.project.count({ where: { workspaceId, deletedAt: null } });
+      return count >= limits.projects
+        ? limitReached(`Project limit reached (${limits.projects}). Upgrade your plan to create more projects.`)
+        : { allowed: true };
+    }
+    case "member": {
+      const [members, pending] = await Promise.all([
+        prisma.workspaceMember.count({ where: { workspaceId } }),
+        prisma.workspaceInvitation.count({ where: { workspaceId, status: "pending" } }),
+      ]);
+      return members + pending >= limits.members
+        ? limitReached(`Member limit reached (${limits.members}). Upgrade your plan to add more members.`)
+        : { allowed: true };
+    }
+    case "run": {
+      const monthStart = new Date();
+      monthStart.setDate(1);
+      monthStart.setHours(0, 0, 0, 0);
+      const monthlyRuns = await prisma.testRun.count({
+        where: { project: { workspaceId }, createdAt: { gte: monthStart } },
+      });
+      if (monthlyRuns >= limits.runsPerMonth) {
+        return limitReached(
+          `Monthly run limit reached (${limits.runsPerMonth}). Upgrade your plan for more runs.`
+        );
+      }
+      return checkCredits(workspaceId, workspace.creditBalance, limits.monthlyCredits);
+    }
+    case "credits":
+      return checkCredits(workspaceId, workspace.creditBalance, limits.monthlyCredits);
+  }
+}
+
+function limitReached(reason: string): ConsumeDecision {
+  return { allowed: false, code: "LIMIT_REACHED", reason };
+}
+
+async function checkCredits(
+  workspaceId: string,
+  creditBalance: number,
+  monthlyCredits: number
+): Promise<ConsumeDecision> {
+  if (monthlyCredits !== Infinity && creditBalance <= 0) {
+    return {
+      allowed: false,
+      code: "INSUFFICIENT_CREDITS",
+      reason: "Credit balance is 0. Buy a credit pack or upgrade your plan to run tests.",
+    };
+  }
+
+  const budget = await checkBudgetLimit(workspaceId);
+  if (budget.budgetLimit && budget.usagePercent >= 100) {
+    return {
+      allowed: false,
+      code: "BUDGET_EXCEEDED",
+      reason: "Monthly AI token budget exceeded. Raise the budget or wait for the next billing period.",
+    };
+  }
+
+  return { allowed: true };
 }

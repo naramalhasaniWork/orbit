@@ -11,7 +11,7 @@ const content = Object.fromEntries(
     .map((f) => [f.replace(".json", ""), readFileSync(join(contentDir, f), "utf8")])
 );
 const pricing = JSON.parse(content.pricing) as {
-  tiers: Array<{ name: string; credits: string; features: string[]; badge?: string }>;
+  tiers: Array<{ name: string; credits?: string; features: string[]; badge?: string }>;
   faq: Array<{ question: string }>;
   subheadline: string;
 };
@@ -19,16 +19,15 @@ const pricing = JSON.parse(content.pricing) as {
 describe("marketing copy matches the product", () => {
   const free = pricing.tiers.find((t) => t.name === "Free")!;
 
-  it("free tier numbers come from TIER_LIMITS", () => {
-    expect(free.credits).toBe(`${TIER_LIMITS.free.monthlyCredits} credits/month`);
-    expect(free.features).toContain(`${TIER_LIMITS.free.members} team members`);
-    expect(free.features).toContain(`${TIER_LIMITS.free.projects} project`);
+  it("pricing copy hardcodes no limits; they are derived from TIER_LIMITS", () => {
+    expect(free.credits).toBeUndefined();
+    expect(free.features.some((f) => /credits\/month|team member|\bprojects?\b/i.test(f))).toBe(false);
   });
 
-  it("billing tier config agrees with TIER_LIMITS for free", () => {
-    const config = getTierConfig("free");
-    expect(config.creditsPerSeat).toBe(TIER_LIMITS.free.monthlyCredits);
-    expect(config.maxMembers).toBe(TIER_LIMITS.free.members);
+  it("billing tier config lists the TIER_LIMITS numbers for free", () => {
+    const features = getTierConfig("free").features.join(" | ");
+    expect(features).toContain(String(TIER_LIMITS.free.monthlyCredits));
+    expect(features).toContain(String(TIER_LIMITS.free.members));
   });
 
   it("does not claim a badge, per-seat reassurance or QA salary comparison", () => {

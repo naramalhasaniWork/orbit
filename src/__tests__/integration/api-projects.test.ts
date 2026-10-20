@@ -55,12 +55,7 @@ vi.mock("@/lib/auth/rbac", () => ({
 }));
 
 vi.mock("@/lib/auth/tenant", () => ({
-  TIER_LIMITS: {
-    free: { projects: 3, runsPerMonth: 50 },
-    starter: { projects: 10, runsPerMonth: 200 },
-    professional: { projects: 50, runsPerMonth: 1000 },
-    enterprise: { projects: 999, runsPerMonth: 9999 },
-  },
+  canConsume: vi.fn().mockResolvedValue({ allowed: true }),
 }));
 
 vi.mock("@/lib/queue/queues", () => ({

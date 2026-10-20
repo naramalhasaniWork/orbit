@@ -107,6 +107,11 @@ export async function updateRunStatus(
     data.startedAt = new Date();
   }
 
+  // A failure reason must be visible on the run, not only in a progress event
+  if (status === "failed" && message) {
+    data.summary = message;
+  }
+
   if (status === "completed" || status === "failed" || status === "cancelled") {
     data.completedAt = new Date();
     const run = await prisma.testRun.findUnique({ where: { id: runId } });
@@ -142,6 +147,22 @@ export async function updateRunStatus(
   }
 
   return updated;
+}
+
+/**
+ * Last-resort guard for worker crashes: move a run that is still
+ * queued/indexing/planning/executing/reporting to "failed" with the reason.
+ * Runs that already reached a terminal state are left untouched.
+ */
+export async function failRunIfActive(runId: string, reason: string): Promise<void> {
+  const terminal: RunStatus[] = ["completed", "failed", "cancelled"];
+  const { count } = await prisma.testRun.updateMany({
+    where: { id: runId, status: { notIn: terminal } },
+    data: { status: "failed", summary: reason, completedAt: new Date() },
+  });
+  if (count > 0) {
+    console.error(`[RunManager] Run ${runId} force-failed: ${reason}`);
+  }
 }
 
 export async function updateRunStats(runId: string) {

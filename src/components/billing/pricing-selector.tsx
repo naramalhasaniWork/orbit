@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Check, Zap, ArrowRight, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { TIER_LIMITS } from "@/lib/auth/tenant";
+import { tierCreditsLabel, tierLimitFeatures } from "@/lib/auth/tier-limits";
 
 interface PricingTier {
   key: string;
@@ -29,11 +29,9 @@ const TIERS: PricingTier[] = [
     price: 0,
     annualPrice: null,
     period: "forever",
-    credits: `${TIER_LIMITS.free.monthlyCredits} credits/month`,
+    credits: tierCreditsLabel("free"),
     features: [
-      `${TIER_LIMITS.free.projects} project`,
-      `${TIER_LIMITS.free.members} team members`,
-      `${TIER_LIMITS.free.monthlyCredits} credits/month`,
+      ...tierLimitFeatures("free"),
       "Core indexing & execution",
       "GitHub integration",
     ],
@@ -46,10 +44,9 @@ const TIERS: PricingTier[] = [
     price: 79,
     annualPrice: 67,
     period: "per seat/month",
-    credits: "5,000 credits/month per seat",
+    credits: tierCreditsLabel("starter"),
     features: [
-      "Unlimited projects",
-      "5,000 credits/month per seat",
+      ...tierLimitFeatures("starter"),
       "All integrations",
       "Custom system prompts",
       "Self-healing selectors",
@@ -64,10 +61,10 @@ const TIERS: PricingTier[] = [
     price: 149,
     annualPrice: 127,
     period: "per seat/month",
-    credits: "20,000 credits/month per seat",
+    credits: tierCreditsLabel("professional"),
     features: [
       "Everything in Pro",
-      "20,000 credits/month per seat",
+      ...tierLimitFeatures("professional"),
       "Role-based permissions",
       "Audit logs",
       "SSO support",

@@ -4,11 +4,25 @@ import { motion } from "framer-motion";
 import { PricingSection } from "@/components/marketing/pricing-section";
 import { CtaSection } from "@/components/marketing/cta-section";
 import pricingContent from "@/app/(marketing)/content/pricing.json";
+import { tierLimitFeatures, type WorkspaceTier } from "@/lib/auth/tier-limits";
+
+// Numeric limits come from TIER_LIMITS so the page matches what is enforced
+const pricingWithLimits = {
+  ...pricingContent,
+  tiers: pricingContent.tiers.map((tier) => {
+    const limits = tierLimitFeatures(tier.tier as WorkspaceTier);
+    const [first, ...rest] = tier.features;
+    // Keep "Everything in X" as the lead line when present
+    return first?.startsWith("Everything in")
+      ? { ...tier, features: [first, ...limits, ...rest] }
+      : { ...tier, features: [...limits, ...tier.features] };
+  }),
+};
 
 export function PricingPageClient() {
   return (
     <div className="pt-24">
-      <PricingSection content={pricingContent} />
+      <PricingSection content={pricingWithLimits} />
 
       {/* FAQ */}
       <section className="py-16 lg:py-24 bg-card/50">

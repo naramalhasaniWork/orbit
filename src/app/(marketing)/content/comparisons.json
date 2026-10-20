@@ -92,6 +92,6 @@
   ],
   "summary": {
     "orbit_unique": "Orbit is the only platform that combines deep code understanding (AST parsing, framework detection, System Map) with live browser testing and fully autonomous operation. Competitors either understand your code OR test your app — never both.",
-    "bottom_line": "If you're a 2-10 person team shipping fast with AI coding tools, Orbit gives you a QA engineer's coverage without the $90K salary or the months of test script authoring."
+    "bottom_line": "If you're a 2-10 person team shipping fast with AI coding tools, Orbit tests your PR previews in a real browser without months of test script authoring."
   }
 }
