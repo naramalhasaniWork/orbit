@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createHmac, timingSafeEqual } from "crypto";
 import { prisma } from "@/lib/db";
+import { parseProjectSettings } from "@/server/data/settings-repo";
 import type { Prisma } from "@/generated/prisma/client";
 import { launchPipelineRun, launchSummary } from "@/services/orchestrator/run-launcher";
 
@@ -49,8 +50,7 @@ async function findProjectByLinearTeam(
   });
 
   for (const project of projects) {
-    const settings = project.settings as Record<string, unknown>;
-    if (settings?.linearTeamId === teamId) {
+    if (parseProjectSettings(project.settings).linearTeamId === teamId) {
       return { id: project.id, defaultBranch: project.defaultBranch };
     }
   }

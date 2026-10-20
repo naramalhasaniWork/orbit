@@ -7,6 +7,7 @@
  */
 
 import { prisma } from "@/lib/db";
+import { parseProjectSettings, patchProjectSettings } from "@/server/data/settings-repo";
 import { resolveGitHubToken } from "@/lib/github/token";
 import { getIndexingQueue } from "@/lib/queue/queues";
 import { addDeterministicJob } from "@/lib/queue/deterministic-job";
@@ -20,14 +21,6 @@ interface CommitPollResult {
   prevSha?: string;
   commitsBehind?: number;
   error?: string;
-}
-
-interface ProjectSettings {
-  autoSync?: boolean;
-  lastCommitSha?: string;
-  lastCommitAt?: string;
-  lastCommitMessage?: string;
-  commitsBehind?: number;
 }
 
 interface GitHubCommit {
@@ -113,7 +106,7 @@ export async function pollProjectCommits(
     return { projectId, repoSlug: "", status: "error", error: "Project not found" };
   }
 
-  const settings = (project.settings ?? {}) as ProjectSettings;
+  const settings = parseProjectSettings(project.settings);
   const repoSlug = `${project.repoOwner}/${project.repoName}`;
 
   if (!settings.autoSync) {
@@ -140,8 +133,7 @@ export async function pollProjectCommits(
     const prevSha = settings.lastCommitSha;
 
     // Always update the latest commit metadata in settings
-    const newSettings: ProjectSettings = {
-      ...settings,
+    const commitInfo = {
       lastCommitSha: latest.sha,
       lastCommitAt: latest.commit.author.date,
       lastCommitMessage: latest.commit.message.split("\n")[0].slice(0, 200),
@@ -150,10 +142,7 @@ export async function pollProjectCommits(
 
     // No previous SHA recorded — just store and wait for next poll
     if (!prevSha) {
-      await prisma.project.update({
-        where: { id: projectId },
-        data: { settings: JSON.parse(JSON.stringify(newSettings)) },
-      });
+      await patchProjectSettings(projectId, commitInfo);
       return { projectId, repoSlug, status: "up-to-date", newSha: latest.sha };
     }
 
@@ -171,12 +160,7 @@ export async function pollProjectCommits(
       tokenResult.token
     );
 
-    newSettings.commitsBehind = commitsBehind;
-
-    await prisma.project.update({
-      where: { id: projectId },
-      data: { settings: JSON.parse(JSON.stringify(newSettings)) },
-    });
+    await patchProjectSettings(projectId, { ...commitInfo, commitsBehind });
 
     // Trigger incremental re-indexing
     await addDeterministicJob(

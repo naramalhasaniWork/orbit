@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { patchProjectSettings } from "@/server/data/settings-repo";
 import { githubRepoApiUrl, assertSafeRepoPath } from "@/lib/github/repo-paths";
 
 // ============================================================
@@ -275,26 +276,11 @@ export async function collectAndStoreGitHistory(
   const changeFrequency = aggregateChangeFrequency(gitChanges);
   const frequencyObj = Object.fromEntries(changeFrequency);
 
-  const currentProject = await prisma.project.findUnique({
-    where: { id: projectId },
-    select: { settings: true },
-  });
-  const currentSettings =
-    (currentProject?.settings as Record<string, unknown>) ?? {};
-
-  await prisma.project.update({
-    where: { id: projectId },
-    data: {
-      settings: JSON.parse(
-        JSON.stringify({
-          ...currentSettings,
-          gitHistory: {
-            changes: gitChanges,
-            changeFrequency: frequencyObj,
-            collectedAt: new Date().toISOString(),
-          },
-        })
-      ),
+  await patchProjectSettings(projectId, {
+    gitHistory: {
+      changes: gitChanges,
+      changeFrequency: frequencyObj,
+      collectedAt: new Date().toISOString(),
     },
   });
 

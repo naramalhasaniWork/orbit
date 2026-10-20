@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { patchWorkspaceSettings } from "@/server/data/settings-repo";
 import { listUserInstallations, type UserInstallation } from "@/lib/github/app";
 import { decryptToken } from "@/lib/vault/token";
 
@@ -160,31 +161,19 @@ export async function syncInstallations(workspaceId: string, userId: string): Pr
 }
 
 async function syncWorkspaceGitHubSettings(workspaceId: string): Promise<void> {
-  const workspace = await prisma.workspace.findUnique({
-    where: { id: workspaceId },
-    select: { settings: true },
-  });
-  const currentSettings = (workspace?.settings as Record<string, unknown>) ?? {};
-
   const installs = await prisma.gitHubInstallation.findMany({
     where: { workspaceId },
     select: { installationId: true, accountLogin: true },
   });
 
-  await prisma.workspace.update({
-    where: { id: workspaceId },
-    data: {
-      settings: {
-        ...currentSettings,
-        github: installs.length > 0
-          ? {
-              connected: true,
-              installationId: String(installs[0].installationId),
-              repos: installs.map((i) => i.accountLogin),
-            }
-          : { connected: false },
-      },
-    },
+  await patchWorkspaceSettings(workspaceId, {
+    github: installs.length > 0
+      ? {
+          connected: true,
+          installationId: String(installs[0].installationId),
+          repos: installs.map((i) => i.accountLogin),
+        }
+      : { connected: false },
   });
 }
 

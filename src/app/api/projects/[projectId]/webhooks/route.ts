@@ -2,22 +2,17 @@
  * GET  /api/projects/:projectId/webhooks — List outbound webhook endpoints
  * POST /api/projects/:projectId/webhooks — Create an endpoint (signing secret returned once)
  *
- * Endpoints live in project.settings.webhooks, the list the dispatcher in
- * outbound-webhooks.ts reads. Secrets are stored sealed and never listed.
+ * Endpoints are WebhookEndpoint rows (webhook-endpoint-repo), the list the dispatcher
+ * in outbound-webhooks.ts reads. Secrets are stored sealed and never listed.
  */
 
-import { randomBytes, randomUUID } from "crypto";
+import { randomBytes } from "crypto";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { apiSuccess, apiError } from "@/lib/utils/api";
-import { sealSecret } from "@/lib/integrations/secret-field";
 import { isAllowedWebhookUrl } from "@/lib/integrations/webhook-url";
 import { WEBHOOK_EVENTS } from "@/services/reporting/integrations/outbound-webhooks";
-import {
-  readStoredWebhooks,
-  updateProjectWebhooks,
-  type StoredWebhook,
-} from "@/services/reporting/integrations/webhook-store";
+import { createProjectEndpoint, listProjectEndpoints } from "@/server/data/webhook-endpoint-repo";
 import { route } from "@/server/http/route";
 
 const eventNames = Object.keys(WEBHOOK_EVENTS) as [string, ...string[]];
@@ -30,21 +25,10 @@ const createSchema = z.object({
   events: z.array(z.enum(eventNames)).min(1, "Select at least one event"),
 });
 
-type RouteContext = { params: Promise<{ projectId: string }> };
-
-function toEndpointView(webhook: StoredWebhook & { id: string }) {
-  return {
-    id: webhook.id,
-    url: webhook.url,
-    events: webhook.events,
-    isEnabled: webhook.enabled !== false,
-  };
-}
-
-async function findProject(projectId: string, workspaceId: string) {
+function findProject(projectId: string, workspaceId: string) {
   return prisma.project.findFirst({
     where: { id: projectId, workspaceId },
-    select: { id: true, settings: true },
+    select: { id: true },
   });
 }
 
@@ -54,39 +38,19 @@ export const GET = route(
     const project = await findProject(projectId, workspaceId);
     if (!project) return apiError("Project not found", "NOT_FOUND", 404);
 
-    let webhooks = readStoredWebhooks(project.settings);
-
-    // Entries written outside these routes may lack an id; assign one so they can be managed.
-    if (webhooks.some((w) => !w.id)) {
-      webhooks =
-        (await updateProjectWebhooks(projectId, (all) =>
-          all.map((w) => (w.id ? w : { ...w, id: randomUUID() }))
-        )) ?? webhooks;
-    }
-
-    return apiSuccess(webhooks.map((w) => toEndpointView(w as StoredWebhook & { id: string })));
+    return listProjectEndpoints(projectId);
   }
 );
 
 export const POST = route(
-  { permission: "integrations.manage" },
-  async ({ req: request, params: { projectId }, workspaceId }) => {
-    const { url, events } = createSchema.parse(await request.json());
-
+  { permission: "integrations.manage", body: createSchema },
+  async ({ body: { url, events }, params: { projectId }, workspaceId }) => {
     const project = await findProject(projectId, workspaceId);
     if (!project) return apiError("Project not found", "NOT_FOUND", 404);
 
     const secret = `whsec_${randomBytes(24).toString("hex")}`;
-    const endpoint: StoredWebhook & { id: string } = {
-      id: randomUUID(),
-      url,
-      events,
-      enabled: true,
-      secretSealed: sealSecret(secret),
-    };
+    const endpoint = await createProjectEndpoint({ workspaceId, projectId, url, events, secret });
 
-    await updateProjectWebhooks(projectId, (all) => [...all, endpoint]);
-
-    return apiSuccess({ secret, endpoint: toEndpointView(endpoint) }, 201);
+    return apiSuccess({ secret, endpoint }, 201);
   }
 );

@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { patchProjectSettings } from "@/server/data/settings-repo";
 import { emitIndexingNodeDiscovered } from "@/lib/websocket";
 import type { RouteManifest } from "@/services/indexing/route-extractor";
 import type { ComponentMap } from "@/services/indexing/component-mapper";
@@ -288,26 +289,15 @@ export async function buildSystemMap(
   if (previousNodeMap.size > 0) {
     const hasChanges = diff.added.length > 0 || diff.modified.length > 0 || diff.removed.length > 0;
     if (hasChanges) {
-      const project = await prisma.project.findUnique({
-        where: { id: projectId },
-        select: { settings: true },
-      });
-      const currentSettings = (project?.settings as Record<string, unknown>) ?? {};
-      await prisma.project.update({
-        where: { id: projectId },
-        data: {
-          settings: {
-            ...currentSettings,
-            lastSyncDiff: {
-              added: diff.added.length,
-              modified: diff.modified.length,
-              removed: diff.removed.length,
-              addedNodes: diff.added.slice(0, 50),
-              modifiedNodes: diff.modified.slice(0, 50),
-              removedNodes: diff.removed.slice(0, 50),
-              syncedAt: new Date().toISOString(),
-            },
-          },
+      await patchProjectSettings(projectId, {
+        lastSyncDiff: {
+          added: diff.added.length,
+          modified: diff.modified.length,
+          removed: diff.removed.length,
+          addedNodes: diff.added.slice(0, 50),
+          modifiedNodes: diff.modified.slice(0, 50),
+          removedNodes: diff.removed.slice(0, 50),
+          syncedAt: new Date().toISOString(),
         },
       });
     }

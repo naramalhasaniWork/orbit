@@ -3,18 +3,18 @@
  * PATCH  /api/workspaces/:workspaceId/integrations/linear — Toggle auto-create issues
  * DELETE /api/workspaces/:workspaceId/integrations/linear — Disconnect
  *
- * linear.ts reads `linearApiKey` (sealed with the vault) and `linearTeamId`
- * from settings; `linear` holds the display state the settings UI renders.
+ * The connection lives in IntegrationConfig (provider "linear"): the API key sealed in
+ * credentialsSealed, the team as externalAccountId/displayName. linear.ts reads it back.
  */
 
 import { z } from "zod";
 import { auditSettingsChange } from "@/lib/auth/audit";
-import { apiSuccess, apiError } from "@/lib/utils/api";
-import { sealSecret } from "@/lib/integrations/secret-field";
+import { apiError } from "@/lib/utils/api";
 import {
-  patchWorkspaceSettings,
-  readWorkspaceSettings,
-} from "@/lib/integrations/workspace-settings";
+  connectIntegration,
+  disconnectIntegration,
+  patchIntegrationSettings,
+} from "@/server/data/integration-repo";
 import { lookupLinearTeam } from "@/services/reporting/integrations/linear";
 import { route } from "@/server/http/route";
 
@@ -25,13 +25,9 @@ const connectSchema = z.object({
 
 const patchSchema = z.object({ autoCreateIssues: z.boolean() });
 
-type RouteContext = { params: Promise<{ workspaceId: string }> };
-
 export const POST = route(
-  { workspace: "param", permission: "settings.manage" },
-  async ({ req: request, workspaceId, session }) => {
-    const { apiKey, teamId } = connectSchema.parse(await request.json());
-
+  { workspace: "param", permission: "settings.manage", body: connectSchema },
+  async ({ body: { apiKey, teamId }, workspaceId, session }) => {
     let team: { teamId: string; teamName: string } | null;
     try {
       team = await lookupLinearTeam(apiKey, teamId);
@@ -42,59 +38,40 @@ export const POST = route(
       return apiError("No Linear team found for this API key", "NOT_FOUND", 404);
     }
 
-    const saved = await patchWorkspaceSettings(workspaceId, {
-      linearApiKey: sealSecret(apiKey),
-      linearTeamId: team.teamId,
-      linear: {
-        connected: true,
-        teamId: team.teamId,
-        teamName: team.teamName,
-        autoCreateIssues: true,
-      },
+    await connectIntegration(workspaceId, "linear", {
+      secret: apiKey,
+      externalAccountId: team.teamId,
+      displayName: team.teamName,
+      settings: { autoCreateIssues: true },
     });
-    if (!saved) return apiError("Workspace not found", "NOT_FOUND", 404);
 
     await auditSettingsChange(session.user.id, workspaceId, "integration.linear", {
       action: "connected",
       teamId: team.teamId,
     });
 
-    return apiSuccess({ connected: true, ...team, autoCreateIssues: true });
+    return { connected: true, ...team, autoCreateIssues: true };
   }
 );
 
 export const PATCH = route(
-  { workspace: "param", permission: "settings.manage" },
-  async ({ req: request, workspaceId }) => {
-    const { autoCreateIssues } = patchSchema.parse(await request.json());
-
-    const current = await readWorkspaceSettings(workspaceId);
-    if (!current) return apiError("Workspace not found", "NOT_FOUND", 404);
-    if (!current.linearApiKey) {
-      return apiError("Linear is not connected", "NOT_CONNECTED", 409);
-    }
-
-    const linear = { ...(current.linear as Record<string, unknown> | undefined), connected: true, autoCreateIssues };
-    await patchWorkspaceSettings(workspaceId, { linear });
-
-    return apiSuccess({ autoCreateIssues });
+  { workspace: "param", permission: "settings.manage", body: patchSchema },
+  async ({ body: { autoCreateIssues }, workspaceId }) => {
+    const saved = await patchIntegrationSettings(workspaceId, "linear", { autoCreateIssues });
+    if (!saved) return apiError("Linear is not connected", "NOT_CONNECTED", 409);
+    return { autoCreateIssues };
   }
 );
 
 export const DELETE = route(
   { workspace: "param", permission: "settings.manage" },
   async ({ workspaceId, session }) => {
-    const saved = await patchWorkspaceSettings(
-      workspaceId,
-      { linear: { connected: false, autoCreateIssues: false } },
-      ["linearApiKey", "linearTeamId"]
-    );
-    if (!saved) return apiError("Workspace not found", "NOT_FOUND", 404);
+    await disconnectIntegration(workspaceId, "linear");
 
     await auditSettingsChange(session.user.id, workspaceId, "integration.linear", {
       action: "disconnected",
     });
 
-    return apiSuccess({ disconnected: true });
+    return { disconnected: true };
   }
 );

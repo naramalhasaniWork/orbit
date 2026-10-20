@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { parseProjectSettings } from "@/server/data/settings-repo";
 import { SystemMap3D } from "@/components/dashboard/system-map-3d";
 import type { MapNode, MapEdge, TestStatus, ChangeStatus } from "@/components/dashboard/map-types";
 
@@ -41,16 +42,11 @@ export default async function MapPage({
     where: { id: project.id },
     select: { settings: true },
   });
-  const settings = (projectSettings?.settings as Record<string, unknown>) ?? {};
-  const syncDiff = settings.lastSyncDiff as {
-    added: number;
-    modified: number;
-    removed: number;
-    syncedAt: string;
-  } | undefined;
-  const commitsBehind = (settings.commitsBehind as number | undefined) ?? 0;
-  const lastCommitSha = settings.lastCommitSha as string | undefined;
-  const lastCommitMessage = settings.lastCommitMessage as string | undefined;
+  const settings = parseProjectSettings(projectSettings?.settings);
+  const syncDiff = settings.lastSyncDiff;
+  const commitsBehind = settings.commitsBehind ?? 0;
+  const lastCommitSha = settings.lastCommitSha;
+  const lastCommitMessage = settings.lastCommitMessage;
 
   const [dbNodes, dbEdges] = await Promise.all([
     prisma.systemMapNode.findMany({

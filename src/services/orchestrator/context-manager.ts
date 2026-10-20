@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { parseWorkspaceSettings } from "@/server/data/settings-repo";
 import { isDefaultCandidate, pickDefaultEnvironment } from "@/services/execution/default-environment";
 import { findSimilarNodes } from "@/lib/db/vector";
 import { createEmbedding } from "@/lib/ai";
@@ -155,10 +156,7 @@ export async function getProjectContext(projectId: string) {
     orderBy: { createdAt: "desc" },
   });
 
-  const workspaceSettings = (project.workspace?.settings ?? {}) as Record<string, unknown>;
-  const customPrompt = typeof workspaceSettings.customPrompt === "string"
-    ? workspaceSettings.customPrompt
-    : undefined;
+  const customPrompt = parseWorkspaceSettings(project.workspace?.settings).customPrompt;
 
   return {
     project,

@@ -37,16 +37,15 @@ export function redactSettingsOf<T extends { settings?: unknown }>(entity: T): T
   return { ...entity, settings: redactSettings(entity.settings) };
 }
 
+/** Keys only the server writes: the config schema version the dual-read fallback keys off. */
+const SYSTEM_SETTINGS_KEYS = ["schemaVersion"] as const;
+
 /**
- * Settings a generic PATCH may write: incoming protected keys are dropped and
- * the existing values are kept.
+ * The part of a generic settings PATCH that may be merged in: protected and system
+ * keys are dropped, so their existing values stay as they are.
  */
-export function mergeUserSettings(existing: unknown, incoming: Settings): Settings {
-  const current = asSettings(existing);
-  const next: Settings = { ...incoming };
-  for (const key of PROTECTED_SETTINGS_KEYS) {
-    delete next[key];
-    if (key in current) next[key] = current[key];
-  }
+export function userSettingsPatch(incoming: unknown): Settings {
+  const next: Settings = { ...asSettings(incoming) };
+  for (const key of [...PROTECTED_SETTINGS_KEYS, ...SYSTEM_SETTINGS_KEYS]) delete next[key];
   return next;
 }

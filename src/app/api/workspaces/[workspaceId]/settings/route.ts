@@ -1,6 +1,8 @@
+import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { redactSettings } from "@/lib/integrations/redact";
 import { apiSuccess, apiError } from "@/lib/utils/api";
+import { patchWorkspaceSettings, readWorkspaceSettings } from "@/server/data/settings-repo";
 import { route } from "@/server/http/route";
 
 export const GET = route(
@@ -19,36 +21,18 @@ export const GET = route(
   }
 );
 
+const patchSchema = z.object({ customPrompt: z.string({ message: "customPrompt must be a string" }).optional() });
+
 export const PATCH = route(
-  { workspace: "param", permission: "settings.manage" },
-  async ({ req: request, workspaceId }) => {
-    const body = await request.json();
-    const { customPrompt } = body as { customPrompt?: string };
-
-    if (customPrompt !== undefined && typeof customPrompt !== "string") {
-      return apiError("customPrompt must be a string", "VALIDATION_ERROR", 400);
+  { workspace: "param", permission: "settings.manage", body: patchSchema },
+  async ({ body: { customPrompt }, workspaceId }) => {
+    if (customPrompt !== undefined) {
+      const saved = await patchWorkspaceSettings(workspaceId, { customPrompt });
+      if (!saved) return apiError("Workspace not found", "NOT_FOUND", 404);
     }
 
-    const workspace = await prisma.workspace.findUnique({
-      where: { id: workspaceId },
-      select: { settings: true },
-    });
-
-    if (!workspace) {
-      return apiError("Workspace not found", "NOT_FOUND", 404);
-    }
-
-    const currentSettings = (workspace.settings ?? {}) as Record<string, unknown>;
-    const updatedSettings = {
-      ...currentSettings,
-      ...(customPrompt !== undefined ? { customPrompt } : {}),
-    };
-
-    await prisma.workspace.update({
-      where: { id: workspaceId },
-      data: { settings: updatedSettings },
-    });
-
-    return apiSuccess(redactSettings(updatedSettings));
+    const settings = await readWorkspaceSettings(workspaceId);
+    if (!settings) return apiError("Workspace not found", "NOT_FOUND", 404);
+    return redactSettings(settings);
   }
 );

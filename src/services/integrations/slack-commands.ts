@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { parseWorkspaceSettings } from "@/server/data/settings-repo";
 import { launchPipelineRun } from "@/services/orchestrator/run-launcher";
 
 type SlackResponse = Record<string, unknown>;
@@ -11,8 +12,7 @@ export async function findWorkspaceBySlackTeam(
   });
 
   for (const ws of workspaces) {
-    const settings = ws.settings as Record<string, unknown>;
-    if (settings?.slackTeamId === teamId) {
+    if (parseWorkspaceSettings(ws.settings).slackTeamId === teamId) {
       return { id: ws.id };
     }
   }

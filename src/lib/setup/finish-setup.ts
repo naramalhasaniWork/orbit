@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
 import { getSignupMode, isSelfHosted } from "@/lib/self-host";
-import { readWorkspaceSettings } from "@/lib/integrations/workspace-settings";
+import { readWorkspaceSettings } from "@/server/data/settings-repo";
 
 export const FINISH_SETUP_SETTING = "finishSetupDismissed";
 
@@ -26,7 +26,7 @@ export async function getFinishSetupSteps(
   if (!isSelfHosted() || !role || !ADMIN_ROLES.has(role)) return null;
 
   const settings = await readWorkspaceSettings(workspaceId);
-  if (!settings || settings[FINISH_SETUP_SETTING] === true) return null;
+  if (!settings || settings.finishSetupDismissed === true) return null;
 
   const [installations, providers, members, invitations] = await Promise.all([
     prisma.gitHubInstallation.count({ where: { workspaceId } }),
