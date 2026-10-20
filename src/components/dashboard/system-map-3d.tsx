@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import dynamic from "next/dynamic";
 import * as THREE from "three";
 import { MapControls } from "./map-controls";
 import { MapNodeDetail } from "./map-node-detail";
@@ -13,9 +12,8 @@ import {
   ACCENT_COLOR,
 } from "./map-types";
 
-const ForceGraph3D = dynamic(() => import("react-force-graph-3d"), {
-  ssr: false,
-});
+import { ForceGraph3D } from "./force-graph";
+import { useUrlSelection } from "@/hooks/use-url-state";
 
 interface GraphNode3D extends MapNode {
   x?: number;
@@ -67,7 +65,9 @@ export function SystemMap3D({ nodes, edges }: SystemMap3DProps) {
   const graphRef = useRef<any>();
   const containerRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
-  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  // The selected node is in the URL (?node=) so a reload or shared link reopens it.
+  const nodeIds = useMemo(() => nodes.map((n) => n.id), [nodes]);
+  const [selectedNodeId, setSelectedNodeId] = useUrlSelection("node", nodeIds);
   const [activeTypes, setActiveTypes] = useState<Set<string>>(
     () => new Set(Object.keys(NODE_TYPE_CONFIG))
   );
@@ -182,10 +182,10 @@ export function SystemMap3D({ nodes, edges }: SystemMap3DProps) {
   );
 
   const handleNodeClick = useCallback((node: any) => {
-    setSelectedNodeId((prev) => (prev === node.id ? null : node.id));
-  }, []);
+    setSelectedNodeId(selectedNodeId === node.id ? null : node.id);
+  }, [selectedNodeId, setSelectedNodeId]);
 
-  const handleBackgroundClick = useCallback(() => setSelectedNodeId(null), []);
+  const handleBackgroundClick = useCallback(() => setSelectedNodeId(null), [setSelectedNodeId]);
 
   const handleToggleType = useCallback((type: string) => {
     setActiveTypes((prev) => {
@@ -271,7 +271,7 @@ export function SystemMap3D({ nodes, edges }: SystemMap3DProps) {
           </div>
         ) : (
           <ForceGraph3D
-            ref={graphRef}
+            graphRef={graphRef}
             graphData={graphData}
             width={dimensions.width}
             height={dimensions.height}

@@ -1,9 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { useUrlParams } from "@/hooks/use-url-state";
 import { ProjectSettings } from "@/components/settings/project-settings";
 import { EnvironmentSettings } from "@/components/settings/environment-settings";
 import { SecretSettings } from "@/components/settings/secret-settings";
@@ -78,6 +77,8 @@ const tabs = [
 
 type TabId = (typeof tabs)[number]["id"];
 
+const URL_DEFAULTS = { tab: "project" };
+
 export function SettingsClient({
   workspace,
   project,
@@ -85,12 +86,10 @@ export function SettingsClient({
   secrets,
   integrations,
 }: SettingsClientProps) {
-  const searchParams = useSearchParams();
-  const requestedTab = searchParams.get("tab");
-  const initialTab: TabId = tabs.some((t) => t.id === requestedTab)
-    ? (requestedTab as TabId)
-    : "project";
-  const [activeTab, setActiveTab] = useState<TabId>(initialTab);
+  // The tab is in the URL (?tab=) so reload and shared links open the same one.
+  const [{ tab }, setUrlParams] = useUrlParams(URL_DEFAULTS);
+  const activeTab: TabId = tabs.find((t) => t.id === tab)?.id ?? "project";
+  const setActiveTab = (id: TabId) => setUrlParams({ tab: id });
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">

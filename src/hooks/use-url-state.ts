@@ -30,3 +30,13 @@ export function useUrlParams<D extends Record<string, string>>(defaults: D) {
 
   return [values, setParams] as const;
 }
+
+/** One selected id (map node, flow operation...) mirrored to `?key=`; ids not in `validIds` read as none. */
+export function useUrlSelection(key: string, validIds: readonly string[]) {
+  const defaults = useMemo(() => ({ [key]: "" }), [key]);
+  const [params, setParams] = useUrlParams(defaults);
+  const value = params[key];
+  const selectedId = value && validIds.includes(value) ? value : null;
+  const select = useCallback((id: string | null) => setParams({ [key]: id }), [key, setParams]);
+  return [selectedId, select] as const;
+}
