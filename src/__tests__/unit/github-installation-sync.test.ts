@@ -8,7 +8,7 @@ vi.mock("@/lib/db", () => ({
   prisma: {
     user: { findUnique: vi.fn() },
     gitHubInstallation: { findMany: vi.fn(), upsert: vi.fn() },
-    workspace: { findUnique: vi.fn(), update: vi.fn() },
+    $executeRaw: vi.fn(async () => 1),
   },
 }));
 
@@ -19,13 +19,11 @@ import { encryptToken } from "@/lib/vault/token";
 const db = prisma as unknown as {
   user: { findUnique: ReturnType<typeof vi.fn> };
   gitHubInstallation: { findMany: ReturnType<typeof vi.fn>; upsert: ReturnType<typeof vi.fn> };
-  workspace: { findUnique: ReturnType<typeof vi.fn>; update: ReturnType<typeof vi.fn> };
 };
 const inst = (id: number, login: string) => ({ id, account: { login, type: "Organization", avatar_url: "" } });
 
 beforeEach(() => {
   vi.clearAllMocks();
-  db.workspace.findUnique.mockResolvedValue({ settings: {} });
   db.gitHubInstallation.findMany.mockResolvedValue([]);
 });
 

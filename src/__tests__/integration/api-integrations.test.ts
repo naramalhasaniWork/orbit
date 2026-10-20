@@ -3,26 +3,8 @@ import { NextRequest } from "next/server";
 
 process.env.ENCRYPTION_KEY = "b".repeat(64);
 
-let workspaceSettings: Record<string, unknown>;
-let projectSettings: Record<string, unknown>;
-
-vi.mock("@/lib/db", () => ({
-  prisma: {
-    workspace: {
-      findUnique: vi.fn(async () => ({ settings: workspaceSettings })),
-      update: vi.fn(async ({ data }: { data: { settings: Record<string, unknown> } }) => {
-        workspaceSettings = data.settings;
-      }),
-    },
-    project: {
-      findFirst: vi.fn(async () => ({ id: "p1", settings: projectSettings })),
-      findUnique: vi.fn(async () => ({ id: "p1", settings: projectSettings })),
-      update: vi.fn(async ({ data }: { data: { settings: Record<string, unknown> } }) => {
-        projectSettings = data.settings;
-      }),
-    },
-    webhookDelivery: { create: vi.fn() },
-  },
+vi.mock("@/lib/db", async () => ({
+  prisma: (await import("../helpers/fake-config-db")).createFakeConfigDb().prisma,
 }));
 
 vi.mock("@/server/http/session", async () => (await import("../helpers/route-auth")).sessionMock());
@@ -32,7 +14,11 @@ vi.mock("@/server/http/auth", async (orig) =>
 vi.mock("@/lib/auth/audit", () => ({ auditSettingsChange: vi.fn() }));
 
 import { resetRouteAuth, routeAuth } from "../helpers/route-auth";
-import { openSecret } from "@/lib/integrations/secret-field";
+import { fakeOf } from "../helpers/fake-config-db";
+import { prisma } from "@/lib/db";
+import { openSecret, sealSecret } from "@/lib/integrations/secret-field";
+
+const db = fakeOf(prisma);
 
 // Delivery goes through the DNS-pinned safeFetch; route it to the stubbed global fetch here.
 vi.mock("@/lib/utils/ssrf", () => ({
@@ -49,10 +35,14 @@ function req(method: string, body?: unknown) {
   });
 }
 
+const row = (provider: string) => db.integrations.find((r) => r.provider === provider);
+
 beforeEach(() => {
   vi.clearAllMocks();
-  workspaceSettings = {};
-  projectSettings = {};
+  vi.unstubAllGlobals();
+  db.reset();
+  db.addWorkspace("w1");
+  db.addProject("p1", "w1");
   resetRouteAuth();
   routeAuth.workspaceId = "w1";
 });
@@ -64,17 +54,18 @@ describe("slack integration route", () => {
     const { POST } = await import("@/app/api/workspaces/[workspaceId]/integrations/slack/route");
     const res = await POST(req("POST", { webhookUrl: url }), wsParams);
     expect(res.status).toBe(200);
-    // Stored sealed, never as plaintext; the reporter opens it with openSecret
-    expect(workspaceSettings.slackWebhookUrl).not.toBe(url);
-    expect(openSecret(workspaceSettings.slackWebhookUrl)).toBe(url);
-    expect(workspaceSettings.slack).toMatchObject({ connected: true });
+    // Stored sealed in IntegrationConfig, never as plaintext, and not in settings any more
+    expect(JSON.stringify(row("slack"))).not.toContain(url);
+    expect(openSecret(row("slack")?.credentialsSealed)).toBe(url);
+    expect(row("slack")).toMatchObject({ status: "connected" });
+    expect(db.workspaces[0].settings).toEqual({});
   });
 
   it("rejects non-Slack URLs", async () => {
     const { POST } = await import("@/app/api/workspaces/[workspaceId]/integrations/slack/route");
     const res = await POST(req("POST", { webhookUrl: "https://evil.example.com/x" }), wsParams);
     expect(res.status).toBe(400);
-    expect(workspaceSettings.slackWebhookUrl).toBeUndefined();
+    expect(row("slack")).toBeUndefined();
   });
 
   it("requires settings.manage", async () => {
@@ -90,12 +81,12 @@ describe("slack integration route", () => {
     );
     await POST(req("POST", { webhookUrl: url }), wsParams);
     const prefs = { runCompleted: false, testFailed: true };
-    await PATCH(req("PATCH", { notifications: prefs }), wsParams);
-    expect(workspaceSettings.slack).toMatchObject({ notifications: prefs });
+    const patched = await PATCH(req("PATCH", { notifications: prefs }), wsParams);
+    expect(patched.status).toBe(200);
+    expect(row("slack")?.settings).toMatchObject({ provider: "slack", notifications: prefs });
 
     await DELETE(req("DELETE"), wsParams);
-    expect(workspaceSettings.slackWebhookUrl).toBeUndefined();
-    expect(workspaceSettings.slack).toEqual({ connected: false });
+    expect(row("slack")).toMatchObject({ status: "disconnected", credentialsSealed: null });
   });
 
   it("refuses preference changes when not connected", async () => {
@@ -105,6 +96,15 @@ describe("slack integration route", () => {
       wsParams
     );
     expect(res.status).toBe(409);
+  });
+
+  it("a legacy settings connection is copied into the table before its preferences change", async () => {
+    db.workspaces[0].settings = { slackWebhookUrl: sealSecret(url), slack: { connected: true } };
+    const { PATCH } = await import("@/app/api/workspaces/[workspaceId]/integrations/slack/route");
+    const res = await PATCH(req("PATCH", { notifications: { runCompleted: false, testFailed: false } }), wsParams);
+    expect(res.status).toBe(200);
+    expect(openSecret(row("slack")?.credentialsSealed)).toBe(url);
+    expect(row("slack")?.settings).toMatchObject({ notifications: { runCompleted: false, testFailed: false } });
   });
 });
 
@@ -131,10 +131,10 @@ describe("linear integration route", () => {
     const res = await POST(req("POST", { apiKey: "lin_api_secret" }), wsParams);
     expect(res.status).toBe(200);
 
-    expect(JSON.stringify(workspaceSettings)).not.toContain("lin_api_secret");
-    expect(openSecret(workspaceSettings.linearApiKey)).toBe("lin_api_secret");
-    expect(workspaceSettings.linearTeamId).toBe("team-1");
-    expect(workspaceSettings.linear).toMatchObject({ connected: true, teamName: "Eng" });
+    expect(JSON.stringify(row("linear"))).not.toContain("lin_api_secret");
+    expect(openSecret(row("linear")?.credentialsSealed)).toBe("lin_api_secret");
+    expect(row("linear")).toMatchObject({ status: "connected", externalAccountId: "team-1", displayName: "Eng" });
+    expect(row("linear")?.settings).toMatchObject({ provider: "linear", autoCreateIssues: true });
   });
 
   it("rejects a key Linear refuses", async () => {
@@ -142,7 +142,7 @@ describe("linear integration route", () => {
     const { POST } = await import("@/app/api/workspaces/[workspaceId]/integrations/linear/route");
     const res = await POST(req("POST", { apiKey: "bad" }), wsParams);
     expect(res.status).toBe(400);
-    expect(workspaceSettings.linearApiKey).toBeUndefined();
+    expect(row("linear")).toBeUndefined();
   });
 
   it("disconnect removes the credentials", async () => {
@@ -152,8 +152,10 @@ describe("linear integration route", () => {
     );
     await POST(req("POST", { apiKey: "k" }), wsParams);
     await DELETE(req("DELETE"), wsParams);
-    expect(workspaceSettings.linearApiKey).toBeUndefined();
-    expect(workspaceSettings.linearTeamId).toBeUndefined();
+    expect(row("linear")).toMatchObject({ status: "disconnected", credentialsSealed: null, externalAccountId: null });
+
+    const { getLinearConfig } = await import("@/services/reporting/integrations/linear");
+    expect(await getLinearConfig("p1")).toBeNull();
   });
 
   it("linear.ts decrypts the stored key when filing issues", async () => {
@@ -170,11 +172,6 @@ describe("linear integration route", () => {
       )
     );
     vi.stubGlobal("fetch", fetchMock);
-    const prismaMod = await import("@/lib/db");
-    vi.mocked(prismaMod.prisma.project.findUnique).mockResolvedValueOnce({
-      settings: {},
-      workspace: { settings: workspaceSettings },
-    } as never);
 
     const { createBugIssue } = await import("@/services/reporting/integrations/linear");
     const result = await createBugIssue(
@@ -213,7 +210,8 @@ describe("project webhooks routes", () => {
     const { data } = await created.json();
     expect(data.secret).toMatch(/^whsec_/);
 
-    const stored = (projectSettings.webhooks as Array<Record<string, unknown>>)[0];
+    const stored = db.endpoints[0];
+    expect(stored).toMatchObject({ id: data.endpoint.id, workspaceId: "w1", projectId: "p1" });
     expect(JSON.stringify(stored)).not.toContain(data.secret);
     expect(openSecret(stored.secretSealed)).toBe(data.secret);
 
@@ -224,14 +222,35 @@ describe("project webhooks routes", () => {
 
     const idParams = { params: Promise.resolve({ projectId: "p1", webhookId: data.endpoint.id }) };
     await PATCH(req("PATCH", { isEnabled: false }), idParams);
-    expect((projectSettings.webhooks as Array<{ enabled: boolean }>)[0].enabled).toBe(false);
+    expect(db.endpoints[0].isEnabled).toBe(false);
 
     const missing = await DELETE(req("DELETE"), {
-      params: Promise.resolve({ projectId: "p1", webhookId: "nope" }),
+      params: Promise.resolve({ projectId: "p1", webhookId: "00000000-0000-4000-8000-000000000000" }),
     });
     expect(missing.status).toBe(404);
     await DELETE(req("DELETE"), idParams);
-    expect(projectSettings.webhooks).toEqual([]);
+    expect(db.endpoints).toEqual([]);
+    expect(db.projects[0].settings).not.toHaveProperty("webhooks");
+  });
+
+  it("concurrent creates both survive (the settings.webhooks lost update is gone)", async () => {
+    const { GET, POST } = await import("@/app/api/projects/[projectId]/webhooks/route");
+    await Promise.all([
+      POST(req("POST", { url: "https://example.com/a", events: ["run.completed"] }), pParams),
+      POST(req("POST", { url: "https://example.com/b", events: ["run.failed"] }), pParams),
+    ]);
+    const listed = await (await GET(req("GET"), pParams)).json();
+    expect(listed.data.map((e: { url: string }) => e.url).sort()).toEqual(["https://example.com/a", "https://example.com/b"]);
+  });
+
+  it("legacy settings.webhooks are listed from the table with their ids and sealed secrets", async () => {
+    const id = "6f1c1d1e-0000-4000-8000-0000000000aa";
+    db.projects[0].settings = { webhooks: [{ id, url: "https://example.com/old", events: ["run.started"], secret: "plain" }] };
+    const { GET } = await import("@/app/api/projects/[projectId]/webhooks/route");
+    const listed = await (await GET(req("GET"), pParams)).json();
+    expect(listed.data).toEqual([{ id, url: "https://example.com/old", events: ["run.started"], isEnabled: true }]);
+    expect(openSecret(db.endpoints[0].secretSealed)).toBe("plain");
+    expect(db.endpoints[0].secretSealed).toHaveProperty("iv");
   });
 
   it("rejects private URLs and unknown events", async () => {
