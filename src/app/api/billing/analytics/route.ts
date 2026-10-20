@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requirePermission } from "@/lib/auth/rbac";
 import { apiSuccess, handleApiError } from "@/lib/utils/api";
+import { checkUsageAlerts } from "@/services/billing/usage-alerts";
 
 const querySchema = z.object({
   period: z.enum(["7d", "30d", "90d"]).default("30d"),
@@ -64,6 +65,12 @@ export async function GET(request: NextRequest) {
         }),
       ]);
 
+    // Alerts are advisory; never fail the analytics response over them
+    const alerts = await checkUsageAlerts(ctx.workspaceId).catch((error) => {
+      console.warn("[billing] Usage alerts unavailable:", error);
+      return [];
+    });
+
     const totalSpend = agentData.reduce((sum, a) => sum + a.cost, 0);
     const totalCalls = agentData.reduce((sum, a) => sum + a.calls, 0);
 
@@ -77,6 +84,7 @@ export async function GET(request: NextRequest) {
       models: modelData,
       projects: projectData.slice(0, 5),
       daily: dailyData,
+      alerts,
     });
   } catch (error) {
     return handleApiError(error);

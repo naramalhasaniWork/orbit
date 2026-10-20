@@ -9,7 +9,7 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { requirePermission } from "@/lib/auth/rbac";
 import { apiSuccess, apiError, handleApiError } from "@/lib/utils/api";
-import { getStorage } from "@/lib/storage";
+import { getStorage, sanitizeFilename } from "@/lib/storage";
 import { chunkDocument } from "@/services/knowledge/chunker";
 import { embedChunks } from "@/services/knowledge/embedder";
 import type { KnowledgeFileType } from "@/generated/prisma/client";
@@ -123,7 +123,7 @@ export async function POST(
     const content = buffer.toString("utf-8");
 
     // Store file in storage
-    const storageKey = `knowledge/${workspaceId}/${Date.now()}-${file.name}`;
+    const storageKey = `knowledge/${workspaceId}/${Date.now()}-${sanitizeFilename(file.name)}`;
     const storage = getStorage();
     await storage.upload(storageKey, buffer, getContentType(ext));
 

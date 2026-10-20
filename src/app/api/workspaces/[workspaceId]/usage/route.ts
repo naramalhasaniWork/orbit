@@ -5,6 +5,7 @@ import {
   TIER_LIMITS,
   BUDGET_WARNING_THRESHOLD,
   getBudgetPercentage,
+  monthlyCreditAllowance,
   type WorkspaceTier,
 } from "@/lib/auth/tenant";
 import { apiSuccess, apiError, handleApiError } from "@/lib/utils/api";
@@ -27,9 +28,6 @@ export async function GET(
         tier: true,
         creditBalance: true,
         monthlyCredits: true,
-        runLimit: true,
-        memberLimit: true,
-        projectLimit: true,
       },
     });
 
@@ -105,15 +103,15 @@ export async function GET(
     });
 
     const creditsUsedThisMonth = Math.abs(monthlyCreditsUsed._sum.amount ?? 0);
-    const creditLimit = limits?.monthlyCredits ?? workspace.monthlyCredits;
-    const budgetPercentage = getBudgetPercentage(creditsUsedThisMonth, tier);
+    const creditLimit = monthlyCreditAllowance(tier, workspace.monthlyCredits);
+    const budgetPercentage = getBudgetPercentage(creditsUsedThisMonth, creditLimit);
 
     return apiSuccess({
       tier,
       limits: {
-        members: limits?.members ?? workspace.memberLimit,
-        projects: limits?.projects === Infinity ? null : (limits?.projects ?? workspace.projectLimit),
-        runsPerMonth: limits?.runsPerMonth === Infinity ? null : (limits?.runsPerMonth ?? workspace.runLimit),
+        members: limits.members === Infinity ? null : limits.members,
+        projects: limits.projects === Infinity ? null : limits.projects,
+        runsPerMonth: limits.runsPerMonth === Infinity ? null : limits.runsPerMonth,
         monthlyCredits: creditLimit === Infinity ? null : creditLimit,
       },
       current: {

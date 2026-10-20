@@ -1,18 +1,23 @@
-import type { WorkspaceTier } from "@/lib/auth/tenant";
+import {
+  TIER_LIMITS,
+  TIER_DISPLAY_NAMES,
+  tierLimitFeatures,
+  type WorkspaceTier,
+} from "@/lib/auth/tier-limits";
 
 /**
  * Stripe price/product configuration mapped to Orbit tiers.
  * Price IDs should be set in environment variables and correspond
  * to products created in the Stripe dashboard.
+ *
+ * Numeric limits (projects, members, credits) are NOT defined here: they come
+ * from TIER_LIMITS so the price page never advertises something we don't enforce.
  */
 
 interface TierConfig {
   name: string;
   priceMonthly: number;
   priceAnnual: number | null;
-  creditsPerSeat: number;
-  maxProjects: number;
-  maxMembers: number;
   stripePriceIdMonthly: string | null;
   stripePriceIdAnnual: string | null;
   features: string[];
@@ -20,18 +25,13 @@ interface TierConfig {
 
 const TIER_CONFIG: Record<WorkspaceTier, TierConfig> = {
   free: {
-    name: "Free",
+    name: TIER_DISPLAY_NAMES.free,
     priceMonthly: 0,
     priceAnnual: null,
-    creditsPerSeat: 500,
-    maxProjects: 1,
-    maxMembers: 1,
     stripePriceIdMonthly: null,
     stripePriceIdAnnual: null,
     features: [
-      "1 project",
-      "1 team member",
-      "500 credits/month",
+      ...tierLimitFeatures("free"),
       "Core indexing, planning, and execution",
       "GitHub integration",
       "Basic dashboard and System Map",
@@ -39,58 +39,45 @@ const TIER_CONFIG: Record<WorkspaceTier, TierConfig> = {
     ],
   },
   starter: {
-    name: "Pro",
+    name: TIER_DISPLAY_NAMES.starter,
     priceMonthly: 79,
     priceAnnual: 67,
-    creditsPerSeat: 5000,
-    maxProjects: -1, // unlimited
-    maxMembers: 10,
     stripePriceIdMonthly: process.env.STRIPE_PRO_MONTHLY_PRICE_ID ?? "",
     stripePriceIdAnnual: process.env.STRIPE_PRO_ANNUAL_PRICE_ID ?? "",
     features: [
-      "Unlimited projects",
-      "5,000 credits/month per seat",
-      "All integrations (Linear, Slack, VS Code, CLI)",
+      ...tierLimitFeatures("starter"),
+      "GitHub, Linear, Slack, and webhook integrations",
       "Custom system prompts",
-      "Plugin marketplace access",
       "Self-healing selectors",
       "Email support with SLA",
     ],
   },
   professional: {
-    name: "Team",
+    name: TIER_DISPLAY_NAMES.professional,
     priceMonthly: 149,
     priceAnnual: 127,
-    creditsPerSeat: 20000,
-    maxProjects: -1,
-    maxMembers: 50,
     stripePriceIdMonthly: process.env.STRIPE_TEAM_MONTHLY_PRICE_ID ?? "",
     stripePriceIdAnnual: process.env.STRIPE_TEAM_ANNUAL_PRICE_ID ?? "",
     features: [
       "Everything in Pro",
-      "20,000 credits/month per seat",
+      ...tierLimitFeatures("professional"),
       "Admin settings and role-based permissions",
       "Audit logs and compliance exports",
-      "SSO (Google Workspace, Okta)",
-      "Plugin authoring (private plugins)",
       "Priority support via Slack Connect",
     ],
   },
   enterprise: {
-    name: "Enterprise",
+    name: TIER_DISPLAY_NAMES.enterprise,
     priceMonthly: 0,
     priceAnnual: null,
-    creditsPerSeat: 100000,
-    maxProjects: -1,
-    maxMembers: -1,
     stripePriceIdMonthly: null,
     stripePriceIdAnnual: null,
     features: [
       "Everything in Team",
+      ...tierLimitFeatures("enterprise"),
       "Self-hosted deployment option",
       "Bring your own AI API keys",
       "Custom data retention and residency",
-      "SOC 2 Type II report access",
       "Dedicated support and onboarding",
       "SLA with uptime guarantees",
     ],
@@ -117,13 +104,14 @@ export function getTierFromPriceId(priceId: string): WorkspaceTier | null {
   return null;
 }
 
-export function getTierLimits(tier: WorkspaceTier, seatCount: number = 1) {
-  const config = TIER_CONFIG[tier];
-  return {
-    monthlyCredits: config.creditsPerSeat * seatCount,
-    maxProjects: config.maxProjects,
-    maxMembers: config.maxMembers,
-  };
+/**
+ * Monthly credit grant for a subscription, from TIER_LIMITS: per seat on
+ * seat-based tiers (seats = Stripe subscription quantity). null = unlimited.
+ */
+export function getMonthlyCreditGrant(tier: WorkspaceTier, seats: number = 1): number | null {
+  const { monthlyCredits, seatBased } = TIER_LIMITS[tier];
+  if (monthlyCredits === Infinity) return null;
+  return seatBased ? monthlyCredits * Math.max(1, seats) : monthlyCredits;
 }
 
 export type { TierConfig };

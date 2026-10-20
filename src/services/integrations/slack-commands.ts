@@ -1,6 +1,5 @@
 import { prisma } from "@/lib/db";
-import { getIndexingQueue } from "@/lib/queue/queues";
-import { emitRunStarted } from "@/lib/websocket";
+import { launchPipelineRun } from "@/services/orchestrator/run-launcher";
 
 type SlackResponse = Record<string, unknown>;
 
@@ -78,34 +77,19 @@ export async function handleRun(
     };
   }
 
-  const run = await prisma.testRun.create({
-    data: {
-      projectId: project.id,
-      status: "queued",
-      mode: "smoke",
-      trigger: "manual",
-      branch: project.defaultBranch,
-    },
-  });
-
-  const queue = getIndexingQueue();
-  await queue.add(
-    `index-${project.id}-slack`,
-    {
-      projectId: project.id,
-      branch: project.defaultBranch,
-      isIncremental: true,
-    },
-    { jobId: `index-${project.id}-slack-${Date.now()}` }
-  );
-
-  await emitRunStarted(run.id, {
-    runId: run.id,
+  const launched = await launchPipelineRun({
     projectId: project.id,
     mode: "smoke",
     trigger: "manual",
-    totalTests: 0,
+    branch: project.defaultBranch,
   });
+
+  if (!launched.ok) {
+    return {
+      response_type: "ephemeral",
+      text: `Could not start a run for *${project.name}*: ${launched.reason}`,
+    };
+  }
 
   return {
     response_type: "in_channel",
@@ -114,7 +98,7 @@ export async function handleRun(
         type: "section",
         text: {
           type: "mrkdwn",
-          text: ":rocket: Smoke test run started for *" + project.name + "*\nRun ID: `" + run.id + "`",
+          text: ":rocket: Smoke test run started for *" + project.name + "*\nRun ID: `" + launched.runId + "`",
         },
       },
     ],

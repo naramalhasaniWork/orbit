@@ -173,14 +173,10 @@ model Workspace {
   id              String        @id @default(uuid()) @db.Uuid
   name            String
   slug            String        @unique
-  plan            String        @default("free")
   tier            WorkspaceTier @default(free)
   creditBalance   Int           @default(100) @map("credit_balance")
   monthlyCredits  Int           @default(100) @map("monthly_credits")
   tokenBudgetMonthly Int?       @map("token_budget_monthly")
-  runLimit        Int           @default(100) @map("run_limit")
-  memberLimit     Int           @default(2) @map("member_limit")
-  projectLimit    Int           @default(1) @map("project_limit")
   settings        Json          @default("{}")
 
   // Stripe billing fields
@@ -484,7 +480,7 @@ model SystemMapNode {
   name          String
   filePath      String                         @map("file_path")
   metadata      Json                           @default("{}")
-  embedding     Unsupported("vector(384)")?
+  embedding     Unsupported("vector(1536)")?
   lastIndexedAt DateTime                       @default(now()) @map("last_indexed_at")
   createdAt     DateTime                       @default(now()) @map("created_at")
   updatedAt     DateTime                       @default(now()) @updatedAt @map("updated_at")
@@ -1153,7 +1149,7 @@ model DomainKnowledgeFile {
   storageKey  String                          @map("storage_key")
   sizeBytes   Int                             @map("size_bytes")
   chunkCount  Int                             @default(0) @map("chunk_count")
-  embedding   Unsupported("vector(384)")?
+  embedding   Unsupported("vector(1536)")?
   metadata    Json                            @default("{}")
   uploadedBy  String?                         @map("uploaded_by") @db.Uuid
   createdAt   DateTime                        @default(now()) @map("created_at")
@@ -1177,7 +1173,7 @@ model KnowledgeChunk {
   workspaceId     String                          @map("workspace_id") @db.Uuid
   content         String
   chunkIndex      Int                             @map("chunk_index")
-  embedding       Unsupported("vector(384)")?
+  embedding       Unsupported("vector(1536)")?
   metadata        Json                            @default("{}")
   createdAt       DateTime                        @default(now()) @map("created_at")
 

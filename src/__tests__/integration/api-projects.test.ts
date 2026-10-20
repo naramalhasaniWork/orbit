@@ -55,12 +55,7 @@ vi.mock("@/lib/auth/rbac", () => ({
 }));
 
 vi.mock("@/lib/auth/tenant", () => ({
-  TIER_LIMITS: {
-    free: { projects: 3, runsPerMonth: 50 },
-    starter: { projects: 10, runsPerMonth: 200 },
-    professional: { projects: 50, runsPerMonth: 1000 },
-    enterprise: { projects: 999, runsPerMonth: 9999 },
-  },
+  canConsume: vi.fn().mockResolvedValue({ allowed: true }),
 }));
 
 vi.mock("@/lib/queue/queues", () => ({
@@ -99,7 +94,7 @@ describe("api-projects", () => {
       workspaceId: "ws-1",
     });
     // Default: workspace exists with free tier, under project limit
-    mockPrisma.workspace.findUnique.mockResolvedValue({ tier: "free", projectLimit: 3 });
+    mockPrisma.workspace.findUnique.mockResolvedValue({ tier: "free" });
     mockPrisma.project.count.mockResolvedValue(0);
     // Default mocks for enrichment in GET /projects/[projectId]
     mockPrisma.systemMapNode.count.mockResolvedValue(0);

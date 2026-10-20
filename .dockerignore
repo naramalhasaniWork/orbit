@@ -4,7 +4,6 @@ node_modules
 .gitignore
 .env
 .env.local
-.env.local.example
 .claude
 .DS_Store
 *.md

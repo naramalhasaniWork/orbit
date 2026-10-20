@@ -147,3 +147,26 @@ export async function getRelevantKnowledge(
   // Format within token budget
   return formatAsPromptSection(grouped, maxTokens);
 }
+
+/**
+ * Knowledge for the planner, derived from what this run is about (journeys,
+ * focus areas, route names). Never throws: a missing embedding provider or an
+ * empty knowledge base must not block planning.
+ */
+export async function getPlannerKnowledge(
+  workspaceId: string,
+  topics: { journeys: string[]; focusAreas?: string[]; routes: string[] }
+): Promise<string> {
+  const query = [...topics.journeys, ...(topics.focusAreas ?? []), ...topics.routes.slice(0, 20)]
+    .join("; ");
+
+  try {
+    return await getRelevantKnowledge(workspaceId, "planner", query);
+  } catch (error) {
+    console.warn(
+      "[knowledge] Skipping domain knowledge for planner:",
+      error instanceof Error ? error.message : error
+    );
+    return "";
+  }
+}

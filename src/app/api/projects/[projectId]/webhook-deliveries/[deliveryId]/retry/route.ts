@@ -6,8 +6,17 @@ import {
   apiError,
   handleApiError,
 } from "@/lib/utils/api";
-import { signPayload } from "@/services/reporting/integrations/outbound-webhooks";
 import { requirePermission } from "@/lib/auth/rbac";
+import { isAllowedWebhookUrl } from "@/lib/integrations/webhook-url";
+import { safeFetch } from "@/lib/utils/ssrf";
+import {
+  signPayload,
+  truncateResponse,
+} from "@/services/reporting/integrations/outbound-webhooks";
+import {
+  readStoredWebhooks,
+  resolveWebhookSecret,
+} from "@/services/reporting/integrations/webhook-store";
 
 // ============================================================
 // POST /api/projects/[projectId]/webhook-deliveries/[deliveryId]/retry
@@ -19,8 +28,8 @@ export async function POST(
 ) {
   try {
     const { workspaceId } = await requireWorkspace();
-    await requirePermission(workspaceId, "integrations.manage");
     const { projectId, deliveryId } = await params;
+    await requirePermission(workspaceId, "integrations.manage");
 
     const project = await prisma.project.findFirst({
       where: { id: projectId, workspaceId },
@@ -40,19 +49,23 @@ export async function POST(
     }
 
     // Find the webhook endpoint secret from project settings
-    const settings = project.settings as Record<string, unknown>;
-    const webhooks = settings?.webhooks as Array<{
-      url: string;
-      secret: string;
-    }> | undefined;
-
-    const endpoint = webhooks?.find((w) => w.url === delivery.url);
-    const secret = endpoint?.secret ?? "";
+    const endpoint = readStoredWebhooks(project.settings).find((w) => w.url === delivery.url);
+    const secret = endpoint ? resolveWebhookSecret(endpoint) : null;
+    if (!endpoint || !secret) {
+      return apiError(
+        "This endpoint no longer exists or its secret cannot be resolved",
+        "ENDPOINT_UNAVAILABLE",
+        409
+      );
+    }
+    if (!isAllowedWebhookUrl(delivery.url)) {
+      return apiError("Endpoint URL is not allowed", "ENDPOINT_UNAVAILABLE", 409);
+    }
 
     const body = JSON.stringify(delivery.payload);
     const signature = signPayload(body, secret);
 
-    const response = await fetch(delivery.url, {
+    const response = await safeFetch(delivery.url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -60,8 +73,9 @@ export async function POST(
         "X-Orbit-Event": delivery.event,
         "X-Orbit-Delivery-Attempt": String(delivery.attempts + 1),
       },
+      body,
       signal: AbortSignal.timeout(10000),
-    });
+    }, { followRedirects: false });
 
     await prisma.webhookDelivery.update({
       where: { id: deliveryId },
@@ -69,7 +83,9 @@ export async function POST(
         statusCode: response.status,
         attempts: delivery.attempts + 1,
         deliveredAt: response.ok ? new Date() : null,
-        response: response.ok ? null : await response.text().catch(() => null),
+        response: response.ok
+          ? null
+          : truncateResponse(await response.text().catch(() => "")) || null,
       },
     });
 

@@ -2,9 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createHmac, timingSafeEqual } from "crypto";
 import { prisma } from "@/lib/db";
 import type { Prisma } from "@/generated/prisma/client";
-import { getIndexingQueue } from "@/lib/queue/queues";
-import { emitRunStarted } from "@/lib/websocket";
-import { dispatchRunStarted } from "@/services/reporting/integrations/outbound-webhooks";
+import { launchPipelineRun, launchSummary } from "@/services/orchestrator/run-launcher";
 import { handleMention, ORBIT_MENTION_PATTERN } from "@/services/mention-handler";
 import type { PRContext } from "@/services/mention-handler";
 import { handleInstallationEvent } from "@/services/github-installation-sync";
@@ -29,8 +27,14 @@ export async function POST(req: NextRequest) {
   const signature = req.headers.get("x-hub-signature-256");
   const event = req.headers.get("x-github-event");
 
-  // Verify HMAC if webhook secret is configured
-  if (webhookSecret && !verifySignature(body, signature, webhookSecret)) {
+  // Fail closed: never accept an unverifiable webhook
+  if (!webhookSecret) {
+    return NextResponse.json(
+      { error: "GITHUB_WEBHOOK_SECRET is not configured; webhook rejected" },
+      { status: 503 }
+    );
+  }
+  if (!verifySignature(body, signature, webhookSecret)) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
   }
 
@@ -93,46 +97,19 @@ export async function POST(req: NextRequest) {
           ];
         });
 
-        const run = await prisma.testRun.create({
-          data: {
-            projectId: project.id,
-            status: "queued",
-            mode: changedFiles.length > 20 ? "full" : "targeted",
-            trigger: "push",
-            branch,
-            metadata: {
-              commitCount: commits.length,
-              changedFiles: changedFiles.slice(0, 100),
-            } as Prisma.InputJsonValue,
-          },
-        });
-
-        // Trigger indexing pipeline via BullMQ
-        const queue = getIndexingQueue();
-        await queue.add(
-          `index-${project.id}-webhook`,
-          {
-            projectId: project.id,
-            branch,
-            changedFiles: changedFiles.slice(0, 100),
-            isIncremental: changedFiles.length > 0 && changedFiles.length <= 20,
-          },
-          { jobId: `index-${project.id}-${Date.now()}` }
-        );
-
-        await emitRunStarted(run.id, {
-          runId: run.id,
+        const launched = await launchPipelineRun({
           projectId: project.id,
-          mode: run.mode,
+          mode: changedFiles.length > 20 ? "full" : "targeted",
           trigger: "push",
-          totalTests: 0,
+          branch,
+          commitSha: (payload.after as string | undefined) ?? null,
+          changedFiles,
+          metadata: {
+            commitCount: commits.length,
+            changedFiles: changedFiles.slice(0, 100),
+          } as Prisma.InputJsonValue,
         });
-
-        await dispatchRunStarted(project.id, {
-          runId: run.id,
-          mode: run.mode,
-          trigger: "push",
-        });
+        return NextResponse.json({ status: "push_processed", branch, ...launchSummary(launched) });
       }
 
       return NextResponse.json({ status: "push_processed", branch });
@@ -147,46 +124,18 @@ export async function POST(req: NextRequest) {
       } | undefined;
 
       if (action === "opened" || action === "synchronize") {
-        const run = await prisma.testRun.create({
-          data: {
-            projectId: project.id,
-            status: "queued",
-            mode: "targeted",
-            trigger: "pr",
-            branch: pr?.head?.ref,
-            commitSha: pr?.head?.sha,
-            prNumber: pr?.number,
-            metadata: {
-              prTitle: pr?.title ?? null,
-            } as Prisma.InputJsonValue,
-          },
-        });
-
-        // Trigger indexing pipeline via BullMQ
-        const queue = getIndexingQueue();
-        await queue.add(
-          `index-${project.id}-pr`,
-          {
-            projectId: project.id,
-            branch: pr?.head?.ref ?? project.defaultBranch,
-            isIncremental: false,
-          },
-          { jobId: `index-${project.id}-pr-${Date.now()}` }
-        );
-
-        await emitRunStarted(run.id, {
-          runId: run.id,
+        const launched = await launchPipelineRun({
           projectId: project.id,
           mode: "targeted",
           trigger: "pr",
-          totalTests: 0,
+          branch: pr?.head?.ref ?? project.defaultBranch,
+          commitSha: pr?.head?.sha ?? null,
+          prNumber: pr?.number ?? null,
+          metadata: {
+            prTitle: pr?.title ?? null,
+          } as Prisma.InputJsonValue,
         });
-
-        await dispatchRunStarted(project.id, {
-          runId: run.id,
-          mode: "targeted",
-          trigger: "pr",
-        });
+        return NextResponse.json({ status: "pr_processed", action, ...launchSummary(launched) });
       }
 
       return NextResponse.json({ status: "pr_processed", action });

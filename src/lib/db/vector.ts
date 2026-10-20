@@ -72,29 +72,29 @@ export async function ensureDimension(table: string, column: string, dim: number
 
 /**
  * Ensures the pgvector extension and HNSW index exist.
+ * Never alters or drops columns: a non-vector embedding column is logged
+ * and left untouched so no data is lost (fix it with a migration).
  */
 export async function ensureVectorSetup(): Promise<void> {
   await prisma.$executeRawUnsafe(`CREATE EXTENSION IF NOT EXISTS vector`);
 
   for (const { table, column } of VECTOR_TABLES) {
     try {
-      const result = await prisma.$queryRawUnsafe<Array<{ data_type: string }>>(
-        `SELECT data_type FROM information_schema.columns
+      const result = await prisma.$queryRawUnsafe<Array<{ udt_name: string }>>(
+        `SELECT udt_name FROM information_schema.columns
          WHERE table_name = $1 AND column_name = $2`,
         table,
         column
       );
 
-      if (result.length > 0 && result[0].data_type !== "USER-DEFINED") {
-        await prisma.$executeRawUnsafe(
-          `ALTER TABLE ${table} DROP COLUMN IF EXISTS ${column}`
-        );
-        await prisma.$executeRawUnsafe(
-          `ALTER TABLE ${table} ADD COLUMN ${column} vector`
+      if (result.length > 0 && result[0].udt_name !== "vector") {
+        console.error(
+          `[pgvector] ${table}.${column} is type "${result[0].udt_name}", expected vector. ` +
+            `Refusing to modify it automatically; apply a migration.`
         );
       }
-    } catch {
-      // Table might not exist yet
+    } catch (err) {
+      console.error(`[pgvector] Could not inspect ${table}.${column}:`, err);
     }
   }
 

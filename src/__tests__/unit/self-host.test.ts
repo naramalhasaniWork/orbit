@@ -52,14 +52,12 @@ describe("tier limits under self-host", () => {
   it("removes every limit when self-hosted", async () => {
     vi.stubEnv("ORBIT_SELF_HOSTED", "true");
     vi.resetModules();
-    const { TIER_LIMITS, isModelAllowed, getBudgetPercentage } = await import("@/lib/auth/tenant");
+    const { canConsume, isModelAllowed } = await import("@/lib/auth/tenant");
     for (const tier of ["free", "starter", "professional", "enterprise"] as const) {
-      expect(TIER_LIMITS[tier].members).toBe(Infinity);
-      expect(TIER_LIMITS[tier].projects).toBe(Infinity);
-      expect(TIER_LIMITS[tier].runsPerMonth).toBe(Infinity);
-      expect(TIER_LIMITS[tier].rateLimit).toBe(Infinity);
       expect(isModelAllowed(tier, "claude-opus-4-6")).toBe(true);
-      expect(getBudgetPercentage(1_000_000, tier)).toBe(0);
+    }
+    for (const kind of ["run", "credits", "project", "member"] as const) {
+      await expect(canConsume("workspace-without-db-row", kind)).resolves.toEqual({ allowed: true });
     }
   });
 });

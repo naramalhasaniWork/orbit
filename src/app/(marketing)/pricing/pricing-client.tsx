@@ -4,11 +4,26 @@ import { motion } from "framer-motion";
 import { PricingSection } from "@/components/marketing/pricing-section";
 import { CtaSection } from "@/components/marketing/cta-section";
 import pricingContent from "@/app/(marketing)/content/pricing.json";
+import { CREDIT_PACKAGES } from "@/lib/stripe/credit-packages";
+import { tierLimitFeatures, type WorkspaceTier } from "@/lib/auth/tier-limits";
+
+// Numeric limits come from TIER_LIMITS so the page matches what is enforced
+const pricingWithLimits = {
+  ...pricingContent,
+  tiers: pricingContent.tiers.map((tier) => {
+    const limits = tierLimitFeatures(tier.tier as WorkspaceTier);
+    const [first, ...rest] = tier.features;
+    // Keep "Everything in X" as the lead line when present
+    return first?.startsWith("Everything in")
+      ? { ...tier, features: [first, ...limits, ...rest] }
+      : { ...tier, features: [...limits, ...tier.features] };
+  }),
+};
 
 export function PricingPageClient() {
   return (
     <div className="pt-24">
-      <PricingSection content={pricingContent} />
+      <PricingSection content={pricingWithLimits} />
 
       {/* FAQ */}
       <section className="py-16 lg:py-24 bg-card/50">
@@ -56,14 +71,14 @@ export function PricingPageClient() {
               Need more credits?
             </h2>
             <p className="text-muted-foreground mb-10">
-              Purchase top-up packs anytime. Credits roll over for 12 months.
+              Purchase top-up packs anytime.
             </p>
           </motion.div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-2xl mx-auto">
-            {pricingContent.creditPacks.map((pack, i) => (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 max-w-3xl mx-auto">
+            {CREDIT_PACKAGES.map((pack, i) => (
               <motion.div
-                key={pack.credits}
+                key={pack.id}
                 initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
@@ -77,10 +92,10 @@ export function PricingPageClient() {
                   credits
                 </div>
                 <div className="text-lg font-semibold text-orbit-accent">
-                  ${pack.price}
+                  ${(pack.price / 100).toLocaleString("en-US", { minimumFractionDigits: 0 })}
                 </div>
                 <div className="text-xs text-muted-foreground">
-                  ${(pack.price / pack.credits * 100).toFixed(1)}c per credit
+                  {(pack.price / pack.credits).toFixed(1)}c per credit
                 </div>
               </motion.div>
             ))}

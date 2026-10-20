@@ -4,7 +4,7 @@
 
 ### Prerequisites
 
-- **Node.js** 18+ (recommend using `nvm` or `fnm`)
+- **Node.js** 20 (recommend using `nvm` or `fnm`)
 - **pnpm** (`corepack enable` to activate)
 - **PostgreSQL** 15+ with pgvector extension
 - **Redis** 7+
@@ -23,7 +23,7 @@ cp .env.example .env.local
 # Edit .env.local with your database, Redis, and API keys
 
 # Push schema to database
-pnpm db:push
+pnpm db:migrate:deploy
 
 # Start dev server
 pnpm dev
@@ -44,11 +44,8 @@ For Railway PostgreSQL, pgvector is available as an add-on in the service settin
 You need two processes for the complete development experience:
 
 ```bash
-# Terminal 1: Next.js dev server
+# Next.js dev server (BullMQ workers start in-process)
 pnpm dev
-
-# Terminal 2: Background workers (indexing, execution, reporting)
-pnpm workers
 ```
 
 ## Coding Standards

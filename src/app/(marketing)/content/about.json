@@ -30,11 +30,5 @@
       "description": "Prompt caching, semantic dedup, smart batching, model routing per task. We obsess over keeping per-run costs low enough to test every single PR.",
       "icon": "DollarSign"
     }
-  ],
-  "stats": [
-    { "value": "90s", "label": "Average time to index a repo" },
-    { "value": "47", "label": "Test cases generated on first run" },
-    { "value": "3 min", "label": "Average PR regression run" },
-    { "value": "0", "label": "Lines of test code you write" }
   ]
 }

@@ -49,21 +49,34 @@ export function SystemConfigClient({
   const [maintenanceMessage, setMaintenanceMessage] = useState(initialMaintenanceMsg);
   const [systemAnnouncement, setSystemAnnouncement] = useState(initialAnnouncement);
   const [saving, setSaving] = useState(false);
+  const [status, setStatus] = useState<{ ok: boolean; message: string } | null>(null);
 
   async function handleSave() {
     setSaving(true);
+    setStatus(null);
+    // The API stores one config key per request.
+    const entries: Array<[string, unknown]> = [
+      ["feature_flags", featureFlags],
+      ["rate_limits", rateLimits],
+      ["maintenance_mode", maintenanceMode],
+      ["maintenance_message", maintenanceMessage],
+      ["system_announcement", systemAnnouncement],
+    ];
     try {
-      await fetch("/api/admin/system-config", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          featureFlags,
-          rateLimits,
-          maintenanceMode,
-          maintenanceMessage,
-          systemAnnouncement,
-        }),
-      });
+      for (const [key, value] of entries) {
+        const res = await fetch("/api/admin/system", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ key, value }),
+        });
+        if (!res.ok) {
+          const json = await res.json().catch(() => null);
+          throw new Error(`Failed to save ${key}: ${json?.error?.message ?? res.statusText}`);
+        }
+      }
+      setStatus({ ok: true, message: "Saved" });
+    } catch (err) {
+      setStatus({ ok: false, message: err instanceof Error ? err.message : "Failed to save" });
     } finally {
       setSaving(false);
     }
@@ -78,10 +91,17 @@ export function SystemConfigClient({
             Manage platform-wide settings, feature flags, and rate limits.
           </p>
         </div>
-        <Button onClick={handleSave} disabled={saving} size="sm">
-          <Save className="h-3.5 w-3.5 mr-1.5" />
-          {saving ? "Saving..." : "Save Changes"}
-        </Button>
+        <div className="flex items-center gap-3">
+          {status && (
+            <span className={cn("text-xs", status.ok ? "text-orbit-pass" : "text-red-400")} role="status">
+              {status.message}
+            </span>
+          )}
+          <Button onClick={handleSave} disabled={saving} size="sm">
+            <Save className="h-3.5 w-3.5 mr-1.5" />
+            {saving ? "Saving..." : "Save Changes"}
+          </Button>
+        </div>
       </div>
 
       {/* Feature Flags */}

@@ -10,9 +10,16 @@ import {
   updateRunStats,
   isRunCancelled,
 } from "./run-manager";
-import { checkBudgetLimit } from "@/lib/billing/usage-aggregator";
-import { startTrace, completeTrace, failTrace } from "@/services/tracing";
+import { canConsume } from "@/lib/auth/tenant";
 import type { OperationsMap } from "@/agents/schemas/operations-map";
+import {
+  runIndexingPhase,
+  runAuditPhase,
+  runOperationsAnalysisPhase,
+  runPlanningPhase,
+  runExecutionPhase,
+  runReportingPhase,
+} from "./pipeline-phases";
 
 interface PipelineInput {
   projectId: string;
@@ -51,31 +58,20 @@ async function checkCancellation(runId: string): Promise<void> {
   if (await isRunCancelled(runId)) throw new PipelineCancelledError();
 }
 
+type ProjectContext = Awaited<ReturnType<typeof getProjectContext>>;
+type ModeSelection = ReturnType<typeof selectRunMode>;
+
+/** Create a run and drive it through the pipeline (scheduler entry point). */
 export async function executePipeline(
   input: PipelineInput
 ): Promise<PipelineResult> {
-  const tokenBudget = new TokenBudget(
-    input.maxTokenBudget
-      ? { maxInputTokens: input.maxTokenBudget }
-      : undefined
-  );
-
   const context = await getProjectContext(input.projectId);
 
-  // Pre-run budget check — block if workspace has exceeded limits
-  const budget = await checkBudgetLimit(context.project.workspaceId);
-  if (budget.isOverLimit) {
-    throw new Error(
-      "Workspace budget exceeded. Upgrade your plan or wait for the next billing period."
-    );
-  }
-
-  const isFirstRun = context.lastRun === null;
-  const { mode, reason, skipIndexing, skipPlanning } = selectRunMode({
+  const selection = selectRunMode({
     trigger: input.trigger,
     changedFiles: input.changedFiles,
     targetPaths: input.targetPaths,
-    isFirstRun,
+    isFirstRun: context.lastRun === null,
     requestedMode: input.requestedMode,
   });
 
@@ -83,7 +79,7 @@ export async function executePipeline(
     projectId: input.projectId,
     environmentId: context.defaultEnvironment?.id,
     testPlanId: context.activePlan?.id,
-    mode,
+    mode: selection.mode,
     trigger: input.trigger,
     triggeredById: input.triggeredById,
     branch: input.branch,
@@ -91,38 +87,101 @@ export async function executePipeline(
     prNumber: input.prNumber,
   });
 
+  return runPipeline(run.id, input, context, selection);
+}
+
+/**
+ * Drive an already-created run (webhooks, Slack, mentions) through
+ * index → plan → execute → report. The run's stored mode is honoured.
+ */
+export async function executePipelineForRun(
+  runId: string,
+  options: { changedFiles?: string[] } = {}
+): Promise<PipelineResult> {
+  const run = await prisma.testRun.findUniqueOrThrow({
+    where: { id: runId },
+    select: {
+      projectId: true, mode: true, trigger: true, branch: true, commitSha: true,
+      prNumber: true, triggeredById: true, environmentId: true, testPlanId: true,
+    },
+  });
+  const context = await getProjectContext(run.projectId);
+
+  // Event-triggered runs are created before we know the project's defaults
+  const environmentId = run.environmentId ?? context.defaultEnvironment?.id;
+  const testPlanId = run.testPlanId ?? context.activePlan?.id;
+  if (environmentId !== run.environmentId || testPlanId !== run.testPlanId) {
+    await prisma.testRun.update({ where: { id: runId }, data: { environmentId, testPlanId } });
+  }
+
+  const input: PipelineInput = {
+    projectId: run.projectId,
+    trigger: run.trigger,
+    triggeredById: run.triggeredById ?? undefined,
+    branch: run.branch ?? undefined,
+    commitSha: run.commitSha ?? undefined,
+    prNumber: run.prNumber ?? undefined,
+    changedFiles: options.changedFiles,
+    requestedMode: run.mode,
+  };
+  const selection = selectRunMode({
+    trigger: run.trigger,
+    changedFiles: options.changedFiles,
+    requestedMode: run.mode,
+  });
+
+  return runPipeline(runId, input, context, selection);
+}
+
+async function runPipeline(
+  runId: string,
+  input: PipelineInput,
+  context: ProjectContext,
+  selection: ModeSelection
+): Promise<PipelineResult> {
+  const { mode, reason, skipIndexing, skipPlanning } = selection;
+  const tokenBudget = new TokenBudget(
+    input.maxTokenBudget
+      ? { maxInputTokens: input.maxTokenBudget }
+      : undefined
+  );
+
   try {
+    // Credits may have run out while the run was queued
+    const allowance = await canConsume(context.project.workspaceId, "credits");
+    if (!allowance.allowed) throw new Error(allowance.reason);
+
     // Phase 1: Indexing
-    await checkCancellation(run.id);
+    await checkCancellation(runId);
 
     if (!skipIndexing) {
       await runIndexingPhase(
-        run.id, input.projectId, input.branch, input.changedFiles, context, reason
+        runId, input.projectId, input.branch, input.changedFiles, context, reason
       );
     }
 
     // Phase 1.5: Code Audit (full runs only)
     if (mode === "full") {
-      await checkCancellation(run.id);
-      await runAuditPhase(run.id, input.projectId);
+      await checkCancellation(runId);
+      await runAuditPhase(runId, input.projectId);
     }
 
     // Phase 1.75: Operations Analysis (full/manual runs only)
     let operationsMap: OperationsMap | undefined;
     if (mode === "full") {
-      await checkCancellation(run.id);
+      await checkCancellation(runId);
       operationsMap = await runOperationsAnalysisPhase(
-        run.id, input.projectId, tokenBudget
+        runId, input.projectId, tokenBudget
       );
     }
 
     // Phase 2: Planning
-    await checkCancellation(run.id);
+    await checkCancellation(runId);
 
     let testPlanId = context.activePlan?.id;
     if (!skipPlanning || !testPlanId) {
       testPlanId = await runPlanningPhase(
-        run.id, input.projectId, mode, testPlanId, tokenBudget, operationsMap
+        runId, input.projectId, mode, testPlanId, tokenBudget, operationsMap
       );
     }
 
@@ -135,19 +194,19 @@ export async function executePipeline(
     }
 
     // Phase 3: Execution
-    await checkCancellation(run.id);
-    await runExecutionPhase(run.id, input.projectId, testPlanId, mode);
+    await checkCancellation(runId);
+    await runExecutionPhase(runId, input.projectId, testPlanId, mode);
 
     // Phase 4: Reporting
-    await checkCancellation(run.id);
-    await runReportingPhase(run.id, input.projectId);
+    await checkCancellation(runId);
+    await runReportingPhase(runId, input.projectId);
 
     // Finalize
-    return await finalizePipeline(run.id, input.projectId, tokenBudget);
+    return await finalizePipeline(runId, input.projectId, tokenBudget);
   } catch (error) {
     if (error instanceof PipelineCancelledError) {
-      const updatedRun = await updateRunStats(run.id);
-      return buildResult(run.id, "cancelled", updatedRun, tokenBudget);
+      const updatedRun = await updateRunStats(runId);
+      return buildResult(runId, "cancelled", updatedRun, tokenBudget);
     }
 
     const errorMessage =
@@ -157,222 +216,9 @@ export async function executePipeline(
       errorMessage
     );
 
-    await updateRunStatus(run.id, "failed", errorMessage);
-    const updatedRun = await updateRunStats(run.id);
-    return buildResult(run.id, "failed", updatedRun, tokenBudget);
-  }
-}
-
-async function runIndexingPhase(
-  runId: string,
-  projectId: string,
-  branch: string | undefined,
-  changedFiles: string[] | undefined,
-  context: Awaited<ReturnType<typeof getProjectContext>>,
-  reason: string
-): Promise<void> {
-  const needsReindex = await shouldReindex(projectId, changedFiles);
-  if (!needsReindex) return;
-
-  const isIncremental = changedFiles && changedFiles.length > 0;
-  const traceId = await startTrace({
-    runId,
-    projectId,
-    agentPhase: "analyst",
-    inputSummary: isIncremental
-      ? `Incremental index: ${changedFiles.length} changed files`
-      : "Full repository indexing",
-  });
-
-  try {
-    await updateRunStatus(runId, "indexing", reason);
-    const branchToUse = branch ?? context.project.defaultBranch;
-
-    if (isIncremental) {
-      const { runIncrementalIndex } = await import(
-        "@/services/indexing/incremental"
-      );
-      await runIncrementalIndex(projectId, branchToUse, changedFiles);
-    } else {
-      const { runIndexingPipeline } = await import(
-        "@/services/indexing/pipeline"
-      );
-      await runIndexingPipeline(projectId, branchToUse);
-    }
-
-    await completeTrace(traceId, {
-      outputSummary: isIncremental
-        ? `Indexed ${changedFiles.length} changed files on ${branchToUse}`
-        : `Full index completed on ${branchToUse}`,
-    });
-  } catch (error) {
-    const msg = error instanceof Error ? error.message : "Unknown indexing error";
-    await failTrace(traceId, msg);
-    throw error;
-  }
-}
-
-async function runAuditPhase(runId: string, projectId: string): Promise<void> {
-  // Audit runs silently between indexing and planning — no status transition needed.
-  // The planning phase will update status to "planning" when it starts.
-  try {
-    const { runCodeAudit } = await import("@/services/auditing/auditor");
-    await runCodeAudit({ projectId, runId });
-  } catch (error) {
-    // Audit is non-blocking — log and continue
-    console.warn("[Pipeline] Code audit failed, continuing:", error);
-  }
-}
-
-async function runOperationsAnalysisPhase(
-  runId: string,
-  projectId: string,
-  tokenBudget: TokenBudget
-): Promise<OperationsMap | undefined> {
-  const traceId = await startTrace({
-    runId,
-    projectId,
-    agentPhase: "planner",
-    inputSummary: "Analyze business operations and dependencies",
-  });
-
-  try {
-    const { analyzeOperations } = await import("@/services/planning/operations-analyzer");
-    const result = await analyzeOperations(projectId);
-
-    tokenBudget.record(
-      result.tokensUsed.input,
-      result.tokensUsed.output,
-      0,
-      "planner"
-    );
-
-    await completeTrace(traceId, {
-      outputSummary: `Identified ${result.operationsMap.metadata.totalOperations} operations in ${result.operationsMap.metadata.totalFlows} flows`,
-      inputTokens: result.tokensUsed.input,
-      outputTokens: result.tokensUsed.output,
-    });
-
-    return result.operationsMap;
-  } catch (error) {
-    // Operations analysis is non-blocking — log and continue without it
-    const msg = error instanceof Error ? error.message : "Unknown operations analysis error";
-    console.warn("[Pipeline] Operations analysis failed, continuing:", msg);
-    await failTrace(traceId, msg);
-    return undefined;
-  }
-}
-
-async function runPlanningPhase(
-  runId: string,
-  projectId: string,
-  mode: RunMode,
-  existingPlanId: string | undefined,
-  tokenBudget: TokenBudget,
-  operationsMap?: OperationsMap
-): Promise<string> {
-  // If we already have a plan and mode doesn't require regeneration, use it
-  if (existingPlanId && mode !== "full") {
-    return existingPlanId;
-  }
-
-  const traceId = await startTrace({
-    runId,
-    projectId,
-    agentPhase: "planner",
-    inputSummary: `Generate ${mode} test plan`,
-  });
-
-  try {
-    await updateRunStatus(runId, "planning", "Generating test plan");
-    const { generatePlan } = await import("@/services/planning/planner");
-    const planResult = await generatePlan({ projectId, mode, operationsMap });
-
-    tokenBudget.record(
-      planResult.tokensUsed.input,
-      planResult.tokensUsed.output,
-      0,
-      "planner"
-    );
-
-    await prisma.testRun.update({
-      where: { id: runId },
-      data: { testPlanId: planResult.plan.id },
-    });
-
-    await completeTrace(traceId, {
-      outputSummary: `Generated plan with ${planResult.testCases.length} test cases`,
-      inputTokens: planResult.tokensUsed.input,
-      outputTokens: planResult.tokensUsed.output,
-    });
-
-    return planResult.plan.id;
-  } catch (error) {
-    const msg = error instanceof Error ? error.message : "Unknown planning error";
-    await failTrace(traceId, msg);
-    throw error;
-  }
-}
-
-async function runExecutionPhase(
-  runId: string,
-  projectId: string,
-  testPlanId: string,
-  mode: RunMode
-): Promise<void> {
-  const traceId = await startTrace({
-    runId,
-    projectId,
-    agentPhase: "executor",
-    inputSummary: `Execute ${mode} test suite`,
-  });
-
-  try {
-    await updateRunStatus(runId, "executing", "Running tests");
-
-    // Use parallel execution for full/smoke runs (journey-based partitioning),
-    // sequential for targeted/regression runs
-    if (mode === "full" || mode === "smoke") {
-      const { runTestSuiteParallel } = await import("@/services/execution/runner");
-      await runTestSuiteParallel(runId, testPlanId, mode);
-    } else {
-      const { runTestSuite } = await import("@/services/execution/runner");
-      await runTestSuite(runId, testPlanId, mode);
-    }
-
-    await completeTrace(traceId, {
-      outputSummary: `${mode} test suite execution completed`,
-    });
-  } catch (error) {
-    const msg = error instanceof Error ? error.message : "Unknown execution error";
-    await failTrace(traceId, msg);
-    throw error;
-  }
-}
-
-async function runReportingPhase(
-  runId: string,
-  projectId: string
-): Promise<void> {
-  const traceId = await startTrace({
-    runId,
-    projectId,
-    agentPhase: "reporter",
-    inputSummary: "Generate test run report and failure analysis",
-  });
-
-  try {
-    await updateRunStatus(runId, "reporting", "Analyzing results");
-    const { generateReport } = await import("@/services/reporting/reporter");
-    await generateReport(runId);
-
-    await completeTrace(traceId, {
-      outputSummary: "Report generated with failure analysis and bug reports",
-    });
-  } catch (error) {
-    const msg = error instanceof Error ? error.message : "Unknown reporting error";
-    await failTrace(traceId, msg);
-    throw error;
+    await updateRunStatus(runId, "failed", errorMessage);
+    const updatedRun = await updateRunStats(runId);
+    return buildResult(runId, "failed", updatedRun, tokenBudget);
   }
 }
 
@@ -384,24 +230,7 @@ async function finalizePipeline(
   const updatedRun = await updateRunStats(runId);
   await updateRunStatus(runId, "completed", "Run completed");
 
-  const creditsConsumed = updatedRun.totalTests;
-  await prisma.testRun.update({
-    where: { id: runId },
-    data: { creditsConsumed },
-  });
-
-  const project = await prisma.project.findUnique({
-    where: { id: projectId },
-    select: { workspaceId: true },
-  });
-
-  if (project) {
-    await prisma.workspace.update({
-      where: { id: project.workspaceId },
-      data: { creditBalance: { decrement: creditsConsumed } },
-    });
-  }
-
+  // Credits are charged once, by the runner, when execution completes
   await prisma.project.update({
     where: { id: projectId },
     data: { lastRunAt: new Date() },
@@ -413,7 +242,10 @@ async function finalizePipeline(
 function buildResult(
   runId: string,
   status: "completed" | "failed" | "cancelled",
-  run: { passed: number; failed: number; flaky: number; totalTests: number; durationMs: number | null },
+  run: {
+    passed: number; failed: number; flaky: number; totalTests: number;
+    durationMs: number | null; creditsConsumed: number;
+  },
   tokenBudget: TokenBudget
 ): PipelineResult {
   const usage = tokenBudget.getUsage();
@@ -427,32 +259,13 @@ function buildResult(
     flaky: run.flaky,
     totalTests: run.totalTests,
     durationMs: run.durationMs ?? 0,
-    creditsConsumed: run.totalTests,
+    creditsConsumed: run.creditsConsumed,
     tokenUsage: {
       inputTokens: usage.inputTokens,
       outputTokens: usage.outputTokens,
       byAgent: agentUsage,
     },
   };
-}
-
-async function shouldReindex(
-  projectId: string,
-  changedFiles?: string[]
-): Promise<boolean> {
-  if (changedFiles && changedFiles.length > 0) return true;
-
-  const project = await prisma.project.findUnique({
-    where: { id: projectId },
-    select: { lastIndexedAt: true },
-  });
-
-  if (!project?.lastIndexedAt) return true;
-
-  const hoursSinceIndex =
-    (Date.now() - project.lastIndexedAt.getTime()) / (1000 * 60 * 60);
-
-  return hoursSinceIndex > 24;
 }
 
 export type { PipelineInput, PipelineResult };

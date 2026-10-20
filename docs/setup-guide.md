@@ -4,7 +4,7 @@ Get Orbit running locally in under 15 minutes.
 
 ## Prerequisites
 
-- **Node.js 18+** ([nodejs.org](https://nodejs.org))
+- **Node.js 20** ([nodejs.org](https://nodejs.org))
 - **pnpm** (`npm install -g pnpm`)
 - **Railway account** (for managed PostgreSQL + Redis) or local Docker
 - **GitHub OAuth App** (for authentication)
@@ -28,7 +28,7 @@ cp .env.example .env.local
 # 4. Fill in your values in .env.local (see sections below)
 
 # 5. Push schema to database
-pnpm prisma db push
+pnpm prisma migrate deploy
 
 # 6. Generate Prisma client
 pnpm prisma generate
@@ -101,7 +101,7 @@ Visit **http://localhost:3000** and sign in with one of the [test accounts](#tes
 
 | Variable | Required | Description |
 |---|---|---|
-| `GITHUB_WEBHOOK_SECRET` | No | Shared secret for verifying GitHub webhook payloads. |
+| `GITHUB_WEBHOOK_SECRET` | For webhooks | Shared secret for verifying GitHub webhook payloads. Unsigned or unverifiable deliveries are rejected (503 when unset). |
 
 ### Integrations (Optional)
 
@@ -110,7 +110,7 @@ Visit **http://localhost:3000** and sign in with one of the [test accounts](#tes
 | `LINEAR_API_KEY` | No | Linear API key for creating bug reports from test failures. |
 | `LINEAR_TEAM_ID` | No | Linear team to file issues against. |
 | `SLACK_BOT_TOKEN` | No | Slack bot token for sending test run notifications. |
-| `SLACK_SIGNING_SECRET` | No | Slack signing secret for verifying requests. |
+| `SLACK_SIGNING_SECRET` | For Slack | Slack signing secret for verifying requests. Slack endpoints return 503 when unset. |
 | `SLACK_WEBHOOK_URL` | No | Slack incoming webhook URL for notifications. |
 
 ---
@@ -149,7 +149,7 @@ Visit **http://localhost:3000** and sign in with one of the [test accounts](#tes
    ```
 6. Push the schema:
    ```bash
-   pnpm prisma db push
+   pnpm prisma migrate deploy
    ```
 7. Generate the client:
    ```bash
@@ -304,7 +304,7 @@ The repo includes `railway.toml` and `Dockerfile` pre-configured for Railway.
 
 2. **Add PostgreSQL service**
    - Click "New Service" > "Database" > "PostgreSQL"
-   - Railway includes pgvector support
+   - Railway's default Postgres may not ship pgvector; use a pgvector image (see docs/self-hosting/railway.md)
    - Enable pgvector: run `CREATE EXTENSION IF NOT EXISTS vector;` via the Railway SQL editor or a node script (see Database Setup above)
 
 3. **Add Redis service**
@@ -319,12 +319,12 @@ The repo includes `railway.toml` and `Dockerfile` pre-configured for Railway.
    - Go to your app service > "Variables"
    - Add all required env vars from the reference above
    - Use Railway's variable references for DB/Redis: `${{Postgres.DATABASE_URL}}` and `${{Redis.REDIS_URL}}`
-   - Set `NEXTAUTH_URL` to your Railway app URL (e.g., `https://orbit-production.up.railway.app`)
+   - Set `NEXTAUTH_URL` to your Railway app URL (e.g., `https://<your-service>.up.railway.app`)
 
-6. **Run migrations** (first deploy only)
+6. **Migrations** run automatically on container start (`scripts/start.sh`). To run them by hand:
    - In the Railway shell or via local CLI pointed at Railway DB:
      ```bash
-     DATABASE_URL="your-railway-postgres-url" pnpm prisma db push
+     DATABASE_URL="your-railway-postgres-url" pnpm prisma migrate deploy
      ```
 
 7. **Seed data (optional)**
@@ -362,7 +362,7 @@ pnpm db:seed
 | `pnpm lint` | Run ESLint |
 | `pnpm test` | Run test suite |
 | `pnpm test:watch` | Run tests in watch mode |
-| `pnpm prisma db push` | Push schema to database |
+| `pnpm prisma migrate deploy` | Apply pending migrations |
 | `pnpm prisma generate` | Generate Prisma client |
 | `pnpm db:seed` | Seed demo data |
 | `pnpm workers` | Start BullMQ background workers |

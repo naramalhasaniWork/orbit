@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { getIndexingQueue } from "@/lib/queue/queues";
 import { requirePermission } from "@/lib/auth/rbac";
+import { mergeUserSettings, redactSettingsOf } from "@/lib/integrations/redact";
 import {
   requireWorkspace,
   apiSuccess,
@@ -33,7 +34,7 @@ export async function GET(
     ]);
 
     return apiSuccess({
-      ...project,
+      ...redactSettingsOf(project),
       indexingStatus,
       nodeCount,
       edgeCount,
@@ -99,7 +100,7 @@ export async function PATCH(
 
     const project = await prisma.project.findFirst({
       where: { id: projectId, workspaceId },
-      select: { id: true },
+      select: { id: true, settings: true },
     });
 
     if (!project) {
@@ -119,7 +120,7 @@ export async function PATCH(
       data.onboardingCompleted = body.onboardingCompleted;
     }
     if (body.settings !== undefined) {
-      data.settings = body.settings;
+      data.settings = mergeUserSettings(project.settings, body.settings);
     }
     if (body.status !== undefined) {
       data.status = body.status;
@@ -133,7 +134,7 @@ export async function PATCH(
       data,
     });
 
-    return apiSuccess(updated);
+    return apiSuccess(redactSettingsOf(updated));
   } catch (error) {
     return handleApiError(error);
   }

@@ -1,6 +1,6 @@
 import { stripe } from "./client";
 import { prisma } from "@/lib/db";
-import { getTierFromPriceId, getTierLimits } from "./prices";
+import { getTierFromPriceId, getMonthlyCreditGrant } from "./prices";
 import type { WorkspaceTier } from "@/lib/auth/tenant";
 
 export async function createSubscription(
@@ -62,10 +62,11 @@ export async function syncSubscriptionToWorkspace(
   status: string,
   currentPeriodStart: Date,
   currentPeriodEnd: Date,
-  cancelAtPeriodEnd: boolean
+  cancelAtPeriodEnd: boolean,
+  seats: number
 ) {
   const tier = getTierFromPriceId(priceId) ?? "free";
-  const limits = getTierLimits(tier);
+  const monthlyCredits = getMonthlyCreditGrant(tier, seats);
 
   // Upsert the subscription record
   await prisma.subscription.upsert({
@@ -90,7 +91,7 @@ export async function syncSubscriptionToWorkspace(
     },
   });
 
-  // Update workspace with billing info and tier limits
+  // Update workspace with billing info; limits come from TIER_LIMITS[tier]
   await prisma.workspace.update({
     where: { id: workspaceId },
     data: {
@@ -99,15 +100,13 @@ export async function syncSubscriptionToWorkspace(
       tier,
       billingPeriodStart: currentPeriodStart,
       billingPeriodEnd: currentPeriodEnd,
-      monthlyCredits: limits.monthlyCredits,
-      ...(limits.maxProjects > 0 ? { projectLimit: limits.maxProjects } : {}),
-      ...(limits.maxMembers > 0 ? { memberLimit: limits.maxMembers } : {}),
+      ...(monthlyCredits !== null ? { monthlyCredits } : {}),
     },
   });
 }
 
 export async function downgradeToFree(workspaceId: string) {
-  const freeLimits = getTierLimits("free");
+  const freeCredits = getMonthlyCreditGrant("free") ?? 0;
 
   await prisma.workspace.update({
     where: { id: workspaceId },
@@ -117,9 +116,7 @@ export async function downgradeToFree(workspaceId: string) {
       stripePriceId: null,
       billingPeriodStart: null,
       billingPeriodEnd: null,
-      monthlyCredits: freeLimits.monthlyCredits,
-      projectLimit: freeLimits.maxProjects,
-      memberLimit: freeLimits.maxMembers,
+      monthlyCredits: freeCredits,
     },
   });
 

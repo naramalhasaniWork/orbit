@@ -1,8 +1,9 @@
+import { redactSettingsOf } from "@/lib/integrations/redact";
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { requirePermission } from "@/lib/auth/rbac";
-import { TIER_LIMITS, type WorkspaceTier } from "@/lib/auth/tenant";
+import { canConsume } from "@/lib/auth/tenant";
 import {
   requireWorkspace,
   apiSuccess,
@@ -27,7 +28,7 @@ export async function GET(request: NextRequest) {
       where,
     });
 
-    return apiSuccess(projectList);
+    return apiSuccess(projectList.map(redactSettingsOf));
   } catch (error) {
     return handleApiError(error);
   }
@@ -48,26 +49,9 @@ export async function POST(request: NextRequest) {
     // RBAC: require projects.create permission
     await requirePermission(workspaceId, "projects.create");
 
-    // Tier limit check
-    const workspace = await prisma.workspace.findUnique({
-      where: { id: workspaceId },
-      select: { tier: true, projectLimit: true },
-    });
-
-    if (workspace) {
-      const tier = workspace.tier as WorkspaceTier;
-      const limit = TIER_LIMITS[tier]?.projects ?? workspace.projectLimit;
-      const currentCount = await prisma.project.count({
-        where: { workspaceId, deletedAt: null },
-      });
-
-      if (currentCount >= limit) {
-        return apiError(
-          `Project limit reached (${limit}). Upgrade your plan to create more projects.`,
-          "LIMIT_REACHED",
-          403
-        );
-      }
+    const allowance = await canConsume(workspaceId, "project");
+    if (!allowance.allowed) {
+      return apiError(allowance.reason, allowance.code, allowance.code === "NOT_FOUND" ? 404 : 403);
     }
 
     const body = await request.json();
@@ -93,7 +77,7 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    return apiSuccess(project, 201);
+    return apiSuccess(redactSettingsOf(project), 201);
   } catch (error) {
     return handleApiError(error);
   }

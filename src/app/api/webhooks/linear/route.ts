@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createHmac, timingSafeEqual } from "crypto";
 import { prisma } from "@/lib/db";
 import type { Prisma } from "@/generated/prisma/client";
-import { getIndexingQueue } from "@/lib/queue/queues";
-import { emitRunStarted } from "@/lib/websocket";
+import { launchPipelineRun, launchSummary } from "@/services/orchestrator/run-launcher";
 
 function verifySignature(
   payload: string,
@@ -65,8 +64,14 @@ export async function POST(req: NextRequest) {
   const body = await req.text();
   const signature = req.headers.get("linear-signature");
 
-  // Verify HMAC if webhook secret is configured
-  if (webhookSecret && !verifySignature(body, signature, webhookSecret)) {
+  // Fail closed: never accept an unverifiable webhook
+  if (!webhookSecret) {
+    return NextResponse.json(
+      { error: "LINEAR_WEBHOOK_SECRET is not configured; webhook rejected" },
+      { status: 503 }
+    );
+  }
+  if (!verifySignature(body, signature, webhookSecret)) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
   }
 
@@ -112,44 +117,22 @@ export async function POST(req: NextRequest) {
     if (stateType === "completed" || stateName === "Done") {
       const branch = data.branchName ?? project.defaultBranch;
 
-      const run = await prisma.testRun.create({
-        data: {
-          projectId: project.id,
-          status: "queued",
-          mode: "regression",
-          trigger: "linear",
-          branch,
-          metadata: {
-            linearIssueId: data.id,
-            linearIssueTitle: data.title ?? null,
-            linearStateName: stateName ?? null,
-          } as Prisma.InputJsonValue,
-        },
-      });
-
-      const queue = getIndexingQueue();
-      await queue.add(
-        `index-${project.id}-linear`,
-        {
-          projectId: project.id,
-          branch,
-          isIncremental: true,
-        },
-        { jobId: `index-${project.id}-linear-${Date.now()}` }
-      );
-
-      await emitRunStarted(run.id, {
-        runId: run.id,
+      const launched = await launchPipelineRun({
         projectId: project.id,
         mode: "regression",
         trigger: "linear",
-        totalTests: 0,
+        branch,
+        metadata: {
+          linearIssueId: data.id,
+          linearIssueTitle: data.title ?? null,
+          linearStateName: stateName ?? null,
+        } as Prisma.InputJsonValue,
       });
 
       return NextResponse.json({
         status: "run_triggered",
-        runId: run.id,
         issueId: data.id,
+        ...launchSummary(launched),
       });
     }
 
@@ -160,44 +143,22 @@ export async function POST(req: NextRequest) {
     if (hasTestingLabel) {
       const branch = data.branchName ?? project.defaultBranch;
 
-      const run = await prisma.testRun.create({
-        data: {
-          projectId: project.id,
-          status: "queued",
-          mode: "targeted",
-          trigger: "linear",
-          branch,
-          metadata: {
-            linearIssueId: data.id,
-            linearIssueTitle: data.title ?? null,
-            linearLabel: "Needs Testing",
-          } as Prisma.InputJsonValue,
-        },
-      });
-
-      const queue = getIndexingQueue();
-      await queue.add(
-        `index-${project.id}-linear-test`,
-        {
-          projectId: project.id,
-          branch,
-          isIncremental: false,
-        },
-        { jobId: `index-${project.id}-linear-test-${Date.now()}` }
-      );
-
-      await emitRunStarted(run.id, {
-        runId: run.id,
+      const launched = await launchPipelineRun({
         projectId: project.id,
         mode: "targeted",
         trigger: "linear",
-        totalTests: 0,
+        branch,
+        metadata: {
+          linearIssueId: data.id,
+          linearIssueTitle: data.title ?? null,
+          linearLabel: "Needs Testing",
+        } as Prisma.InputJsonValue,
       });
 
       return NextResponse.json({
         status: "targeted_run_triggered",
-        runId: run.id,
         issueId: data.id,
+        ...launchSummary(launched),
       });
     }
   }

@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createHmac, timingSafeEqual } from "crypto";
 import { prisma } from "@/lib/db";
-import { getIndexingQueue } from "@/lib/queue/queues";
-import { emitRunStarted } from "@/lib/websocket";
+import { launchPipelineRun } from "@/services/orchestrator/run-launcher";
 
 function verifySlackSignature(
   body: string,
@@ -81,39 +80,27 @@ async function handleRerunAction(
     return;
   }
 
-  const newRun = await prisma.testRun.create({
-    data: {
-      projectId: originalRun.projectId,
-      status: "queued",
-      mode: originalRun.mode,
-      trigger: "manual",
-      branch: originalRun.branch ?? originalRun.project.defaultBranch,
-    },
-  });
-
-  const queue = getIndexingQueue();
-  await queue.add(
-    `index-${originalRun.projectId}-rerun`,
-    {
-      projectId: originalRun.projectId,
-      branch: originalRun.branch ?? originalRun.project.defaultBranch,
-      isIncremental: true,
-    },
-    { jobId: `index-${originalRun.projectId}-rerun-${Date.now()}` }
-  );
-
-  await emitRunStarted(newRun.id, {
-    runId: newRun.id,
+  const launched = await launchPipelineRun({
     projectId: originalRun.projectId,
     mode: originalRun.mode,
     trigger: "manual",
-    totalTests: 0,
+    branch: originalRun.branch ?? originalRun.project.defaultBranch,
+    metadata: { rerunOf: runId },
   });
+
+  if (!launched.ok) {
+    await sendSlackResponse(payload.response_url, {
+      response_type: "ephemeral",
+      replace_original: false,
+      text: `Re-run not started: ${launched.reason}`,
+    });
+    return;
+  }
 
   await sendSlackResponse(payload.response_url, {
     response_type: "in_channel",
     replace_original: false,
-    text: ":arrows_counterclockwise: Re-run triggered by <@" + payload.user.id + ">. Run ID: `" + newRun.id + "`",
+    text: ":arrows_counterclockwise: Re-run triggered by <@" + payload.user.id + ">. Run ID: `" + launched.runId + "`",
   });
 }
 
@@ -227,10 +214,14 @@ export async function POST(req: NextRequest) {
   const timestamp = req.headers.get("x-slack-request-timestamp");
   const signature = req.headers.get("x-slack-signature");
 
-  if (
-    signingSecret &&
-    !verifySlackSignature(body, timestamp, signature, signingSecret)
-  ) {
+  // Fail closed: never accept an unverifiable request
+  if (!signingSecret) {
+    return NextResponse.json(
+      { error: "SLACK_SIGNING_SECRET is not configured; request rejected" },
+      { status: 503 }
+    );
+  }
+  if (!verifySlackSignature(body, timestamp, signature, signingSecret)) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
   }
 

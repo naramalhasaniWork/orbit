@@ -12,6 +12,8 @@ export const IndexingJobDataSchema = z.object({
   changedFiles: z.array(z.string()).optional(),
   isIncremental: z.boolean(),
   phase: z.string().optional(),
+  /** Set for event-triggered runs: after indexing, the run continues through plan → execute → report. */
+  runId: z.string().uuid().optional(),
 });
 
 export const ExecutionJobDataSchema = z.object({

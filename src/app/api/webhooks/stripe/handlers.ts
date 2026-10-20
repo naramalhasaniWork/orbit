@@ -1,9 +1,14 @@
 import { stripe } from "@/lib/stripe/client";
 import { prisma } from "@/lib/db";
 import { syncSubscriptionToWorkspace, downgradeToFree } from "@/lib/stripe/subscriptions";
-import { getTierLimits } from "@/lib/stripe/prices";
+import { getMonthlyCreditGrant } from "@/lib/stripe/prices";
 import { fulfillCreditPurchase } from "@/lib/stripe/credits";
 import type Stripe from "stripe";
+
+/** Seats on a subscription: the quantity of its (single) price item. */
+function getSeatCount(sub: Stripe.Subscription): number {
+  return sub.items.data[0]?.quantity ?? 1;
+}
 
 /** Extract period dates from a Stripe Subscription (API version compat) */
 function getSubscriptionPeriod(sub: Stripe.Subscription) {
@@ -54,7 +59,8 @@ export async function handleCheckoutCompleted(session: Stripe.Checkout.Session) 
     subscription.status,
     new Date(period.start * 1000),
     new Date(period.end * 1000),
-    period.cancelAtPeriodEnd
+    period.cancelAtPeriodEnd,
+    getSeatCount(subscription)
   );
 }
 
@@ -118,22 +124,25 @@ export async function handleInvoicePaid(invoice: Stripe.Invoice) {
     },
   });
 
+  // workspace.monthlyCredits already reflects tier and seat count (synced
+  // from the subscription); unlimited tiers have nothing to grant
   const tier = workspace.tier;
-  const limits = getTierLimits(tier);
+  const grant = getMonthlyCreditGrant(tier) === null ? null : workspace.monthlyCredits;
+  if (!grant || grant <= 0) return;
 
   await prisma.creditTransaction.create({
     data: {
       workspaceId: workspace.id,
       type: "monthly_grant",
-      amount: limits.monthlyCredits,
-      balance: workspace.creditBalance + limits.monthlyCredits,
+      amount: grant,
+      balance: workspace.creditBalance + grant,
       description: `Monthly credit grant (${tier} plan)`,
     },
   });
 
   await prisma.workspace.update({
     where: { id: workspace.id },
-    data: { creditBalance: { increment: limits.monthlyCredits } },
+    data: { creditBalance: { increment: grant } },
   });
 }
 
@@ -196,7 +205,8 @@ export async function handleSubscriptionUpdated(subscription: Stripe.Subscriptio
       subscription.status,
       new Date(p.start * 1000),
       new Date(p.end * 1000),
-      p.cancelAtPeriodEnd
+      p.cancelAtPeriodEnd,
+      getSeatCount(subscription)
     );
     return;
   }
@@ -210,7 +220,8 @@ export async function handleSubscriptionUpdated(subscription: Stripe.Subscriptio
     subscription.status,
     new Date(p.start * 1000),
     new Date(p.end * 1000),
-    p.cancelAtPeriodEnd
+    p.cancelAtPeriodEnd,
+    getSeatCount(subscription)
   );
 }
 

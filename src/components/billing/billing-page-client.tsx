@@ -3,14 +3,16 @@
 import { useCallback, useState } from "react";
 import { SubscriptionStatus } from "./subscription-status";
 import { CostDashboard } from "./cost-dashboard";
+import { UsageDashboard } from "./usage-dashboard";
 import { InvoiceHistory } from "./invoice-history";
 import { PricingSelector } from "./pricing-selector";
 
 interface BillingPageClientProps {
   workspaceId: string;
+  currentTier: string;
 }
 
-export function BillingPageClient({ workspaceId }: BillingPageClientProps) {
+export function BillingPageClient({ workspaceId, currentTier }: BillingPageClientProps) {
   const [showPricing, setShowPricing] = useState(false);
 
   const handleSelectTier = useCallback(
@@ -49,11 +51,19 @@ export function BillingPageClient({ workspaceId }: BillingPageClientProps) {
         {showPricing && (
           <div className="mt-4">
             <PricingSelector
-              currentTier="free"
+              currentTier={currentTier}
               onSelectTier={handleSelectTier}
             />
           </div>
         )}
+      </div>
+
+      {/* Plan limits and credit activity */}
+      <div>
+        <h3 className="text-sm font-semibold text-foreground mb-4">
+          Plan Usage
+        </h3>
+        <UsageDashboard workspaceId={workspaceId} />
       </div>
 
       {/* Cost analytics dashboard with credit purchase */}

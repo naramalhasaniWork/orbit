@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { requirePermission } from "@/lib/auth/rbac";
+import { redactSettings } from "@/lib/integrations/redact";
 import {
   apiSuccess,
   apiError,
@@ -24,7 +25,7 @@ export async function GET(
       return apiError("Workspace not found", "NOT_FOUND", 404);
     }
 
-    return apiSuccess(workspace.settings);
+    return apiSuccess(redactSettings(workspace.settings));
   } catch (error) {
     return handleApiError(error);
   }
@@ -65,7 +66,7 @@ export async function PATCH(
       data: { settings: updatedSettings },
     });
 
-    return apiSuccess(updatedSettings);
+    return apiSuccess(redactSettings(updatedSettings));
   } catch (error) {
     return handleApiError(error);
   }

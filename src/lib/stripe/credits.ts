@@ -1,21 +1,7 @@
 import { stripe } from "./client";
 import { getOrCreateStripeCustomer } from "./checkout";
 import { prisma } from "@/lib/db";
-
-interface CreditPackage {
-  id: string;
-  name: string;
-  credits: number;
-  price: number; // in cents
-  popular?: boolean;
-}
-
-const CREDIT_PACKAGES: CreditPackage[] = [
-  { id: "credits-100", name: "100 Credits", credits: 100, price: 999 },
-  { id: "credits-500", name: "500 Credits", credits: 500, price: 3999, popular: true },
-  { id: "credits-1000", name: "1,000 Credits", credits: 1000, price: 6999 },
-  { id: "credits-5000", name: "5,000 Credits", credits: 5000, price: 29999 },
-];
+import { CREDIT_PACKAGES, type CreditPackage } from "./credit-packages";
 
 export function getCreditPackages(): CreditPackage[] {
   return CREDIT_PACKAGES;

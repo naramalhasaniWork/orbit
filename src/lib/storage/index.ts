@@ -1,7 +1,7 @@
 import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { readFile, writeFile, mkdir } from "fs/promises";
-import { join, dirname } from "path";
+import { join, dirname, resolve, basename, sep } from "path";
 import { existsSync, mkdirSync } from "fs";
 
 // ============================================================
@@ -18,21 +18,38 @@ export interface StorageProvider {
 // Local Filesystem Storage
 // ============================================================
 
-function createLocalStorage(basePath: string): StorageProvider {
+/** Resolve a storage key inside basePath; throws if it would escape it. */
+function resolveInside(basePath: string, key: string): string {
+  const base = resolve(basePath);
+  const resolved = resolve(base, key);
+  if (resolved !== base && !resolved.startsWith(base + sep)) {
+    throw new Error(`Invalid storage key: ${key}`);
+  }
+  return resolved;
+}
+
+/** Reduce a user-supplied filename to a safe basename for use in storage keys. */
+export function sanitizeFilename(name: string): string {
+  const cleaned = basename(name.replace(/\\/g, "/"))
+    .replace(/[^A-Za-z0-9._-]/g, "_")
+    .replace(/^\.+/, "");
+  return cleaned.slice(0, 120) || "file";
+}
+
+export function createLocalStorage(basePath: string): StorageProvider {
   return {
     async upload(key, data) {
-      const filePath = join(basePath, key);
+      const filePath = resolveInside(basePath, key);
       await mkdir(dirname(filePath), { recursive: true });
       await writeFile(filePath, data);
     },
 
     async download(key) {
-      const filePath = join(basePath, key);
-      return readFile(filePath);
+      return readFile(resolveInside(basePath, key));
     },
 
     async getUrl(key) {
-      return `file://${join(basePath, key)}`;
+      return `file://${resolveInside(basePath, key)}`;
     },
   };
 }

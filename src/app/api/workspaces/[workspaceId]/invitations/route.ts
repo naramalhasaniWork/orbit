@@ -3,7 +3,7 @@ import { z } from "zod";
 import { randomBytes } from "crypto";
 import { prisma } from "@/lib/db";
 import { requirePermission, assertCanManageRole } from "@/lib/auth/rbac";
-import { TIER_LIMITS, type WorkspaceTier } from "@/lib/auth/tenant";
+import { canConsume } from "@/lib/auth/tenant";
 import { apiSuccess, apiError, handleApiError } from "@/lib/utils/api";
 import { writeAuditLog } from "@/lib/auth/audit";
 
@@ -65,33 +65,9 @@ export async function POST(
     // Cannot invite someone at or above your own level
     assertCanManageRole(ctx.role, role);
 
-    // Check member limit
-    const workspace = await prisma.workspace.findUnique({
-      where: { id: workspaceId },
-      select: { tier: true, memberLimit: true },
-    });
-
-    if (!workspace) {
-      return apiError("Workspace not found", "NOT_FOUND", 404);
-    }
-
-    const currentMemberCount = await prisma.workspaceMember.count({
-      where: { workspaceId },
-    });
-
-    const pendingInviteCount = await prisma.workspaceInvitation.count({
-      where: { workspaceId, status: "pending" },
-    });
-
-    const tier = workspace.tier as WorkspaceTier;
-    const limit = TIER_LIMITS[tier]?.members ?? workspace.memberLimit;
-
-    if (currentMemberCount + pendingInviteCount >= limit) {
-      return apiError(
-        `Member limit reached (${limit}). Upgrade your plan to add more members.`,
-        "LIMIT_REACHED",
-        403
-      );
+    const allowance = await canConsume(workspaceId, "member");
+    if (!allowance.allowed) {
+      return apiError(allowance.reason, allowance.code, allowance.code === "NOT_FOUND" ? 404 : 403);
     }
 
     // Check if already a member

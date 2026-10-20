@@ -73,9 +73,14 @@ export async function assertPublicUrl(rawUrl: string): Promise<URL> {
 /**
  * fetch() that validates the target and every redirect hop with assertPublicUrl.
  * Redirects are followed manually (up to 5); any caller-supplied `redirect` option is ignored.
- * Only string/binary bodies are supported.
+ * Only string/binary bodies are supported. Pass `followRedirects: false` to return the first
+ * response as-is (webhook deliveries treat a redirect as a failure).
  */
-export async function safeFetch(rawUrl: string, init: RequestInit = {}): Promise<Response> {
+export async function safeFetch(
+  rawUrl: string,
+  init: RequestInit = {},
+  { followRedirects = true }: { followRedirects?: boolean } = {}
+): Promise<Response> {
   let current = rawUrl;
   let method = init.method ?? "GET";
   let body = init.body;
@@ -85,7 +90,7 @@ export async function safeFetch(rawUrl: string, init: RequestInit = {}): Promise
     const url = await assertPublicUrl(current);
     const response = await pinnedRequest(url, { method, headers, body, signal: init.signal ?? undefined });
 
-    if (!REDIRECT_STATUSES.has(response.status)) return response;
+    if (!followRedirects || !REDIRECT_STATUSES.has(response.status)) return response;
 
     const location = response.headers.get("location");
     if (!location) return response;
