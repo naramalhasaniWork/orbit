@@ -2,8 +2,8 @@
 
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { ClipboardList, Plus, Loader2, Check, AlertCircle } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { ClipboardList, Plus, Loader2, AlertCircle } from "lucide-react";
+import { AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PlanRow } from "@/components/plans/plan-row";
@@ -13,7 +13,8 @@ import {
   type TestPlanData,
   computePlanStats,
 } from "@/components/plans/plan-types";
-import { cn } from "@/lib/utils";
+import { apiErrorMessage } from "@/lib/api-client";
+import { PlanGenerationProgress, type PlanPhase } from "@/components/plans/plan-generation-progress";
 
 interface CoverageNode {
   id: string;
@@ -24,20 +25,20 @@ interface CoverageNode {
   testCount: number;
 }
 
-interface PlanPhase {
-  phase: string;
-  message: string;
-  progress: number;
-}
-
 interface PlansClientProps {
   projectId: string | null;
   projectName: string | null;
   plans: TestPlanData[];
   coverageNodes?: CoverageNode[];
+  /** False until the repository has been indexed; generating is refused (409) */
+  isIndexed?: boolean;
 }
 
-export function PlansClient({ projectId, projectName, plans, coverageNodes = [] }: PlansClientProps) {
+const NOT_INDEXED_HINT = "Index the repository first. Plans are generated from the indexed code.";
+
+export function PlansClient({
+  projectId, projectName, plans, coverageNodes = [], isIndexed = true,
+}: PlansClientProps) {
   const router = useRouter();
   const [expandedPlanId, setExpandedPlanId] = useState<string | null>(
     plans.find((p) => p.isActive)?.id ?? null
@@ -49,7 +50,7 @@ export function PlansClient({ projectId, projectName, plans, coverageNodes = [] 
   const [suggestionsRefreshKey, setSuggestionsRefreshKey] = useState(0);
 
   const handleGenerate = useCallback(async () => {
-    if (!projectId || generating) return;
+    if (!projectId || generating || !isIndexed) return;
 
     setGenerating(true);
     setCurrentPhase(null);
@@ -68,7 +69,7 @@ export function PlansClient({ projectId, projectName, plans, coverageNodes = [] 
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to generate plan: ${response.status}`);
+        throw new Error(await apiErrorMessage(response, "Failed to generate plan"));
       }
 
       const reader = response.body?.getReader();
@@ -119,7 +120,7 @@ export function PlansClient({ projectId, projectName, plans, coverageNodes = [] 
     } finally {
       setGenerating(false);
     }
-  }, [projectId, generating, router]);
+  }, [projectId, generating, isIndexed, router]);
 
   if (!projectId) {
     return (
@@ -137,8 +138,17 @@ export function PlansClient({ projectId, projectName, plans, coverageNodes = [] 
         projectName={projectName}
         planCount={plans.length}
         generating={generating}
+        disabledReason={isIndexed ? null : NOT_INDEXED_HINT}
         onGenerate={handleGenerate}
       />
+
+      {/* Errors stay visible after the progress panel closes */}
+      {error && !generating && (
+        <div role="alert" className="flex items-start gap-2 text-sm text-red-400 bg-red-400/[0.06] rounded-md px-3 py-2">
+          <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
+          <span>{error}</span>
+        </div>
+      )}
 
       {/* Generation progress overlay */}
       <AnimatePresence>
@@ -155,12 +165,12 @@ export function PlansClient({ projectId, projectName, plans, coverageNodes = [] 
         <EmptyState
           icon={ClipboardList}
           title="No test plans yet"
-          description="Generate your first test plan from the indexed system map."
+          description={isIndexed ? "Generate your first test plan from the indexed system map." : NOT_INDEXED_HINT}
           action={
             <Button
               className="bg-orbit-accent hover:bg-orbit-accent/90 text-white gap-2"
               onClick={handleGenerate}
-              disabled={generating}
+              disabled={generating || !isIndexed}
             >
               <Plus className="h-4 w-4" />
               Generate Plan
@@ -195,7 +205,7 @@ export function PlansClient({ projectId, projectName, plans, coverageNodes = [] 
       {projectId && (
         <AISuggestionsPanel
           projectId={projectId}
-          onGeneratePlan={handleGenerate}
+          onGeneratePlan={isIndexed ? handleGenerate : () => setError(NOT_INDEXED_HINT)}
           refreshKey={suggestionsRefreshKey}
         />
       )}
@@ -207,11 +217,13 @@ function PageHeader({
   projectName,
   planCount,
   generating,
+  disabledReason,
   onGenerate,
 }: {
   projectName: string | null;
   planCount: number;
   generating: boolean;
+  disabledReason: string | null;
   onGenerate: () => void;
 }) {
   return (
@@ -226,7 +238,8 @@ function PageHeader({
       <Button
         className="bg-orbit-accent hover:bg-orbit-accent/90 text-white gap-2"
         onClick={onGenerate}
-        disabled={generating}
+        disabled={generating || !!disabledReason}
+        title={disabledReason ?? undefined}
       >
         {generating ? (
           <Loader2 className="h-4 w-4 animate-spin" />
@@ -236,96 +249,5 @@ function PageHeader({
         {generating ? "Generating..." : "Generate New Plan"}
       </Button>
     </div>
-  );
-}
-
-const PHASE_LABELS: Record<string, string> = {
-  coverage: "Analyzing Coverage",
-  journeys: "Mapping User Journeys",
-  generating: "Generating Test Cases",
-  prioritizing: "Prioritizing Tests",
-  saving: "Saving Plan",
-  complete: "Complete",
-};
-
-const PHASE_ORDER = ["coverage", "journeys", "generating", "prioritizing", "saving", "complete"];
-
-function PlanGenerationProgress({
-  phase,
-  error,
-  complete,
-}: {
-  phase: PlanPhase | null;
-  error: string | null;
-  complete: boolean;
-}) {
-  const currentPhaseIdx = phase ? PHASE_ORDER.indexOf(phase.phase) : -1;
-  const progress = phase?.progress ?? 0;
-
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: -8 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -8 }}
-      className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-5 space-y-4"
-    >
-      {/* Progress bar */}
-      <div className="space-y-2">
-        <div className="flex items-center justify-between text-xs">
-          <span className="text-foreground font-medium">
-            {error ? "Generation Failed" : phase?.message ?? "Starting..."}
-          </span>
-          <span className="text-muted-foreground tabular-nums">{progress}%</span>
-        </div>
-        <div className="h-1.5 rounded-full bg-white/[0.06] overflow-hidden">
-          <motion.div
-            className={cn(
-              "h-full rounded-full transition-colors",
-              error ? "bg-red-400" : complete ? "bg-emerald-400" : "bg-orbit-accent"
-            )}
-            initial={{ width: 0 }}
-            animate={{ width: `${progress}%` }}
-            transition={{ duration: 0.5, ease: "easeOut" }}
-          />
-        </div>
-      </div>
-
-      {/* Phase steps */}
-      <div className="grid grid-cols-3 gap-2">
-        {PHASE_ORDER.slice(0, -1).map((p, idx) => {
-          const isDone = idx < currentPhaseIdx || complete;
-          const isCurrent = idx === currentPhaseIdx && !complete && !error;
-
-          return (
-            <div
-              key={p}
-              className={cn(
-                "flex items-center gap-2 px-2.5 py-1.5 rounded-md text-xs transition-colors",
-                isDone && "bg-emerald-400/[0.08] text-emerald-400",
-                isCurrent && "bg-orbit-accent/[0.08] text-orbit-accent",
-                !isDone && !isCurrent && "bg-white/[0.02] text-muted-foreground/50"
-              )}
-            >
-              {isDone ? (
-                <Check className="h-3 w-3 shrink-0" />
-              ) : isCurrent ? (
-                <Loader2 className="h-3 w-3 shrink-0 animate-spin" />
-              ) : (
-                <div className="h-3 w-3 shrink-0 rounded-full border border-current opacity-30" />
-              )}
-              <span className="truncate">{PHASE_LABELS[p] ?? p}</span>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Error message */}
-      {error && (
-        <div className="flex items-start gap-2 text-xs text-red-400 bg-red-400/[0.06] rounded-md px-3 py-2">
-          <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-          <span>{error}</span>
-        </div>
-      )}
-    </motion.div>
   );
 }

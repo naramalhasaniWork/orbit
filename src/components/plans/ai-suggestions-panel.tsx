@@ -13,6 +13,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { apiErrorMessage } from "@/lib/api-client";
 
 interface Suggestion {
   id: string;
@@ -75,6 +76,7 @@ export function AISuggestionsPanel({ projectId, onGeneratePlan, refreshKey = 0 }
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
   const [collapsed, setCollapsed] = useState(false);
   const [actingOn, setActingOn] = useState<string | null>(null);
+  const [actionError, setActionError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -122,14 +124,21 @@ export function AISuggestionsPanel({ projectId, onGeneratePlan, refreshKey = 0 }
             router.push(`/dashboard/runs?project=${projectId}`);
             break;
 
-          case "reindex":
-            await fetch(`/api/projects/${projectId}/sync`, {
+          case "reindex": {
+            // No branch: the server uses the project's default branch
+            const res = await fetch(`/api/projects/${projectId}/sync`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({ branch: "main" }),
+              body: JSON.stringify({}),
             });
+            if (!res.ok) {
+              setActionError(await apiErrorMessage(res, "Re-index failed"));
+              break;
+            }
+            setActionError(null);
             router.refresh();
             break;
+          }
 
           case "dismiss":
             setDismissed((prev) => new Set([...Array.from(prev), suggestion.id]));
@@ -176,6 +185,9 @@ export function AISuggestionsPanel({ projectId, onGeneratePlan, refreshKey = 0 }
 
       {!collapsed && (
         <div className="border-t border-border px-5 py-3 space-y-2">
+          {actionError && (
+            <p role="alert" className="text-xs text-red-400">{actionError}</p>
+          )}
           {visibleSuggestions.map((suggestion) => {
             const config = SEVERITY_CONFIG[suggestion.severity];
             const typeKey = suggestion.type ?? suggestion.category ?? "";

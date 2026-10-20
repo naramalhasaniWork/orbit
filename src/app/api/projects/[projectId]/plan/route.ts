@@ -7,6 +7,7 @@ import {
   handleApiError,
 } from "@/lib/utils/api";
 import { requirePermission } from "@/lib/auth/rbac";
+import { isProjectIndexed, INDEX_REQUIRED_MESSAGE } from "@/services/indexing/index-status";
 
 // Dynamic import: planner transitively imports prompt files containing
 // markdown with backtick-escaped code examples that confuse the Next.js
@@ -100,6 +101,11 @@ export async function POST(
     const project = await validateProjectAccess(projectId, workspaceId);
     if (!project) {
       return apiError("Project not found", "NOT_FOUND", 404);
+    }
+
+    // Without a system map the planner produces an empty "active" plan
+    if (!(await isProjectIndexed(projectId))) {
+      return apiError(INDEX_REQUIRED_MESSAGE, "INDEX_REQUIRED", 409);
     }
 
     const body = (await request.json()) as PlanRequestBody;
