@@ -32,10 +32,28 @@ export const SchedulerJobDataSchema = z.object({
   type: z.literal("process_schedules"),
 });
 
+export const PlanModeSchema = z.enum(["full", "smoke", "regression", "targeted"]);
+
+export const PlanningJobDataSchema = z.discriminatedUnion("kind", [
+  z.object({
+    kind: z.literal("plan"),
+    projectId: z.string().uuid(),
+    mode: PlanModeSchema,
+    focusAreas: z.array(z.string()).optional(),
+    excludePaths: z.array(z.string()).optional(),
+    maxTestCases: z.number().int().min(1).max(500).optional(),
+  }),
+  z.object({
+    kind: z.literal("suggestions"),
+    projectId: z.string().uuid(),
+  }),
+]);
+
 export type IndexingJobData = z.infer<typeof IndexingJobDataSchema>;
 export type ExecutionJobData = z.infer<typeof ExecutionJobDataSchema>;
 export type ReportingJobData = z.infer<typeof ReportingJobDataSchema>;
 export type SchedulerJobData = z.infer<typeof SchedulerJobDataSchema>;
+export type PlanningJobData = z.infer<typeof PlanningJobDataSchema>;
 
 // ============================================================
 // Queue Definitions
@@ -46,12 +64,14 @@ const QUEUE_NAMES = {
   execution: "execution",
   reporting: "reporting",
   scheduler: "scheduler",
+  planning: "planning",
 } as const;
 
 let indexingQueue: Queue<IndexingJobData> | null = null;
 let executionQueue: Queue<ExecutionJobData> | null = null;
 let reportingQueue: Queue<ReportingJobData> | null = null;
 let schedulerQueue: Queue<SchedulerJobData> | null = null;
+let planningQueue: Queue<PlanningJobData> | null = null;
 
 export function getIndexingQueue(): Queue<IndexingJobData> {
   if (!indexingQueue) {
@@ -110,6 +130,24 @@ export function getSchedulerQueue(): Queue<SchedulerJobData> {
     });
   }
   return schedulerQueue;
+}
+
+/**
+ * Plan generation and AI suggestions: long LLM calls kept off the request
+ * path. Not retried automatically, since each attempt costs real tokens.
+ */
+export function getPlanningQueue(): Queue<PlanningJobData> {
+  if (!planningQueue) {
+    planningQueue = new Queue<PlanningJobData>(QUEUE_NAMES.planning, {
+      connection: getQueueConnection(),
+      defaultJobOptions: {
+        attempts: 1,
+        removeOnComplete: true,
+        removeOnFail: { count: 100 },
+      },
+    });
+  }
+  return planningQueue;
 }
 
 export { QUEUE_NAMES };

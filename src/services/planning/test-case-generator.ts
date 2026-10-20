@@ -6,6 +6,7 @@ import {
   computeMaxTestCasesForTokenBudget,
 } from "@/lib/ai/model-router";
 import { generateVisualRegressionCases } from "@/services/planning/visual-regression-cases";
+import { getFlag } from "@/lib/system-config";
 import { getPlannerKnowledge } from "@/services/knowledge/context-injector";
 import { buildPlannerPrompt, type PlannerContext } from "@/agents/prompts/planner-prompt";
 import { loadUserLayerForProject, getWorkspaceName, loadTestingNotes } from "@/agents/prompts/context-loader";
@@ -27,6 +28,7 @@ interface GenerationInput {
   excludePaths?: string[];
   maxTestCases?: number;
   operationsMap?: OperationsMap;
+  onProgress?: (message: string, progress: number) => Promise<void>;
 }
 
 interface GenerationResult {
@@ -171,6 +173,7 @@ export async function generateTestCases(input: GenerationInput): Promise<Generat
   ]);
 
   // Analyze complex journeys (>5 nodes) with sub-agent for deeper coverage
+  await input.onProgress?.("Analyzing complex user journeys...", 35);
   const journeyAnalyses = await analyzeComplexJourneys(
     input.journeys,
     systemMap,
@@ -234,6 +237,7 @@ export async function generateTestCases(input: GenerationInput): Promise<Generat
     enrichedPrompt = `${enrichedPrompt}\n\n## Operations Map\nThe following operations and dependencies were identified by the Operations Analyst. Use this to:\n- Generate tests that follow operational flow ordering (prerequisite operations first)\n- Create prerequisite-aware test sequences (e.g., "Create Invoice" before "Submit Invoice")\n- Prioritize critical path flows with higher priority scores\n\n${JSON.stringify(input.operationsMap, null, 2)}`;
   }
 
+  await input.onProgress?.("Writing test cases with AI (the longest step)...", 50);
   const completion = await createTrackedCompletion(
     {
       model,
@@ -257,8 +261,10 @@ export async function generateTestCases(input: GenerationInput): Promise<Generat
   const parsed = parseLlmJson(completion.content);
   const validated = TestPlanSchema.parse(parsed);
 
-  // Append visual regression test cases for route nodes
-  const visualCases = generateVisualRegressionCases(systemMap, existingTestNames);
+  // Visual regression cases only when an admin enabled visual QA
+  const visualCases = (await getFlag("visual_regression"))
+    ? generateVisualRegressionCases(systemMap, existingTestNames)
+    : [];
   const allTestCases = [...validated.testCases, ...visualCases];
 
   // metadata may be absent when the response was truncated and recovered —

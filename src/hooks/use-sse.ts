@@ -1,17 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState, useCallback } from "react";
-
-interface SSEEvent<T = unknown> {
-  type: string;
-  data: T;
-  id: string;
-}
+import { useEffect, useRef, useState } from "react";
+import { openReconnectingSource, type SSEMessage, type SSEStatus } from "@/lib/sse/reconnecting-source";
 
 interface UseSSEOptions {
   url: string;
   enabled?: boolean;
-  onEvent?: (event: SSEEvent) => void;
+  onEvent?: (event: SSEMessage) => void;
   onConnected?: () => void;
   onDisconnected?: () => void;
   maxRetries?: number;
@@ -24,18 +19,10 @@ interface UseSSEReturn {
   retryCount: number;
 }
 
-const DEFAULT_MAX_RETRIES = 5;
-const DEFAULT_RETRY_DELAY = 2000;
-const MAX_RETRY_DELAY = 30_000;
-
 /**
- * Base hook for consuming SSE streams with automatic reconnection.
- *
- * Features:
- * - Auto-reconnect with exponential backoff
- * - Last-Event-ID replay on reconnect
- * - Heartbeat awareness
- * - Proper cleanup on unmount
+ * Consumes an SSE stream with bounded, jittered reconnection.
+ * Retry policy lives in openReconnectingSource; this hook only mirrors its
+ * status into React state and closes the stream on unmount or disable.
  */
 export function useSSE({
   url,
@@ -43,19 +30,11 @@ export function useSSE({
   onEvent,
   onConnected,
   onDisconnected,
-  maxRetries = DEFAULT_MAX_RETRIES,
-  retryDelay = DEFAULT_RETRY_DELAY,
+  maxRetries,
+  retryDelay,
 }: UseSSEOptions): UseSSEReturn {
-  const [connected, setConnected] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [retryCount, setRetryCount] = useState(0);
+  const [status, setStatus] = useState<SSEStatus | null>(null);
 
-  const lastEventIdRef = useRef<string | null>(null);
-  const eventSourceRef = useRef<EventSource | null>(null);
-  const retryTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const mountedRef = useRef(true);
-
-  // Stable callback refs
   const onEventRef = useRef(onEvent);
   onEventRef.current = onEvent;
   const onConnectedRef = useRef(onConnected);
@@ -63,117 +42,47 @@ export function useSSE({
   const onDisconnectedRef = useRef(onDisconnected);
   onDisconnectedRef.current = onDisconnected;
 
-  const connect = useCallback(() => {
-    if (!mountedRef.current) return;
-
-    // Build URL with Last-Event-ID as query param for initial connection
-    let connectUrl = url;
-    if (lastEventIdRef.current) {
-      const separator = url.includes("?") ? "&" : "?";
-      connectUrl = `${url}${separator}lastEventId=${lastEventIdRef.current}`;
-    }
-
-    const es = new EventSource(connectUrl);
-    eventSourceRef.current = es;
-
-    es.onopen = () => {
-      if (!mountedRef.current) return;
-      setConnected(true);
-      setError(null);
-      setRetryCount(0);
-      onConnectedRef.current?.();
-    };
-
-    // Listen for named events via addEventListener
-    const handleMessage = (event: MessageEvent) => {
-      if (!mountedRef.current) return;
-
-      // Track last event ID for reconnection
-      if (event.lastEventId) {
-        lastEventIdRef.current = event.lastEventId;
-      }
-
-      try {
-        const data = JSON.parse(event.data);
-        onEventRef.current?.({ type: event.type, data, id: event.lastEventId });
-      } catch {
-        // Ignore parse errors
-      }
-    };
-
-    // Listen on default "message" event
-    es.onmessage = handleMessage;
-
-    // Register listeners for known event types
-    const eventTypes = [
-      "connected",
-      "heartbeat",
-      "timeout",
-      "error",
-      // Indexing events
-      "indexing:started",
-      "indexing:phase",
-      "indexing:node_discovered",
-      "indexing:progress",
-      "indexing:completed",
-      "indexing:failed",
-      // Run events
-      "run:started",
-      "run:progress",
-      "run:completed",
-      // Test events
-      "test:started",
-      "test:step",
-      "test:completed",
-      "test:screenshot",
-      "test:result",
-      // Screenshot stream events
-      "screenshot:frame",
-      "screenshots:complete",
-    ];
-
-    for (const type of eventTypes) {
-      es.addEventListener(type, handleMessage as EventListener);
-    }
-
-    es.onerror = () => {
-      if (!mountedRef.current) return;
-      es.close();
-      setConnected(false);
-      onDisconnectedRef.current?.();
-
-      setRetryCount((prev) => {
-        const next = prev + 1;
-        if (next <= maxRetries) {
-          const delay = Math.min(retryDelay * Math.pow(2, prev), MAX_RETRY_DELAY);
-          retryTimerRef.current = setTimeout(connect, delay);
-          setError(`Reconnecting (attempt ${next}/${maxRetries})...`);
-        } else {
-          setError("Connection lost. Refresh to retry.");
-        }
-        return next;
-      });
-    };
-  }, [url, maxRetries, retryDelay]);
-
   useEffect(() => {
-    mountedRef.current = true;
-
-    if (!enabled) {
-      eventSourceRef.current?.close();
-      setConnected(false);
+    if (!enabled || !url) {
+      setStatus(null);
       return;
     }
 
-    connect();
+    let wasOpen = false;
+    const source = openReconnectingSource({
+      url,
+      maxRetries,
+      baseDelayMs: retryDelay,
+      onMessage: (message) => onEventRef.current?.(message),
+      onStatus: (next) => {
+        setStatus(next);
+        if (next.state === "open") {
+          wasOpen = true;
+          onConnectedRef.current?.();
+        } else if (wasOpen && (next.state === "waiting" || next.state === "failed")) {
+          wasOpen = false;
+          onDisconnectedRef.current?.();
+        }
+      },
+    });
 
-    return () => {
-      mountedRef.current = false;
-      eventSourceRef.current?.close();
-      eventSourceRef.current = null;
-      if (retryTimerRef.current) clearTimeout(retryTimerRef.current);
-    };
-  }, [enabled, connect]);
+    return () => source.close();
+  }, [url, enabled, maxRetries, retryDelay]);
 
-  return { connected, error, retryCount };
+  return {
+    connected: status?.state === "open",
+    error: describe(status),
+    retryCount: status?.attempt ?? 0,
+  };
+}
+
+function describe(status: SSEStatus | null): string | null {
+  if (!status) return null;
+  if (status.state === "waiting") {
+    return `${status.reason}. Reconnecting in ${Math.ceil(status.delayMs / 1000)}s...`;
+  }
+  if (status.state === "failed") {
+    return `${status.reason}. Live updates paused; refresh to retry.`;
+  }
+  return null;
 }

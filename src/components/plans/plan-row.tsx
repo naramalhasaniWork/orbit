@@ -27,13 +27,14 @@ interface PlanRowProps {
   isExpanded: boolean;
   onToggle: () => void;
   projectId: string | null;
+  /** Starts a background generation; progress and errors render page-level. */
+  onRegenerate: () => void;
+  generating: boolean;
 }
 
-export function PlanRow({ plan, stats, isExpanded, onToggle, projectId }: PlanRowProps) {
+export function PlanRow({ plan, stats, isExpanded, onToggle, projectId, onRegenerate, generating }: PlanRowProps) {
   const router = useRouter();
   const [showAddTest, setShowAddTest] = useState(false);
-  const [regenerating, setRegenerating] = useState(false);
-  const [regenError, setRegenError] = useState<string | null>(null);
   const [filters, setFilters] = useUrlParams(FILTER_DEFAULTS);
   const visibleCases = useMemo(() => filterTestCases(plan.testCases, filters), [plan.testCases, filters]);
   const journeyGroups = useMemo(() => groupByJourney(visibleCases), [visibleCases]);
@@ -50,29 +51,6 @@ export function PlanRow({ plan, stats, isExpanded, onToggle, projectId }: PlanRo
     approvedAt: string;
     notes: string | null;
   } | undefined;
-
-  async function handleRegenerate() {
-    if (!projectId) return;
-    setRegenerating(true);
-    setRegenError(null);
-    try {
-      const res = await fetch(`/api/projects/${projectId}/plan`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: "full" }),
-      });
-      if (!res.ok) {
-        const json = await res.json().catch(() => ({}));
-        setRegenError((json as { error?: { message?: string } }).error?.message ?? "Plan generation failed");
-        return;
-      }
-      router.refresh();
-    } catch {
-      setRegenError("Plan generation failed. Please try again.");
-    } finally {
-      setRegenerating(false);
-    }
-  }
 
   return (
     <div className="rounded-xl surface-1 border border-border overflow-hidden">
@@ -142,16 +120,13 @@ export function PlanRow({ plan, stats, isExpanded, onToggle, projectId }: PlanRo
                       size="sm"
                       variant="outline"
                       className="h-7 text-xs gap-1.5"
-                      onClick={(e) => { e.stopPropagation(); handleRegenerate(); }}
-                      disabled={regenerating}
+                      onClick={(e) => { e.stopPropagation(); onRegenerate(); }}
+                      disabled={generating}
                     >
-                      <RefreshCw className={cn("h-3 w-3", regenerating && "animate-spin")} />
-                      {regenerating ? "Re-generating..." : "Re-generate Plan"}
+                      <RefreshCw className={cn("h-3 w-3", generating && "animate-spin")} />
+                      {generating ? "Generating..." : "Re-generate Plan"}
                     </Button>
                   </div>
-                  {regenError && (
-                    <div className="px-5 pb-2 text-xs text-orbit-fail">{regenError}</div>
-                  )}
                 </>
               )}
 

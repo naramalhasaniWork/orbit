@@ -127,6 +127,21 @@ export interface TestResultEvent {
   durationMs: number;
 }
 
+// --- Plan generation ---
+
+export interface PlanJobState {
+  jobId: string;
+  status: "queued" | "running" | "completed" | "failed";
+  phase: string;
+  message: string;
+  progress: number;
+  planId?: string;
+  version?: number;
+  testCaseCount?: number;
+  error?: string;
+  updatedAt: string;
+}
+
 // --- Heartbeat ---
 
 export interface HeartbeatEvent {
@@ -157,8 +172,14 @@ export type TestEvent =
   | { type: "test:screenshot"; payload: TestScreenshotEvent }
   | { type: "test:result"; payload: TestResultEvent };
 
+export type PlanEvent =
+  | { type: "plan:progress"; payload: PlanJobState }
+  | { type: "plan:completed"; payload: PlanJobState }
+  | { type: "plan:failed"; payload: PlanJobState };
+
 export type WebSocketEvent =
   | IndexingEvent
   | RunEvent
   | TestEvent
+  | PlanEvent
   | { type: "heartbeat"; payload: HeartbeatEvent };

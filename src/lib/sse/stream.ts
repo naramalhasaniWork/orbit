@@ -17,24 +17,67 @@ interface SSEStreamOptions {
   initialEvents?: SSEInitialEvent[];
 }
 
+const SUBSCRIBE_TIMEOUT_MS = 3000;
+
+export const PUBSUB_UNAVAILABLE_MESSAGE =
+  "Live updates unavailable: Redis is not reachable";
+
+/**
+ * Subscribes before any bytes are sent, so a pub/sub outage surfaces as a
+ * 503 the client backs off from, not a 200 stream that immediately errors.
+ * ioredis queues commands while disconnected, so the subscribe is bounded.
+ */
+async function subscribeWithTimeout(
+  channel: string,
+  callback: (data: unknown) => void
+): Promise<() => Promise<void>> {
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  const pending = subscribe(channel, callback);
+  try {
+    return await Promise.race([
+      pending,
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error("subscribe timed out")), SUBSCRIBE_TIMEOUT_MS);
+      }),
+    ]);
+  } catch (err) {
+    // If the subscribe eventually lands, release it.
+    pending.then((unsub) => unsub()).catch(() => {});
+    throw err;
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 /**
  * Creates an SSE Response that subscribes to a Redis pub/sub channel.
  * Events flow: service publishes -> Redis -> this SSE endpoint -> client.
  *
- * Returns a standard Response with text/event-stream headers.
- * The stream auto-closes after MAX_STREAM_DURATION_MS or when the
- * client disconnects.
+ * Returns a standard Response with text/event-stream headers, or a 503 when
+ * pub/sub is unavailable. The stream auto-closes after MAX_STREAM_DURATION_MS
+ * or when the client disconnects.
  */
-export function createSSEStream({ channel, lastEventId, onEvent, initialEvents }: SSEStreamOptions): Response {
+export async function createSSEStream({ channel, lastEventId, onEvent, initialEvents }: SSEStreamOptions): Promise<Response> {
   const encoder = new TextEncoder();
   let eventCounter = parseInt(lastEventId ?? "0", 10) || 0;
-  let unsubscribe: (() => Promise<void>) | null = null;
   let heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   let timeoutTimer: ReturnType<typeof setTimeout> | null = null;
   let closed = false;
+  let deliver: ((event: WebSocketEvent) => void) | null = null;
+
+  let unsubscribe: () => Promise<void>;
+  try {
+    unsubscribe = await subscribeWithTimeout(channel, (data) => deliver?.(data as WebSocketEvent));
+  } catch (err) {
+    console.error(`[SSE] Failed to subscribe to ${channel}:`, err instanceof Error ? err.message : err);
+    return new Response(PUBSUB_UNAVAILABLE_MESSAGE, {
+      status: 503,
+      headers: { "Retry-After": "30", "Content-Type": "text/plain" },
+    });
+  }
 
   const stream = new ReadableStream({
-    async start(controller) {
+    start(controller) {
       const send = (eventType: string, data: unknown) => {
         if (closed) return;
         eventCounter++;
@@ -61,7 +104,7 @@ export function createSSEStream({ channel, lastEventId, onEvent, initialEvents }
         closed = true;
         if (heartbeatTimer) clearInterval(heartbeatTimer);
         if (timeoutTimer) clearTimeout(timeoutTimer);
-        unsubscribe?.().catch(() => {});
+        unsubscribe().catch(() => {});
         try {
           controller.close();
         } catch {
@@ -69,30 +112,16 @@ export function createSSEStream({ channel, lastEventId, onEvent, initialEvents }
         }
       };
 
-      // Subscribe to Redis channel
-      try {
-        unsubscribe = await subscribe(channel, (data) => {
-          if (closed) return;
-          const event = data as WebSocketEvent;
-
-          // Allow caller to intercept and decide to close
-          if (onEvent) {
-            const shouldClose = onEvent(event);
-            if (shouldClose === true) {
-              send(event.type, event.payload);
-              cleanup();
-              return;
-            }
-          }
-
+      deliver = (event) => {
+        if (closed) return;
+        // Allow caller to intercept and decide to close
+        if (onEvent?.(event) === true) {
           send(event.type, event.payload);
-        });
-      } catch (err) {
-        send("error", { message: "Failed to subscribe to event stream" });
-        console.error(`[SSE] Failed to subscribe to ${channel}:`, err);
-        cleanup();
-        return;
-      }
+          cleanup();
+          return;
+        }
+        send(event.type, event.payload);
+      };
 
       // Send initial connected event
       send("connected", { channel, timestamp: Date.now() });
@@ -118,7 +147,7 @@ export function createSSEStream({ channel, lastEventId, onEvent, initialEvents }
       closed = true;
       if (heartbeatTimer) clearInterval(heartbeatTimer);
       if (timeoutTimer) clearTimeout(timeoutTimer);
-      unsubscribe?.().catch(() => {});
+      unsubscribe().catch(() => {});
     },
   });
 
