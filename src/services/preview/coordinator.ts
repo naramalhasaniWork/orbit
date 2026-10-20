@@ -103,6 +103,19 @@ async function endPendingPreviews(
   }
 }
 
+/**
+ * Before a connection or binding is deleted (rows cascade away), end its pending previews so
+ * their "Orbit preview" checks complete as neutral instead of staying in progress forever.
+ */
+export async function closePreviewsForBindings(
+  bindings: Array<{ id: string; projectId: string }>,
+  reason: string
+): Promise<void> {
+  for (const binding of bindings) {
+    await endPendingPreviews(binding.projectId, { bindingId: binding.id }, reason, "Preview source removed");
+  }
+}
+
 export async function closePreviewsForPullRequest(projectId: string, prNumber: number): Promise<void> {
   await endPendingPreviews(projectId, { prNumber }, "Pull request closed", "PR closed");
   await archivePreviewEnvironments(projectId, prNumber);

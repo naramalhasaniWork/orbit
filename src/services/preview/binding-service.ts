@@ -3,6 +3,7 @@ import { encrypt, decrypt } from "@/lib/vault";
 import { ACCESS_SECRET_KEYS, ACCESS_SECRET_PREFIX } from "@/services/execution/access-headers";
 import { providerInfo } from "./catalog";
 import { listProviderTargets } from "./connection-service";
+import { closePreviewsForBindings } from "./coordinator";
 import { normalizeHostSuffix } from "./url-policy";
 import { PreviewProviderError, type PreviewProviderId } from "./types";
 
@@ -71,6 +72,9 @@ export async function saveBinding(workspaceId: string, projectId: string, input:
 }
 
 export async function deleteBinding(projectId: string): Promise<void> {
+  const binding = await prisma.previewBinding.findUnique({ where: { projectId }, select: { id: true, projectId: true } });
+  if (!binding) return;
+  await closePreviewsForBindings([binding], "This project's preview source was removed in Orbit");
   await prisma.previewBinding.deleteMany({ where: { projectId } });
 }
 

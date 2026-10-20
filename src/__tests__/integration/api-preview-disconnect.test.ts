@@ -14,8 +14,17 @@ function deleteMany(table: Row[]) {
   });
 }
 
+const upsertCheckRun = vi.hoisted(() => vi.fn());
+vi.mock("@/services/reporting/integrations/github-checks", () => ({ upsertCheckRun, findOpenPullRequestsForCommit: vi.fn() }));
+const pending = vi.hoisted(() => ({ rows: [] as Array<{ id: string; commitSha: string; checkRunId: string }> }));
+
 vi.mock("@/lib/db", () => {
   const prisma = {
+    previewBinding: { findMany: vi.fn(async () => [{ id: "b1", projectId: "p1" }]) },
+    previewDeployment: {
+      findMany: vi.fn(async () => pending.rows),
+      updateMany: vi.fn(async () => ({ count: 1 })),
+    },
     previewConnection: { deleteMany: deleteMany(store.previewConnections) },
     integrationConfig: { deleteMany: deleteMany(store.integrationConfigs) },
     $transaction: (ops: Array<Promise<unknown>>) => Promise.all(ops),
@@ -59,6 +68,17 @@ describe("DELETE /api/integrations/[provider]", () => {
     // Other workspaces and other integrations are untouched.
     expect(hasToken(store.previewConnections, "ws-2", "railway")).toBe(true);
     expect(hasToken(store.integrationConfigs, "ws-1", "slack")).toBe(true);
+  });
+
+  it("completes in-progress 'Orbit preview' checks as neutral before the rows cascade away", async () => {
+    pending.rows = [{ id: "pd1", commitSha: "abc", checkRunId: "check-1" }];
+    await DELETE(new NextRequest("http://x/api/integrations/railway", { method: "DELETE" }), {
+      params: Promise.resolve({ provider: "railway" }),
+    });
+    expect(upsertCheckRun).toHaveBeenCalledWith("p1", expect.objectContaining({
+      name: "Orbit preview", checkRunId: "check-1", status: "completed", conclusion: "neutral",
+    }));
+    pending.rows = [];
   });
 
   it("does not touch IntegrationConfig rows when disconnecting Cloudflare", async () => {

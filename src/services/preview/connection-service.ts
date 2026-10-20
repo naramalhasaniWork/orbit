@@ -2,6 +2,7 @@ import { prisma } from "@/lib/db";
 import type { Prisma } from "@/generated/prisma/client";
 import { connectionAccess, encryptCredentials, findConnection, generateWebhookToken, webhookPath } from "./connections";
 import { getPreviewProvider } from "./registry";
+import { closePreviewsForBindings } from "./coordinator";
 import { PreviewProviderError, type PreviewProviderId, type PreviewTarget } from "./types";
 
 export interface ConnectionSummary {
@@ -110,6 +111,11 @@ export async function rotateWebhookToken(workspaceId: string, provider: PreviewP
  * token's old home, removed by migration 20261022) goes too, so no copy of the token survives.
  */
 export async function disconnectProvider(workspaceId: string, provider: PreviewProviderId): Promise<boolean> {
+  const bindings = await prisma.previewBinding.findMany({
+    where: { connection: { workspaceId, provider } },
+    select: { id: true, projectId: true },
+  });
+  await closePreviewsForBindings(bindings, "The preview provider was disconnected in Orbit");
   const [result] = await prisma.$transaction([
     prisma.previewConnection.deleteMany({ where: { workspaceId, provider } }),
     ...(provider === "railway"
