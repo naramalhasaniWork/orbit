@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
-import { ZodError } from "zod";
-import { Prisma } from "@/generated/prisma/client";
+import { randomUUID } from "node:crypto";
 import { AuthError, ServiceUnavailableError } from "@/server/http/errors";
+import { mapError } from "@/server/http/map-error";
+import { logger } from "@/server/observability/logger";
 import { requireAuth } from "@/server/http/session";
 import type { OrbitSession } from "@/lib/utils/types";
 
@@ -40,33 +41,7 @@ export function apiError(
   return NextResponse.json({ success: false, error }, { status });
 }
 
+/** For routes not yet on route(): same mapping, with a fresh request id for the 500 case. */
 export function handleApiError(error: unknown): NextResponse {
-  if (error instanceof AuthError) {
-    return apiError(error.message, error.code, error.status);
-  }
-
-  if (error instanceof ServiceUnavailableError) {
-    const res = apiError(error.message, error.code, 503);
-    res.headers.set("Retry-After", "30");
-    return res;
-  }
-
-  if (error instanceof ZodError) {
-    const firstError = error.errors[0]?.message ?? "Validation failed";
-    return apiError(firstError, "VALIDATION_ERROR", 400);
-  }
-
-  // Prisma 7: record not found (findUniqueOrThrow, update/delete of a
-  // missing row) and unique-constraint violations
-  if (error instanceof Prisma.PrismaClientKnownRequestError) {
-    if (error.code === "P2025") {
-      return apiError("Resource not found", "NOT_FOUND", 404);
-    }
-    if (error.code === "P2002") {
-      return apiError("A record with these details already exists", "CONFLICT", 409);
-    }
-  }
-
-  console.error("Unhandled API error:", error);
-  return apiError("Internal server error", "INTERNAL_ERROR", 500);
+  return mapError(error, randomUUID(), logger);
 }
