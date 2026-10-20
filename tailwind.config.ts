@@ -111,6 +111,9 @@ const config: Config = {
         "row-compact": "var(--tm-row-compact)",
         "row-touch": "var(--tm-row-touch)",
       },
+      boxShadow: {
+        elevated: "var(--tm-shadow-elevated)",
+      },
       // One stacking scale. No arbitrary z-[n]. Dropdowns sit above modals so menus inside dialogs work.
       zIndex: {
         base: "0",

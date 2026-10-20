@@ -41,6 +41,9 @@
     --tm-info: 213.9 42.3% 39.4%; /* #3A5F8F */
     --tm-warn: 30.2 100% 32%; /* #A35200 */
 
+    /* Elevation: popovers and menus only. No shadows inside the workspace. */
+    --tm-shadow-elevated: 0 1px 0 #e3e3df, 0 8px 24px -16px rgb(17 19 22 / 0.18);
+
     /* Shape + motion */
     --tm-radius-control: 4px;
     --tm-radius-card: 6px;
@@ -83,6 +86,8 @@
     --tm-flaky: 213.3 14.9% 64.5%; /* #97A3B2 */
     --tm-info: 214.3 66.4% 73.1%; /* #8DB4E8 */
     --tm-warn: 34.9 85.8% 58.4%; /* #F0A43A */
+
+    --tm-shadow-elevated: inset 0 1px 0 rgb(255 255 255 / 0.04), 0 8px 24px -16px rgb(0 0 0 / 0.6);
   }
 
   /* Semantic layer — identical in both modes, it only points at native tokens. */
