@@ -4,7 +4,7 @@ import {
   CREDIT_TRANSACTIONS, WEBHOOK_EVENTS, INTEGRATION_CONFIGS,
   RUN_ARTIFACTS, SELECTOR_HISTORY, TEST_CASE_VERSIONS,
   FAILURE_PATTERNS, BASELINE_SNAPSHOTS, PLUGIN_INSTALLATIONS,
-  DOMAIN_KNOWLEDGE_FILES, WEBHOOK_SUBSCRIPTIONS,
+  DOMAIN_KNOWLEDGE_FILES, WEBHOOK_ENDPOINTS,
 } from "./seed-data";
 
 export async function seedUsers(prisma: PrismaClient) {
@@ -363,15 +363,14 @@ export async function seedDomainKnowledgeFiles(prisma: PrismaClient, workspaceId
   });
 }
 
-export async function seedWebhookSubscriptions(prisma: PrismaClient, workspaceId: string) {
-  await prisma.webhookSubscription.deleteMany({ where: { workspaceId } });
-  await prisma.webhookSubscription.createMany({
-    data: WEBHOOK_SUBSCRIPTIONS.map((ws) => ({
+export async function seedWebhookEndpoints(prisma: PrismaClient, workspaceId: string) {
+  await prisma.webhookEndpoint.deleteMany({ where: { workspaceId, projectId: null } });
+  await prisma.webhookEndpoint.createMany({
+    data: WEBHOOK_ENDPOINTS.map((we) => ({
       workspaceId,
-      url: ws.url,
-      events: ws.events as Prisma.InputJsonValue,
-      isEnabled: ws.isEnabled,
-      description: ws.description,
+      url: we.url,
+      events: we.events,
+      isEnabled: we.isEnabled,
     })),
   });
 }

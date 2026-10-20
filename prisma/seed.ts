@@ -24,7 +24,7 @@ import {
   seedBaselineSnapshots,
   seedPluginInstallations,
   seedDomainKnowledgeFiles,
-  seedWebhookSubscriptions,
+  seedWebhookEndpoints,
 } from "./seed-helpers";
 
 const pool = new Pool({ connectionString: process.env.DATABASE_URL, max: 5 });
@@ -107,7 +107,7 @@ async function main() {
   await seedDomainKnowledgeFiles(prisma, workspace.id);
   console.log("  Domain knowledge files: 3 entries");
 
-  await seedWebhookSubscriptions(prisma, workspace.id);
+  await seedWebhookEndpoints(prisma, workspace.id);
   console.log("  Webhook subscriptions: 2 entries");
 
   console.log("\nSeed complete.");
