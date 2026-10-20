@@ -28,7 +28,7 @@ export default async function AdminWorkspacesPage() {
     id: ws.id,
     name: ws.name,
     slug: ws.slug,
-    plan: ws.plan,
+    tier: ws.tier,
     creditBalance: ws.creditBalance,
     memberCount: ws._count.members,
     projectCount: ws._count.projects,

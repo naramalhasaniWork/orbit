@@ -1,5 +1,6 @@
 import {
   TIER_LIMITS,
+  TIER_DISPLAY_NAMES,
   tierLimitFeatures,
   type WorkspaceTier,
 } from "@/lib/auth/tier-limits";
@@ -24,7 +25,7 @@ interface TierConfig {
 
 const TIER_CONFIG: Record<WorkspaceTier, TierConfig> = {
   free: {
-    name: "Free",
+    name: TIER_DISPLAY_NAMES.free,
     priceMonthly: 0,
     priceAnnual: null,
     stripePriceIdMonthly: null,
@@ -38,7 +39,7 @@ const TIER_CONFIG: Record<WorkspaceTier, TierConfig> = {
     ],
   },
   starter: {
-    name: "Pro",
+    name: TIER_DISPLAY_NAMES.starter,
     priceMonthly: 79,
     priceAnnual: 67,
     stripePriceIdMonthly: process.env.STRIPE_PRO_MONTHLY_PRICE_ID ?? "",
@@ -53,7 +54,7 @@ const TIER_CONFIG: Record<WorkspaceTier, TierConfig> = {
     ],
   },
   professional: {
-    name: "Team",
+    name: TIER_DISPLAY_NAMES.professional,
     priceMonthly: 149,
     priceAnnual: 127,
     stripePriceIdMonthly: process.env.STRIPE_TEAM_MONTHLY_PRICE_ID ?? "",
@@ -69,7 +70,7 @@ const TIER_CONFIG: Record<WorkspaceTier, TierConfig> = {
     ],
   },
   enterprise: {
-    name: "Enterprise",
+    name: TIER_DISPLAY_NAMES.enterprise,
     priceMonthly: 0,
     priceAnnual: null,
     stripePriceIdMonthly: null,
@@ -107,15 +108,14 @@ export function getTierFromPriceId(priceId: string): WorkspaceTier | null {
   return null;
 }
 
-/** Stripe-side limits for a tier, from TIER_LIMITS. -1 means unlimited. */
-export function getTierLimits(tier: WorkspaceTier) {
-  const limits = TIER_LIMITS[tier];
-  const finite = (n: number) => (n === Infinity ? -1 : n);
-  return {
-    monthlyCredits: finite(limits.monthlyCredits),
-    maxProjects: finite(limits.projects),
-    maxMembers: finite(limits.members),
-  };
+/**
+ * Monthly credit grant for a subscription, from TIER_LIMITS: per seat on
+ * seat-based tiers (seats = Stripe subscription quantity). null = unlimited.
+ */
+export function getMonthlyCreditGrant(tier: WorkspaceTier, seats: number = 1): number | null {
+  const { monthlyCredits, seatBased } = TIER_LIMITS[tier];
+  if (monthlyCredits === Infinity) return null;
+  return seatBased ? monthlyCredits * Math.max(1, seats) : monthlyCredits;
 }
 
 export type { TierConfig };

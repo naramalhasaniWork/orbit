@@ -14,6 +14,7 @@ import {
   ArrowLeft,
   Eye,
 } from "lucide-react";
+import { TIER_DISPLAY_NAMES, type WorkspaceTier } from "@/lib/auth/tier-limits";
 
 interface Member {
   id: string;
@@ -54,7 +55,7 @@ interface WorkspaceDetailClientProps {
     id: string;
     name: string;
     slug: string;
-    plan: string;
+    tier: WorkspaceTier;
     creditBalance: number;
     monthlyCredits: number;
     createdAt: string;
@@ -118,8 +119,8 @@ export function WorkspaceDetailClient({
             <span className="text-sm text-muted-foreground">
               {workspace.slug}
             </span>
-            <Badge className="text-[10px] border capitalize bg-muted/50 text-muted-foreground border-border">
-              {workspace.plan}
+            <Badge className="text-[10px] border bg-muted/50 text-muted-foreground border-border">
+              {TIER_DISPLAY_NAMES[workspace.tier]}
             </Badge>
           </div>
         </div>

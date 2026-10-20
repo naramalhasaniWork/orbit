@@ -3,12 +3,16 @@
  * Enforcement (canConsume in tenant.ts), Stripe grants (lib/stripe/prices.ts)
  * and every price page derive their numbers from this table.
  *
+ * monthlyCredits is per seat on seat-based tiers (the Stripe subscription
+ * quantity multiplies it) and per workspace otherwise.
+ *
  * Kept free of server imports so client components can read it.
  */
 export const TIER_LIMITS = {
   free: {
     members: 2,
     projects: 1,
+    seatBased: false,
     runsPerMonth: 100,
     monthlyCredits: 100,
     rateLimit: 60, // requests per minute
@@ -17,6 +21,7 @@ export const TIER_LIMITS = {
   starter: {
     members: 5,
     projects: 5,
+    seatBased: true,
     runsPerMonth: 500,
     monthlyCredits: 1000,
     rateLimit: 120,
@@ -25,6 +30,7 @@ export const TIER_LIMITS = {
   professional: {
     members: 10,
     projects: Infinity,
+    seatBased: true,
     runsPerMonth: 5000,
     monthlyCredits: 2000,
     rateLimit: 300,
@@ -33,6 +39,7 @@ export const TIER_LIMITS = {
   enterprise: {
     members: Infinity,
     projects: Infinity,
+    seatBased: false,
     runsPerMonth: Infinity,
     monthlyCredits: Infinity,
     rateLimit: Infinity,
@@ -42,6 +49,14 @@ export const TIER_LIMITS = {
 
 export type WorkspaceTier = keyof typeof TIER_LIMITS;
 
+/** Customer-facing plan names (the enum keys predate the rebrand). */
+export const TIER_DISPLAY_NAMES: Record<WorkspaceTier, string> = {
+  free: "Free",
+  starter: "Pro",
+  professional: "Team",
+  enterprise: "Enterprise",
+};
+
 function countLabel(n: number, singular: string, plural: string): string {
   if (n === Infinity) return `Unlimited ${plural}`;
   return `${n.toLocaleString("en-US")} ${n === 1 ? singular : plural}`;
@@ -49,10 +64,9 @@ function countLabel(n: number, singular: string, plural: string): string {
 
 /** Monthly credit allowance as shown on price pages. */
 export function tierCreditsLabel(tier: WorkspaceTier): string {
-  const credits = TIER_LIMITS[tier].monthlyCredits;
-  return credits === Infinity
-    ? "Custom credit volume"
-    : `${credits.toLocaleString("en-US")} credits/month`;
+  const { monthlyCredits, seatBased } = TIER_LIMITS[tier];
+  if (monthlyCredits === Infinity) return "Custom credit volume";
+  return `${monthlyCredits.toLocaleString("en-US")} credits/month${seatBased ? " per seat" : ""}`;
 }
 
 /** The numeric plan features (projects, members, credits), derived from TIER_LIMITS. */

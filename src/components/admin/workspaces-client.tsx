@@ -4,12 +4,13 @@ import { useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { DataTable } from "@/components/admin/data-table";
 import { cn } from "@/lib/utils";
+import { TIER_DISPLAY_NAMES, type WorkspaceTier } from "@/lib/auth/tier-limits";
 
 interface WorkspaceRow {
   id: string;
   name: string;
   slug: string;
-  plan: string;
+  tier: WorkspaceTier;
   creditBalance: number;
   memberCount: number;
   projectCount: number;
@@ -24,7 +25,7 @@ interface WorkspacesClientProps {
   total: number;
 }
 
-const planColors: Record<string, string> = {
+const tierColors: Record<WorkspaceTier, string> = {
   free: "bg-gray-500/15 text-gray-400 border-gray-500/20",
   starter: "bg-blue-500/15 text-blue-400 border-blue-500/20",
   professional: "bg-purple-500/15 text-purple-400 border-purple-500/20",
@@ -56,16 +57,16 @@ export function WorkspacesClient({ workspaces, total }: WorkspacesClientProps) {
       ),
     },
     {
-      key: "plan",
+      key: "tier",
       header: "Plan",
       render: (row: WorkspaceRow) => (
         <Badge
           className={cn(
-            "text-[10px] font-medium border capitalize",
-            planColors[row.plan] ?? planColors.free
+            "text-[10px] font-medium border",
+            tierColors[row.tier]
           )}
         >
-          {row.plan}
+          {TIER_DISPLAY_NAMES[row.tier]}
         </Badge>
       ),
     },

@@ -23,7 +23,6 @@ export async function GET() {
             name: true,
             slug: true,
             tier: true,
-            plan: true,
             creditBalance: true,
             createdAt: true,
           },
