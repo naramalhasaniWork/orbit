@@ -32,6 +32,8 @@ interface Project {
 
 interface Run {
   id: string;
+  sequenceNumber: number;
+  prNumber: number | null;
   status: string;
   mode: string;
   trigger: string;

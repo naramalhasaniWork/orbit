@@ -157,6 +157,8 @@ export async function GET(
     return apiSuccess({
       runA: {
         id: runA.id,
+        sequenceNumber: runA.sequenceNumber,
+        prNumber: runA.prNumber,
         status: runA.status,
         mode: runA.mode,
         trigger: runA.trigger,
@@ -170,6 +172,8 @@ export async function GET(
       },
       runB: {
         id: runB.id,
+        sequenceNumber: runB.sequenceNumber,
+        prNumber: runB.prNumber,
         status: runB.status,
         mode: runB.mode,
         trigger: runB.trigger,

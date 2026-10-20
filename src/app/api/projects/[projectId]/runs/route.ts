@@ -40,6 +40,7 @@ export async function GET(
       take: 50,
       select: {
         id: true,
+        sequenceNumber: true,
         status: true,
         mode: true,
         trigger: true,

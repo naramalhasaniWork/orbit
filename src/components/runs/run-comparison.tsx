@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { formatRunTitle } from "@/lib/runs/run-title";
 
 interface ComparedTest {
   testCaseId: string;
@@ -24,6 +25,8 @@ interface ComparedTest {
 
 interface RunSummary {
   id: string;
+  sequenceNumber: number;
+  prNumber: number | null;
   status: string;
   mode: string;
   totalTests: number;
@@ -216,7 +219,7 @@ function RunCard({ label, run }: { label: string; run: RunSummary }) {
       <div className="text-[11px] text-muted-foreground mb-1">{label}</div>
       <div className="flex items-center gap-2">
         <span className="text-sm font-medium text-foreground font-mono">
-          {run.id.slice(0, 8)}
+          {formatRunTitle(run)}
         </span>
         {run.branch && (
           <span className="text-xs text-muted-foreground font-mono">

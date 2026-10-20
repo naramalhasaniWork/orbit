@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import Link from "next/link";
+import { formatRunTitle } from "@/lib/runs/run-title";
 import type { MapNode, MapEdge } from "@/components/dashboard/map-types";
 
 // ------------------------------------------------------------------
@@ -47,6 +48,8 @@ interface ProjectData {
 
 interface RecentRun {
   id: string;
+  sequenceNumber: number;
+  prNumber: number | null;
   status: string;
   mode: string;
   trigger: string;
@@ -309,10 +312,10 @@ function RunRow({ run, projectId }: { run: RecentRun; projectId: string }) {
       <StatusDot status={status} pulse={status === "running"} />
       <div className="flex-1 min-w-0">
         <span className="text-sm text-foreground">
-          {run.mode} {run.trigger}
+          {formatRunTitle(run)}
         </span>
         <span className="text-xs text-muted-foreground block">
-          {formatDistanceToNow(new Date(run.createdAt), { addSuffix: true })}
+          {run.mode} {run.trigger} · {formatDistanceToNow(new Date(run.createdAt), { addSuffix: true })}
         </span>
       </div>
       <div className="flex items-center gap-2 text-xs tabular-nums">

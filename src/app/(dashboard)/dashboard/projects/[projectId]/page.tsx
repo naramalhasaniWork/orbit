@@ -41,6 +41,8 @@ export default async function ProjectDetailPage({ params }: ProjectDetailPagePro
     take: 5,
     select: {
       id: true,
+      sequenceNumber: true,
+      prNumber: true,
       status: true,
       mode: true,
       trigger: true,
