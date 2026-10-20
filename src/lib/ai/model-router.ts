@@ -15,6 +15,7 @@ export const TASK_TYPES = {
   embedding: "embedding",
   visual_analysis: "visual_analysis",
   code_audit: "code_audit",
+  assertion_derivation: "assertion_derivation",
 } as const;
 
 export type TaskType = keyof typeof TASK_TYPES;
@@ -31,6 +32,7 @@ const DEFAULT_MODEL_MAP: Record<TaskType, string> = {
   embedding: "text-embedding-3-small",
   visual_analysis: MODELS.SONNET,
   code_audit: MODELS.SONNET,
+  assertion_derivation: MODELS.HAIKU,
 };
 
 /** Fallback chain: if primary model is unavailable, try these in order */
@@ -115,6 +117,7 @@ const TASK_TO_PHASE: Partial<Record<TaskType, AgentPhase>> = {
   security_testing: "executor",
   visual_analysis: "executor",
   code_audit: "analyst",
+  assertion_derivation: "executor",
 };
 
 export function taskToAgentPhase(taskType: TaskType): AgentPhase | null {
