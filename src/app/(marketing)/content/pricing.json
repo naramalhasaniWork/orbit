@@ -4,17 +4,14 @@
   "creditExplainer": "1 credit = 1 test case execution. A typical PR check uses 20-40 credits.",
   "tiers": [
     {
+      "tier": "free",
       "name": "Free",
       "price": 0,
       "period": "forever",
       "description": "For solo developers trying Orbit on a side project or evaluating the platform.",
       "highlight": false,
       "cta": "Get Started Free",
-      "credits": "500 credits/month",
       "features": [
-        "1 project",
-        "1 team member",
-        "500 credits/month",
         "Core indexing, planning, and execution",
         "GitHub integration",
         "Basic dashboard and System Map",
@@ -23,6 +20,7 @@
       ]
     },
     {
+      "tier": "starter",
       "name": "Pro",
       "price": 79,
       "annualPrice": 67,
@@ -31,11 +29,8 @@
       "highlight": true,
       "badge": "Most Popular",
       "cta": "Start Pro Trial",
-      "credits": "5,000 credits/month per seat",
       "features": [
-        "Unlimited projects",
-        "5,000 credits/month per seat",
-        "All integrations (Linear, Slack, VS Code, CLI)",
+        "All integrations (Linear, Slack)",
         "Custom system prompts",
         "Plugin marketplace access",
         "Self-healing selectors",
@@ -46,6 +41,7 @@
       ]
     },
     {
+      "tier": "professional",
       "name": "Team",
       "price": 149,
       "annualPrice": 127,
@@ -53,10 +49,8 @@
       "description": "For growing teams that need admin controls, audit trails, and higher volume.",
       "highlight": false,
       "cta": "Start Team Trial",
-      "credits": "20,000 credits/month per seat",
       "features": [
         "Everything in Pro",
-        "20,000 credits/month per seat",
         "Admin settings and role-based permissions",
         "Audit logs and compliance exports",
         "SSO (Google Workspace, Okta)",
@@ -66,13 +60,13 @@
       ]
     },
     {
+      "tier": "enterprise",
       "name": "Enterprise",
       "price": null,
       "period": "custom",
       "description": "For organizations that need self-hosting, custom data residency, and dedicated support.",
       "highlight": false,
       "cta": "Talk to Sales",
-      "credits": "Custom volume",
       "features": [
         "Everything in Team",
         "Self-hosted deployment option",

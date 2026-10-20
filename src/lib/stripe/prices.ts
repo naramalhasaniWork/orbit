@@ -1,18 +1,22 @@
-import type { WorkspaceTier } from "@/lib/auth/tenant";
+import {
+  TIER_LIMITS,
+  tierLimitFeatures,
+  type WorkspaceTier,
+} from "@/lib/auth/tier-limits";
 
 /**
  * Stripe price/product configuration mapped to Orbit tiers.
  * Price IDs should be set in environment variables and correspond
  * to products created in the Stripe dashboard.
+ *
+ * Numeric limits (projects, members, credits) are NOT defined here: they come
+ * from TIER_LIMITS so the price page never advertises something we don't enforce.
  */
 
 interface TierConfig {
   name: string;
   priceMonthly: number;
   priceAnnual: number | null;
-  creditsPerSeat: number;
-  maxProjects: number;
-  maxMembers: number;
   stripePriceIdMonthly: string | null;
   stripePriceIdAnnual: string | null;
   features: string[];
@@ -23,15 +27,10 @@ const TIER_CONFIG: Record<WorkspaceTier, TierConfig> = {
     name: "Free",
     priceMonthly: 0,
     priceAnnual: null,
-    creditsPerSeat: 500,
-    maxProjects: 1,
-    maxMembers: 1,
     stripePriceIdMonthly: null,
     stripePriceIdAnnual: null,
     features: [
-      "1 project",
-      "1 team member",
-      "500 credits/month",
+      ...tierLimitFeatures("free"),
       "Core indexing, planning, and execution",
       "GitHub integration",
       "Basic dashboard and System Map",
@@ -42,15 +41,11 @@ const TIER_CONFIG: Record<WorkspaceTier, TierConfig> = {
     name: "Pro",
     priceMonthly: 79,
     priceAnnual: 67,
-    creditsPerSeat: 5000,
-    maxProjects: -1, // unlimited
-    maxMembers: 10,
     stripePriceIdMonthly: process.env.STRIPE_PRO_MONTHLY_PRICE_ID ?? "",
     stripePriceIdAnnual: process.env.STRIPE_PRO_ANNUAL_PRICE_ID ?? "",
     features: [
-      "Unlimited projects",
-      "5,000 credits/month per seat",
-      "All integrations (Linear, Slack, VS Code, CLI)",
+      ...tierLimitFeatures("starter"),
+      "All integrations (Linear, Slack)",
       "Custom system prompts",
       "Plugin marketplace access",
       "Self-healing selectors",
@@ -61,14 +56,11 @@ const TIER_CONFIG: Record<WorkspaceTier, TierConfig> = {
     name: "Team",
     priceMonthly: 149,
     priceAnnual: 127,
-    creditsPerSeat: 20000,
-    maxProjects: -1,
-    maxMembers: 50,
     stripePriceIdMonthly: process.env.STRIPE_TEAM_MONTHLY_PRICE_ID ?? "",
     stripePriceIdAnnual: process.env.STRIPE_TEAM_ANNUAL_PRICE_ID ?? "",
     features: [
       "Everything in Pro",
-      "20,000 credits/month per seat",
+      ...tierLimitFeatures("professional"),
       "Admin settings and role-based permissions",
       "Audit logs and compliance exports",
       "SSO (Google Workspace, Okta)",
@@ -80,13 +72,11 @@ const TIER_CONFIG: Record<WorkspaceTier, TierConfig> = {
     name: "Enterprise",
     priceMonthly: 0,
     priceAnnual: null,
-    creditsPerSeat: 100000,
-    maxProjects: -1,
-    maxMembers: -1,
     stripePriceIdMonthly: null,
     stripePriceIdAnnual: null,
     features: [
       "Everything in Team",
+      ...tierLimitFeatures("enterprise"),
       "Self-hosted deployment option",
       "Bring your own AI API keys",
       "Custom data retention and residency",
@@ -117,12 +107,14 @@ export function getTierFromPriceId(priceId: string): WorkspaceTier | null {
   return null;
 }
 
-export function getTierLimits(tier: WorkspaceTier, seatCount: number = 1) {
-  const config = TIER_CONFIG[tier];
+/** Stripe-side limits for a tier, from TIER_LIMITS. -1 means unlimited. */
+export function getTierLimits(tier: WorkspaceTier) {
+  const limits = TIER_LIMITS[tier];
+  const finite = (n: number) => (n === Infinity ? -1 : n);
   return {
-    monthlyCredits: config.creditsPerSeat * seatCount,
-    maxProjects: config.maxProjects,
-    maxMembers: config.maxMembers,
+    monthlyCredits: finite(limits.monthlyCredits),
+    maxProjects: finite(limits.projects),
+    maxMembers: finite(limits.members),
   };
 }
 

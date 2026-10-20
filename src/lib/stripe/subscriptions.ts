@@ -99,7 +99,7 @@ export async function syncSubscriptionToWorkspace(
       tier,
       billingPeriodStart: currentPeriodStart,
       billingPeriodEnd: currentPeriodEnd,
-      monthlyCredits: limits.monthlyCredits,
+      ...(limits.monthlyCredits >= 0 ? { monthlyCredits: limits.monthlyCredits } : {}),
       ...(limits.maxProjects > 0 ? { projectLimit: limits.maxProjects } : {}),
       ...(limits.maxMembers > 0 ? { memberLimit: limits.maxMembers } : {}),
     },

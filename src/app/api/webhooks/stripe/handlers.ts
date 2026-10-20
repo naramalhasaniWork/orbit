@@ -120,6 +120,8 @@ export async function handleInvoicePaid(invoice: Stripe.Invoice) {
 
   const tier = workspace.tier;
   const limits = getTierLimits(tier);
+  // Unlimited tiers (-1) have no balance to top up
+  if (limits.monthlyCredits < 0) return;
 
   await prisma.creditTransaction.create({
     data: {
