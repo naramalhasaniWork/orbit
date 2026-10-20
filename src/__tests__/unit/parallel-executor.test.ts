@@ -98,4 +98,40 @@ describe("executeParallel", () => {
 
     expect(dispatch.mock.calls[1][4]).toEqual({ storageState: session });
   });
+
+  it("resolves credentials per required role and keeps one session per role", async () => {
+    (validateEnvironment as ReturnType<typeof vi.fn>).mockResolvedValue({
+      valid: true, environmentUrl: "https://staging.example.com", errors: [],
+      credentials: { TEST_EMAIL: "member@x.com", ADMIN_EMAIL: "admin@x.com" },
+    });
+    db.testCase.findMany.mockReset();
+    db.testCase.findMany
+      .mockResolvedValueOnce([
+        { id: "m1", journey: "j1" }, { id: "a1", journey: "j1" }, { id: "a2", journey: "j1" }, { id: "m2", journey: "j1" },
+      ])
+      .mockResolvedValueOnce([
+        { ...row("m1", "e2e"), requiredRole: null },
+        { ...row("a1", "e2e"), requiredRole: "admin" },
+        { ...row("a2", "e2e"), requiredRole: "admin" },
+        { ...row("m2", "e2e"), requiredRole: null },
+      ]);
+    const memberSession = { cookies: [{ name: "member" }], origins: [] };
+    const adminSession = { cookies: [{ name: "admin" }], origins: [] };
+    dispatch
+      .mockResolvedValueOnce({ ...okResult, storageState: memberSession })
+      .mockResolvedValueOnce({ ...okResult, storageState: adminSession })
+      .mockResolvedValueOnce(okResult)
+      .mockResolvedValueOnce(okResult);
+
+    await executeParallel(options);
+
+    const calls = dispatch.mock.calls;
+    // Admin cases get the admin login mapped onto TEST_*; member cases don't
+    expect(calls[1][3]).toMatchObject({ TEST_EMAIL: "admin@x.com" });
+    expect(calls[0][3]).toMatchObject({ TEST_EMAIL: "member@x.com" });
+    // The first admin case must not inherit the member session
+    expect(calls[1][4]).toEqual({ storageState: undefined });
+    expect(calls[2][4]).toEqual({ storageState: adminSession });
+    expect(calls[3][4]).toEqual({ storageState: memberSession });
+  });
 });
