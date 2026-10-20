@@ -3,14 +3,19 @@ import { createHmac } from "crypto";
 
 vi.mock("@/lib/db", () => ({
   prisma: {
-    project: { findFirst: vi.fn() },
+    project: { findFirst: vi.fn(), findUnique: vi.fn() },
     webhookDelivery: { create: vi.fn() },
-    testRun: { create: vi.fn() },
+    testRun: { create: vi.fn(), delete: vi.fn() },
   },
 }));
 
+const indexingAdd = vi.fn();
 vi.mock("@/lib/queue/queues", () => ({
-  getIndexingQueue: vi.fn(() => ({ add: vi.fn() })),
+  getIndexingQueue: vi.fn(() => ({ add: indexingAdd })),
+}));
+
+vi.mock("@/lib/auth/tenant", () => ({
+  canConsume: vi.fn().mockResolvedValue({ allowed: true }),
 }));
 
 vi.mock("@/lib/websocket", () => ({
@@ -34,7 +39,7 @@ import { prisma } from "@/lib/db";
 import { NextRequest } from "next/server";
 
 const mockPrisma = prisma as unknown as {
-  project: { findFirst: ReturnType<typeof vi.fn> };
+  project: { findFirst: ReturnType<typeof vi.fn>; findUnique: ReturnType<typeof vi.fn> };
   webhookDelivery: { create: ReturnType<typeof vi.fn> };
   testRun: { create: ReturnType<typeof vi.fn> };
 };
@@ -49,6 +54,23 @@ describe("api-webhooks/github", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     process.env.GITHUB_WEBHOOK_SECRET = webhookSecret;
+    mockPrisma.project.findUnique.mockResolvedValue({ workspaceId: "ws-1" });
+  });
+
+  it("fails closed with 503 when the webhook secret is not configured", async () => {
+    delete process.env.GITHUB_WEBHOOK_SECRET;
+    const body = JSON.stringify({ repository: { html_url: "https://github.com/org/repo" } });
+
+    const { POST } = await import("@/app/api/webhooks/github/route");
+    const request = new NextRequest("http://localhost/api/webhooks/github", {
+      method: "POST",
+      body,
+      headers: { "x-github-event": "push", "content-type": "application/json" },
+    });
+
+    const response = await POST(request);
+    expect(response.status).toBe(503);
+    expect(mockPrisma.project.findFirst).not.toHaveBeenCalled();
   });
 
   it("rejects invalid HMAC signature", async () => {
@@ -160,7 +182,17 @@ describe("api-webhooks/github", () => {
 
     expect(json.status).toBe("push_processed");
     expect(json.branch).toBe("main");
-    expect(mockPrisma.testRun.create).toHaveBeenCalled();
+    expect(json.runId).toBe("run-1");
+    // The indexing job carries the runId so the run continues to plan → execute
+    expect(indexingAdd).toHaveBeenCalledWith(
+      "run-run-1",
+      expect.objectContaining({
+        projectId: "p1",
+        runId: "run-1",
+        changedFiles: ["file1.ts", "file2.ts"],
+      }),
+      { jobId: "run-run-1" }
+    );
   });
 
   it("processes pull_request opened event", async () => {
@@ -203,7 +235,14 @@ describe("api-webhooks/github", () => {
 
     expect(json.status).toBe("pr_processed");
     expect(json.action).toBe("opened");
-    expect(mockPrisma.testRun.create).toHaveBeenCalled();
+    expect(mockPrisma.testRun.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ mode: "targeted", trigger: "pr", prNumber: 42 }),
+    });
+    expect(indexingAdd).toHaveBeenCalledWith(
+      "run-run-2",
+      expect.objectContaining({ runId: "run-2", branch: "feature/new-feature" }),
+      { jobId: "run-run-2" }
+    );
   });
 
   it("ignores push to non-main branch", async () => {

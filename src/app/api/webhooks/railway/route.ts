@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createHmac, timingSafeEqual } from "crypto";
 import { prisma } from "@/lib/db";
 import type { Prisma } from "@/generated/prisma/client";
-import { getIndexingQueue } from "@/lib/queue/queues";
-import { emitRunStarted } from "@/lib/websocket";
+import { launchPipelineRun, launchSummary } from "@/services/orchestrator/run-launcher";
 import { updateEnvironmentUrl } from "@/services/integrations/railway/environment-sync";
 
 function verifySignature(
@@ -73,7 +72,14 @@ export async function POST(req: NextRequest) {
   const body = await req.text();
   const signature = req.headers.get("x-railway-signature");
 
-  if (webhookSecret && !verifySignature(body, signature, webhookSecret)) {
+  // Fail closed: never accept an unverifiable webhook
+  if (!webhookSecret) {
+    return NextResponse.json(
+      { error: "RAILWAY_WEBHOOK_SECRET is not configured; webhook rejected" },
+      { status: 503 }
+    );
+  }
+  if (!verifySignature(body, signature, webhookSecret)) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
   }
 
@@ -128,46 +134,24 @@ export async function POST(req: NextRequest) {
       const branch =
         deployment?.meta?.branch ?? project.defaultBranch;
 
-      const run = await prisma.testRun.create({
-        data: {
-          projectId: project.id,
-          status: "queued",
-          mode: "smoke",
-          trigger: "deploy",
-          branch,
-          commitSha: deployment?.meta?.commitHash ?? null,
-          metadata: {
-            railwayDeploymentId: deployment?.id ?? null,
-            railwayServiceId: serviceId ?? null,
-            railwayEnvironmentId: environmentId ?? null,
-            commitMessage: deployment?.meta?.commitMessage ?? null,
-          } as Prisma.InputJsonValue,
-        },
-      });
-
-      const queue = getIndexingQueue();
-      await queue.add(
-        `index-${project.id}-railway-deploy`,
-        {
-          projectId: project.id,
-          branch,
-          isIncremental: true,
-        },
-        { jobId: `index-${project.id}-railway-${Date.now()}` }
-      );
-
-      await emitRunStarted(run.id, {
-        runId: run.id,
+      const launched = await launchPipelineRun({
         projectId: project.id,
         mode: "smoke",
         trigger: "deploy",
-        totalTests: 0,
+        branch,
+        commitSha: deployment?.meta?.commitHash ?? null,
+        metadata: {
+          railwayDeploymentId: deployment?.id ?? null,
+          railwayServiceId: serviceId ?? null,
+          railwayEnvironmentId: environmentId ?? null,
+          commitMessage: deployment?.meta?.commitMessage ?? null,
+        } as Prisma.InputJsonValue,
       });
 
       return NextResponse.json({
         status: "smoke_test_triggered",
-        runId: run.id,
         deploymentId: deployment?.id,
+        ...launchSummary(launched),
       });
     }
 

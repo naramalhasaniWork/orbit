@@ -9,6 +9,7 @@ vi.mock("@/lib/db", () => ({
       create: vi.fn(),
       update: vi.fn(),
       count: vi.fn(),
+      delete: vi.fn(),
     },
     environment: { findFirst: vi.fn() },
     testPlan: { findFirst: vi.fn() },
@@ -49,20 +50,16 @@ vi.mock("@/lib/auth/rbac", () => ({
 }));
 
 vi.mock("@/lib/auth/tenant", () => ({
-  TIER_LIMITS: {
-    free: { projects: 3, runsPerMonth: 50 },
-    starter: { projects: 10, runsPerMonth: 200 },
-    professional: { projects: 50, runsPerMonth: 1000 },
-    enterprise: { projects: 999, runsPerMonth: 9999 },
-  },
+  canConsume: vi.fn().mockResolvedValue({ allowed: true }),
 }));
 
 vi.mock("@/services/execution/environment-validator", () => ({
   getDefaultEnvironment: vi.fn(),
 }));
 
+const queueAdd = vi.fn();
 vi.mock("@/lib/queue/queues", () => ({
-  getExecutionQueue: vi.fn(() => ({ add: vi.fn() })),
+  getExecutionQueue: vi.fn(() => ({ add: queueAdd })),
 }));
 
 vi.mock("@/lib/websocket", () => ({
@@ -73,6 +70,7 @@ vi.mock("@/lib/websocket", () => ({
 import { prisma } from "@/lib/db";
 import { requireWorkspace } from "@/lib/utils/api";
 import { getDefaultEnvironment } from "@/services/execution/environment-validator";
+import { canConsume } from "@/lib/auth/tenant";
 import { NextRequest } from "next/server";
 
 const mockPrisma = prisma as unknown as {
@@ -83,6 +81,7 @@ const mockPrisma = prisma as unknown as {
     create: ReturnType<typeof vi.fn>;
     update: ReturnType<typeof vi.fn>;
     count: ReturnType<typeof vi.fn>;
+    delete: ReturnType<typeof vi.fn>;
   };
   environment: { findFirst: ReturnType<typeof vi.fn> };
   testPlan: { findFirst: ReturnType<typeof vi.fn> };
@@ -170,6 +169,57 @@ describe("api-runs", () => {
       });
 
       expect(response.status).toBe(201);
+    });
+
+    function mockRunnableProject() {
+      mockPrisma.project.findFirst.mockResolvedValue({ id: "p1" });
+      mockPrisma.environment.findFirst.mockResolvedValue({
+        id: "env-1",
+        type: "staging",
+        url: "https://staging.example.com",
+        defaultRunMode: null,
+      });
+      mockPrisma.testPlan.findFirst.mockResolvedValue({ id: "plan-1" });
+      mockPrisma.testRun.create.mockResolvedValue({ id: "run-new", status: "queued", mode: "full" });
+      mockPrisma.testRun.update.mockResolvedValue({});
+    }
+
+    async function postRun() {
+      const { POST } = await import("@/app/api/projects/[projectId]/runs/route");
+      const request = new NextRequest("http://localhost/api/projects/p1/runs", {
+        method: "POST",
+        body: JSON.stringify({ environmentId: "env-1" }),
+      });
+      return POST(request, { params: Promise.resolve({ projectId: "p1" }) });
+    }
+
+    it("discards the run and returns 503 when the queue rejects the job", async () => {
+      mockRunnableProject();
+      queueAdd.mockRejectedValueOnce(new Error("ECONNREFUSED redis"));
+      mockPrisma.testRun.delete.mockResolvedValue({});
+
+      const response = await postRun();
+      const json = await response.json();
+
+      expect(response.status).toBe(503);
+      expect(json.error.code).toBe("QUEUE_UNAVAILABLE");
+      expect(mockPrisma.testRun.delete).toHaveBeenCalledWith({ where: { id: "run-new" } });
+    });
+
+    it("blocks the run with the allowance reason at zero credits", async () => {
+      mockRunnableProject();
+      (canConsume as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        allowed: false,
+        code: "INSUFFICIENT_CREDITS",
+        reason: "Credit balance is 0.",
+      });
+
+      const response = await postRun();
+      const json = await response.json();
+
+      expect(response.status).toBe(403);
+      expect(json.error.code).toBe("INSUFFICIENT_CREDITS");
+      expect(mockPrisma.testRun.create).not.toHaveBeenCalled();
     });
 
     it("blocks production environment", async () => {

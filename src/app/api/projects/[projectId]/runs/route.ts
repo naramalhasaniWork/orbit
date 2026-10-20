@@ -7,9 +7,10 @@ import {
   handleApiError,
 } from "@/lib/utils/api";
 import { requirePermission } from "@/lib/auth/rbac";
-import { TIER_LIMITS, type WorkspaceTier } from "@/lib/auth/tenant";
+import { canConsume } from "@/lib/auth/tenant";
 import { getDefaultEnvironment } from "@/services/execution/environment-validator";
 import { emitRunStarted } from "@/lib/websocket";
+import { enqueueOrDiscard } from "@/services/orchestrator/run-launcher";
 
 // ============================================================
 // GET /api/projects/[projectId]/runs — List runs for a project
@@ -98,33 +99,9 @@ export async function POST(
       return apiError("Project not found", "NOT_FOUND", 404);
     }
 
-    // Tier run limit check
-    const workspace = await prisma.workspace.findUnique({
-      where: { id: workspaceId },
-      select: { tier: true, runLimit: true },
-    });
-
-    if (workspace) {
-      const tier = workspace.tier as WorkspaceTier;
-      const limit = TIER_LIMITS[tier]?.runsPerMonth ?? workspace.runLimit;
-      const monthStart = new Date();
-      monthStart.setDate(1);
-      monthStart.setHours(0, 0, 0, 0);
-
-      const monthlyRuns = await prisma.testRun.count({
-        where: {
-          project: { workspaceId },
-          createdAt: { gte: monthStart },
-        },
-      });
-
-      if (monthlyRuns >= limit) {
-        return apiError(
-          `Monthly run limit reached (${limit}). Upgrade your plan for more runs.`,
-          "LIMIT_REACHED",
-          403
-        );
-      }
+    const allowance = await canConsume(workspaceId, "run");
+    if (!allowance.allowed) {
+      return apiError(allowance.reason, allowance.code, allowance.code === "NOT_FOUND" ? 404 : 403);
     }
 
     const body = (await request.json()) as CreateRunBody;
@@ -204,23 +181,32 @@ export async function POST(
       data: { totalTests: testCaseCount },
     });
 
-    // Emit run started WebSocket event
+    // Enqueue a single run execution job (unified path with orchestrator).
+    // On failure the run is discarded so it never sits "queued" or counts
+    // toward the monthly limit.
+    const { getExecutionQueue } = await import("@/lib/queue/queues");
+    const enqueued = await enqueueOrDiscard(run.id, () =>
+      getExecutionQueue().add(`run-${run.id}`, {
+        runId: run.id,
+        testCaseId: "__full_run__",
+        environmentUrl: environment.url,
+        environmentId,
+      })
+    );
+    if (!enqueued.ok) {
+      return apiError(
+        "The run queue is unavailable, so the run was not started. Try again shortly.",
+        "QUEUE_UNAVAILABLE",
+        503
+      );
+    }
+
     await emitRunStarted(run.id, {
       runId: run.id,
       projectId,
-      mode: body.mode ?? "full",
+      mode: run.mode,
       trigger: "manual",
       totalTests: testCaseCount,
-    });
-
-    // Enqueue a single run execution job (unified path with orchestrator)
-    const { getExecutionQueue } = await import("@/lib/queue/queues");
-    const queue = getExecutionQueue();
-    await queue.add(`run-${run.id}`, {
-      runId: run.id,
-      testCaseId: "__full_run__",
-      environmentUrl: environment.url,
-      environmentId,
     });
 
     return apiSuccess({ ...run, totalTests: testCaseCount }, 201);

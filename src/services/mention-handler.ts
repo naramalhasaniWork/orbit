@@ -1,9 +1,7 @@
 import { prisma } from "@/lib/db";
 import type { Prisma } from "@/generated/prisma/client";
 import { resolveGitHubToken, getRepoInfo } from "@/lib/github/token";
-import { getIndexingQueue } from "@/lib/queue/queues";
-import { emitRunStarted } from "@/lib/websocket";
-import { dispatchRunStarted } from "@/services/reporting/integrations/outbound-webhooks";
+import { launchPipelineRun } from "@/services/orchestrator/run-launcher";
 
 const ORBIT_MENTION_PATTERN = /@orbit(?:-testing)?(?:\[bot\])?\s*/i;
 
@@ -131,46 +129,27 @@ async function handleRunCommand(
 ): Promise<void> {
   await addReaction(ctx.owner, ctx.repo, ctx.commentId, "rocket", token);
 
-  const run = await prisma.testRun.create({
-    data: {
-      projectId,
-      status: "queued",
-      mode: "targeted",
-      trigger: "pr",
-      branch: ctx.branch,
-      commitSha: ctx.commitSha,
-      prNumber: ctx.prNumber,
-      metadata: {
-        triggeredBy: ctx.commentAuthor,
-        triggerSource: "mention",
-      } as Prisma.InputJsonValue,
-    },
-  });
-
-  const queue = getIndexingQueue();
-  await queue.add(
-    `index-${projectId}-mention`,
-    {
-      projectId,
-      branch: ctx.branch,
-      isIncremental: false,
-    },
-    { jobId: `index-${projectId}-mention-${Date.now()}` }
-  );
-
-  await emitRunStarted(run.id, {
-    runId: run.id,
+  const launched = await launchPipelineRun({
     projectId,
     mode: "targeted",
     trigger: "pr",
-    totalTests: 0,
+    branch: ctx.branch,
+    commitSha: ctx.commitSha,
+    prNumber: ctx.prNumber,
+    metadata: {
+      triggeredBy: ctx.commentAuthor,
+      triggerSource: "mention",
+    } as Prisma.InputJsonValue,
   });
 
-  await dispatchRunStarted(projectId, {
-    runId: run.id,
-    mode: "targeted",
-    trigger: "pr",
-  });
+  if (!launched.ok) {
+    await postReply(
+      ctx.owner, ctx.repo, ctx.prNumber,
+      `**Orbit** could not start a run: ${launched.reason}`,
+      token
+    );
+    return;
+  }
 
   await postReply(
     ctx.owner,
@@ -179,7 +158,7 @@ async function handleRunCommand(
     [
       `**Orbit** is running tests on \`${ctx.branch}\` (triggered by @${ctx.commentAuthor})`,
       "",
-      `Run ID: \`${run.id.slice(0, 8)}\``,
+      `Run ID: \`${launched.runId.slice(0, 8)}\``,
       "",
       "I'll post the results here when the run completes.",
     ].join("\n"),
@@ -267,41 +246,22 @@ async function handleReviewCommand(
   );
 
   // Trigger a targeted run in review mode
-  const run = await prisma.testRun.create({
-    data: {
-      projectId,
-      status: "queued",
-      mode: "targeted",
-      trigger: "pr",
-      branch: ctx.branch,
-      commitSha: ctx.commitSha,
-      prNumber: ctx.prNumber,
-      metadata: {
-        triggeredBy: ctx.commentAuthor,
-        triggerSource: "mention",
-        reviewMode: true,
-      } as Prisma.InputJsonValue,
-    },
-  });
-
-  const queue = getIndexingQueue();
-  await queue.add(
-    `index-${projectId}-review`,
-    {
-      projectId,
-      branch: ctx.branch,
-      isIncremental: false,
-    },
-    { jobId: `index-${projectId}-review-${Date.now()}` }
-  );
-
-  await emitRunStarted(run.id, {
-    runId: run.id,
+  const launched = await launchPipelineRun({
     projectId,
     mode: "targeted",
     trigger: "pr",
-    totalTests: 0,
+    branch: ctx.branch,
+    commitSha: ctx.commitSha,
+    prNumber: ctx.prNumber,
+    metadata: {
+      triggeredBy: ctx.commentAuthor,
+      triggerSource: "mention",
+      reviewMode: true,
+    } as Prisma.InputJsonValue,
   });
+  if (!launched.ok) {
+    console.warn(`[mention] Review run not started for PR #${ctx.prNumber}: ${launched.reason}`);
+  }
 }
 
 export async function handleMention(

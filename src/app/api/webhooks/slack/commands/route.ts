@@ -51,10 +51,14 @@ export async function POST(req: NextRequest) {
   const timestamp = req.headers.get("x-slack-request-timestamp");
   const signature = req.headers.get("x-slack-signature");
 
-  if (
-    signingSecret &&
-    !verifySlackSignature(body, timestamp, signature, signingSecret)
-  ) {
+  // Fail closed: never accept an unverifiable request
+  if (!signingSecret) {
+    return NextResponse.json(
+      { error: "SLACK_SIGNING_SECRET is not configured; request rejected" },
+      { status: 503 }
+    );
+  }
+  if (!verifySlackSignature(body, timestamp, signature, signingSecret)) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
   }
 
