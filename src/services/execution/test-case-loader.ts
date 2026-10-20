@@ -93,7 +93,7 @@ function asObject(value: Prisma.JsonValue): Prisma.InputJsonObject {
 async function findCases(where: Prisma.TestCaseWhereInput): Promise<TestCaseForExecution[]> {
   const cases = await prisma.testCase.findMany({ where, orderBy: { priorityScore: "desc" } });
   return cases.map((tc) => ({
-    id: tc.id, name: tc.name, type: tc.type,
+    id: tc.id, name: tc.name, type: tc.type, journey: tc.journey,
     steps: tc.steps as Array<{ action: string; expected: string; selector?: string }>,
     projectId: tc.projectId, isCritical: tc.isCritical,
     requiredRole: tc.requiredRole ?? undefined,

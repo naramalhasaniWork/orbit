@@ -62,6 +62,19 @@ enum TestVerdict {
   environment_error
 }
 
+/// How a test result was produced: the LLM agent, a compiled replay script, or a replay the agent finished after a divergence
+enum ExecutionMode {
+  agent
+  replay
+  replay_healed
+}
+
+enum TestScriptStatus {
+  active
+  suspect
+  retired
+}
+
 enum TestType {
   journey
   api_contract
@@ -402,6 +415,7 @@ model Project {
   failurePatterns    FailurePattern[]
   baselineSnapshots  BaselineSnapshot[]
   scheduledRuns      ScheduledRun[]
+  testScripts        TestScript[]
   auditResults       AuditResult[]
   conversations      Conversation[]
   previewBinding     PreviewBinding?
@@ -584,6 +598,7 @@ model TestCase {
   testResults TestResult[]
   flakyTests  FlakyTest[]
   versions    TestCaseVersion[]
+  scripts     TestScript[]
 
   @@index([testPlanId])
   @@index([projectId])
@@ -652,6 +667,10 @@ model TestResult {
   suggestedFix       String?     @map("suggested_fix")
   artifacts          Json        @default("{}")
   healedSelectors    Json        @default("[]") @map("healed_selectors")
+  executionMode      ExecutionMode @default(agent) @map("execution_mode")
+  modelCalls         Int         @default(0) @map("model_calls")
+  modelCostUsd       Decimal     @default(0) @map("model_cost_usd") @db.Decimal(10, 6)
+  divergedAtStep     Int?        @map("diverged_at_step")
   createdAt          DateTime    @default(now()) @map("created_at")
 
   testRun      TestRun       @relation(fields: [testRunId], references: [id], onDelete: Cascade)
@@ -661,7 +680,44 @@ model TestResult {
   @@unique([testRunId, testCaseId])
   @@index([testRunId, verdict])
   @@index([testCaseId])
+  @@index([executionMode, createdAt])
   @@map("test_results")
+}
+
+// ============================================================
+// COMPILED REPLAY SCRIPTS
+// ============================================================
+
+/// A passing agent run compiled into deterministic actions, replayed with zero model calls
+model TestScript {
+  id                    String           @id @default(uuid()) @db.Uuid
+  projectId             String           @map("project_id") @db.Uuid
+  testCaseId            String           @map("test_case_id") @db.Uuid
+  version               Int
+  status                TestScriptStatus @default(active)
+  /// sha256 of the steps the script was compiled from; a mismatch means the case changed
+  stepsHash             String           @map("steps_hash")
+  /// environmentId:ROLE:WIDTHxHEIGHT
+  envKey                String           @map("env_key")
+  actions               Json
+  coveredRoutes         String[]         @default([]) @map("covered_routes")
+  coveredNodeIds        String[]         @default([]) @map("covered_node_ids")
+  sourceRunId           String?          @map("source_run_id") @db.Uuid
+  sourceCommitSha       String?          @map("source_commit_sha")
+  replayCount           Int              @default(0) @map("replay_count")
+  divergenceCount       Int              @default(0) @map("divergence_count")
+  lastVerifiedByAgentAt DateTime         @default(now()) @map("last_verified_by_agent_at")
+  createdAt             DateTime         @default(now()) @map("created_at")
+  updatedAt             DateTime         @default(now()) @updatedAt @map("updated_at")
+
+  project  Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  testCase TestCase @relation(fields: [testCaseId], references: [id], onDelete: Cascade)
+
+  @@unique([testCaseId, envKey, version])
+  @@index([testCaseId, envKey, status])
+  @@index([projectId, status])
+  @@index([coveredNodeIds], type: Gin)
+  @@map("test_scripts")
 }
 
 // ============================================================

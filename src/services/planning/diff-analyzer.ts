@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { scriptCoverage } from "@/server/engine/replay/script-store";
 
 // ============================================================
 // Diff-Based Testing — Analyze git diffs to scope test runs
@@ -82,10 +83,13 @@ export async function analyzeDiff(
   }
 
   // Find test cases covering affected nodes
-  const allTestCases = await prisma.testCase.findMany({
-    where: { projectId, isEnabled: true },
-    select: { id: true, name: true, journey: true, steps: true, isCritical: true },
-  });
+  const [allTestCases, coverage] = await Promise.all([
+    prisma.testCase.findMany({
+      where: { projectId, isEnabled: true },
+      select: { id: true, name: true, journey: true, steps: true, isCritical: true },
+    }),
+    scriptCoverage(projectId),
+  ]);
 
   const affectedNodeNames = Array.from(new Set(
     nodes.filter((n) => dependentNodeIds.has(n.id)).map((n) => n.name.toLowerCase())
@@ -94,6 +98,19 @@ export async function analyzeDiff(
   const affectedTestCases: AffectedTestCase[] = [];
 
   for (const tc of allTestCases) {
+    // A compiled script knows exactly which routes the case visits: use that, not name matching
+    const covered = coverage.get(tc.id);
+    if (covered) {
+      const hits = covered.filter((id) => dependentNodeIds.has(id)).length;
+      if (hits > 0) {
+        affectedTestCases.push({
+          testCaseId: tc.id, testCaseName: tc.name, confidence: 0.95,
+          reason: `Replay script covers ${hits} affected route${hits !== 1 ? "s" : ""}`,
+        });
+      }
+      continue;
+    }
+
     const tcNameLower = tc.name.toLowerCase();
     const steps = Array.isArray(tc.steps) ? tc.steps : [];
     const stepsStr = JSON.stringify(steps).toLowerCase();

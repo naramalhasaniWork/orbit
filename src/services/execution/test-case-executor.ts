@@ -1,22 +1,17 @@
-import { launchBrowser, closeBrowser, captureStorageState, VIEWPORT_PRESETS } from "@/services/execution/browser-manager";
-import type { BrowserInstance, ViewportName, StorageState } from "@/services/execution/browser-manager";
+import { launchBrowser, closeBrowser, captureStorageState } from "@/services/execution/browser-manager";
+import { environmentErrorResult, launchCaseBrowser, prepareCasePage } from "@/services/execution/case-session";
+import type { BrowserInstance, StorageState } from "@/services/execution/browser-manager";
 import { executeTestSteps } from "@/services/execution/step-executor";
-import {
-  createEvidenceCollector,
-  saveNetworkLog,
-  saveConsoleLog,
-} from "@/services/execution/evidence-collector";
+import { createEvidenceCollector } from "@/services/execution/evidence-collector";
 import { detectFlakyFromRetry } from "@/services/execution/flaky-registry";
-import { analyzeVisualQuality } from "@/agents/prompts/sub-agents/visual-analyzer";
-import { detectAuthState } from "@/services/execution/auth-detector";
 import { loadTestingNotes } from "@/agents/prompts/context-loader";
-import { runAllInvariants, collectPageState } from "@/services/execution/invariant-checker";
 import type { InvariantResult } from "@/services/execution/invariant-checker";
+import { collectCaseArtifacts } from "@/services/execution/case-artifacts";
+import type { ExecutionMeta } from "@/services/execution/test-result-store";
+import type { ActionRecorder } from "@/server/engine/replay/recorder";
 import { isRunAbort } from "@/services/execution/run-abort";
 import { isProviderError } from "@/services/execution/error-classifier";
-import {
-  ACCESS_REJECTED_MESSAGE, installAccessHeaders, isAccessRejection, splitAccessCredentials,
-} from "@/services/execution/access-headers";
+import { installAccessHeaders, splitAccessCredentials } from "@/services/execution/access-headers";
 
 // ============================================================
 // Types
@@ -26,6 +21,8 @@ interface TestCaseForExecution {
   id: string;
   name: string;
   type?: string;
+  /** Cases in the same journey run in order on one worker (they may share state) */
+  journey?: string | null;
   steps: Array<{
     action: string;
     expected: string;
@@ -44,18 +41,8 @@ interface TestCaseResult {
   healedSelectors: string[];
   storageState?: StorageState;
   invariants?: InvariantResult;
-}
-
-/** A result that blames the environment or platform, not the app under test. */
-function environmentErrorResult(action: string, expected: string, actual: string, startTime: number): TestCaseResult {
-  const durationMs = Date.now() - startTime;
-  return {
-    verdict: "environment_error",
-    durationMs,
-    steps: [{ stepIndex: 0, action, expected, actual, status: "failed", durationMs }],
-    artifacts: {},
-    healedSelectors: [],
-  };
+  /** Set by the dispatcher: execution mode, model calls and cost for this case */
+  execution?: ExecutionMeta;
 }
 
 // ============================================================
@@ -67,7 +54,12 @@ export async function executeTestCase(
   testCase: TestCaseForExecution,
   environmentUrl: string,
   rawCredentials: Record<string, string>,
-  options?: { viewport?: { width: number; height: number }; storageState?: StorageState }
+  options?: {
+    viewport?: { width: number; height: number };
+    storageState?: StorageState;
+    /** Records the first attempt for compile-and-replay (retries are never recorded) */
+    recorder?: ActionRecorder;
+  }
 ): Promise<TestCaseResult> {
   let browserInstance: BrowserInstance | null = null;
   const startTime = Date.now();
@@ -78,61 +70,14 @@ export async function executeTestCase(
 
   try {
     log(`Launching browser (remote: ${!!process.env.PLAYWRIGHT_WS_ENDPOINT}, hasAuth: ${!!options?.storageState})...`);
-    browserInstance = await launchBrowser({
-      headless: true,
-      recordVideo: !process.env.PLAYWRIGHT_WS_ENDPOINT,
-      storagePath: `/tmp/orbit-videos/${runId}`,
-      viewport: options?.viewport,
-      storageState: options?.storageState,
-    });
+    browserInstance = await launchCaseBrowser(runId, options);
     log("Browser connected");
     const { page, context } = browserInstance;
-    if (accessHeaders) await installAccessHeaders(context, environmentUrl, accessHeaders);
 
-    log(`Navigating to ${environmentUrl}...`);
-    await page.goto(environmentUrl, {
-      waitUntil: "domcontentloaded",
-      timeout: 30_000,
-    });
-    log(`Page loaded: ${page.url()}`);
-    if (isAccessRejection(page.url())) {
-      return environmentErrorResult("cloudflare_access", "The environment loads through Cloudflare Access", ACCESS_REJECTED_MESSAGE, startTime);
-    }
-
-    // Detect and handle auth state mismatches before test execution
-    const authState = await detectAuthState(page, testCase.name, log);
-
-    // Fail fast: a test that needs an authenticated session, with no
-    // credentials and no reusable session, will grind against the login
-    // page for minutes and fail anyway. Skip with an actionable reason.
-    const hasCredentials = Object.values(credentials ?? {}).some(
-      (v) => typeof v === "string" && v.length > 0
+    const blocked = await prepareCasePage(
+      browserInstance, testCase, environmentUrl, credentials, accessHeaders, !!options?.storageState, log, startTime
     );
-    if (authState.needsLogin && !hasCredentials && !options?.storageState) {
-      log("BLOCKED: requires authentication but no test credentials are configured — skipping");
-      return {
-        verdict: "skipped",
-        durationMs: Date.now() - startTime,
-        steps: [{
-          stepIndex: 0,
-          action: "auth_preflight",
-          expected: "Authenticated session or test credentials available",
-          actual:
-            "Blocked: this test requires login but no test credentials are configured for this environment. Add credentials in Settings → Environments to unblock it.",
-          status: "skipped",
-          durationMs: Date.now() - startTime,
-        }],
-        artifacts: {},
-        healedSelectors: [],
-      };
-    }
-
-    if (authState.needsLogout) {
-      log("Page is authenticated but test needs fresh state — clearing cookies");
-      await context.clearCookies();
-      await page.goto(environmentUrl, { waitUntil: "domcontentloaded", timeout: 30_000 });
-      log(`Reloaded after clearing cookies: ${page.url()}`);
-    }
+    if (blocked) return blocked;
 
     const evidenceCollector = createEvidenceCollector(
       page, runId, testCase.id, context, testCase.projectId
@@ -157,6 +102,7 @@ export async function executeTestCase(
       evidenceCollector,
       maxRetries: 1,
       testingNotes: testingNotes.length > 0 ? testingNotes : undefined,
+      recorder: options?.recorder,
     });
 
     evidenceCollector.stopCapture();
@@ -187,57 +133,9 @@ export async function executeTestCase(
       }
     }
 
-    // Save evidence artifacts
-    const evidence = evidenceCollector.getEvidence();
-    const artifacts: Record<string, string> = {};
-
-    // Finalize video recording before closing browser
-    const videoUrl = await evidenceCollector.finalizeVideo();
-    if (videoUrl) {
-      artifacts.videoUrl = videoUrl;
-    }
-
-    if (evidence.screenshots.length > 0) {
-      artifacts.screenshots = JSON.stringify(evidence.screenshots);
-    }
-
-    // Visual quality analysis on last screenshot
-    if (evidence.screenshots.length > 0) {
-      try {
-        const visualResult = await analyzeVisualQuality(
-          evidence.screenshots[evidence.screenshots.length - 1],
-          testCase,
-          environmentUrl,
-        );
-        artifacts.visualAnalysis = JSON.stringify(visualResult);
-      } catch {
-        // Visual analysis is non-blocking — don't fail the test
-      }
-    }
-
-    if (evidence.networkLog.length > 0) {
-      artifacts.networkLog = await saveNetworkLog(
-        runId, testCase.id, evidence.networkLog, testCase.projectId
-      );
-    }
-    if (evidence.consoleLog.length > 0) {
-      artifacts.consoleLog = await saveConsoleLog(
-        runId, testCase.id, evidence.consoleLog, testCase.projectId
-      );
-    }
-    if (evidence.domSnapshot) {
-      artifacts.domSnapshot = evidence.domSnapshot;
-    }
-
-    // Run system invariants (informational — does not affect verdict)
-    let invariants: InvariantResult | undefined;
-    try {
-      invariants = runAllInvariants(await collectPageState(page, evidence, startTime));
-      if (!invariants.passed) {
-        for (const v of invariants.violations) log(`  [${v.severity}] ${v.description}`);
-      }
-      artifacts.invariants = JSON.stringify(invariants);
-    } catch { /* non-blocking */ }
+    const { artifacts, invariants } = await collectCaseArtifacts(page, evidenceCollector, {
+      runId, testCase, environmentUrl, startTime, analyzeVisual: true, log,
+    });
 
     return {
       verdict: finalVerdict,
@@ -325,41 +223,10 @@ export async function retryTestCase(
   } catch {
     return null;
   } finally {
-    if (retryBrowser) await closeBrowser(retryBrowser);
+    if (retryBrowser) {
+      await closeBrowser(retryBrowser);
+    }
   }
-}
-
-// ============================================================
-// Multi-Viewport Execution
-// ============================================================
-
-export async function executeWithViewports(
-  runId: string,
-  testCase: TestCaseForExecution,
-  environmentUrl: string,
-  credentials: Record<string, string>,
-  viewports: ViewportName[] = ["desktop", "tablet", "mobile"]
-): Promise<TestCaseResult & { viewportResults: Record<string, TestCaseResult> }> {
-  const viewportResults: Record<string, TestCaseResult> = {};
-
-  for (const vp of viewports) {
-    const vpTestCase = {
-      ...testCase,
-      id: `${testCase.id}-${vp}`,
-      name: `${testCase.name} (${vp})`,
-    };
-    viewportResults[vp] = await executeTestCase(
-      runId,
-      vpTestCase,
-      environmentUrl,
-      credentials,
-      { viewport: VIEWPORT_PRESETS[vp] }
-    );
-  }
-
-  // Primary result is desktop (or first viewport)
-  const primary = viewportResults[viewports[0]] ?? viewportResults.desktop;
-  return { ...primary, viewportResults };
 }
 
 export type { TestCaseForExecution, TestCaseResult };

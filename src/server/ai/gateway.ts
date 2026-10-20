@@ -9,6 +9,7 @@ import { currentRunBudget } from "@/server/ai/run-budget";
 import { reserveSpend, settleSpend, type Reservation } from "@/server/ai/spend";
 import { acquire } from "@/server/ai/token-bucket";
 import { recordUsage } from "@/server/ai/usage";
+import { meterModelCall } from "@/server/ai/model-meter";
 import type {
   CallContext,
   ChatProvider,
@@ -90,6 +91,7 @@ async function admit<R extends ChatRequest>(req: R, ctx: CallContext): Promise<A
 
 async function account(ctx: CallContext, model: string, usage: Usage, reservation: Reservation | null): Promise<void> {
   const cost = costOf(await getCosts(model), usage);
+  meterModelCall(cost);
   currentRunBudget()?.record(usage.inputTokens, usage.outputTokens, usage.cacheReadTokens, ctx.agentPhase);
   await settleSpend(reservation, cost).catch((err) => console.error("[AI] Spend settlement failed:", err));
   // Recording must not block or fail the caller.

@@ -5,6 +5,7 @@ import { generateEmbeddingForNode } from "@/services/indexing/embedding-generato
 import { emitIndexingProgress } from "@/lib/websocket";
 import type { ASTResult } from "@/services/indexing/ast-parser";
 import { repoStorageKey, assertSafeRepoPath } from "@/lib/github/repo-paths";
+import { markScriptsSuspect } from "@/server/engine/replay/invalidation";
 
 interface IncrementalResult {
   updatedNodes: number;
@@ -95,6 +96,13 @@ export async function runIncrementalIndex(
   });
 
   const changes = toChangedFileInfos(changedFiles);
+
+  // Before nodes for deleted files go away: flag replay scripts covering the change
+  const suspect = await markScriptsSuspect(projectId, changedFiles).catch((err) => {
+    console.warn("[Incremental] Could not flag replay scripts:", err);
+    return 0;
+  });
+  if (suspect > 0) console.log(`[Incremental] ${suspect} replay script(s) marked suspect`);
 
   // Load all existing nodes for this project
   const existingNodes = await prisma.systemMapNode.findMany({

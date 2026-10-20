@@ -30,7 +30,6 @@ vi.mock("@/lib/billing/run-credits", () => ({ chargeRunCredits: vi.fn(async () =
 vi.mock("@/services/execution/test-result-store", () => ({ saveTestResult: save, recordEnvironmentError: vi.fn() }));
 vi.mock("@/services/mcp/tool-injector", () => ({ clearRunToolCallCount: vi.fn() }));
 vi.mock("@/services/orchestrator/run-manager", () => ({ isRunCancelled: vi.fn(async () => false) }));
-vi.mock("@/services/orchestrator/parallel-executor", () => ({ executeParallel: vi.fn() }));
 vi.mock("@/services/reporting/integrations/outbound-webhooks", () => ({
   dispatchRunStarted: vi.fn(async () => undefined), dispatchRunCompleted: vi.fn(async () => undefined),
 }));

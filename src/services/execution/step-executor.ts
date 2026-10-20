@@ -16,6 +16,7 @@ import {
   captureFailureState,
 } from "@/services/execution/screenshot-streamer";
 import { maybeSkipAuthSteps } from "@/services/execution/auth-detector";
+import type { ActionRecorder } from "@/server/engine/replay/recorder";
 
 // ============================================================
 // Types
@@ -47,6 +48,10 @@ interface StepExecutorOptions {
   /** When true and USE_STAGEHAND env is set, uses Stagehand for action execution */
   useStagehand?: boolean;
   testingNotes?: TestingNoteInput[];
+  /** Captures each successful action so a passing run can be compiled for replay */
+  recorder?: ActionRecorder;
+  /** Continue a diverged replay: start at this step with the replayed history */
+  resumeFrom?: { stepIndex: number; previousActions: Array<{ action: string; result: string }> };
 }
 
 interface StepExecutionResult {
@@ -78,6 +83,8 @@ export async function executeTestSteps(
     maxRetries = 1,
     useStagehand = isStagehandEnabled(),
     testingNotes,
+    recorder,
+    resumeFrom,
   } = options;
 
   // When Stagehand is enabled, delegate to Stagehand-powered execution
@@ -101,9 +108,9 @@ export async function executeTestSteps(
 
   const stepResults: StepResult[] = [];
   const healedSelectors: string[] = [];
-  const previousActions: Array<{ action: string; result: string }> = [];
+  const previousActions: Array<{ action: string; result: string }> = [...(resumeFrom?.previousActions ?? [])];
 
-  let currentStepIndex = 0;
+  let currentStepIndex = resumeFrom?.stepIndex ?? 0;
   let actionCount = 0;
 
   // Capture initial browser state before first step
@@ -112,8 +119,9 @@ export async function executeTestSteps(
   }
 
   // Pre-flight: skip login steps if page is already authenticated
-  const skipResult = await maybeSkipAuthSteps(page, steps, testCaseName);
+  const skipResult = resumeFrom ? { skipCount: 0 } : await maybeSkipAuthSteps(page, steps, testCaseName);
   if (skipResult.skipCount > 0) {
+    recorder?.skipAuthSteps(page, skipResult.skipCount);
     console.log(`[StepExecutor] Skipping ${skipResult.skipCount} auth steps — page already authenticated`);
     for (let i = 0; i < skipResult.skipCount; i++) {
       stepResults.push({
@@ -183,6 +191,7 @@ export async function executeTestSteps(
     // MCP tool calls support the current step without advancing it
     if (action.action === "tool_call") {
       const expected = steps[currentStepIndex]?.expected ?? action.reason ?? "";
+      recorder?.markUncompilable("used an MCP tool call");
       const { step, history } = await performToolCall(mcpTools, action, currentStepIndex, expected);
       stepResults.push(step);
       previousActions.push(history);
@@ -193,10 +202,14 @@ export async function executeTestSteps(
       await evidenceCollector.captureScreenshot(`step-${currentStepIndex}`);
     }
 
+    const capture = await recorder?.capture(page, action);
     const result = await executeAction(
       page, projectId, action, maxRetries, evidenceCollector, runId,
       options.environmentUrl, credentials
     );
+    if (result.succeeded && recorder && capture) {
+      await recorder.record(page, action, currentStepIndex, capture, result.wasHealed ? result.healedSelector : undefined);
+    }
 
     if (result.wasHealed) {
       healedSelectors.push(result.healedSelector);

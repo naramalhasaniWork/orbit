@@ -33,6 +33,14 @@ Orbit uses a four-agent system where specialized AI agents handle distinct phase
 | **Executor** | Runs tests in real browsers | Sonnet + Vision |
 | **Reporter** | Synthesizes results, posts reports | Sonnet (writing) |
 
+### Compile-and-replay
+
+The Executor's first passing run of a browser case is compiled into a replay script (`test_scripts`): one resolved action per step, with css / role+name / test-id / text locators and a deterministic assertion for every step. If a step has no assertion of its own, one cheap model call derives one, and it must already hold on the page captured after that step. If any step still lacks an assertion, the case stays agent-only.
+
+Later runs replay the script with zero model calls. When a step diverges, the agent takes over the live page from that step, and a passing heal is saved as the next script version. Scripts are keyed by environment, role and viewport. They are ignored when the case's steps change. Scripts covering changed code are marked `suspect`. The agent re-verifies 1 in 20 replays, and any script it hasn't verified for 14 days. Replay is benched for a case when more than 30% of its last 10 replays diverged.
+
+`GET /api/admin/execution-cost?since=<ISO>` reports model calls and estimated $ per 100 executions by mode (agent / replay / replay_healed). `GET /api/projects/:id/test-cases/:caseId/script.spec.ts` exports a script as a Playwright test.
+
 ### Tech Stack
 
 - **Framework:** Next.js 14+ App Router (TypeScript strict)
@@ -58,6 +66,8 @@ src/
   components/         # React components (shadcn/ui based)
   hooks/              # Custom React hooks
   lib/                # Shared utilities, DB client, auth config
+  server/
+    engine/           # Unified case runner, case executors, compile-and-replay
   services/
     indexing/         # Repo indexing, tree-sitter parsing, System Map
     planning/         # Test plan generation, coverage analysis

@@ -8,6 +8,7 @@ import { executeTestCase } from "@/services/execution/test-case-executor";
 import { executeApiTestCase } from "@/services/execution/api-test-executor";
 import { runVisualTest } from "@/services/visual-qa/visual-test-runner";
 import { executeCaseByType } from "@/services/execution/case-dispatcher";
+import { meterModelCall } from "@/server/ai/model-meter";
 
 const browser = executeTestCase as ReturnType<typeof vi.fn>;
 const api = executeApiTestCase as ReturnType<typeof vi.fn>;
@@ -113,6 +114,20 @@ describe("executeCaseByType", () => {
     );
     expect(visual).toHaveBeenCalledWith(expect.objectContaining({ storageState: session }));
     expect(result.storageState).toBe(session);
+  });
+
+  it("stamps every result with the model calls the case made", async () => {
+    browser.mockImplementation(async () => {
+      meterModelCall(0.01);
+      meterModelCall(0.01);
+      return browserResult;
+    });
+
+    const result = await executeCaseByType("run-1", { ...visualCase, type: "e2e" }, "https://staging.example.com", {});
+
+    expect(result.execution).toEqual({
+      executionMode: "agent", divergedAtStep: null, modelCalls: 2, modelCostUsd: 0.02,
+    });
   });
 
   describe("Cloudflare Access secrets", () => {

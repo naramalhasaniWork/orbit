@@ -59,7 +59,7 @@ export async function resolveLocator(page: Page, ref: string): Promise<Locator> 
 // ============================================================
 
 export async function performAction(
-  page: Page, action: ExecutorAction, baseUrl?: string, credentials: Record<string, string> = {}
+  page: Page, action: ExecutorAction, baseUrl?: string, credentials: Record<string, string> = {}, timeout = ACTION_TIMEOUT
 ): Promise<string> {
   switch (action.action) {
     case "navigate": {
@@ -91,7 +91,7 @@ export async function performAction(
       }
       const response = await page.goto(target, {
         waitUntil: "domcontentloaded",
-        timeout: ACTION_TIMEOUT,
+        timeout,
       });
       const status = response?.status() ?? "unknown";
       return `Navigated to ${target} (status: ${status})`;
@@ -99,7 +99,7 @@ export async function performAction(
     case "click": {
       if (!action.selector) throw new Error("Click action requires a selector");
       const locator = await resolveLocator(page, action.selector);
-      await locator.click({ timeout: ACTION_TIMEOUT });
+      await locator.click({ timeout });
       // Wait briefly for any navigation or DOM updates triggered by the click
       await page.waitForLoadState("domcontentloaded").catch(() => {});
       return `Clicked ${action.selector}`;
@@ -107,7 +107,7 @@ export async function performAction(
     case "fill": {
       if (!action.selector) throw new Error("Fill action requires a selector");
       const locator = await resolveLocator(page, action.selector);
-      await locator.fill(resolveFillValue(action.value ?? "", credentials), { timeout: ACTION_TIMEOUT });
+      await locator.fill(resolveFillValue(action.value ?? "", credentials), { timeout });
       return `Filled ${action.selector} with value`;
     }
     case "select": {
@@ -115,14 +115,14 @@ export async function performAction(
       const locator = await resolveLocator(page, action.selector);
       await locator.selectOption(
         action.value ?? "",
-        { timeout: ACTION_TIMEOUT }
+        { timeout }
       );
       return `Selected ${action.value} in ${action.selector}`;
     }
     case "hover": {
       if (!action.selector) throw new Error("Hover action requires a selector");
       const locator = await resolveLocator(page, action.selector);
-      await locator.hover({ timeout: ACTION_TIMEOUT });
+      await locator.hover({ timeout });
       return `Hovered over ${action.selector}`;
     }
     case "scroll": {
@@ -147,7 +147,7 @@ export async function performAction(
       return `Waited ${ms}ms`;
     }
     case "assert": {
-      return await performAssertion(page, action);
+      return await performAssertion(page, action, timeout);
     }
     case "screenshot": {
       return "Screenshot captured";
@@ -165,8 +165,7 @@ export async function performAction(
 // ============================================================
 
 async function performAssertion(
-  page: Page,
-  action: ExecutorAction
+  page: Page, action: ExecutorAction, timeout: number
 ): Promise<string> {
   if (!action.assertion) throw new Error("Assert action requires assertion object");
 
@@ -180,7 +179,7 @@ async function performAssertion(
       const locator = await resolveLocator(page, elementRef);
       let isVisible = false;
       try {
-        await locator.waitFor({ state: "visible", timeout: ACTION_TIMEOUT });
+        await locator.waitFor({ state: "visible", timeout });
         isVisible = true;
       } catch {
         isVisible = false;
@@ -214,7 +213,7 @@ async function performAssertion(
 
       const attrValue = await page.locator(action.assertion.selector).first().getAttribute(
         action.assertion.attribute,
-        { timeout: ACTION_TIMEOUT }
+        { timeout }
       );
 
       if (attrValue !== expected) {
