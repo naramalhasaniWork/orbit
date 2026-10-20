@@ -67,7 +67,6 @@ const TIERS: PricingTier[] = [
       ...tierLimitFeatures("professional"),
       "Role-based permissions",
       "Audit logs",
-      "SSO support",
       "Priority support",
     ],
     highlight: false,
