@@ -20,6 +20,8 @@ import { cn } from "@/lib/utils";
 import { TestResultCard } from "@/components/runs/test-result-card";
 import { FailurePatternsPanel } from "@/components/runs/failure-patterns-panel";
 import { TraceViewer } from "@/components/runs/trace-viewer";
+import { RunVisualTab } from "@/components/runs/run-visual-tab";
+import type { VisualDiffData } from "@/components/runs/visual-diff-viewer";
 import { LiveExecutionViewer } from "@/components/execution/live-viewer";
 import { useRunEvents } from "@/hooks/use-run-events";
 import {
@@ -34,11 +36,12 @@ import { formatDistanceToNow } from "date-fns";
 interface RunDetailClientProps {
   run: RunDetailData;
   projectId?: string;
+  visualResults?: VisualDiffData[];
 }
 
 const LIVE_STATUSES = new Set(["queued", "executing", "indexing", "planning", "reporting"]);
 
-export function RunDetailClient({ run, projectId }: RunDetailClientProps) {
+export function RunDetailClient({ run, projectId, visualResults = [] }: RunDetailClientProps) {
   const router = useRouter();
   const [verdictFilter, setVerdictFilter] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState(false);
@@ -257,6 +260,9 @@ export function RunDetailClient({ run, projectId }: RunDetailClientProps) {
             Results{mergedResults.length > 0 ? ` (${mergedResults.length})` : ""}
           </TabsTrigger>
           <TabsTrigger value="traces">Traces</TabsTrigger>
+          {projectId && visualResults.length > 0 && (
+            <TabsTrigger value="visual">Visual ({visualResults.length})</TabsTrigger>
+          )}
         </TabsList>
 
         {isLive && (
@@ -307,6 +313,12 @@ export function RunDetailClient({ run, projectId }: RunDetailClientProps) {
             )}
           </motion.div>
         </TabsContent>
+
+        {projectId && visualResults.length > 0 && (
+          <TabsContent value="visual" className="mt-4">
+            <RunVisualTab results={visualResults} projectId={projectId} runId={run.id} />
+          </TabsContent>
+        )}
       </Tabs>
     </motion.div>
   );

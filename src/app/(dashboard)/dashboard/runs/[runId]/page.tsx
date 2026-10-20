@@ -3,6 +3,7 @@ import { redirect, notFound } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { RunDetailClient } from "@/components/runs/run-detail-client";
+import { loadRunVisualResults } from "@/services/visual-qa/run-results";
 
 interface RunDetailPageProps {
   params: Promise<{ runId: string }>;
@@ -76,5 +77,7 @@ export default async function RunDetailPage({ params }: RunDetailPageProps) {
     })),
   };
 
-  return <RunDetailClient run={serializedRun} projectId={project.id} />;
+  const visualResults = await loadRunVisualResults(project.id, run.id);
+
+  return <RunDetailClient run={serializedRun} projectId={project.id} visualResults={visualResults} />;
 }

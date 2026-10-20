@@ -37,7 +37,7 @@ interface BrandIssue {
   suggestion?: string;
 }
 
-interface VisualDiffData {
+export interface VisualDiffData {
   baselineUrl?: string;
   currentUrl: string;
   isBaselineCapture: boolean;
