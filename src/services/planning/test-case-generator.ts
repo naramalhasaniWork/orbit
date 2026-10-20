@@ -5,6 +5,8 @@ import {
   getMaxOutputTokensForModel,
   computeMaxTestCasesForTokenBudget,
 } from "@/lib/ai/model-router";
+import { generateVisualRegressionCases } from "@/services/planning/visual-regression-cases";
+import { getPlannerKnowledge } from "@/services/knowledge/context-injector";
 import { buildPlannerPrompt, type PlannerContext } from "@/agents/prompts/planner-prompt";
 import { loadUserLayerForProject, getWorkspaceName, loadTestingNotes } from "@/agents/prompts/context-loader";
 import { TestPlanSchema, type TestCase } from "@/agents/schemas/test-plan";
@@ -150,60 +152,6 @@ async function analyzeComplexJourneys(
   return analyses.filter((a) => a.result.success);
 }
 
-/**
- * Generate visual_regression test cases for every route node in the system map.
- * Marks the first run as baseline capture; subsequent runs compare against it.
- */
-function generateVisualRegressionCases(
-  systemMap: { nodes: Array<{ id: string; type: string; name: string; filePath: string; metadata: Record<string, unknown> }> },
-  existingTestNames: string[]
-): TestCase[] {
-  const routeNodes = systemMap.nodes.filter((n) => n.type === "route");
-  const cases: TestCase[] = [];
-
-  for (const node of routeNodes) {
-    const testName = `Visual regression: ${node.name}`;
-
-    // Skip if this visual test already exists
-    if (existingTestNames.includes(testName)) continue;
-
-    const routePath = (node.metadata?.path as string) ?? node.name;
-
-    cases.push({
-      id: `vr-${node.id.slice(0, 8)}`,
-      name: testName,
-      type: "visual_regression",
-      journey: "visual_identity",
-      priorityScore: 40,
-      criticality: 30,
-      risk: 50,
-      coverageGap: 60,
-      steps: [
-        {
-          action: `Navigate to ${routePath}`,
-          expected: "Page loads and renders completely",
-        },
-        {
-          action: "Capture full-page screenshot",
-          expected: "Screenshot captured and stored as artifact",
-        },
-        {
-          action: "Compare against baseline screenshot",
-          expected: "Visual diff within acceptable threshold or baseline captured",
-        },
-      ],
-      rationale: `Monitors visual consistency of ${node.name} route. Detects unintended layout changes, broken styles, and brand violations.`,
-      edgeCases: [
-        "Different viewport sizes",
-        "Dynamic content loading states",
-        "Dark/light mode variants",
-      ],
-    });
-  }
-
-  return cases;
-}
-
 export async function generateTestCases(input: GenerationInput): Promise<GenerationResult> {
   const {
     projectId,
@@ -246,7 +194,14 @@ export async function generateTestCases(input: GenerationInput): Promise<Generat
   const effectiveMaxTokens = getMaxOutputTokensForModel(model, agentConfig?.maxOutputTokens);
   const effectiveMaxTestCases = maxTestCases ?? computeMaxTestCasesForTokenBudget(effectiveMaxTokens);
 
-  const testingNotes = await loadTestingNotes(projectId);
+  const [testingNotes, domainKnowledge] = await Promise.all([
+    loadTestingNotes(projectId),
+    getPlannerKnowledge(systemMap.workspaceId, {
+      journeys: input.journeys.map((j) => j.name),
+      focusAreas,
+      routes: systemMap.nodes.filter((n) => n.type === "route").map((n) => n.name),
+    }),
+  ]);
 
   const context: PlannerContext = {
     systemMap,
@@ -264,6 +219,7 @@ export async function generateTestCases(input: GenerationInput): Promise<Generat
     workspaceName,
     operationsMap: input.operationsMap,
     testingNotes: testingNotes.length > 0 ? testingNotes : undefined,
+    domainKnowledge: domainKnowledge || undefined,
   };
 
   const prompt = buildPlannerPrompt(context, userLayer);
