@@ -77,7 +77,20 @@ export default async function RunDetailPage({ params }: RunDetailPageProps) {
     })),
   };
 
+  const previousRun = await prisma.testRun.findFirst({
+    where: { projectId: project.id, status: "completed", createdAt: { lt: run.createdAt } },
+    orderBy: { createdAt: "desc" },
+    select: { id: true },
+  });
+
   const visualResults = await loadRunVisualResults(project.id, run.id);
 
-  return <RunDetailClient run={serializedRun} projectId={project.id} visualResults={visualResults} />;
+  return (
+    <RunDetailClient
+      run={serializedRun}
+      projectId={project.id}
+      visualResults={visualResults}
+      previousRunId={previousRun?.id}
+    />
+  );
 }

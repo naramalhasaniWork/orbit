@@ -38,11 +38,12 @@ interface RunDetailClientProps {
   run: RunDetailData;
   projectId?: string;
   visualResults?: VisualDiffData[];
+  previousRunId?: string;
 }
 
 const LIVE_STATUSES = new Set(["queued", "executing", "indexing", "planning", "reporting"]);
 
-export function RunDetailClient({ run, projectId, visualResults = [] }: RunDetailClientProps) {
+export function RunDetailClient({ run, projectId, visualResults = [], previousRunId }: RunDetailClientProps) {
   const router = useRouter();
   const [verdictFilter, setVerdictFilter] = useState<string | null>(null);
   const [cancelling, setCancelling] = useState(false);
@@ -208,6 +209,13 @@ export function RunDetailClient({ run, projectId, visualResults = [] }: RunDetai
           </div>
           <RunMeta run={run} />
         </div>
+        {previousRunId && !isLive && (
+          <Button variant="outline" size="sm" asChild>
+            <Link href={`/dashboard/runs/compare?runA=${previousRunId}&runB=${run.id}`}>
+              Compare with previous run
+            </Link>
+          </Button>
+        )}
         {isLive && projectId && (
           <div className="flex flex-col items-end gap-1">
             <Button
