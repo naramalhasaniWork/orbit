@@ -10,6 +10,13 @@ function isBillingApiPath(pathname: string): boolean {
   return pathname.startsWith("/api/billing") || pathname === "/api/webhooks/stripe";
 }
 
+/** Marketing pages hidden on self-hosted instances. Legal pages (privacy, terms, security) stay. */
+const SELF_HOST_HIDDEN_MARKETING = ["about", "blog", "changelog", "content", "docs", "features", "pricing"];
+
+function isHiddenMarketingPath(pathname: string): boolean {
+  return SELF_HOST_HIDDEN_MARKETING.some((name) => pathname === `/${name}` || pathname.startsWith(`/${name}/`));
+}
+
 function isPublicPath(pathname: string): boolean {
   return PUBLIC_PATHS.some((path) => pathname.startsWith(path));
 }
@@ -22,6 +29,10 @@ export async function middleware(request: NextRequest) {
       { success: false, error: { message: "Not found", code: "NOT_FOUND" } },
       { status: 404 }
     );
+  }
+
+  if (isSelfHosted() && isHiddenMarketingPath(pathname)) {
+    return NextResponse.redirect(new URL("/login", request.url));
   }
 
   // Allow public paths through
@@ -64,5 +75,11 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/admin/:path*", "/api/billing/:path*", "/api/webhooks/stripe"],
+  matcher: [
+    "/dashboard/:path*",
+    "/admin/:path*",
+    "/api/billing/:path*",
+    "/api/webhooks/stripe",
+    ...SELF_HOST_HIDDEN_MARKETING.map((name) => `/${name}/:path*`),
+  ],
 };

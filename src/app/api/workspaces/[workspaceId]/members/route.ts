@@ -19,7 +19,7 @@ export async function GET(
     await requirePermission(workspaceId, "members.view");
 
     const members = await prisma.workspaceMember.findMany({
-      where: { workspaceId },
+      where: { workspaceId, workspace: { deletedAt: null } },
       include: {
         user: {
           select: {

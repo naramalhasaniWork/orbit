@@ -1,3 +1,4 @@
+import { safeFetch } from "@/lib/utils/ssrf";
 import type { RunSummary, FailureSummary } from "@/agents/schemas/run-summary";
 
 interface SlackNotificationResult {
@@ -188,11 +189,16 @@ async function postSlackWebhook(
   webhookUrl: string,
   payload: Record<string, unknown>
 ): Promise<{ ok: boolean; ts: string }> {
-  const response = await fetch(webhookUrl, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(payload),
-  });
+  // webhookUrl is workspace-supplied: SSRF-guarded, and a redirect counts as a failure
+  const response = await safeFetch(
+    webhookUrl,
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    },
+    { followRedirects: false }
+  );
 
   if (!response.ok) {
     const errorText = await response.text();

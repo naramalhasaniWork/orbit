@@ -11,7 +11,7 @@ vi.mock("@/lib/auth", () => ({ authOptions: {} }));
 vi.mock("@/services/orchestrator/run-manager", () => runControl);
 vi.mock("@/lib/db", () => ({
   prisma: {
-    workspaceMember: { findUnique: vi.fn(async () => ({ id: "m1", role: role.current })) },
+    workspaceMember: { findUnique: vi.fn(async () => ({ id: "m1", role: role.current, workspace: { deletedAt: null } })) },
     project: { findFirst: vi.fn(async () => ({ id: "p1" })) },
     environment: {
       findFirst: vi.fn(async () => ({ id: "e1", url: "https://staging.example.com" })),

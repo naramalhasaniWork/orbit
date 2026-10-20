@@ -12,6 +12,7 @@ vi.mock("@/lib/auth/rate-limit", () => ({ consumeRateLimit: vi.fn() }));
 vi.mock("@/lib/db", () => ({
   prisma: {
     user: { update: vi.fn(), findUnique: vi.fn(), count: vi.fn() },
+    account: { updateMany: vi.fn() },
     workspaceMember: { findFirst: vi.fn(), create: vi.fn() },
     workspaceInvitation: { findFirst: vi.fn() },
     workspace: { create: vi.fn() },
@@ -29,6 +30,7 @@ const db = prisma as unknown as {
   user: Record<"update" | "findUnique" | "count", ReturnType<typeof vi.fn>>;
   workspaceMember: Record<"findFirst" | "create", ReturnType<typeof vi.fn>>;
   workspaceInvitation: { findFirst: ReturnType<typeof vi.fn> };
+  account: { updateMany: ReturnType<typeof vi.fn> };
   workspace: { create: ReturnType<typeof vi.fn> };
 };
 const evaluate = evaluateSignIn as ReturnType<typeof vi.fn>;
@@ -97,6 +99,14 @@ describe("jwt callback: GitHub token storage", () => {
     expect(decryptToken(stored)).toBe("gho_realtoken123");
   });
 
+  it("also rewrites the accounts row encrypted (fresh token, legacy plaintext upgraded)", async () => {
+    await runJwt();
+    const call = db.account.updateMany.mock.calls[0][0];
+    expect(call.where).toEqual({ userId: "u1", provider: "github" });
+    expect(call.data.access_token).not.toContain("gho_realtoken123");
+    expect(decryptToken(call.data.access_token)).toBe("gho_realtoken123");
+  });
+
   it("re-encrypts on every login, which upgrades legacy plaintext rows", async () => {
     // Row currently holds plaintext; the login write replaces it with ciphertext
     await runJwt();
@@ -151,5 +161,28 @@ describe("session callback", () => {
     } as Parameters<NonNullable<NonNullable<typeof authOptions.callbacks>["session"]>>[0]);
     expect(JSON.stringify(session)).not.toContain("gho_secret");
     expect(JSON.stringify(session)).not.toContain("glpat_secret");
+  });
+});
+
+describe("jwt callback: deleted workspaces", () => {
+  it("the sign-in default pick skips deleted workspaces and takes the most recently joined", async () => {
+    await runJwt();
+    const args = db.workspaceMember.findFirst.mock.calls[0][0];
+    expect(args.where).toEqual({ userId: "u1", workspace: { deletedAt: null } });
+    expect(args.orderBy).toEqual({ createdAt: "desc" });
+  });
+
+  it("switching workspaces refuses a deleted one", async () => {
+    db.workspaceMember.findFirst.mockResolvedValue(null);
+    const token = await authOptions.callbacks!.jwt!({
+      token: { userId: "u1", workspaceId: "ws-old" } as JWT,
+      trigger: "update",
+      session: { workspaceId: "ws-deleted" },
+    } as Parameters<NonNullable<NonNullable<typeof authOptions.callbacks>["jwt"]>>[0]);
+    expect(db.workspaceMember.findFirst.mock.calls[0][0].where).toMatchObject({
+      workspaceId: "ws-deleted",
+      workspace: { deletedAt: null },
+    });
+    expect(token.workspaceId).toBe("ws-old");
   });
 });

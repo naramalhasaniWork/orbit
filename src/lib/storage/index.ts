@@ -105,7 +105,8 @@ export function getStorage(): StorageProvider {
 
   const provider = process.env.STORAGE_PROVIDER || "local";
 
-  if (provider === "s3") {
+  // r2 is S3-compatible: it needs S3_ENDPOINT, which createS3Storage already honours
+  if (provider === "s3" || provider === "r2") {
     instance = createS3Storage();
   } else {
     // Try configured path, then /data/storage (Docker), then /tmp fallback

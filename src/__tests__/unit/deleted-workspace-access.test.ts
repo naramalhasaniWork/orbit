@@ -17,7 +17,7 @@ beforeEach(() => findUnique.mockReset());
 
 describe("soft-deleted workspaces admit nobody", () => {
   it("getRbacContext and requireWorkspace query only non-deleted workspaces", async () => {
-    findUnique.mockResolvedValue({ id: "m1", role: "member" });
+    findUnique.mockResolvedValue({ id: "m1", role: "member", workspace: { deletedAt: null } });
     await getRbacContext("w1");
     await requireWorkspace();
     for (const call of findUnique.mock.calls) {
