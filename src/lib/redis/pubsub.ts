@@ -48,24 +48,41 @@ export async function publish(channel: string, data: unknown): Promise<void> {
   }
 }
 
+const channelReady = new Map<string, Promise<unknown>>();
+
+/**
+ * Subscribes to a channel. Concurrent callers share one SUBSCRIBE; if it
+ * fails, the channel is forgotten so the next caller retries instead of
+ * silently attaching to a subscription that never happened.
+ */
 export async function subscribe(
   channel: string,
   callback: MessageCallback
 ): Promise<() => Promise<void>> {
   const client = getSubClient();
 
-  if (!subscriptions.has(channel)) {
+  let ready = channelReady.get(channel);
+  if (!ready) {
     subscriptions.set(channel, new Set());
-    await client.subscribe(channel);
+    ready = client.subscribe(channel);
+    channelReady.set(channel, ready);
+    ready.catch(() => {
+      if (channelReady.get(channel) === ready) {
+        channelReady.delete(channel);
+        subscriptions.delete(channel);
+      }
+    });
   }
+  await ready;
 
   const callbacks = subscriptions.get(channel)!;
   callbacks.add(callback);
 
   return async () => {
     callbacks.delete(callback);
-    if (callbacks.size === 0) {
+    if (callbacks.size === 0 && subscriptions.get(channel) === callbacks) {
       subscriptions.delete(channel);
+      channelReady.delete(channel);
       await client.unsubscribe(channel);
     }
   };
