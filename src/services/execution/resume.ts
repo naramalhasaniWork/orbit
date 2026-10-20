@@ -25,3 +25,15 @@ export async function loadRecordedVerdicts(runId: string): Promise<Map<string, T
   });
   return new Map(rows.map((r) => [r.testCaseId, r.verdict]));
 }
+
+const LOGIN_PATTERNS = [
+  "login with valid", "log in with valid", "sign in with valid",
+  "successful login", "successful sign", "authenticate with valid",
+  "login with correct", "log in with correct",
+];
+
+/** Cases that establish a logged-in session; they re-run on resume so later cases get one. */
+export function isLoginCase(name: string | null | undefined): boolean {
+  const lower = (name ?? "").toLowerCase();
+  return LOGIN_PATTERNS.some((p) => lower.includes(p));
+}

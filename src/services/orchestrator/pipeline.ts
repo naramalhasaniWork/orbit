@@ -12,6 +12,7 @@ import {
 } from "./run-manager";
 import { canConsume } from "@/lib/auth/tenant";
 import { ShutdownError } from "@/lib/queue/shutdown";
+import { RunLockedError } from "@/lib/queue/run-locked";
 import type { OperationsMap } from "@/agents/schemas/operations-map";
 import {
   runIndexingPhase,
@@ -214,7 +215,7 @@ async function runPipeline(
     return await finalizePipeline(runId, input.projectId, tokenBudget);
   } catch (error) {
     // Retryable: leave the run active so the retried job resumes it
-    if (error instanceof ShutdownError) throw error;
+    if (error instanceof ShutdownError || error instanceof RunLockedError) throw error;
     if (error instanceof PipelineCancelledError) {
       const updatedRun = await updateRunStats(runId);
       return buildResult(runId, "cancelled", updatedRun, tokenBudget);

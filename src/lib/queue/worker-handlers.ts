@@ -15,6 +15,7 @@ import {
 } from "@/lib/websocket";
 import { runPipelineForJob, markRunFailed, errorMessage } from "@/lib/queue/run-job-guards";
 import { ShutdownError } from "@/lib/queue/shutdown";
+import { RunLockedError } from "@/lib/queue/run-locked";
 import { withRunSlot } from "@/lib/queue/run-slots";
 import { saveTestResult } from "@/services/execution/test-result-store";
 
@@ -102,7 +103,7 @@ export async function handleExecutionJob(job: Job<ExecutionJobData>, token?: str
         const runnerModule = await import("@/services/execution/runner");
         await runnerModule.executeRun({ runId: data.runId, environmentId: data.environmentId });
       } catch (importErr) {
-        if (importErr instanceof ShutdownError) throw importErr;
+        if (importErr instanceof ShutdownError || importErr instanceof RunLockedError) throw importErr;
         const msg = importErr instanceof Error
           ? `${importErr.name}: ${importErr.message}\n${importErr.stack}`
           : String(importErr);

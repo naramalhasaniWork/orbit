@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { getRedis } from "@/lib/redis";
 import { isSelfHosted } from "@/lib/self-host";
 import { TIER_LIMITS } from "@/lib/auth/tier-limits";
+import { RunLockedError } from "@/lib/queue/run-locked";
 
 /**
  * Per-workspace run concurrency as a Redis lease semaphore: a ZSET
@@ -51,6 +52,17 @@ export async function resolveRunLimit(runId: string): Promise<{ workspaceId: str
   return { workspaceId: run.project.workspaceId, limit };
 }
 
+/** A RunLockedError becomes a delayed retry (no attempt consumed) instead of a failure. */
+async function delayWhenRunLocked(job: Job, token: string | undefined, fn: () => Promise<void>): Promise<void> {
+  try {
+    await fn();
+  } catch (err) {
+    if (!(err instanceof RunLockedError)) throw err;
+    await job.moveToDelayed(Date.now() + err.retryAfterMs, token);
+    throw new DelayedError();
+  }
+}
+
 /**
  * Run `fn` while holding one of the workspace's run slots. When the workspace
  * is at its limit the job is pushed back 15s and DelayedError tells BullMQ
@@ -60,8 +72,9 @@ export async function withRunSlot(
   job: Job,
   token: string | undefined,
   runId: string,
-  fn: () => Promise<void>
+  work: () => Promise<void>
 ): Promise<void> {
+  const fn = () => delayWhenRunLocked(job, token, work);
   let target: Awaited<ReturnType<typeof resolveRunLimit>>;
   try {
     target = await resolveRunLimit(runId);

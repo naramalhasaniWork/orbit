@@ -4,7 +4,7 @@ import { isRunCancelled } from "./run-manager";
 import type { TestVerdict } from "@/generated/prisma/enums";
 import type { RoleSessions } from "@/services/execution/role-sessions";
 import { throwIfShuttingDown } from "@/lib/queue/shutdown";
-import { loadRecordedVerdicts, verdictBucket } from "@/services/execution/resume";
+import { loadRecordedVerdicts, verdictBucket, isLoginCase } from "@/services/execution/resume";
 
 /**
  * Partitions test cases into independent groups by journey,
@@ -15,6 +15,8 @@ import { loadRecordedVerdicts, verdictBucket } from "@/services/execution/resume
 interface TestCasePartition {
   journey: string;
   testCaseIds: string[];
+  /** True when a case here establishes a login session (see isLoginCase) */
+  hasLoginCase: boolean;
 }
 
 interface ParallelRunOptions {
@@ -67,20 +69,22 @@ async function partitionTestCases(
   const testCases = await prisma.testCase.findMany({
     where,
     orderBy: { priorityScore: "desc" },
-    select: { id: true, journey: true },
+    select: { id: true, journey: true, name: true },
   });
 
-  const groups = new Map<string, string[]>();
+  const groups = new Map<string, { ids: string[]; hasLoginCase: boolean }>();
   for (const tc of testCases) {
     const journey = tc.journey ?? "default";
-    const existing = groups.get(journey) ?? [];
-    existing.push(tc.id);
-    groups.set(journey, existing);
+    const group = groups.get(journey) ?? { ids: [], hasLoginCase: false };
+    group.ids.push(tc.id);
+    group.hasLoginCase ||= isLoginCase(tc.name);
+    groups.set(journey, group);
   }
 
-  return Array.from(groups.entries()).map(([journey, testCaseIds]) => ({
+  return Array.from(groups.entries()).map(([journey, g]) => ({
     journey,
-    testCaseIds,
+    testCaseIds: g.ids,
+    hasLoginCase: g.hasLoginCase,
   }));
 }
 
@@ -139,6 +143,25 @@ export async function executeParallel(
   const sessions = createRoleSessions();
   let cancelled = false;
 
+  // A retried job resumes: recorded cases are tallied, not re-run
+  const recorded = await loadRecordedVerdicts(runId);
+
+  // Resuming starts with no sessions. Run the partitions holding login cases
+  // first, one at a time, so the rest of the run has a session to reuse.
+  if (recorded.size > 0) {
+    const loginFirst = partitions.filter((p) => p.hasLoginCase);
+    for (const partition of loginFirst) {
+      partitions.splice(partitions.indexOf(partition), 1);
+      const result = await executePartition(runId, partition, validation, sessions, recorded);
+      counters.passed += result.passed;
+      counters.failed += result.failed;
+      counters.flaky += result.flaky;
+      counters.skipped += result.skipped;
+      if (result.cancelled) return { ...counters, cancelled: true };
+    }
+    if (partitions.length === 0) return { ...counters, cancelled };
+  }
+
   // Concurrency-limited execution
   const concurrency = Math.min(maxConcurrency, partitions.length);
   const pending: Promise<void>[] = [];
@@ -156,7 +179,7 @@ export async function executeParallel(
         return;
       }
 
-      const result = await executePartition(runId, partition, validation, sessions);
+      const result = await executePartition(runId, partition, validation, sessions, recorded);
 
       counters.passed += result.passed;
       counters.failed += result.failed;
@@ -199,7 +222,8 @@ async function executePartition(
   runId: string,
   partition: TestCasePartition,
   validation: ValidatedEnvironment,
-  sessions: RoleSessions
+  sessions: RoleSessions,
+  recorded: Map<string, TestVerdict>
 ): Promise<{
   passed: number;
   failed: number;
@@ -225,12 +249,11 @@ async function executePartition(
     orderBy: { priorityScore: "desc" },
   });
   const counters = { passed: 0, failed: 0, flaky: 0, skipped: 0 };
-  const recorded = await loadRecordedVerdicts(runId);
 
   for (const tc of testCases) {
-    // A retried job resumes: recorded cases are tallied, not re-run
+    // Recorded cases are tallied, not re-run; login cases re-run to rebuild the session
     const priorVerdict = recorded.get(tc.id);
-    if (priorVerdict) {
+    if (priorVerdict && !isLoginCase(tc.name)) {
       counters[verdictBucket(priorVerdict)]++;
       continue;
     }

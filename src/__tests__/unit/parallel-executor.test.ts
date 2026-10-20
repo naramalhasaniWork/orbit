@@ -160,4 +160,28 @@ describe("executeParallel", () => {
     expect(calls[2][4]).toEqual({ storageState: adminSession });
     expect(calls[3][4]).toEqual({ storageState: memberSession });
   });
+
+  it("on resume runs the login partition first and re-runs its login case to rebuild the session", async () => {
+    db.testCase.findMany.mockReset();
+    db.testCase.findMany
+      .mockResolvedValueOnce([
+        { id: "login", journey: "auth", name: "Successful login" },
+        { id: "buy", journey: "shop", name: "Checkout" },
+      ])
+      .mockResolvedValueOnce([{ ...row("login", "e2e"), name: "Successful login", journey: "auth" }])
+      .mockResolvedValueOnce([{ ...row("buy", "e2e"), name: "Checkout", journey: "shop" }]);
+    (prisma.testResult as unknown as { findMany: ReturnType<typeof vi.fn> }).findMany.mockResolvedValue([
+      { testCaseId: "login", verdict: "pass" },
+    ]);
+    const session = { cookies: [{ name: "sid" }], origins: [] };
+    dispatch
+      .mockResolvedValueOnce({ ...okResult, storageState: session })
+      .mockResolvedValueOnce(okResult);
+
+    const result = await executeParallel({ ...options, maxConcurrency: 2 });
+
+    expect(dispatch.mock.calls.map((c) => c[1].id)).toEqual(["login", "buy"]);
+    expect(dispatch.mock.calls[1][4]).toEqual({ storageState: session });
+    expect(result.passed).toBe(2);
+  });
 });

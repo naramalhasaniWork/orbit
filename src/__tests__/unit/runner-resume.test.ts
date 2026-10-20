@@ -17,9 +17,7 @@ vi.mock("@/lib/websocket", () => ({
   emitTestStarted: vi.fn(), emitTestCompleted: vi.fn(),
 }));
 vi.mock("@/lib/redis/pubsub", () => ({ publish: vi.fn(), channels: { runProgress: (id: string) => id } }));
-vi.mock("@/lib/redis/lock", () => ({
-  acquireLock: vi.fn(async () => ({ key: "k", acquired: true })), releaseLock: vi.fn(),
-}));
+vi.mock("@/lib/redis/lock", () => ({ acquireLock: vi.fn(), releaseLock: vi.fn() }));
 vi.mock("@/services/execution/environment-validator", () => ({
   validateEnvironment: vi.fn(async () => ({
     valid: true, environmentUrl: "https://app.test", credentials: {}, errors: [], warnings: [],
@@ -37,6 +35,8 @@ vi.mock("@/services/reporting/integrations/outbound-webhooks", () => ({
   dispatchRunStarted: vi.fn(async () => undefined), dispatchRunCompleted: vi.fn(async () => undefined),
 }));
 
+import { acquireLock } from "@/lib/redis/lock";
+import { RunLockedError } from "@/lib/queue/run-locked";
 import { executeRun } from "@/services/execution/runner";
 import { requestShutdown, resetShutdownForTests, ShutdownError } from "@/lib/queue/shutdown";
 
@@ -51,6 +51,8 @@ describe("sequential runner resume + shutdown", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     resetShutdownForTests();
+    (acquireLock as ReturnType<typeof vi.fn>).mockResolvedValue({ key: "k", acquired: true });
+    vi.spyOn(console, "warn").mockImplementation(() => undefined);
     vi.spyOn(console, "log").mockImplementation(() => undefined);
     vi.spyOn(console, "error").mockImplementation(() => undefined);
     db.testRun.findUniqueOrThrow.mockResolvedValue({ id: "r", projectId: "p", mode: "full", trigger: "manual", metadata: {} });
@@ -87,5 +89,23 @@ describe("sequential runner resume + shutdown", () => {
     const statuses = db.testRun.update.mock.calls.map((c) => c[0].data.status);
     expect(statuses).not.toContain("failed");
     expect(statuses).not.toContain("completed");
+  });
+
+  it("throws a retryable RunLockedError when the lock is held and the run is still executing", async () => {
+    (acquireLock as ReturnType<typeof vi.fn>).mockResolvedValue({ key: "k", acquired: false });
+    db.testRun.findUnique.mockResolvedValue({ status: "executing" });
+
+    const err = await executeRun({ runId: "r", environmentId: "e" }).catch((e) => e);
+
+    expect(err).toBeInstanceOf(RunLockedError);
+    expect(err.retryAfterMs).toBeGreaterThan(0);
+    expect(dispatch).not.toHaveBeenCalled();
+  });
+
+  it("returns quietly when the lock is held but the run already finished", async () => {
+    (acquireLock as ReturnType<typeof vi.fn>).mockResolvedValue({ key: "k", acquired: false });
+    db.testRun.findUnique.mockResolvedValue({ status: "completed" });
+
+    await expect(executeRun({ runId: "r", environmentId: "e" })).resolves.toBeUndefined();
   });
 });

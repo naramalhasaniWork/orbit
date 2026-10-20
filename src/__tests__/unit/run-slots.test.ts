@@ -29,6 +29,7 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 
+import { RunLockedError } from "@/lib/queue/run-locked";
 import { withRunSlot, slotsKey, SLOT_RETRY_DELAY_MS } from "@/lib/queue/run-slots";
 import { TIER_LIMITS } from "@/lib/auth/tier-limits";
 
@@ -82,5 +83,16 @@ describe("withRunSlot", () => {
     tier.value = "free";
     await withRunSlot(fakeJob(), "t", "run-2", async () => undefined);
     expect(fakeRedis.eval).not.toHaveBeenCalled();
+  });
+
+  it("turns a RunLockedError into a delayed retry and still releases the slot", async () => {
+    const job = fakeJob();
+    const locked = () => withRunSlot(job, "tok", "run-1", async () => { throw new RunLockedError("run-1", 30_000); });
+
+    await expect(locked()).rejects.toBeInstanceOf(DelayedError);
+
+    expect(job.moveToDelayed).toHaveBeenCalledWith(expect.any(Number), "tok");
+    expect((job.moveToDelayed.mock.calls[0][0] as number) - Date.now()).toBeGreaterThan(25_000);
+    expect(zset.size).toBe(0);
   });
 });
