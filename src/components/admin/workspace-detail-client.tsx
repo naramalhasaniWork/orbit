@@ -1,8 +1,6 @@
 "use client";
 
-import { useState } from "react";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { StatsCard } from "@/components/admin/stats-card";
 import { cn } from "@/lib/utils";
@@ -12,7 +10,6 @@ import {
   Play,
   CreditCard,
   ArrowLeft,
-  Eye,
 } from "lucide-react";
 import { TIER_DISPLAY_NAMES, type WorkspaceTier } from "@/lib/auth/tier-limits";
 
@@ -92,17 +89,6 @@ export function WorkspaceDetailClient({
   recentRuns,
   usageStats,
 }: WorkspaceDetailClientProps) {
-  const [impersonating, setImpersonating] = useState(false);
-
-  async function handleImpersonate() {
-    const res = await fetch("/api/admin/impersonate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ workspaceId: workspace.id }),
-    });
-    if (res.ok) setImpersonating(true);
-  }
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -124,15 +110,6 @@ export function WorkspaceDetailClient({
             </Badge>
           </div>
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={handleImpersonate}
-          disabled={impersonating}
-        >
-          <Eye className="h-3.5 w-3.5 mr-1.5" />
-          {impersonating ? "Impersonating..." : "Impersonate"}
-        </Button>
       </div>
 
       {/* Stats */}

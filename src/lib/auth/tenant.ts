@@ -93,7 +93,10 @@ export async function canConsume(
     case "member": {
       const [members, pending] = await Promise.all([
         prisma.workspaceMember.count({ where: { workspaceId } }),
-        prisma.workspaceInvitation.count({ where: { workspaceId, status: "pending" } }),
+        // Expired invites no longer hold a seat
+        prisma.workspaceInvitation.count({
+          where: { workspaceId, status: "pending", expiresAt: { gt: new Date() } },
+        }),
       ]);
       return members + pending >= limits.members
         ? limitReached(`Member limit reached (${limits.members}). Upgrade your plan to add more members.`)

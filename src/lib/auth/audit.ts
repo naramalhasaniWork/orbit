@@ -11,6 +11,7 @@ export type AuditAction =
   | "member.removed"
   | "member.invited"
   | "member.joined"
+  | "member.left"
   | "invitation.revoked"
   | "ownership.transferred"
   | "workspace.settings_updated"

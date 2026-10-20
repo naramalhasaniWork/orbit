@@ -14,7 +14,7 @@ export default async function AdminWorkspacesPage() {
     include: {
       _count: { select: { members: true, projects: true } },
       members: {
-        where: { role: { in: ["owner", "admin"] } },
+        where: { role: "owner" },
         take: 1,
         include: { user: { select: { name: true, email: true } } },
       },

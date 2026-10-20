@@ -127,7 +127,22 @@ export function TeamManagement({
     }
 
     await refreshInvitations();
-    return { token: json.data?.token };
+    return { token: json.data?.token, emailSent: Boolean(json.data?.emailSent) };
+  }
+
+  async function handleResend(invitationId: string) {
+    const res = await fetch(
+      `/api/workspaces/${workspaceId}/invitations/${invitationId}/resend`,
+      { method: "POST" }
+    );
+
+    const json = await res.json();
+    if (!res.ok) {
+      throw new Error(json.error?.message ?? "Failed to resend invitation");
+    }
+
+    await refreshInvitations();
+    return { token: json.data?.token, emailSent: Boolean(json.data?.emailSent) };
   }
 
   async function handleRevoke(invitationId: string) {
@@ -181,6 +196,7 @@ export function TeamManagement({
               workspaceId={workspaceId}
               invitations={invitations}
               onInvite={handleInvite}
+              onResend={handleResend}
               onRevoke={handleRevoke}
             />
           </div>

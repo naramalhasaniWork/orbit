@@ -109,4 +109,13 @@ describe("advertised limits match TIER_LIMITS", () => {
       expect(Object.keys(TIER_LIMITS)).toContain(tier.tier);
     }
   });
+
+  it("does not count expired pending invitations against member seats", async () => {
+    db.workspaceMember.count.mockResolvedValue(1);
+    db.workspaceInvitation.count.mockResolvedValue(0);
+    await canConsume("ws-1", "member");
+    expect(db.workspaceInvitation.count).toHaveBeenCalledWith({
+      where: { workspaceId: "ws-1", status: "pending", expiresAt: { gt: expect.any(Date) } },
+    });
+  });
 });
