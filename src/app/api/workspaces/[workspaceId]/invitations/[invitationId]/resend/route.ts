@@ -5,7 +5,7 @@
 
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
-import { requirePermission } from "@/lib/auth/rbac";
+import { requirePermission, assertCanManageRole } from "@/lib/auth/rbac";
 import { canConsume } from "@/lib/auth/tenant";
 import { writeAuditLog } from "@/lib/auth/audit";
 import { apiSuccess, apiError, handleApiError } from "@/lib/utils/api";
@@ -26,6 +26,9 @@ export async function POST(
     if (!invitation) {
       return apiError("Invitation not found or already processed", "NOT_FOUND", 404);
     }
+
+    // Same ceiling as creating an invite: you cannot re-issue an invite for a role at or above your own
+    assertCanManageRole(ctx.role, invitation.role);
 
     // A lapsed invitation no longer holds a seat, so reviving it needs room again
     const lapsed = invitation.status === "expired" || invitation.expiresAt <= new Date();
