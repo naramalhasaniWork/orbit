@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeAll, afterAll, beforeEach } from "vitest";
+import { findChromium } from "../helpers/chromium";
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { existsSync, readdirSync } from "node:fs";
@@ -147,22 +148,6 @@ function loginPage(mutated: boolean): string {
 }
 const DASHBOARD = `<!doctype html><html><head><title>Dashboard</title></head><body>
   <h1>Overview</h1><p>Welcome back, Ada</p></body></html>`;
-
-/** Newest headless shell in the local Playwright cache; null when there is none (suite skips). */
-function findChromium(): string | null {
-  const roots = [join(homedir(), "Library/Caches/ms-playwright"), join(homedir(), ".cache/ms-playwright")];
-  for (const root of roots) {
-    if (!existsSync(root)) continue;
-    const dirs = readdirSync(root).filter((d) => d.startsWith("chromium_headless_shell-")).sort().reverse();
-    for (const dir of dirs) {
-      for (const sub of readdirSync(join(root, dir))) {
-        const binary = join(root, dir, sub, "chrome-headless-shell");
-        if (existsSync(binary)) return binary;
-      }
-    }
-  }
-  return null;
-}
 
 const executablePath = findChromium();
 let server: Server;
