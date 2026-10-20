@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
-import { ExternalLink, GitBranch, Copy, Check, RefreshCw, Loader2 } from "lucide-react";
+import { ExternalLink, GitBranch, Copy, Check, RefreshCw } from "lucide-react";
 
 interface GitHubConfig {
   connected: boolean;
@@ -171,7 +171,7 @@ export function GitHubCard({ workspaceId, config, onUpdate }: GitHubCardProps) {
               Add Organization
             </Button>
             <Button size="sm" variant="outline" className="gap-1.5" onClick={handleSync} disabled={syncing}>
-              {syncing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+              <RefreshCw className="h-3.5 w-3.5" />
               Sync
             </Button>
             <Button
@@ -190,7 +190,7 @@ export function GitHubCard({ workspaceId, config, onUpdate }: GitHubCardProps) {
           size="sm"
           onClick={handleConnect}
           disabled={connecting || !appConfigured}
-          className="bg-orbit-accent hover:bg-orbit-accent/90 text-white gap-1.5"
+          className="bg-primary hover:bg-primary/85 text-primary-foreground gap-1.5"
         >
           <ExternalLink className="h-3.5 w-3.5" />
           {connecting ? "Connecting..." : "Connect GitHub"}

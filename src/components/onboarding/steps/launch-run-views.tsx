@@ -1,7 +1,8 @@
 "use client";
 
+import { Pending } from "@/components/telemetry/pending";
 import { useRouter } from "next/navigation";
-import { Play, Check, Loader2, ArrowRight, AlertCircle } from "lucide-react";
+import { Play, Check, ArrowRight, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
@@ -26,7 +27,7 @@ export function ReadyView({
   return (
     <>
       <div className="text-center mb-8">
-        <h2 className="text-xl font-semibold text-foreground mb-2">
+        <h2 className="text-xl font-medium text-foreground mb-2">
           Ready to launch
         </h2>
         <p className="text-sm text-muted-foreground">
@@ -47,7 +48,7 @@ export function ReadyView({
           Back
         </Button>
         <Button
-          className="bg-orbit-accent hover:bg-orbit-accent/90 text-white gap-2 h-12 px-8 text-base"
+          className="bg-primary hover:bg-primary/85 text-primary-foreground gap-2 h-12 px-8 text-base"
           onClick={onLaunch}
         >
           <Play className="h-5 w-5" />
@@ -72,7 +73,7 @@ export function RunningView({
   return (
     <>
       <div className="text-center mb-6">
-        <h2 className="text-xl font-semibold text-foreground mb-2">
+        <h2 className="text-xl font-medium text-foreground mb-2">
           Running tests
         </h2>
         <p className="text-sm text-muted-foreground">
@@ -113,7 +114,7 @@ export function RunningView({
 
       {tests.length === 0 && (
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 animate-spin" />
+          <Pending />
           Waiting for test results...
         </div>
       )}
@@ -141,7 +142,7 @@ export function CompleteView({
         <div className="flex items-center justify-center h-16 w-16 rounded-full bg-orbit-pass/10 mx-auto mb-4">
           <Check className="h-8 w-8 text-orbit-pass" />
         </div>
-        <h2 className="text-xl font-semibold text-foreground mb-2">
+        <h2 className="text-xl font-medium text-foreground mb-2">
           First run complete
         </h2>
         <p className="text-sm text-muted-foreground">
@@ -163,7 +164,7 @@ export function CompleteView({
       </div>
 
       <Button
-        className="bg-orbit-accent hover:bg-orbit-accent/90 text-white gap-2"
+        className="bg-primary hover:bg-primary/85 text-primary-foreground gap-2"
         size="lg"
         onClick={() => {
           const url = projectId ? `/dashboard?project=${projectId}` : "/dashboard";
@@ -208,7 +209,7 @@ export function ErrorView({
 }
 
 function TestStatusIcon({ status }: { status: TestProgress["status"] }) {
-  if (status === "running") return <Loader2 className="h-4 w-4 text-orbit-accent animate-spin" />;
+  if (status === "running") return <Pending />;
   if (status === "pass") return <StatusDot status="pass" size="md" />;
   if (status === "fail") return <StatusDot status="fail" size="md" />;
   return <StatusDot status="untested" size="md" />;

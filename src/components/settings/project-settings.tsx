@@ -212,7 +212,7 @@ export function ProjectSettings({ project }: ProjectSettingsProps) {
                 href={project.repoUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-2 text-sm text-orbit-accent hover:underline"
+                className="flex items-center gap-2 text-sm text-foreground hover:underline"
               >
                 {project.repoUrl.replace("https://github.com/", "")}
                 <ExternalLink className="h-3 w-3" />
@@ -231,7 +231,7 @@ export function ProjectSettings({ project }: ProjectSettingsProps) {
             onClick={handleSave}
             disabled={saving || name === project.name}
             size="sm"
-            className="bg-orbit-accent hover:bg-orbit-accent/90 text-white"
+            className="bg-primary hover:bg-primary/85 text-primary-foreground"
           >
             {saving ? "Saving..." : "Save Changes"}
           </Button>
@@ -257,7 +257,7 @@ export function ProjectSettings({ project }: ProjectSettingsProps) {
               disabled={togglingAutoSync}
               className={cn(
                 "relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none",
-                syncInfo.autoSync ? "bg-emerald-500" : "bg-foreground/10"
+                syncInfo.autoSync ? "bg-tm-pass" : "bg-foreground/10"
               )}
             >
               <span
@@ -279,7 +279,7 @@ export function ProjectSettings({ project }: ProjectSettingsProps) {
               disabled={manualPolling}
               className="h-7 text-xs gap-1.5"
             >
-              <RefreshCw className={cn("h-3 w-3", manualPolling && "animate-spin")} />
+              <RefreshCw className={cn("h-3 w-3")} />
               {manualPolling ? "Syncing..." : "Sync Now"}
             </Button>
             <span className="text-[11px] text-muted-foreground">

@@ -25,7 +25,7 @@ export function FeatureFlagToggle({
       className={cn(
         "flex items-center justify-between p-4 rounded-lg border transition-colors",
         enabled
-          ? "border-orbit-accent/20 bg-orbit-accent/5"
+          ? "border-tm-line-strong bg-foreground/[0.06]"
           : "border-border bg-muted/30"
       )}
     >

@@ -12,7 +12,7 @@ export default async function ProvidersSettingsPage() {
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <div>
-        <h1 className="text-lg font-semibold text-foreground">API Providers</h1>
+        <h1 className="text-lg font-medium text-foreground">API Providers</h1>
         <p className="text-sm text-muted-foreground mt-1">
           Configure AI model providers and API keys for your workspace.
         </p>

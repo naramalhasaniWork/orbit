@@ -283,7 +283,7 @@ export function QuickActions({
             {Object.entries(grouped).map(([category, items]) => (
               <div key={category}>
                 <div className="px-4 py-1.5">
-                  <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">
+                  <span className=" text-muted-foreground tm-label">
                     {categoryLabels[category] ?? category}
                   </span>
                 </div>
@@ -299,7 +299,7 @@ export function QuickActions({
                       className={cn(
                         "flex items-center gap-3 w-full px-4 py-2.5 text-left transition-colors",
                         isSelected
-                          ? "bg-orbit-accent/[0.08]"
+                          ? "bg-foreground/[0.06]"
                           : "hover:bg-foreground/[0.04]"
                       )}
                     >
@@ -307,7 +307,7 @@ export function QuickActions({
                         className={cn(
                           "flex items-center justify-center h-7 w-7 rounded-md shrink-0",
                           isSelected
-                            ? "bg-orbit-accent/10 text-orbit-accent"
+                            ? "bg-foreground/[0.06] text-foreground"
                             : "bg-foreground/[0.06] text-muted-foreground"
                         )}
                       >

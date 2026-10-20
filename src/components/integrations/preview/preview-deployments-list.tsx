@@ -46,7 +46,7 @@ export function PreviewDeploymentsList({ rows }: { rows: PreviewDeploymentRow[] 
               {row.url ?? row.error ?? row.branch ?? ""}
             </span>
             {row.runId && (
-              <Link href={`/dashboard/runs/${row.runId}`} className="shrink-0 text-orbit-accent hover:underline">
+              <Link href={`/dashboard/runs/${row.runId}`} className="shrink-0 text-foreground hover:underline">
                 View run
               </Link>
             )}

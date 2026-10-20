@@ -146,12 +146,12 @@ export function InviteForm({ invitations, onInvite, onResend, onRevoke }: Invite
         </div>
 
         {error && (
-          <p className="text-xs text-red-400">{error}</p>
+          <p className="text-xs text-tm-fail">{error}</p>
         )}
 
         {lastToken && (
-          <div className="flex items-center gap-2 p-3 rounded-lg bg-orbit-accent/10 border border-orbit-accent/20">
-            <span className="text-xs text-orbit-accent flex-1">
+          <div className="flex items-center gap-2 p-3 rounded-lg bg-foreground/[0.06] border border-tm-line-strong">
+            <span className="text-xs text-foreground flex-1">
               {lastEmail?.sent
                 ? `Email sent to ${lastEmail.to}. You can also share the link:`
                 : "Email not sent. Share this link instead:"}
@@ -164,7 +164,7 @@ export function InviteForm({ invitations, onInvite, onResend, onRevoke }: Invite
               onClick={() => copyInviteLink(lastToken)}
             >
               {copiedToken === lastToken ? (
-                <Check className="h-3 w-3 text-green-400" />
+                <Check className="h-3 w-3 text-tm-pass" />
               ) : (
                 <Copy className="h-3 w-3" />
               )}
@@ -177,7 +177,7 @@ export function InviteForm({ invitations, onInvite, onResend, onRevoke }: Invite
       {/* Pending invitations */}
       {pendingInvitations.length > 0 && (
         <div className="space-y-2">
-          <h4 className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+          <h4 className=" text-muted-foreground tm-label">
             Pending Invitations
           </h4>
           <div className="space-y-1">
@@ -204,7 +204,7 @@ export function InviteForm({ invitations, onInvite, onResend, onRevoke }: Invite
                           {inv.role}
                         </span>
                         {expired ? (
-                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-red-400 border-red-400/20">
+                          <Badge variant="outline" className="text-[10px] px-1.5 py-0 text-tm-fail border-tm-fail/20">
                             Expired
                           </Badge>
                         ) : (
@@ -226,7 +226,7 @@ export function InviteForm({ invitations, onInvite, onResend, onRevoke }: Invite
                       title="Copy invite link"
                     >
                       {copiedToken === inv.token ? (
-                        <Check className="h-3.5 w-3.5 text-green-400" />
+                        <Check className="h-3.5 w-3.5 text-tm-pass" />
                       ) : (
                         <Copy className="h-3.5 w-3.5" />
                       )}
@@ -239,12 +239,12 @@ export function InviteForm({ invitations, onInvite, onResend, onRevoke }: Invite
                       disabled={resendingId === inv.id}
                       title="Resend invitation (issues a new link)"
                     >
-                      <RotateCcw className={cn("h-3.5 w-3.5", resendingId === inv.id && "animate-spin")} />
+                      <RotateCcw className={cn("h-3.5 w-3.5")} />
                     </Button>
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="h-7 w-7 p-0 text-red-400 hover:text-red-300"
+                      className="h-7 w-7 p-0 text-tm-fail hover:text-tm-fail"
                       onClick={() => onRevoke(inv.id)}
                       title="Revoke invitation"
                     >

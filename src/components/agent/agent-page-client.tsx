@@ -113,11 +113,11 @@ export function AgentPageClient({
         {/* Header */}
         <div className="shrink-0 flex items-center justify-between px-6 py-3 border-b border-border">
           <div className="flex items-center gap-3">
-            <div className="h-8 w-8 rounded-lg bg-orbit-accent/[0.1] flex items-center justify-center shadow-[0_0_16px_hsl(var(--orbit-accent)/0.12)]">
-              <Orbit className="h-4.5 w-4.5 text-orbit-accent" />
+            <div className="h-8 w-8 rounded-lg bg-foreground/[0.06] flex items-center justify-center">
+              <Orbit className="h-4.5 w-4.5 text-foreground" />
             </div>
             <div>
-              <h1 className="text-sm font-semibold text-foreground">
+              <h1 className="text-sm font-medium text-foreground">
                 Orbit Agent
               </h1>
               <p className="text-[11px] text-muted-foreground">
@@ -145,7 +145,7 @@ export function AgentPageClient({
               className={cn(
                 "flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs transition-colors",
                 showActivity
-                  ? "text-orbit-accent bg-orbit-accent/[0.08]"
+                  ? "text-foreground bg-foreground/[0.06]"
                   : "text-muted-foreground hover:text-foreground hover:bg-foreground/[0.04]"
               )}
             >
@@ -192,7 +192,7 @@ export function AgentPageClient({
             className={cn(
               "flex items-end gap-3 rounded-xl border px-4 py-3 transition-colors",
               "bg-foreground/[0.02] border-border",
-              "focus-within:border-orbit-accent/30 focus-within:bg-foreground/[0.03]"
+              "focus-visible:border-tm-t3 focus-within:bg-foreground/[0.03]"
             )}
           >
             <textarea
@@ -212,7 +212,7 @@ export function AgentPageClient({
               className={cn(
                 "shrink-0 h-8 w-8 rounded-lg flex items-center justify-center transition-all",
                 input.trim() && !isStreaming
-                  ? "bg-orbit-accent text-white shadow-[0_0_12px_hsl(var(--orbit-accent)/0.3)] hover:shadow-[0_0_16px_hsl(var(--orbit-accent)/0.4)]"
+                  ? "bg-primary text-primary-foreground"
                   : "bg-foreground/[0.04] text-muted-foreground/30"
               )}
             >

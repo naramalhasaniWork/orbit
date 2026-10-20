@@ -32,7 +32,7 @@ export default async function KnowledgeSettingsPage() {
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <div>
-        <h1 className="text-lg font-semibold text-foreground">Knowledge Base</h1>
+        <h1 className="text-lg font-medium text-foreground">Knowledge Base</h1>
         <p className="text-sm text-muted-foreground mt-1">
           Upload domain knowledge to give Orbit&apos;s agents deeper context about your application.
         </p>

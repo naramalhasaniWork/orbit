@@ -24,7 +24,7 @@ export default async function AdminLayout({
       <div className="flex flex-col flex-1 min-w-0">
         <header className="h-14 flex items-center justify-between px-6 border-b border-border surface-1">
           <div className="flex items-center gap-2">
-            <span className="text-xs font-medium px-2 py-0.5 rounded-md bg-red-500/15 text-red-400 border border-red-500/20">
+            <span className="text-xs font-medium px-2 py-0.5 rounded-md bg-tm-fail/15 text-tm-fail border border-tm-fail/20">
               SUPER ADMIN
             </span>
             <span className="text-sm text-muted-foreground">

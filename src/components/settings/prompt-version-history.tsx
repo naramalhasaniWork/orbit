@@ -1,7 +1,8 @@
 "use client";
 
+import { Pending } from "@/components/telemetry/pending";
 import { useState, useEffect, useCallback } from "react";
-import { ChevronDown, ChevronRight, History, Loader2 } from "lucide-react";
+import { ChevronDown, ChevronRight, History } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
@@ -67,7 +68,7 @@ export function PromptVersionHistory({
         <div className="mt-3 space-y-2 max-h-48 overflow-y-auto">
           {loading ? (
             <div className="flex items-center gap-2 text-xs text-muted-foreground py-2">
-              <Loader2 className="h-3 w-3 animate-spin" />
+              <Pending />
               Loading versions...
             </div>
           ) : versions.length === 0 ? (

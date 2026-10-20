@@ -23,7 +23,7 @@ export default async function BillingSettingsPage() {
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <div>
-        <h2 className="text-lg font-semibold text-foreground">Billing & Usage</h2>
+        <h2 className="text-lg font-medium text-foreground">Billing & Usage</h2>
         <p className="text-sm text-muted-foreground mt-1">
           Manage your subscription, monitor token costs, and view invoices.
         </p>

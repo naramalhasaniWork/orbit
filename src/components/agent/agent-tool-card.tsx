@@ -1,4 +1,5 @@
 "use client";
+import { Pending } from "@/components/telemetry/pending";
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -28,10 +29,10 @@ const accentColors = {
 } as const;
 
 const iconColors = {
-  pending: "text-blue-400",
-  running: "text-amber-400",
-  complete: "text-emerald-400",
-  error: "text-red-400",
+  pending: "text-tm-info",
+  running: "text-tm-warn",
+  complete: "text-tm-pass",
+  error: "text-tm-fail",
 } as const;
 
 // ============================================================
@@ -63,7 +64,7 @@ export function AgentToolCard({ name, args, result, status }: AgentToolCardProps
       {/* Running gradient sweep */}
       {status === "running" && (
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
-          <div className="absolute inset-0 animate-[shimmer_2s_ease-in-out_infinite] bg-gradient-to-r from-transparent via-amber-400/[0.04] to-transparent" />
+          <div className="absolute inset-0 animate-[shimmer_2s_ease-in-out_infinite] bg-gradient-to-r from-transparent via-tm-warn/[0.04] to-transparent" />
         </div>
       )}
 
@@ -96,7 +97,7 @@ export function AgentToolCard({ name, args, result, status }: AgentToolCardProps
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.25 }}
             >
-              <Check className="h-3.5 w-3.5 text-emerald-400" />
+              <Check className="h-3.5 w-3.5 text-tm-pass" />
             </motion.div>
           )}
           {status === "error" && (
@@ -106,16 +107,13 @@ export function AgentToolCard({ name, args, result, status }: AgentToolCardProps
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.25 }}
             >
-              <AlertTriangle className="h-3.5 w-3.5 text-red-400" />
+              <AlertTriangle className="h-3.5 w-3.5 text-tm-fail" />
             </motion.div>
           )}
           {status === "running" && (
-            <motion.div
-              key="running"
-              animate={{ opacity: [0.5, 1, 0.5] }}
-              transition={{ duration: 1.5, repeat: Infinity }}
-              className="h-2 w-2 rounded-full bg-amber-400"
-            />
+            <motion.span key="running" className="flex">
+              <Pending label="Running tool" />
+            </motion.span>
           )}
         </AnimatePresence>
 
@@ -141,7 +139,7 @@ export function AgentToolCard({ name, args, result, status }: AgentToolCardProps
               {/* Args */}
               {argEntries.length > 0 && (
                 <div className="space-y-1">
-                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
+                  <span className=" tm-label text-muted-foreground">
                     Arguments
                   </span>
                   <div className="flex flex-wrap gap-1.5">
@@ -162,7 +160,7 @@ export function AgentToolCard({ name, args, result, status }: AgentToolCardProps
               {/* Result */}
               {resultJson && (
                 <div className="space-y-1">
-                  <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
+                  <span className=" tm-label text-muted-foreground">
                     Result
                   </span>
                   <pre className="text-[10px] font-mono leading-relaxed text-foreground/60 bg-foreground/[0.03] rounded px-2 py-1.5 overflow-x-auto whitespace-pre-wrap break-all">
@@ -172,7 +170,7 @@ export function AgentToolCard({ name, args, result, status }: AgentToolCardProps
                     <button
                       type="button"
                       onClick={(e) => { e.stopPropagation(); setShowFullResult((prev) => !prev); }}
-                      className="text-[10px] text-orbit-accent hover:underline"
+                      className="text-[10px] text-foreground hover:underline"
                     >
                       {showFullResult ? "Show less" : `${resultLines.length} lines total`}
                     </button>

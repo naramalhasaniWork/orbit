@@ -12,16 +12,16 @@ interface StatsCardProps {
 
 const variantStyles = {
   default: "bg-muted/30 border-border",
-  accent: "bg-orbit-accent/5 border-orbit-accent/10",
-  warning: "bg-amber-500/5 border-amber-500/10",
-  danger: "bg-red-500/5 border-red-500/10",
+  accent: "bg-foreground/[0.06] border-tm-line-strong",
+  warning: "bg-tm-warn/5 border-tm-warn/10",
+  danger: "bg-tm-fail/5 border-tm-fail/10",
 };
 
 const iconVariants = {
   default: "bg-muted/50 text-muted-foreground",
-  accent: "bg-orbit-accent/15 text-orbit-accent",
-  warning: "bg-amber-500/15 text-amber-400",
-  danger: "bg-red-500/15 text-red-400",
+  accent: "bg-foreground/[0.06] text-foreground",
+  warning: "bg-tm-warn/15 text-tm-warn",
+  danger: "bg-tm-fail/15 text-tm-fail",
 };
 
 export function StatsCard({
@@ -42,7 +42,7 @@ export function StatsCard({
       <div className="flex items-start justify-between">
         <div className="space-y-1">
           <p className="text-xs font-medium text-muted-foreground">{title}</p>
-          <p className="text-2xl font-semibold tracking-tight">{value}</p>
+          <p className="text-2xl font-medium tracking-display">{value}</p>
           {subtitle && (
             <p className="text-xs text-muted-foreground">{subtitle}</p>
           )}
@@ -61,7 +61,7 @@ export function StatsCard({
           <span
             className={cn(
               "font-medium",
-              trend.value >= 0 ? "text-emerald-400" : "text-red-400"
+              trend.value >= 0 ? "text-tm-pass" : "text-tm-fail"
             )}
           >
             {trend.value >= 0 ? "+" : ""}

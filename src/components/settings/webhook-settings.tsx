@@ -160,10 +160,10 @@ export function WebhookSettings({ projectId }: WebhookSettingsProps) {
         </Button>
       </div>
 
-      {error && <p className="text-xs text-red-400">{error}</p>}
+      {error && <p className="text-xs text-tm-fail">{error}</p>}
 
       {generatedSecret && (
-        <div className="rounded-xl border border-orbit-accent/30 bg-orbit-accent/5 p-4 space-y-3">
+        <div className="rounded-xl border border-tm-line-strong bg-foreground/[0.06] p-4 space-y-3">
           <p className="text-sm font-medium text-foreground">
             Webhook signing secret -- copy it now, it won&apos;t be shown again.
           </p>
@@ -203,7 +203,7 @@ export function WebhookSettings({ projectId }: WebhookSettingsProps) {
                   onClick={() => toggleEvent(opt.value)}
                   className={`text-[11px] px-2 py-1 rounded-md transition-colors ${
                     newEndpoint.events.includes(opt.value)
-                      ? "bg-orbit-accent/15 text-orbit-accent"
+                      ? "bg-foreground/[0.06] text-foreground"
                       : "bg-muted/40 text-muted-foreground hover:text-foreground"
                   }`}
                 >
@@ -218,7 +218,7 @@ export function WebhookSettings({ projectId }: WebhookSettingsProps) {
               size="sm"
               onClick={handleCreate}
               disabled={creating || !newEndpoint.url.trim() || newEndpoint.events.length === 0}
-              className="bg-orbit-accent hover:bg-orbit-accent/90 text-white"
+              className="bg-primary hover:bg-primary/85 text-primary-foreground"
             >
               {creating ? "Creating..." : "Create Endpoint"}
             </Button>
@@ -231,7 +231,7 @@ export function WebhookSettings({ projectId }: WebhookSettingsProps) {
 
       <div className="space-y-2">
         {loading ? (
-          <div className="rounded-xl surface-1 p-8 text-center animate-pulse">
+          <div className="rounded-xl surface-1 p-8 text-center">
             <div className="h-4 w-32 bg-muted/50 rounded mx-auto" />
           </div>
         ) : endpoints.length === 0 ? (
@@ -267,7 +267,7 @@ export function WebhookSettings({ projectId }: WebhookSettingsProps) {
               <Button
                 size="sm"
                 variant="ghost"
-                className="text-muted-foreground hover:text-red-400"
+                className="text-muted-foreground hover:text-tm-fail"
                 onClick={() => handleDelete(ep.id)}
               >
                 <Trash2 className="h-3.5 w-3.5" />

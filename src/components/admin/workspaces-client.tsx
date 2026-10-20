@@ -27,9 +27,9 @@ interface WorkspacesClientProps {
 
 const tierColors: Record<WorkspaceTier, string> = {
   free: "bg-gray-500/15 text-gray-400 border-gray-500/20",
-  starter: "bg-blue-500/15 text-blue-400 border-blue-500/20",
-  professional: "bg-purple-500/15 text-purple-400 border-purple-500/20",
-  enterprise: "bg-amber-500/15 text-amber-400 border-amber-500/20",
+  starter: "bg-tm-info/15 text-tm-info border-tm-info/20",
+  professional: "bg-tm-t2/15 text-tm-t2 border-tm-t2/20",
+  enterprise: "bg-tm-warn/15 text-tm-warn border-tm-warn/20",
 };
 
 export function WorkspacesClient({ workspaces, total }: WorkspacesClientProps) {
@@ -124,8 +124,8 @@ export function WorkspacesClient({ workspaces, total }: WorkspacesClientProps) {
           className={cn(
             "text-[10px] font-medium border",
             row.status === "active"
-              ? "bg-emerald-500/15 text-emerald-400 border-emerald-500/20"
-              : "bg-red-500/15 text-red-400 border-red-500/20"
+              ? "bg-tm-pass/15 text-tm-pass border-tm-pass/20"
+              : "bg-tm-fail/15 text-tm-fail border-tm-fail/20"
           )}
         >
           {row.status}
@@ -137,7 +137,7 @@ export function WorkspacesClient({ workspaces, total }: WorkspacesClientProps) {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-semibold">Workspaces</h1>
+        <h1 className="text-xl font-medium">Workspaces</h1>
         <p className="text-sm text-muted-foreground mt-1">
           All workspaces on the platform
         </p>

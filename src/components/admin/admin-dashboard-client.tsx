@@ -38,13 +38,13 @@ interface AdminDashboardClientProps {
 }
 
 const statusColors: Record<string, string> = {
-  completed: "bg-emerald-500/15 text-emerald-400 border-emerald-500/20",
-  failed: "bg-red-500/15 text-red-400 border-red-500/20",
-  executing: "bg-blue-500/15 text-blue-400 border-blue-500/20",
-  queued: "bg-amber-500/15 text-amber-400 border-amber-500/20",
-  planning: "bg-purple-500/15 text-purple-400 border-purple-500/20",
-  indexing: "bg-cyan-500/15 text-cyan-400 border-cyan-500/20",
-  reporting: "bg-indigo-500/15 text-indigo-400 border-indigo-500/20",
+  completed: "bg-tm-pass/15 text-tm-pass border-tm-pass/20",
+  failed: "bg-tm-fail/15 text-tm-fail border-tm-fail/20",
+  executing: "bg-tm-info/15 text-tm-info border-tm-info/20",
+  queued: "bg-tm-warn/15 text-tm-warn border-tm-warn/20",
+  planning: "bg-tm-t2/15 text-tm-t2 border-tm-t2/20",
+  indexing: "bg-tm-info/15 text-tm-info border-tm-info/20",
+  reporting: "bg-tm-t2/15 text-tm-t2 border-tm-t2/20",
   cancelled: "bg-gray-500/15 text-gray-400 border-gray-500/20",
 };
 
@@ -63,7 +63,7 @@ export function AdminDashboardClient({ stats, recentRuns }: AdminDashboardClient
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-semibold">Platform Overview</h1>
+        <h1 className="text-xl font-medium">Platform Overview</h1>
         <p className="text-sm text-muted-foreground mt-1">
           System-wide metrics and activity
         </p>
@@ -174,10 +174,10 @@ export function AdminDashboardClient({ stats, recentRuns }: AdminDashboardClient
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2 text-xs">
                       {run.passed > 0 && (
-                        <span className="text-emerald-400">{run.passed} passed</span>
+                        <span className="text-tm-pass">{run.passed} passed</span>
                       )}
                       {run.failed > 0 && (
-                        <span className="text-red-400">{run.failed} failed</span>
+                        <span className="text-tm-fail">{run.failed} failed</span>
                       )}
                     </div>
                   </td>

@@ -94,7 +94,7 @@ export function SettingsClient({
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <div>
-        <h1 className="text-lg font-semibold text-foreground">Settings</h1>
+        <h1 className="text-lg font-medium text-foreground">Settings</h1>
         <p className="text-sm text-muted-foreground mt-1">
           Manage your project, environments, and workspace configuration.
         </p>

@@ -26,7 +26,7 @@ const typeColors: Record<string, string> = {
   staging: "text-orbit-flaky",
   production: "text-orbit-fail",
   development: "text-orbit-pass",
-  preview: "text-orbit-accent",
+  preview: "text-foreground",
 };
 
 export function EnvironmentSettings({ projectId, environments: initial }: EnvironmentSettingsProps) {
@@ -145,7 +145,7 @@ export function EnvironmentSettings({ projectId, environments: initial }: Enviro
               <select
                 value={newEnv.type}
                 onChange={(e) => setNewEnv({ ...newEnv, type: e.target.value })}
-                className="w-full h-9 rounded-md border border-transparent bg-muted/40 px-3 text-sm focus:border-orbit-accent/30 focus:outline-none"
+                className="w-full h-9 rounded-md border border-transparent bg-muted/40 px-3 text-sm focus-visible:border-tm-t3 focus:outline-none"
               >
                 <option value="staging">Staging</option>
                 <option value="preview">Preview</option>
@@ -167,7 +167,7 @@ export function EnvironmentSettings({ projectId, environments: initial }: Enviro
               <select
                 value={newEnv.defaultRunMode}
                 onChange={(e) => setNewEnv({ ...newEnv, defaultRunMode: e.target.value })}
-                className="w-full h-9 rounded-md border border-transparent bg-muted/40 px-3 text-sm focus:border-orbit-accent/30 focus:outline-none"
+                className="w-full h-9 rounded-md border border-transparent bg-muted/40 px-3 text-sm focus-visible:border-tm-t3 focus:outline-none"
               >
                 <option value="full">Full Suite</option>
                 <option value="smoke">Smoke (Critical Path)</option>
@@ -176,7 +176,7 @@ export function EnvironmentSettings({ projectId, environments: initial }: Enviro
             </div>
           </div>
           <div className="flex gap-2">
-            <Button size="sm" onClick={handleAdd} disabled={adding || !newEnv.name || !newEnv.url} className="bg-orbit-accent hover:bg-orbit-accent/90 text-white">
+            <Button size="sm" onClick={handleAdd} disabled={adding || !newEnv.name || !newEnv.url} className="bg-primary hover:bg-primary/85 text-primary-foreground">
               {adding ? "Adding..." : "Add"}
             </Button>
             <Button size="sm" variant="ghost" onClick={() => setShowAdd(false)} disabled={adding}>
@@ -200,13 +200,13 @@ export function EnvironmentSettings({ projectId, environments: initial }: Enviro
             >
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <div className={cn("h-2 w-2 rounded-full", env.isDefault ? "bg-orbit-accent" : "bg-muted")} />
+                  <div className={cn("h-2 w-2 rounded-full", env.isDefault ? "bg-foreground" : "bg-muted")} />
                   <span className="text-sm font-medium text-foreground">{env.name}</span>
                   <Badge variant="outline" className={cn("text-[10px]", typeColors[env.type])}>
                     {env.type}
                   </Badge>
                   {env.isDefault && (
-                    <Badge variant="outline" className="text-[10px] text-orbit-accent">
+                    <Badge variant="outline" className="text-[10px] text-foreground">
                       default
                     </Badge>
                   )}
@@ -216,7 +216,7 @@ export function EnvironmentSettings({ projectId, environments: initial }: Enviro
                     <Button
                       size="sm"
                       variant="ghost"
-                      className="text-muted-foreground hover:text-orbit-accent gap-1 text-xs"
+                      className="text-muted-foreground hover:text-foreground gap-1 text-xs"
                       onClick={() => handleSetDefault(env.id)}
                     >
                       <Star className="h-3 w-3" />
@@ -226,7 +226,7 @@ export function EnvironmentSettings({ projectId, environments: initial }: Enviro
                   <Button
                     size="sm"
                     variant="ghost"
-                    className="text-muted-foreground hover:text-red-400"
+                    className="text-muted-foreground hover:text-tm-fail"
                     onClick={() => handleDelete(env.id)}
                     disabled={deletingId === env.id}
                   >
@@ -243,7 +243,7 @@ export function EnvironmentSettings({ projectId, environments: initial }: Enviro
                   <select
                     value={env.defaultRunMode ?? "full"}
                     onChange={(e) => handleRunModeChange(env.id, e.target.value)}
-                    className="h-7 rounded-md border border-transparent bg-muted/40 px-2 text-xs focus:border-orbit-accent/30 focus:outline-none"
+                    className="h-7 rounded-md border border-transparent bg-muted/40 px-2 text-xs focus-visible:border-tm-t3 focus:outline-none"
                   >
                     <option value="full">Full Suite</option>
                     <option value="smoke">Smoke</option>

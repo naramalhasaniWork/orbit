@@ -79,7 +79,7 @@ export function IntegrationSettings({ workspaceId, integrations: initial, previe
         onUpdate={(cfg) => updateIntegration("slack", cfg)}
       />
 
-      <h2 className="pt-4 text-xs font-medium uppercase tracking-wide text-muted-foreground">Preview deployments</h2>
+      <h2 className="pt-4 tm-label text-muted-foreground">Preview deployments</h2>
       <p className="text-xs text-muted-foreground text-pretty -mt-2">
         Connect where your PR previews are deployed. Orbit waits for each PR&apos;s preview, tests it, and reports on the PR.
       </p>

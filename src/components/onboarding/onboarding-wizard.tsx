@@ -1,8 +1,8 @@
 "use client";
 
+import { Pending } from "@/components/telemetry/pending";
 import { useState, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Loader2 } from "lucide-react";
 import { StepIndicator } from "./step-indicator";
 import { ConnectRepo } from "./steps/connect-repo";
 import { IndexingProgress } from "./steps/indexing-progress";
@@ -114,7 +114,7 @@ export function OnboardingWizard({ initialProjectId }: OnboardingWizardProps) {
   if (step === 0) {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-3">
-        <Loader2 className="h-6 w-6 animate-spin text-orbit-accent" />
+        <Pending />
         <span className="text-sm text-muted-foreground">Resuming your setup...</span>
       </div>
     );
@@ -124,7 +124,7 @@ export function OnboardingWizard({ initialProjectId }: OnboardingWizardProps) {
     <div className="flex flex-col h-full min-h-0">
       <div className="shrink-0 pb-8 pt-2">
         <div className="text-center mb-6">
-          <h1 className="text-sm font-medium text-muted-foreground tracking-wide uppercase">
+          <h1 className="text-sm text-muted-foreground tm-label">
             Set up your project
           </h1>
         </div>

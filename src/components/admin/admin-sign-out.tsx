@@ -10,7 +10,7 @@ export function AdminSignOut() {
       variant="ghost"
       size="sm"
       onClick={() => signOut({ callbackUrl: "/login" })}
-      className="text-xs text-muted-foreground hover:text-red-400 gap-1.5"
+      className="text-xs text-muted-foreground hover:text-tm-fail gap-1.5"
     >
       <LogOut className="h-3.5 w-3.5" />
       Sign Out

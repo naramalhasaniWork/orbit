@@ -99,7 +99,7 @@ export function PromptPhaseEditor({ phase, data, onSaved }: PhaseEditorProps) {
       <div className="rounded-xl surface-1 border border-border p-5 space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <FileText className="h-4 w-4 text-orbit-accent" />
+            <FileText className="h-4 w-4 text-foreground" />
             <h3 className="text-sm font-medium text-foreground">{PHASE_LABELS[phase]} Prompt</h3>
             <Badge variant="accent">v{data.active.version}</Badge>
           </div>

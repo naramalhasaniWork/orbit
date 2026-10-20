@@ -23,7 +23,7 @@ export function PromptsClient({ initialPrompts }: PromptsClientProps) {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-lg font-semibold text-foreground">Global Prompts</h2>
+        <h2 className="text-lg font-medium text-foreground">Global Prompts</h2>
         <p className="text-sm text-muted-foreground">
           Manage default system prompts for each agent phase. These apply to all workspaces without custom overrides.
         </p>

@@ -1,8 +1,9 @@
 "use client";
 
+import { Pending } from "@/components/telemetry/pending";
 import { useState, useEffect, FormEvent } from "react";
 import { useSession } from "next-auth/react";
-import { Check, ChevronsUpDown, Plus, Loader2 } from "lucide-react";
+import { Check, ChevronsUpDown, Plus } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -118,8 +119,8 @@ export function WorkspaceSwitcher({
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-muted/40 transition-colors">
-            <div className="h-6 w-6 rounded-md bg-orbit-accent/15 flex items-center justify-center shrink-0">
-              <span className="text-[10px] font-semibold text-orbit-accent">
+            <div className="h-6 w-6 rounded-md bg-foreground/[0.06] flex items-center justify-center shrink-0">
+              <span className="text-[10px] font-medium text-foreground">
                 {displayName.charAt(0).toUpperCase()}
               </span>
             </div>
@@ -145,9 +146,9 @@ export function WorkspaceSwitcher({
               >
                 <div className="h-5 w-5 rounded bg-muted/50 flex items-center justify-center shrink-0">
                   {switching === ws.id ? (
-                    <Loader2 className="h-3 w-3 animate-spin text-muted-foreground" />
+                    <Pending />
                   ) : (
-                    <span className="text-[9px] font-bold text-muted-foreground">
+                    <span className="text-[9px] font-medium text-muted-foreground">
                       {ws.name.charAt(0).toUpperCase()}
                     </span>
                   )}
@@ -157,7 +158,7 @@ export function WorkspaceSwitcher({
                   {ws.role}
                 </span>
                 {ws.id === currentWorkspaceId && !switching && (
-                  <Check className="h-3.5 w-3.5 text-orbit-accent shrink-0" />
+                  <Check className="h-3.5 w-3.5 text-foreground shrink-0" />
                 )}
               </DropdownMenuItem>
             ))
@@ -215,9 +216,9 @@ export function WorkspaceSwitcher({
               <Button
                 type="submit"
                 disabled={creating || !newName.trim()}
-                className="bg-orbit-accent hover:bg-orbit-accent/90 text-white"
+                className="bg-primary hover:bg-primary/85 text-primary-foreground"
               >
-                {creating && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                
                 Create
               </Button>
             </DialogFooter>

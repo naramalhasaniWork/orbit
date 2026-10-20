@@ -66,7 +66,7 @@ export default function ProfilePage() {
       </div>
 
       {/* Avatar & Identity */}
-      <div className="surface-2 rounded-xl border border-border p-6">
+      <div className="surface-1 rounded-xl border border-border p-6">
         <div className="flex items-start gap-5">
           <div className="shrink-0">
             {session.user?.image ? (
@@ -110,7 +110,7 @@ export default function ProfilePage() {
       </div>
 
       {/* Account Details */}
-      <div className="surface-2 rounded-xl border border-border p-6 space-y-4">
+      <div className="surface-1 rounded-xl border border-border p-6 space-y-4">
         <h3 className="text-sm font-medium text-foreground">Account Details</h3>
 
         <div className="space-y-3">
@@ -141,7 +141,7 @@ export default function ProfilePage() {
       </div>
 
       {/* Workspace Info */}
-      <div className="surface-2 rounded-xl border border-border p-6 space-y-4">
+      <div className="surface-1 rounded-xl border border-border p-6 space-y-4">
         <h3 className="text-sm font-medium text-foreground">Current Workspace</h3>
 
         <div className="space-y-3">
@@ -169,7 +169,7 @@ export default function ProfilePage() {
       </div>
 
       {/* Theme Preference (placeholder) */}
-      <div className="surface-2 rounded-xl border border-border p-6 space-y-3">
+      <div className="surface-1 rounded-xl border border-border p-6 space-y-3">
         <h3 className="text-sm font-medium text-foreground">Preferences</h3>
         <div className="flex items-center justify-between">
           <div>

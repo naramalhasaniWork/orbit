@@ -1,7 +1,8 @@
 "use client";
 
+import { Pending } from "@/components/telemetry/pending";
 import { useState } from "react";
-import { Globe, Loader2 } from "lucide-react";
+import { Globe } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { parseGitHubRepoUrl } from "@/lib/github/public-repo";
@@ -48,7 +49,7 @@ export function PublicRepoInput({ onResolved }: PublicRepoInputProps) {
         lookUp();
       }}
     >
-      <label htmlFor="public-repo-url" className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground uppercase tracking-wider">
+      <label htmlFor="public-repo-url" className="mb-1.5 flex items-center gap-1.5 text-muted-foreground tm-label">
         <Globe className="h-3 w-3" />
         Or paste a public repository link
       </label>
@@ -65,7 +66,7 @@ export function PublicRepoInput({ onResolved }: PublicRepoInputProps) {
           aria-describedby={error ? "public-repo-error" : undefined}
         />
         <Button type="submit" variant="outline" disabled={looking || !value.trim()} className="shrink-0">
-          {looking ? <Loader2 className="h-4 w-4 animate-spin" /> : "Look up"}
+          {looking ? <Pending /> : "Look up"}
         </Button>
       </div>
       {error && (

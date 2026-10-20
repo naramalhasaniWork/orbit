@@ -105,7 +105,7 @@ export function AgentSettingsCard({ config, workspaceId, onSaved }: AgentSetting
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 rounded-lg bg-foreground/[0.06] flex items-center justify-center">
-              <Icon className="w-4.5 h-4.5 text-orbit-accent" />
+              <Icon className="w-4.5 h-4.5 text-foreground" />
             </div>
             <div>
               <h3 className="text-sm font-medium text-foreground">{label}</h3>
@@ -146,7 +146,7 @@ export function AgentSettingsCard({ config, workspaceId, onSaved }: AgentSetting
               step="0.1"
               value={temperature}
               onChange={(e) => setTemperature(parseFloat(e.target.value))}
-              className="w-full h-2 rounded-full appearance-none cursor-pointer bg-foreground/[0.08] accent-orbit-accent"
+              className="w-full h-2 rounded-full appearance-none cursor-pointer bg-foreground/[0.08] accent-[hsl(var(--tm-t1))]"
             />
             <div className="flex justify-between text-[10px] text-muted-foreground">
               <span>Precise (0.0)</span>
@@ -190,7 +190,7 @@ export function AgentSettingsCard({ config, workspaceId, onSaved }: AgentSetting
             onChange={(e) => setCustomPrompt(e.target.value)}
             placeholder="Additional instructions for this agent..."
             rows={3}
-            className="w-full rounded-md bg-foreground/[0.04] border border-transparent px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-orbit-accent resize-y"
+            className="w-full rounded-md bg-foreground/[0.04] border border-transparent px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus-visible:ring-ring resize-y"
           />
         </div>
 
@@ -206,7 +206,7 @@ export function AgentSettingsCard({ config, workspaceId, onSaved }: AgentSetting
             onClick={handleSave}
             disabled={saving || !hasChanges}
             size="sm"
-            className="bg-orbit-accent hover:bg-orbit-accent/90 text-white"
+            className="bg-primary hover:bg-primary/85 text-primary-foreground"
           >
             {saving ? "Saving..." : "Save Changes"}
           </Button>
