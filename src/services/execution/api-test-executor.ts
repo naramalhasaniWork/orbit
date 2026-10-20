@@ -7,7 +7,7 @@ import { substituteCredentials } from "@/lib/utils/credentials";
 import { safeFetch } from "@/lib/utils/ssrf";
 import { isProviderError } from "@/services/execution/error-classifier";
 import type { TestCaseForExecution, TestCaseResult } from "@/services/execution/test-case-executor";
-import { isBudgetExceeded } from "@/server/ai/errors";
+import { isRunAbort } from "@/services/execution/run-abort";
 
 // ============================================================
 // API Test Executor
@@ -123,7 +123,7 @@ export async function executeApiTestCase(
   try {
     plan = await translateToRequestPlan(testCase, environmentUrl, credentials, runId);
   } catch (err) {
-    if (isBudgetExceeded(err)) throw err;
+    if (isRunAbort(err)) throw err;
     const msg = err instanceof Error ? err.message : String(err);
     log(`Translation failed: ${msg}`);
     if (isProviderError(msg)) {
