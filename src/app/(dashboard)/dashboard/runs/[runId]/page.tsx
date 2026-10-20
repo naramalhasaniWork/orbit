@@ -18,17 +18,11 @@ export default async function RunDetailPage({ params }: RunDetailPageProps) {
 
   const { runId } = await params;
 
-  const project = await prisma.project.findFirst({
-    where: { workspaceId },
-    orderBy: { updatedAt: "desc" },
-    select: { id: true },
-  });
-
-  if (!project) notFound();
-
+  // Resolve the project from the run itself so runs of any workspace project open.
   const run = await prisma.testRun.findFirst({
-    where: { id: runId, projectId: project.id },
+    where: { id: runId, project: { workspaceId } },
     include: {
+      project: { select: { id: true, name: true } },
       results: {
         include: {
           testCase: {
@@ -48,9 +42,13 @@ export default async function RunDetailPage({ params }: RunDetailPageProps) {
   });
 
   if (!run) notFound();
+  const project = run.project;
 
   const serializedRun = {
     id: run.id,
+    sequenceNumber: run.sequenceNumber,
+    prNumber: run.prNumber,
+    projectName: project.name,
     status: run.status,
     mode: run.mode,
     trigger: run.trigger,

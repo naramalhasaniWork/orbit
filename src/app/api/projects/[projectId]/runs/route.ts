@@ -11,6 +11,7 @@ import { canConsume } from "@/lib/auth/tenant";
 import { getDefaultEnvironment } from "@/services/execution/environment-validator";
 import { emitRunStarted } from "@/lib/websocket";
 import { enqueueOrDiscard } from "@/services/orchestrator/run-launcher";
+import { requireQueueAvailable, WORKERS_UNAVAILABLE_MESSAGE } from "@/lib/queue/availability";
 
 // ============================================================
 // GET /api/projects/[projectId]/runs — List runs for a project
@@ -40,6 +41,7 @@ export async function GET(
       take: 50,
       select: {
         id: true,
+        sequenceNumber: true,
         status: true,
         mode: true,
         trigger: true,
@@ -155,6 +157,9 @@ export async function POST(
       );
     }
 
+    // Fail fast before creating a run nothing could pick up.
+    await requireQueueAvailable();
+
     // Create the test run
     const run = await prisma.testRun.create({
       data: {
@@ -194,11 +199,7 @@ export async function POST(
       })
     );
     if (!enqueued.ok) {
-      return apiError(
-        "The run queue is unavailable, so the run was not started. Try again shortly.",
-        "QUEUE_UNAVAILABLE",
-        503
-      );
+      return apiError(WORKERS_UNAVAILABLE_MESSAGE, "WORKERS_UNAVAILABLE", 503);
     }
 
     await emitRunStarted(run.id, {

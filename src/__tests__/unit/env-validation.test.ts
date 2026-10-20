@@ -11,6 +11,9 @@ const VALID: Env = {
   GITHUB_CLIENT_SECRET: "secret",
   ENCRYPTION_KEY: "e".repeat(64),
   ANTHROPIC_API_KEY: "sk-ant-x",
+  GITHUB_APP_ID: "123",
+  GITHUB_APP_PRIVATE_KEY: "pem",
+  GITHUB_APP_SLUG: "orbit",
 };
 
 describe("validateEnv", () => {
@@ -20,9 +23,9 @@ describe("validateEnv", () => {
 
   it("lists every missing required variable at once", () => {
     const { errors } = validateEnv({});
-    expect(errors).toHaveLength(8);
+    expect(errors).toHaveLength(11);
     for (const name of Object.keys(VALID)) {
-      expect(errors).toContain(`${name} is missing`);
+      expect(errors.some((e) => e.startsWith(`${name} is missing`))).toBe(true);
     }
   });
 
@@ -42,6 +45,34 @@ describe("validateEnv", () => {
     expect(errors.find((e) => e.startsWith("DATABASE_URL"))).toContain("postgres://");
     expect(errors.find((e) => e.startsWith("NEXTAUTH_URL"))).toContain("full URL");
     expect(errors.find((e) => e.startsWith("NEXTAUTH_SECRET"))).toContain("32 characters");
+  });
+
+  it("requires the GitHub App vars when hosted, but only warns when self-hosted", () => {
+    const { GITHUB_APP_ID, GITHUB_APP_PRIVATE_KEY, GITHUB_APP_SLUG, ...base } = VALID;
+    void GITHUB_APP_ID; void GITHUB_APP_PRIVATE_KEY; void GITHUB_APP_SLUG;
+    const hosted = validateEnv(base);
+    expect(hosted.errors).toHaveLength(3);
+    expect(hosted.errors[0]).toContain("GITHUB_APP_ID is missing");
+    const only = validateEnv({ ...base, GITHUB_APP_ID: "1", GITHUB_APP_SLUG: "s" });
+    expect(only.errors).toEqual([expect.stringContaining("GITHUB_APP_PRIVATE_KEY")]);
+
+    const selfHosted = validateEnv({ ...base, ORBIT_SELF_HOSTED: "true", ORBIT_SIGNUP: "invite" });
+    expect(selfHosted.errors).toEqual([]);
+    expect(selfHosted.warnings.some((w) => w.includes("GITHUB_APP_ID") && w.includes("public repos"))).toBe(true);
+  });
+
+  it("supports r2 as an S3-compatible provider that also needs an endpoint", () => {
+    expect(validateEnv({ ...VALID, STORAGE_PROVIDER: "r2" }).errors).toEqual([
+      "STORAGE_PROVIDER=r2 requires S3_BUCKET, S3_ACCESS_KEY, S3_SECRET_KEY, S3_ENDPOINT",
+    ]);
+    const ok = { ...VALID, STORAGE_PROVIDER: "r2", S3_BUCKET: "b", S3_ACCESS_KEY: "a", S3_SECRET_KEY: "s", S3_ENDPOINT: "https://x.r2.cloudflarestorage.com" };
+    expect(validateEnv(ok).errors).toEqual([]);
+  });
+
+  it("rejects unknown storage providers instead of silently using local disk", () => {
+    expect(validateEnv({ ...VALID, STORAGE_PROVIDER: "gcs" }).errors).toEqual([
+      "STORAGE_PROVIDER=gcs is not supported (use local, s3 or r2)",
+    ]);
   });
 
   it("requires S3 credentials only when STORAGE_PROVIDER=s3", () => {

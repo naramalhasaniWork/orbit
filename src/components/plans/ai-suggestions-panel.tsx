@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import useSWR from "swr";
+import { fetcher } from "@/lib/swr";
 import {
   Lightbulb,
   AlertTriangle,
@@ -11,9 +13,11 @@ import {
   ChevronRight,
   X,
   Loader2,
+  RefreshCw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { apiErrorMessage } from "@/lib/api-client";
+import { InlineError } from "@/components/shared/inline-error";
 
 interface Suggestion {
   id: string;
@@ -24,6 +28,13 @@ interface Suggestion {
   description: string;
   actionLabel: string;
   actionType: string;
+}
+
+const POLL_WINDOW_MS = 3 * 60 * 1000;
+
+interface SuggestionsResponse {
+  suggestions: Suggestion[];
+  ai: { status: "ready" | "pending" | "disabled" | "unavailable"; generatedAt: string | null; stale: boolean };
 }
 
 interface AISuggestionsPanelProps {
@@ -71,31 +82,47 @@ const TYPE_ICONS: Record<string, typeof Lightbulb> = {
 
 export function AISuggestionsPanel({ projectId, onGeneratePlan, refreshKey = 0 }: AISuggestionsPanelProps) {
   const router = useRouter();
-  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
-  const [loading, setLoading] = useState(true);
   const [dismissed, setDismissed] = useState<Set<string>>(new Set());
   const [collapsed, setCollapsed] = useState(false);
   const [actingOn, setActingOn] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [pollSince, setPollSince] = useState(() => Date.now());
+
+  // Rule-based suggestions return immediately; AI ones come from a cache that
+  // a background job fills, so poll while that job runs (bounded, in case no
+  // worker is around to finish it).
+  const { data, isLoading, mutate } = useSWR<SuggestionsResponse>(
+    `/api/projects/${projectId}/suggestions`,
+    fetcher,
+    {
+      revalidateOnFocus: false,
+      refreshInterval: (latest) =>
+        (latest?.ai.status === "pending" || latest?.ai.stale) && Date.now() - pollSince < POLL_WINDOW_MS
+          ? 5000
+          : 0,
+    }
+  );
+  const suggestions = data?.suggestions ?? [];
+  const aiPending = data?.ai.status === "pending" || (data?.ai.stale ?? false);
 
   useEffect(() => {
-    let cancelled = false;
-    setLoading(true);
-
-    async function fetchSuggestions() {
-      try {
-        const res = await fetch(`/api/projects/${projectId}/suggestions`);
-        if (res.ok && !cancelled) {
-          const json = await res.json();
-          setSuggestions(json.data?.suggestions ?? []);
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
+    if (refreshKey > 0) {
+      setPollSince(Date.now());
+      void mutate();
     }
-    fetchSuggestions();
-    return () => { cancelled = true; };
-  }, [projectId, refreshKey]);
+  }, [refreshKey, mutate]);
+
+  const handleRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await fetch(`/api/projects/${projectId}/suggestions`, { method: "POST" });
+      setPollSince(Date.now());
+      await mutate();
+    } finally {
+      setRefreshing(false);
+    }
+  }, [projectId, mutate]);
 
   const handleAction = useCallback(
     async (e: React.MouseEvent, suggestion: Suggestion) => {
@@ -159,35 +186,49 @@ export function AISuggestionsPanel({ projectId, onGeneratePlan, refreshKey = 0 }
 
   const visibleSuggestions = suggestions.filter((s) => !dismissed.has(s.id));
 
-  if (loading || visibleSuggestions.length === 0) return null;
+  if (isLoading || (visibleSuggestions.length === 0 && !aiPending)) return null;
 
   return (
     <div className="rounded-xl surface-1 overflow-hidden">
-      <button
-        type="button"
-        onClick={() => setCollapsed(!collapsed)}
-        className="w-full flex items-center gap-2 px-5 py-3 hover:bg-muted/20 transition-colors"
-      >
-        <Lightbulb className="h-4 w-4 text-orbit-accent shrink-0" />
-        <span className="text-[13px] font-medium text-foreground flex-1 text-left">
-          AI Suggestions
-        </span>
-        <span className="text-xs text-muted-foreground">
-          {visibleSuggestions.length}
-        </span>
-        <ChevronRight
-          className={cn(
-            "h-3.5 w-3.5 text-muted-foreground transition-transform duration-200",
-            !collapsed && "rotate-90"
+      <div className="flex items-center gap-2 pr-3 hover:bg-muted/20 transition-colors">
+        <button
+          type="button"
+          onClick={() => setCollapsed(!collapsed)}
+          className="flex-1 flex items-center gap-2 pl-5 py-3 text-left"
+        >
+          <Lightbulb className="h-4 w-4 text-orbit-accent shrink-0" />
+          <span className="text-[13px] font-medium text-foreground flex-1">AI Suggestions</span>
+          {aiPending && (
+            <span className="text-[11px] text-muted-foreground flex items-center gap-1">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              Updating AI insights
+            </span>
           )}
-        />
-      </button>
+          <span className="text-xs text-muted-foreground">{visibleSuggestions.length}</span>
+          <ChevronRight
+            className={cn(
+              "h-3.5 w-3.5 text-muted-foreground transition-transform duration-200",
+              !collapsed && "rotate-90"
+            )}
+          />
+        </button>
+        {data?.ai.status !== "disabled" && (
+          <button
+            type="button"
+            title="Regenerate AI suggestions"
+            aria-label="Regenerate AI suggestions"
+            disabled={refreshing || aiPending}
+            onClick={() => void handleRefresh()}
+            className="p-1 rounded text-muted-foreground hover:text-foreground disabled:opacity-50"
+          >
+            <RefreshCw className={cn("h-3 w-3", (refreshing || aiPending) && "animate-spin")} />
+          </button>
+        )}
+      </div>
 
       {!collapsed && (
         <div className="border-t border-border px-5 py-3 space-y-2">
-          {actionError && (
-            <p role="alert" className="text-xs text-red-400">{actionError}</p>
-          )}
+          <InlineError message={actionError} />
           {visibleSuggestions.map((suggestion) => {
             const config = SEVERITY_CONFIG[suggestion.severity];
             const typeKey = suggestion.type ?? suggestion.category ?? "";

@@ -8,46 +8,40 @@ import {
   apiError,
   handleApiError,
 } from "@/lib/utils/api";
-
-const DEFAULT_CONFIG: Record<string, unknown> = {
-  maintenance_mode: false,
-  maintenance_message: "",
-  system_announcement: "",
-  feature_flags: {
-    self_healing: true,
-    ai_suggestions: true,
-    parallel_execution: true,
-    visual_regression: false,
-    plugin_marketplace: false,
-  },
-  rate_limits: {
-    runs_per_hour: 50,
-    api_requests_per_minute: 100,
-    concurrent_runs: 5,
-  },
-};
+import {
+  FEATURE_FLAG_DEFAULTS,
+  getSystemConfig,
+  invalidateSystemConfigCache,
+  type FeatureFlag,
+} from "@/lib/system-config";
 
 export async function GET() {
   try {
     await requireSuperAdmin();
+    invalidateSystemConfigCache();
+    const config = await getSystemConfig();
 
-    const configs = await prisma.systemConfig.findMany();
-
-    const configMap: Record<string, unknown> = { ...DEFAULT_CONFIG };
-    for (const c of configs) {
-      configMap[c.key] = c.value;
-    }
-
-    return apiSuccess(configMap);
+    return apiSuccess({
+      maintenance_mode: config.maintenanceMode,
+      maintenance_message: config.maintenanceMessage,
+      system_announcement: config.announcement,
+      feature_flags: config.featureFlags,
+    });
   } catch (error) {
     return handleApiError(error);
   }
 }
 
-const UpdateConfigSchema = z.object({
-  key: z.string().min(1),
-  value: z.unknown(),
-});
+const flagShape = Object.fromEntries(
+  Object.keys(FEATURE_FLAG_DEFAULTS).map((k) => [k, z.boolean()])
+) as Record<FeatureFlag, z.ZodBoolean>;
+
+const UpdateConfigSchema = z.discriminatedUnion("key", [
+  z.object({ key: z.literal("maintenance_mode"), value: z.boolean() }),
+  z.object({ key: z.literal("maintenance_message"), value: z.string().max(500) }),
+  z.object({ key: z.literal("system_announcement"), value: z.string().max(500) }),
+  z.object({ key: z.literal("feature_flags"), value: z.object(flagShape).partial().strict() }),
+]);
 
 export async function PATCH(request: NextRequest) {
   try {
@@ -73,6 +67,8 @@ export async function PATCH(request: NextRequest) {
         updatedBy: session.user.id,
       },
     });
+
+    invalidateSystemConfigCache();
 
     // Log system config change
     const membership = await prisma.workspaceMember.findFirst({

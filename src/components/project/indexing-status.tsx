@@ -44,6 +44,7 @@ export function IndexingStatus({
   const router = useRouter();
   const [isTriggering, setIsTriggering] = useState(false);
   const [streamEnabled, setStreamEnabled] = useState(initialIsIndexing);
+  const [triggerError, setTriggerError] = useState<string | null>(null);
 
   const handleComplete = useCallback(() => {
     // Refresh server data after indexing completes
@@ -52,10 +53,6 @@ export function IndexingStatus({
       router.refresh();
     }, 1500);
   }, [router]);
-
-  const handleError = useCallback(() => {
-    // Keep stream disabled on error
-  }, []);
 
   const {
     status: streamStatus,
@@ -70,7 +67,6 @@ export function IndexingStatus({
     projectId,
     enabled: streamEnabled,
     onComplete: handleComplete,
-    onError: handleError,
   });
 
   // Auto-enable stream if server says indexing is in progress
@@ -82,6 +78,7 @@ export function IndexingStatus({
 
   const triggerReindex = useCallback(async () => {
     setIsTriggering(true);
+    setTriggerError(null);
     try {
       const res = await fetch(`/api/projects/${projectId}/sync`, {
         method: "POST",
@@ -90,16 +87,19 @@ export function IndexingStatus({
       });
       if (res.ok) {
         setStreamEnabled(true);
+      } else {
+        const json = (await res.json().catch(() => ({}))) as { error?: { message?: string } };
+        setTriggerError(json.error?.message ?? `Re-index failed (${res.status})`);
       }
     } catch {
-      // Error handled by stream
+      setTriggerError("Re-index failed. Check your connection and try again.");
     } finally {
       setIsTriggering(false);
     }
   }, [projectId]);
 
   const isActive = streamEnabled && (streamStatus === "indexing" || streamStatus === "connecting");
-  const isFailed = streamStatus === "error" || (indexingError && !isActive);
+  const isFailed = streamStatus === "error" || (indexingError && !isActive) || !!triggerError;
   const isComplete = streamStatus === "complete";
   const nodeCount = isActive || isComplete ? liveNodeCount || initialNodeCount : initialNodeCount;
   const edgeCount = isActive || isComplete ? liveEdgeCount || initialEdgeCount : initialEdgeCount;
@@ -132,7 +132,7 @@ export function IndexingStatus({
       {/* Error state */}
       {isFailed && !isActive && (
         <ErrorView
-          error={indexingError}
+          error={triggerError ?? indexingError}
           onRetry={triggerReindex}
           isTriggering={isTriggering}
         />

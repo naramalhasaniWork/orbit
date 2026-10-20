@@ -132,4 +132,22 @@ describe("POST resend", () => {
     invites = [{ id: "inv1", email: "a@x.com", status: "accepted", expiresAt: new Date(0) }];
     expect((await POST(post({}), rParams)).status).toBe(404);
   });
+
+  it("applies the inviter's role ceiling before re-issuing the token", async () => {
+    const { assertCanManageRole } = await import("@/lib/auth/rbac");
+    vi.mocked(assertCanManageRole).mockImplementationOnce(() => {
+      throw Object.assign(new Error("Cannot manage a role at or above your own"), { status: 403 });
+    });
+    invites = [
+      { id: "inv1", email: "a@x.com", role: "admin", token: "old", status: "pending", expiresAt: new Date(Date.now() + 1000) },
+    ];
+    const { POST } = await import(
+      "@/app/api/workspaces/[workspaceId]/invitations/[invitationId]/resend/route"
+    );
+    const res = await POST(post({}), rParams);
+    expect(res.status).not.toBe(200);
+    expect(assertCanManageRole).toHaveBeenCalledWith("owner", "admin");
+    expect(invites[0].token).toBe("old");
+    expect(sendInvite).not.toHaveBeenCalled();
+  });
 });

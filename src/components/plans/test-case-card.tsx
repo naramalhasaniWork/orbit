@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronDown, ChevronRight, ShieldAlert, Pencil } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { StatusDot } from "@/components/shared/status-dot";
+import { SelectCheckbox } from "@/components/shared/select-checkbox";
 import { cn } from "@/lib/utils";
 import {
   type TestCaseData,
@@ -17,13 +18,19 @@ import { TestCaseEditor } from "@/components/plans/test-case-editor";
 interface TestCaseCardProps {
   testCase: TestCaseData;
   projectId?: string;
+  selected?: boolean;
+  /** Present when the card can be bulk-selected. */
+  onToggleSelect?: (shift: boolean) => void;
 }
 
-export function TestCaseCard({ testCase, projectId }: TestCaseCardProps) {
+export function TestCaseCard({ testCase, projectId, selected = false, onToggleSelect }: TestCaseCardProps) {
   const router = useRouter();
   const [isExpanded, setIsExpanded] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [enabled, setEnabled] = useState(testCase.isEnabled);
+
+  // Bulk approve/skip updates the server value; follow it after the refresh.
+  useEffect(() => setEnabled(testCase.isEnabled), [testCase.isEnabled]);
 
   async function handleToggleEnabled(checked: boolean) {
     const previous = enabled;
@@ -66,10 +73,14 @@ export function TestCaseCard({ testCase, projectId }: TestCaseCardProps) {
     <div
       className={cn(
         "rounded-lg bg-muted/20 transition-colors",
+        selected && "ring-1 ring-orbit-accent/40 bg-orbit-accent/[0.05]",
         !enabled && "opacity-50"
       )}
     >
       <div className="flex items-center gap-3 px-4 py-3">
+        {onToggleSelect && (
+          <SelectCheckbox checked={selected} onToggle={onToggleSelect} label={`Select ${testCase.name}`} />
+        )}
         <button
           type="button"
           onClick={(e) => { e.stopPropagation(); setIsExpanded(!isExpanded); }}

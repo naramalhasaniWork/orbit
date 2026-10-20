@@ -49,12 +49,17 @@ export async function requireWorkspace(): Promise<{
         workspaceId: session.workspaceId,
         userId: session.user.id,
       },
+      // A soft-deleted workspace admits nobody
+      workspace: { deletedAt: null },
     },
-    select: { role: true },
+    select: { role: true, workspace: { select: { deletedAt: true } } },
   });
 
   if (!member) {
     throw new AuthError("Not a member of this workspace", "FORBIDDEN", 403);
+  }
+  if (member.workspace.deletedAt) {
+    throw new AuthError("Workspace has been deleted", "WORKSPACE_DELETED", 403);
   }
 
   return {
@@ -99,9 +104,26 @@ export class AuthError extends Error {
   }
 }
 
+/** A dependency (Redis, the job queue) is down; the request can be retried. */
+export class ServiceUnavailableError extends Error {
+  code: string;
+
+  constructor(message: string, code = "SERVICE_UNAVAILABLE") {
+    super(message);
+    this.code = code;
+    this.name = "ServiceUnavailableError";
+  }
+}
+
 export function handleApiError(error: unknown): NextResponse {
   if (error instanceof AuthError) {
     return apiError(error.message, error.code, error.status);
+  }
+
+  if (error instanceof ServiceUnavailableError) {
+    const res = apiError(error.message, error.code, 503);
+    res.headers.set("Retry-After", "30");
+    return res;
   }
 
   if (error instanceof ZodError) {

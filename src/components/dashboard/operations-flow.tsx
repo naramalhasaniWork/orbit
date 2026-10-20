@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import dynamic from "next/dynamic";
 import {
   type OperationsFlowProps,
   type OperationGraphNode,
@@ -13,9 +12,8 @@ import {
 } from "./operations-flow-types";
 import { OperationsControls } from "./operations-flow-controls";
 
-const ForceGraph2D = dynamic(() => import("react-force-graph-2d"), {
-  ssr: false,
-});
+import { ForceGraph2D } from "./force-graph";
+import { useUrlSelection } from "@/hooks/use-url-state";
 
 export function OperationsFlow({
   operations,
@@ -26,7 +24,9 @@ export function OperationsFlow({
   const graphRef = useRef<any>();
   const containerRef = useRef<HTMLDivElement>(null);
   const [dimensions, setDimensions] = useState({ width: 800, height: 600 });
-  const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
+  // The selected operation (and so its flow) is in the URL (?op=) for reload and sharing.
+  const operationIds = useMemo(() => operations.map((op) => op.id), [operations]);
+  const [selectedNodeId, setSelectedNodeId] = useUrlSelection("op", operationIds);
   const [activeTypes, setActiveTypes] = useState<Set<OperationType>>(
     () => new Set(Object.keys(OPERATION_TYPE_COLORS) as OperationType[])
   );
@@ -126,12 +126,12 @@ export function OperationsFlow({
   // Handlers
   const handleNodeClick = useCallback((node: any) => {
     const gn = node as OperationGraphNode;
-    setSelectedNodeId((prev) => (prev === gn.id ? null : gn.id));
-  }, []);
+    setSelectedNodeId(selectedNodeId === gn.id ? null : gn.id);
+  }, [selectedNodeId, setSelectedNodeId]);
 
   const handleBackgroundClick = useCallback(() => {
     setSelectedNodeId(null);
-  }, []);
+  }, [setSelectedNodeId]);
 
   const handleToggleType = useCallback((type: OperationType) => {
     setActiveTypes((prev) => {
@@ -264,7 +264,7 @@ export function OperationsFlow({
           </div>
         ) : (
           <ForceGraph2D
-            ref={graphRef}
+            graphRef={graphRef}
             graphData={graphData}
             width={dimensions.width}
             height={dimensions.height}

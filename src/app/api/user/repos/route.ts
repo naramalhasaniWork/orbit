@@ -1,3 +1,4 @@
+import { decryptToken } from "@/lib/vault/token";
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import {
@@ -63,7 +64,7 @@ async function getGitHubToken(userId: string): Promise<string | null> {
     where: { userId, provider: "github" },
     select: { access_token: true },
   });
-  return account?.access_token ?? null;
+  return decryptToken(account?.access_token);
 }
 
 async function fetchOAuthRepos(

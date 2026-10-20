@@ -1,25 +1,24 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useSession, signOut } from "next-auth/react";
-import { useCallback, useState } from "react";
 import { HealthBadge } from "./health-badge";
 import { Button } from "@/components/ui/button";
 import {
   Play,
   ChevronDown,
-  User,
-  Settings,
-  Shield,
-  LogOut,
   Loader2,
   AlertTriangle,
   ArrowRight,
+  Menu,
   X,
 } from "lucide-react";
 import { QuickActions } from "@/components/dashboard/quick-actions";
+import { UserMenu } from "@/components/layout/user-menu";
+import { useBreadcrumbValue } from "@/components/layout/breadcrumb-context";
+import { useMobileNav } from "@/components/layout/mobile-nav-context";
+import { useShortcutAction } from "@/components/shortcuts/shortcut-provider";
+import { useStartRun } from "@/hooks/use-start-run";
 import { cn } from "@/lib/utils";
 import {
   DropdownMenu,
@@ -40,34 +39,6 @@ interface HeaderProject {
   status: string;
   hasEnvironment: boolean;
   hasActivePlan: boolean;
-}
-
-interface RunError {
-  message: string;
-  cta?: { label: string; href: string };
-}
-
-/** Map a run-trigger API error code to an actionable CTA link for this project. */
-function ctaForRunError(
-  code: string | undefined,
-  projectId: string
-): RunError["cta"] {
-  switch (code) {
-    case "NO_ENVIRONMENT":
-      return {
-        label: "Configure environment",
-        href: `/dashboard/settings?project=${projectId}&tab=environments`,
-      };
-    case "NO_TEST_PLAN":
-      return {
-        label: "View test plans",
-        href: `/dashboard/plans?project=${projectId}`,
-      };
-    case "LIMIT_REACHED":
-      return { label: "View billing", href: "/dashboard/settings/billing" };
-    default:
-      return undefined;
-  }
 }
 
 interface HeaderProps {
@@ -102,16 +73,16 @@ function getPageTitle(pathname: string | null): string {
 }
 
 export function Header({ projects = [], activeProjectId, healthStatus }: HeaderProps) {
-  const { data: session } = useSession();
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const title = getPageTitle(pathname);
+  const breadcrumbLabel = useBreadcrumbValue();
+  const { setOpen: setNavOpen } = useMobileNav();
+  const title = breadcrumbLabel ?? getPageTitle(pathname);
 
   const active = projects.find((p) => p.id === activeProjectId);
 
-  const [starting, setStarting] = useState(false);
-  const [runError, setRunError] = useState<RunError | null>(null);
+  const { starting, runError, setRunError, startRun } = useStartRun(activeProjectId);
 
   // A project is still being set up until onboarding (index + first plan) completes.
   const isSettingUp = !!active && !active.onboardingCompleted;
@@ -125,39 +96,13 @@ export function Header({ projects = [], activeProjectId, healthStatus }: HeaderP
     ? "Generate a test plan before running tests."
     : null;
 
-  const startRun = useCallback(async () => {
-    if (!activeProjectId || starting) return;
-    setRunError(null);
-    setStarting(true);
-    try {
-      const res = await fetch(`/api/projects/${activeProjectId}/runs`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ trigger: "manual" }),
-      });
-      const json = await res.json().catch(() => ({}));
-      if (res.ok) {
-        const id = (json as { data?: { id?: string } }).data?.id;
-        router.push(
-          id
-            ? `/dashboard/runs/${id}`
-            : `/dashboard/runs?project=${activeProjectId}`
-        );
-        return;
-      }
-      const err = (json as { error?: { message?: string; code?: string } }).error;
-      setRunError({
-        message: err?.message ?? `Failed to start run (${res.status})`,
-        cta: ctaForRunError(err?.code, activeProjectId),
-      });
-    } catch {
-      setRunError({
-        message: "Failed to start run. Check your connection and try again.",
-      });
-    } finally {
-      setStarting(false);
-    }
-  }, [activeProjectId, starting, router]);
+  // "R" shortcut: same gate as the Run button, but say why when blocked.
+  useShortcutAction(
+    "run",
+    active && !isSettingUp
+      ? () => (blockReason ? setRunError({ message: blockReason }) : startRun())
+      : undefined
+  );
 
   function handleSelectProject(projectId: string) {
     const params = new URLSearchParams(searchParams.toString());
@@ -167,17 +112,25 @@ export function Header({ projects = [], activeProjectId, healthStatus }: HeaderP
   }
 
   return (
-    <header className="relative flex items-center justify-between h-12 px-6 surface-1 border-b border-border shrink-0">
-      <div className="flex items-center gap-3">
+    <header className="relative flex items-center justify-between gap-2 h-12 px-3 md:px-6 surface-1 border-b border-border shrink-0">
+      <div className="flex items-center gap-1.5 md:gap-3 min-w-0">
+        <button
+          type="button"
+          aria-label="Open navigation"
+          onClick={() => setNavOpen(true)}
+          className="md:hidden flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-white/[0.06] transition-colors"
+        >
+          <Menu className="h-4 w-4" />
+        </button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className="flex items-center gap-2 px-2 py-1 rounded-md text-sm font-medium text-foreground hover:bg-white/[0.06] transition-colors">
+            <button className="flex items-center gap-2 px-2 py-1 rounded-md text-sm font-medium text-foreground hover:bg-white/[0.06] transition-colors min-w-0">
               <div className="h-5 w-5 rounded bg-orbit-accent/15 flex items-center justify-center">
                 <span className="text-[9px] font-bold text-orbit-accent">
                   {active?.name?.charAt(0)?.toUpperCase() ?? "P"}
                 </span>
               </div>
-              <span className="max-w-[140px] truncate">
+              <span className="max-w-[110px] sm:max-w-[140px] truncate">
                 {active?.name ?? "Select Project"}
               </span>
               <ChevronDown className="h-3.5 w-3.5 text-muted-foreground" />
@@ -232,13 +185,15 @@ export function Header({ projects = [], activeProjectId, healthStatus }: HeaderP
           </DropdownMenuContent>
         </DropdownMenu>
 
-        <span className="text-muted-foreground/40 text-sm">/</span>
-        <span className="text-sm text-muted-foreground">{title}</span>
+        <span className="hidden sm:inline text-muted-foreground/40 text-sm">/</span>
+        <span className="hidden sm:inline text-sm text-muted-foreground truncate">{title}</span>
 
-        <HealthBadge status={healthStatus ?? (active?.healthStatus as "healthy" | "degraded" | "failing") ?? "healthy"} />
+        <div className="hidden sm:block">
+          <HealthBadge projectStatus={healthStatus ?? active?.healthStatus} />
+        </div>
       </div>
 
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 shrink-0">
         <QuickActions
           projectId={activeProjectId ?? undefined}
           projectName={active?.name}
@@ -249,10 +204,11 @@ export function Header({ projects = [], activeProjectId, healthStatus }: HeaderP
           <Link
             href={`/dashboard/onboarding?project=${activeProjectId}`}
             title="This project is still indexing. Finish setup to run tests."
-            className="flex items-center gap-1.5 h-7 px-3 text-xs rounded-md border border-orbit-accent/30 bg-orbit-accent/10 text-orbit-accent hover:bg-orbit-accent/15 transition-colors"
+            aria-label="Setting up"
+            className="flex items-center justify-center gap-1.5 h-8 w-8 sm:h-7 sm:w-auto sm:px-3 text-xs rounded-md border border-orbit-accent/30 bg-orbit-accent/10 text-orbit-accent hover:bg-orbit-accent/15 transition-colors"
           >
             <Loader2 className="h-3 w-3 animate-spin" />
-            Setting up
+            <span className="hidden sm:inline">Setting up</span>
           </Link>
         ) : (
           // Wrapping span keeps the tooltip visible even when the button is disabled.
@@ -261,89 +217,26 @@ export function Header({ projects = [], activeProjectId, healthStatus }: HeaderP
               size="sm"
               disabled={!activeProjectId || !!blockReason || starting}
               onClick={startRun}
-              className="h-7 px-3 text-xs bg-orbit-accent hover:bg-orbit-accent/90 text-white gap-1.5 rounded-md shadow-[0_0_12px_hsl(var(--orbit-accent)/0.2)] disabled:opacity-50 disabled:cursor-not-allowed"
+              aria-label={starting ? "Starting run" : "Run tests"}
+              className="h-8 w-8 p-0 sm:h-7 sm:w-auto sm:px-3 text-xs bg-orbit-accent hover:bg-orbit-accent/90 text-white gap-1.5 rounded-md shadow-[0_0_12px_hsl(var(--orbit-accent)/0.2)] disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {starting ? (
                 <Loader2 className="h-3 w-3 animate-spin" />
               ) : (
                 <Play className="h-3 w-3" />
               )}
-              {starting ? "Starting" : "Run"}
+              <span className="hidden sm:inline">{starting ? "Starting" : "Run"}</span>
             </Button>
           </span>
         )}
 
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button className="rounded-full ring-1 ring-white/10 hover:ring-white/20 transition-all focus:outline-none focus:ring-2 focus:ring-orbit-accent/50">
-              {session?.user?.image ? (
-                <Image
-                  src={session.user.image}
-                  alt=""
-                  width={26}
-                  height={26}
-                  className="rounded-full"
-                />
-              ) : (
-                <div className="h-[26px] w-[26px] rounded-full bg-white/[0.08] flex items-center justify-center">
-                  <span className="text-[10px] font-medium text-muted-foreground">
-                    {session?.user?.name?.charAt(0)?.toUpperCase() ?? "U"}
-                  </span>
-                </div>
-              )}
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56">
-            <DropdownMenuLabel className="font-normal">
-              <div className="flex flex-col gap-1">
-                <p className="text-sm font-medium text-foreground leading-none">
-                  {session?.user?.name ?? "User"}
-                </p>
-                <p className="text-xs text-muted-foreground leading-none">
-                  {session?.user?.email ?? ""}
-                </p>
-              </div>
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <DropdownMenuItem asChild className="cursor-pointer gap-2">
-              <Link href="/dashboard/profile">
-                <User className="h-4 w-4" />
-                Profile Settings
-              </Link>
-            </DropdownMenuItem>
-            <DropdownMenuItem asChild className="cursor-pointer gap-2">
-              <Link href="/dashboard/settings">
-                <Settings className="h-4 w-4" />
-                Workspace Settings
-              </Link>
-            </DropdownMenuItem>
-            {session?.userRole === "super_admin" && (
-              <>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem asChild className="cursor-pointer gap-2">
-                  <Link href="/admin/dashboard">
-                    <Shield className="h-4 w-4" />
-                    Admin Dashboard
-                  </Link>
-                </DropdownMenuItem>
-              </>
-            )}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              className="cursor-pointer gap-2 text-red-400 focus:text-red-400 focus:bg-red-500/10"
-              onClick={() => signOut({ callbackUrl: "/login" })}
-            >
-              <LogOut className="h-4 w-4" />
-              Sign Out
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <UserMenu />
       </div>
 
       {runError && (
         <div
           role="alert"
-          className="absolute right-6 top-full mt-2 z-50 w-[320px] rounded-lg border border-orbit-fail/40 bg-orbit-fail/[0.08] backdrop-blur px-3 py-2.5 shadow-lg"
+          className="absolute right-3 md:right-6 top-full mt-2 z-50 w-[min(320px,calc(100vw-1.5rem))] rounded-lg border border-orbit-fail/40 bg-orbit-fail/[0.08] backdrop-blur px-3 py-2.5 shadow-lg"
         >
           <div className="flex items-start gap-2">
             <AlertTriangle className="h-3.5 w-3.5 text-orbit-fail mt-0.5 shrink-0" />

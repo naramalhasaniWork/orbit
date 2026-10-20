@@ -51,18 +51,17 @@ If your Postgres image does not expose `DATABASE_URL`, set it explicitly:
 
 Mark these as user-provided with no default:
 
-- `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` (GitHub OAuth app)
+- `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` (the GitHub App's OAuth credentials; can be left blank until `/setup`, see [first-run.md](./first-run.md))
 - `ANTHROPIC_API_KEY`
 - `OPENAI_API_KEY` (also used for embeddings)
 - `SUPER_ADMIN_EMAILS` (comma-separated)
 
 ## After deploying
 
-1. Open the `web` service's public domain (generate one under Settings > Networking if missing).
-2. Create a GitHub OAuth app at https://github.com/settings/developers with
-   Homepage URL `https://<domain>` and callback `https://<domain>/api/auth/callback/github`.
-   Put its client id/secret into the `web` variables and redeploy.
-3. Sign in with an email listed in `SUPER_ADMIN_EMAILS`.
+Open the `web` service's public domain (generate one under Settings > Networking if missing). A new
+instance redirects to `/setup`, which checks the deployment and walks through the GitHub App.
+The full walkthrough, with exact field values and troubleshooting, is in
+[first-run.md](./first-run.md). The first account to sign in becomes the admin.
 
 ## Migrations
 

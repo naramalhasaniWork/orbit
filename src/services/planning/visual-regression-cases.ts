@@ -1,23 +1,54 @@
 import type { TestCase } from "@/agents/schemas/test-plan";
 
+interface RouteNode {
+  id: string;
+  type: string;
+  name: string;
+  filePath: string;
+  metadata: Record<string, unknown>;
+}
+
+const routePathOf = (node: RouteNode) => (node.metadata?.path as string) ?? node.name;
+
 /**
- * Generate visual_regression test cases for every route node in the system map.
- * Marks the first run as baseline capture; subsequent runs compare against it.
+ * The layout a route renders under: its Next.js route group when it has one
+ * (`app/(marketing)/...`), otherwise its first path segment.
+ */
+export function routeGroupKey(node: RouteNode): string {
+  const group = node.filePath?.match(/\(([^)/]+)\)/);
+  if (group) return `(${group[1]})`;
+  const first = routePathOf(node).split("/").filter(Boolean)[0];
+  return first ? `/${first}` : "/";
+}
+
+/**
+ * One visual_regression case per top-level layout / route group, using the
+ * shallowest route as its representative. Screenshotting every route mostly
+ * re-tests the same shell and buried real cases under boilerplate.
+ * The first run captures the baseline; later runs compare against it.
  */
 export function generateVisualRegressionCases(
-  systemMap: { nodes: Array<{ id: string; type: string; name: string; filePath: string; metadata: Record<string, unknown> }> },
+  systemMap: { nodes: RouteNode[] },
   existingTestNames: string[]
 ): TestCase[] {
-  const routeNodes = systemMap.nodes.filter((n) => n.type === "route");
-  const cases: TestCase[] = [];
+  const representatives = new Map<string, RouteNode>();
+  for (const node of systemMap.nodes) {
+    if (node.type !== "route" || routePathOf(node).includes("/api/")) continue;
+    const key = routeGroupKey(node);
+    const current = representatives.get(key);
+    if (!current || routePathOf(node).length < routePathOf(current).length) {
+      representatives.set(key, node);
+    }
+  }
 
-  for (const node of routeNodes) {
+  const cases: TestCase[] = [];
+  for (const node of Array.from(representatives.values())) {
     const testName = `Visual regression: ${node.name}`;
 
     // Skip if this visual test already exists
     if (existingTestNames.includes(testName)) continue;
 
-    const routePath = (node.metadata?.path as string) ?? node.name;
+    const routePath = routePathOf(node);
 
     cases.push({
       id: `vr-${node.id.slice(0, 8)}`,

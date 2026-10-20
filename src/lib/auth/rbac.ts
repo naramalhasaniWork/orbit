@@ -28,12 +28,17 @@ export async function getRbacContext(workspaceId: string): Promise<RbacContext> 
         workspaceId,
         userId: session.user.id,
       },
+      // A soft-deleted workspace admits nobody
+      workspace: { deletedAt: null },
     },
-    select: { id: true, role: true },
+    select: { id: true, role: true, workspace: { select: { deletedAt: true } } },
   });
 
   if (!member) {
     throw new AuthError("Not a member of this workspace", "FORBIDDEN", 403);
+  }
+  if (member.workspace.deletedAt) {
+    throw new AuthError("Workspace has been deleted", "WORKSPACE_DELETED", 403);
   }
 
   return {

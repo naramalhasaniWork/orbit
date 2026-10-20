@@ -17,7 +17,7 @@ export default async function MembersSettingsPage() {
   if (!ext.workspaceId) redirect("/login");
 
   const members = await prisma.workspaceMember.findMany({
-    where: { workspaceId: ext.workspaceId },
+    where: { workspaceId: ext.workspaceId, workspace: { deletedAt: null } },
     include: {
       user: {
         select: {

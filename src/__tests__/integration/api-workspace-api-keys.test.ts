@@ -11,7 +11,7 @@ vi.mock("@/lib/auth/audit", () => ({ writeAuditLog: vi.fn() }));
 vi.mock("@/lib/db", () => ({
   prisma: {
     workspaceMember: {
-      findUnique: vi.fn(async () => ({ id: "m1", role: roleRef.role })),
+      findUnique: vi.fn(async () => ({ id: "m1", role: roleRef.role, workspace: { deletedAt: null } })),
     },
     apiKey: {
       findMany: vi.fn(),

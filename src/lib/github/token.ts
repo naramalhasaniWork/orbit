@@ -1,3 +1,4 @@
+import { decryptToken } from "@/lib/vault/token";
 import { prisma } from "@/lib/db";
 import { isGitHubAppConfigured, getInstallationToken } from "@/lib/github/app";
 import { isSelfHosted } from "@/lib/self-host";
@@ -64,7 +65,7 @@ export async function resolveGitHubToken(
     },
   });
 
-  const oauthToken = member?.user?.accounts?.[0]?.access_token;
+  const oauthToken = decryptToken(member?.user?.accounts?.[0]?.access_token);
   if (oauthToken) {
     return { token: oauthToken, source: "oauth" };
   }

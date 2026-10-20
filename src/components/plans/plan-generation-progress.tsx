@@ -1,14 +1,9 @@
 "use client";
 
-import { Loader2, Check, AlertCircle } from "lucide-react";
+import { Check, Loader2, AlertCircle } from "lucide-react";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
-
-export interface PlanPhase {
-  phase: string;
-  message: string;
-  progress: number;
-}
+import type { PlanJobState } from "@/lib/websocket/channels";
 
 const PHASE_LABELS: Record<string, string> = {
   coverage: "Analyzing Coverage",
@@ -21,17 +16,17 @@ const PHASE_LABELS: Record<string, string> = {
 
 const PHASE_ORDER = ["coverage", "journeys", "generating", "prioritizing", "saving", "complete"];
 
+/** Live progress of a background plan generation (see usePlanGeneration). */
 export function PlanGenerationProgress({
-  phase,
+  job,
   error,
-  complete,
 }: {
-  phase: PlanPhase | null;
+  job: PlanJobState | null;
   error: string | null;
-  complete: boolean;
 }) {
-  const currentPhaseIdx = phase ? PHASE_ORDER.indexOf(phase.phase) : -1;
-  const progress = phase?.progress ?? 0;
+  const complete = job?.status === "completed";
+  const currentPhaseIdx = job ? PHASE_ORDER.indexOf(job.phase) : -1;
+  const progress = job?.progress ?? 0;
 
   return (
     <motion.div
@@ -44,7 +39,7 @@ export function PlanGenerationProgress({
       <div className="space-y-2">
         <div className="flex items-center justify-between text-xs">
           <span className="text-foreground font-medium">
-            {error ? "Generation Failed" : phase?.message ?? "Starting..."}
+            {error ? "Generation Failed" : job?.message ?? "Starting..."}
           </span>
           <span className="text-muted-foreground tabular-nums">{progress}%</span>
         </div>

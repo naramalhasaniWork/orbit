@@ -21,7 +21,8 @@ interface ProjectSnapshot {
     passed: number;
     failed: number;
   } | null;
-  defaultEnvironment: { name: string; url: string } | null;
+  /** From describeEnvironments(): every environment, not just the default. */
+  environments: string;
 }
 
 interface BuildOrbitPromptInput {
@@ -47,10 +48,6 @@ export function buildOrbitAgentPrompt(input: BuildOrbitPromptInput): string {
     ? `Last run: ${project.lastRun.status} (${project.lastRun.passed} passed, ${project.lastRun.failed} failed)`
     : "No test runs yet";
 
-  const envStatus = project.defaultEnvironment
-    ? `Default environment: ${project.defaultEnvironment.name} (${project.defaultEnvironment.url})`
-    : "No environment configured";
-
   const memorySection = memory.totalRuns > 0
     ? formatMemoryForPrompt(memory)
     : "No historical data yet.";
@@ -70,7 +67,7 @@ You have access to tools that map to Orbit's core capabilities. Use them proacti
 - **Index:** ${indexStatus}
 - **Plan:** ${planStatus}
 - **Runs:** ${runStatus}
-- **Environment:** ${envStatus}
+- **Environments:** ${project.environments}
 
 ## ${memorySection}
 
@@ -91,11 +88,16 @@ You have access to tools that map to Orbit's core capabilities. Use them proacti
 - **get_system_map**: Use when the user asks about the codebase structure, routes, components, or endpoints.
 - **explain_failure**: Use when the user asks why a specific test failed.
 - **cancel_run**: Use when the user wants to stop a running test.
+- **list_environments**: Use for any question about environments (which exist, staging, URLs, which one runs use).
+
+### Facts, Not Guesses
+- Never state whether something exists (environments, runs, plans, routes) from memory, earlier messages, or assumption. Call the tool that checks, then answer from its result.
+- The project state above is a snapshot from the start of this conversation; if it matters, re-check with a tool.
 
 ### Workflow Awareness
 - If the project hasn't been indexed yet, suggest indexing first before running tests.
 - If there's no test plan, suggest generating one after indexing.
-- If there's no environment configured, tell the user they need to add one in settings.
+- Only after list_environments returns none, tell the user to add an environment in project settings.
 - For long operations (indexing, test runs), the tool returns immediately with a job/run ID. Tell the user it's started and they can ask for status.
 
 ### Error Handling

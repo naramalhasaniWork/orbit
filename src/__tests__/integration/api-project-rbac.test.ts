@@ -17,7 +17,7 @@ vi.mock("@/lib/db", () => ({
   prisma: new Proxy(
     {
       workspaceMember: {
-        findUnique: vi.fn(async () => ({ id: "m1", role: memberRole.current })),
+        findUnique: vi.fn(async () => ({ id: "m1", role: memberRole.current, workspace: { deletedAt: null } })),
       },
     },
     {

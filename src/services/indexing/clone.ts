@@ -1,6 +1,8 @@
 import { prisma } from "@/lib/db";
 import { getStorage } from "@/lib/storage";
 import { resolveGitHubToken } from "@/lib/github/token";
+import { isIgnoredDir, isIndexableFile } from "@/services/indexing/file-filters";
+import { clonePublicGitHubRepository } from "@/services/indexing/adapters/github-public-clone";
 import { cloneGitLabRepository } from "@/services/indexing/adapters/gitlab-clone";
 import { cloneBitbucketRepository } from "@/services/indexing/adapters/bitbucket-clone";
 
@@ -27,27 +29,6 @@ interface GitHubContentItem {
 
 type RepoProvider = "github" | "gitlab" | "bitbucket";
 
-const IGNORED_DIRS = new Set([
-  "node_modules", ".git", ".next", "dist", "build",
-  ".cache", "coverage", ".turbo", ".vercel",
-  "__pycache__", "venv", ".venv",
-]);
-
-const INDEXABLE_EXTENSIONS = new Set([
-  ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs",
-  ".py", ".rb", ".go", ".rs", ".java", ".vue", ".svelte",
-  ".json", ".yaml", ".yml", ".toml", ".graphql", ".gql", ".prisma",
-]);
-
-function isIndexableFile(path: string): boolean {
-  const ext = path.substring(path.lastIndexOf("."));
-  return INDEXABLE_EXTENSIONS.has(ext);
-}
-
-function isIgnoredDir(name: string): boolean {
-  return IGNORED_DIRS.has(name);
-}
-
 /**
  * Detect provider from repo URL.
  */
@@ -61,15 +42,14 @@ export function detectProvider(repoUrl: string): RepoProvider {
 // GitHub clone
 // ============================================================
 
-async function getGitHubAccessToken(projectId: string): Promise<string> {
-  // Prefer GitHub App installation token (works for org repos with restricted OAuth)
+/** Prefer a GitHub App installation token (works for org repos with restricted OAuth). */
+async function getGitHubAccessToken(projectId: string): Promise<string | null> {
   const resolved = await resolveGitHubToken(projectId);
   if (resolved) {
     console.log(`[clone] Using ${resolved.source} token for project ${projectId}`);
     return resolved.token;
   }
-
-  throw new Error("No GitHub access token found for project");
+  return null;
 }
 
 // A single hung request without a timeout stalls the whole index job
@@ -133,9 +113,18 @@ async function cloneGitHub(
   repo: string,
   branch: string
 ): Promise<CloneResult> {
-  const token = await getGitHubAccessToken(projectId);
-  const storage = getStorage();
+  const resolvedToken = await getGitHubAccessToken(projectId);
   const localPath = `repos/${projectId}/${branch}`;
+
+  // No token anywhere (a repo added by pasting its public URL): read it anonymously.
+  if (!resolvedToken) {
+    console.log(`[clone] No GitHub token for project ${projectId}; cloning ${owner}/${repo} anonymously`);
+    const result = await clonePublicGitHubRepository(owner, repo, branch, localPath);
+    return { localPath, ...result };
+  }
+  const token: string = resolvedToken;
+
+  const storage = getStorage();
   const fileTree: FileEntry[] = [];
   const downloads: Array<{ path: string; url: string }> = [];
   let totalSize = 0;

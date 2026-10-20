@@ -18,11 +18,11 @@ export async function POST(
     const invitation = await prisma.workspaceInvitation.findUnique({
       where: { token },
       include: {
-        workspace: { select: { id: true, name: true, slug: true } },
+        workspace: { select: { id: true, name: true, slug: true, deletedAt: true } },
       },
     });
 
-    if (!invitation) {
+    if (!invitation || invitation.workspace.deletedAt) {
       return apiError("Invitation not found", "NOT_FOUND", 404);
     }
 

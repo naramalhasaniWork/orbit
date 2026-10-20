@@ -3,6 +3,8 @@ import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { DashboardClient } from "@/components/dashboard/dashboard-client";
+import { FinishSetupCard } from "@/components/dashboard/finish-setup-card";
+import { getFinishSetupSteps } from "@/lib/setup/finish-setup";
 import {
   computeDashboardStats,
   getActiveRun,
@@ -165,17 +167,25 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
     };
   }
 
+  const finishSetupSteps = await getFinishSetupSteps(
+    workspaceId,
+    (session as { role?: string }).role
+  );
+
   return (
-    <DashboardClient
-      projects={projects}
-      activeProject={activeProject ?? null}
-      recentRuns={recentRuns}
-      stats={stats}
-      activeRun={activeRun}
-      mapNodes={mapNodes}
-      mapEdges={mapEdges}
-      indexingInfo={indexingInfo}
-      syncInfo={syncInfo}
-    />
+    <>
+      {finishSetupSteps && <FinishSetupCard workspaceId={workspaceId} steps={finishSetupSteps} />}
+      <DashboardClient
+        projects={projects}
+        activeProject={activeProject ?? null}
+        recentRuns={recentRuns}
+        stats={stats}
+        activeRun={activeRun}
+        mapNodes={mapNodes}
+        mapEdges={mapEdges}
+        indexingInfo={indexingInfo}
+        syncInfo={syncInfo}
+      />
+    </>
   );
 }

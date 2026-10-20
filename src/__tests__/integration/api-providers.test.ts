@@ -14,6 +14,9 @@ const mockPrisma = vi.hoisted(() => ({
 }));
 
 vi.mock("@/lib/db", () => ({ prisma: mockPrisma }));
+vi.mock("dns/promises", () => ({
+  lookup: vi.fn(async () => [{ address: "93.184.216.34", family: 4 }]),
+}));
 
 vi.mock("@/lib/auth/rbac", () => ({
   requirePermission: vi.fn().mockResolvedValue({
@@ -332,6 +335,38 @@ describe("provider config API", () => {
       const json = await response.json();
 
       expect(response.status).toBe(404);
+    });
+  });
+
+  describe("baseUrl SSRF validation at save time", () => {
+    const bad = ["http://169.254.169.254", "http://localhost:11434", "http://10.0.0.5/v1", "file:///etc/passwd"];
+
+    it.each(bad)("POST rejects %s and stores nothing", async (baseUrl) => {
+      const res = await POST(makeRequest({ provider: "custom", displayName: "C", apiKey: "k", baseUrl }), defaultParams);
+      expect(res.status).toBe(400);
+      expect(mockPrisma.providerConfig.create).not.toHaveBeenCalled();
+    });
+
+    it.each(bad)("PUT rejects %s and updates nothing", async (baseUrl) => {
+      mockPrisma.providerConfig.findUnique.mockResolvedValueOnce({ id: "pc-1", provider: "custom" });
+      const req = new NextRequest("http://localhost/api/test", { method: "PUT", body: JSON.stringify({ baseUrl }) });
+      const res = await PUT(req, providerParams);
+      expect(res.status).toBe(400);
+      expect(mockPrisma.providerConfig.update).not.toHaveBeenCalled();
+    });
+
+    it("POST accepts a public base URL", async () => {
+      mockPrisma.providerConfig.findUnique.mockResolvedValueOnce(null);
+      mockPrisma.providerConfig.create.mockResolvedValueOnce({
+        id: "pc-n", provider: "custom", displayName: "C", isActive: true, isDefault: false,
+        baseUrl: "https://llm.example.com", settings: null, apiKeyEncrypted: "iv:e",
+        createdAt: new Date(), updatedAt: new Date(),
+      });
+      const res = await POST(
+        makeRequest({ provider: "custom", displayName: "C", apiKey: "k", baseUrl: "https://llm.example.com" }),
+        defaultParams
+      );
+      expect(res.status).toBe(201);
     });
   });
 });

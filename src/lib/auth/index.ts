@@ -1,7 +1,7 @@
 import type { AuthOptions } from "next-auth";
 import GitHubProvider from "next-auth/providers/github";
 import GitLabProvider from "next-auth/providers/gitlab";
-import { PrismaAdapter } from "@next-auth/prisma-adapter";
+import { createEncryptingAdapter } from "./adapter";
 import { prisma } from "@/lib/db";
 import { generateSlug } from "@/lib/utils/slug";
 import { encryptToken } from "@/lib/vault/token";
@@ -13,7 +13,7 @@ const SIGNIN_ATTEMPTS_PER_ACCOUNT = 10;
 const SIGNIN_WINDOW_SEC = 600;
 
 export const authOptions: AuthOptions = {
-  adapter: PrismaAdapter(prisma),
+  adapter: createEncryptingAdapter(),
   providers: [
     GitHubProvider({
       clientId: process.env.GITHUB_CLIENT_ID!,
@@ -61,6 +61,7 @@ export const authOptions: AuthOptions = {
           where: {
             userId: token.userId as string,
             workspaceId: requestedId,
+            workspace: { deletedAt: null },
           },
           include: { workspace: { select: { slug: true } } },
         });
@@ -81,9 +82,15 @@ export const authOptions: AuthOptions = {
             // upgrades any legacy plaintext value on the user's next login.
             if (user?.id) {
               try {
+                const encrypted = encryptToken(account.access_token);
                 await prisma.user.update({
                   where: { id: user.id },
-                  data: { githubAccessToken: encryptToken(account.access_token) },
+                  data: { githubAccessToken: encrypted },
+                });
+                // Keeps the accounts row fresh and upgrades legacy plaintext to ciphertext
+                await prisma.account.updateMany({
+                  where: { userId: user.id, provider: "github" },
+                  data: { access_token: encrypted },
                 });
               } catch (err) {
                 console.error("[Auth] Could not store encrypted GitHub token:", err);
@@ -127,7 +134,8 @@ export const authOptions: AuthOptions = {
           token.userRole = dbUser?.role ?? "user";
 
           const membership = await prisma.workspaceMember.findFirst({
-            where: { userId: user.id },
+            where: { userId: user.id, workspace: { deletedAt: null } },
+            orderBy: { createdAt: "desc" }, // most recently joined
             include: { workspace: { select: { slug: true } } },
           });
 
@@ -143,6 +151,7 @@ export const authOptions: AuthOptions = {
                   email: user.email!.toLowerCase(),
                   status: "pending",
                   expiresAt: { gt: new Date() },
+                  workspace: { deletedAt: null },
                 },
                 include: {
                   workspace: { select: { id: true, slug: true } },

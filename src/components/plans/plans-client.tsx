@@ -2,19 +2,23 @@
 
 import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { ClipboardList, Plus, Loader2, AlertCircle } from "lucide-react";
+import { ClipboardList, Plus, Loader2 } from "lucide-react";
 import { AnimatePresence } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/shared/empty-state";
 import { PlanRow } from "@/components/plans/plan-row";
 import { CoverageMap } from "@/components/plans/coverage-map";
 import { AISuggestionsPanel } from "@/components/plans/ai-suggestions-panel";
+import { PlanGenerationProgress } from "@/components/plans/plan-generation-progress";
+import { usePlanGeneration } from "@/hooks/use-plan-generation";
 import {
   type TestPlanData,
   computePlanStats,
 } from "@/components/plans/plan-types";
-import { apiErrorMessage } from "@/lib/api-client";
-import { PlanGenerationProgress, type PlanPhase } from "@/components/plans/plan-generation-progress";
+import { useUrlParams } from "@/hooks/use-url-state";
+import { resolveExpandedPlanId } from "@/lib/plans/test-case-filter";
+
+const URL_DEFAULTS = { plan: "" };
 
 interface CoverageNode {
   id: string;
@@ -30,7 +34,7 @@ interface PlansClientProps {
   projectName: string | null;
   plans: TestPlanData[];
   coverageNodes?: CoverageNode[];
-  /** False until the repository has been indexed; generating is refused (409) */
+  /** False until the repository is indexed; generating is refused (409) */
   isIndexed?: boolean;
 }
 
@@ -40,87 +44,20 @@ export function PlansClient({
   projectId, projectName, plans, coverageNodes = [], isIndexed = true,
 }: PlansClientProps) {
   const router = useRouter();
-  const [expandedPlanId, setExpandedPlanId] = useState<string | null>(
-    plans.find((p) => p.isActive)?.id ?? null
-  );
-  const [generating, setGenerating] = useState(false);
-  const [currentPhase, setCurrentPhase] = useState<PlanPhase | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [complete, setComplete] = useState(false);
+  // Which plan is open is part of the URL (empty = the active plan, "none" = all collapsed).
+  const [urlState, setUrlState] = useUrlParams(URL_DEFAULTS);
+  const expandedPlanId = resolveExpandedPlanId(urlState.plan, plans);
   const [suggestionsRefreshKey, setSuggestionsRefreshKey] = useState(0);
 
-  const handleGenerate = useCallback(async () => {
-    if (!projectId || generating || !isIndexed) return;
+  const handleCompleted = useCallback(() => {
+    setSuggestionsRefreshKey((k) => k + 1);
+    router.refresh();
+  }, [router]);
 
-    setGenerating(true);
-    setCurrentPhase(null);
-    setError(null);
-    setComplete(false);
-
-    // Track whether the stream ended with an error using a local variable
-    // (avoids the stale-closure issue with reading React state mid-async)
-    let streamFailed = false;
-
-    try {
-      const response = await fetch(`/api/projects/${projectId}/plan`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mode: "full", stream: true }),
-      });
-
-      if (!response.ok) {
-        throw new Error(await apiErrorMessage(response, "Failed to generate plan"));
-      }
-
-      const reader = response.body?.getReader();
-      if (!reader) throw new Error("No response body");
-
-      const decoder = new TextDecoder();
-      let buffer = "";
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split("\n");
-        buffer = lines.pop() ?? "";
-
-        let eventType = "";
-        for (const line of lines) {
-          if (line.startsWith("event: ")) {
-            eventType = line.slice(7);
-          } else if (line.startsWith("data: ") && eventType) {
-            try {
-              const data = JSON.parse(line.slice(6));
-              if (eventType === "plan:phase") {
-                setCurrentPhase(data);
-              } else if (eventType === "plan:complete") {
-                setCurrentPhase({ phase: "complete", message: "Plan generated!", progress: 100 });
-                setComplete(true);
-                setSuggestionsRefreshKey((k) => k + 1);
-              } else if (eventType === "plan:error") {
-                streamFailed = true;
-                setError(data.message);
-              }
-            } catch {
-              // Skip malformed events
-            }
-            eventType = "";
-          }
-        }
-      }
-
-      if (!streamFailed) {
-        await new Promise((r) => setTimeout(r, 800));
-        router.refresh();
-      }
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Generation failed");
-    } finally {
-      setGenerating(false);
-    }
-  }, [projectId, generating, isIndexed, router]);
+  const generation = usePlanGeneration({ projectId, onCompleted: handleCompleted });
+  const generating = generation.active || generation.starting;
+  const { start } = generation;
+  const handleGenerate = useCallback(() => start({ mode: "full" }), [start]);
 
   if (!projectId) {
     return (
@@ -142,22 +79,10 @@ export function PlansClient({
         onGenerate={handleGenerate}
       />
 
-      {/* Errors stay visible after the progress panel closes */}
-      {error && !generating && (
-        <div role="alert" className="flex items-start gap-2 text-sm text-red-400 bg-red-400/[0.06] rounded-md px-3 py-2">
-          <AlertCircle className="h-4 w-4 shrink-0 mt-0.5" />
-          <span>{error}</span>
-        </div>
-      )}
-
       {/* Generation progress overlay */}
       <AnimatePresence>
-        {generating && (
-          <PlanGenerationProgress
-            phase={currentPhase}
-            error={error}
-            complete={complete}
-          />
+        {(generating || generation.error) && (
+          <PlanGenerationProgress job={generation.job} error={generation.error} />
         )}
       </AnimatePresence>
 
@@ -191,8 +116,10 @@ export function PlansClient({
                 plan={plan}
                 stats={stats}
                 isExpanded={isExpanded}
-                onToggle={() => setExpandedPlanId(isExpanded ? null : plan.id)}
+                onToggle={() => setUrlState({ plan: isExpanded ? "none" : plan.id })}
                 projectId={projectId}
+                onRegenerate={handleGenerate}
+                generating={generating}
               />
             );
           })}
@@ -205,7 +132,7 @@ export function PlansClient({
       {projectId && (
         <AISuggestionsPanel
           projectId={projectId}
-          onGeneratePlan={isIndexed ? handleGenerate : () => setError(NOT_INDEXED_HINT)}
+          onGeneratePlan={isIndexed ? handleGenerate : undefined}
           refreshKey={suggestionsRefreshKey}
         />
       )}

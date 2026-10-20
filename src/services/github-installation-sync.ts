@@ -200,6 +200,8 @@ async function findWorkspaceForGitHubUser(
       user: {
         select: {
           memberships: {
+            where: { workspace: { deletedAt: null } },
+            orderBy: { createdAt: "desc" },
             select: { workspaceId: true },
             take: 1,
           },

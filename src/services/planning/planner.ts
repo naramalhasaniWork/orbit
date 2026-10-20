@@ -18,6 +18,12 @@ interface SemanticNode {
   similarity: number;
 }
 
+export interface PlanProgress {
+  phase: "coverage" | "journeys" | "generating" | "prioritizing" | "saving";
+  message: string;
+  progress: number;
+}
+
 interface PlannerInput {
   projectId: string;
   mode?: "full" | "smoke" | "regression" | "targeted";
@@ -25,6 +31,7 @@ interface PlannerInput {
   excludePaths?: string[];
   maxTestCases?: number;
   operationsMap?: OperationsMap;
+  onProgress?: (progress: PlanProgress) => Promise<void> | void;
 }
 
 interface PlannerResult {
@@ -44,6 +51,9 @@ export async function generatePlan(input: PlannerInput): Promise<PlannerResult> 
     maxTestCases,
     operationsMap,
   } = input;
+  const report = async (p: PlanProgress) => {
+    await input.onProgress?.(p);
+  };
 
   // Retrieve semantic context for focus areas (non-blocking)
   let semanticContext: SemanticNode[] = [];
@@ -84,11 +94,18 @@ export async function generatePlan(input: PlannerInput): Promise<PlannerResult> 
   } catch { /* git history unavailable */ }
 
   // Step 1: Analyze coverage and reconstruct journeys in parallel
+  await report({ phase: "coverage", message: "Analyzing coverage gaps...", progress: 10 });
   const useSemanticMatching = semanticContext.length > 0;
   const [coverage, journeys] = await Promise.all([
     analyzeCoverage(projectId, operationsMap, useSemanticMatching),
     reconstructJourneys(projectId, operationsMap, useSemanticMatching),
   ]);
+
+  await report({
+    phase: "journeys",
+    message: `Found ${journeys.length} user journeys, ${coverage.untestedRoutes.length} untested routes`,
+    progress: 25,
+  });
 
   // Step 2: Determine next version
   const version = await getNextVersion(projectId);
@@ -104,9 +121,15 @@ export async function generatePlan(input: PlannerInput): Promise<PlannerResult> 
     excludePaths,
     maxTestCases,
     operationsMap,
+    onProgress: (message, progress) => report({ phase: "generating", message, progress }),
   });
 
   // Step 4: Prioritize and filter
+  await report({
+    phase: "prioritizing",
+    message: `Generated ${generationResult.testCases.length} test cases, prioritizing...`,
+    progress: 85,
+  });
   const prioritized = prioritizeTestCases(generationResult.testCases, coverage);
   const filtered = filterByMode(prioritized, mode, maxTestCases);
 
@@ -114,6 +137,7 @@ export async function generatePlan(input: PlannerInput): Promise<PlannerResult> 
   const summary = buildSummary(filtered, generationResult.metadata, operationsMap);
 
   // Step 6: Store plan in database
+  await report({ phase: "saving", message: "Saving test plan...", progress: 92 });
   const { plan, testCases } = await storePlan(projectId, version, filtered, summary);
 
   return {
