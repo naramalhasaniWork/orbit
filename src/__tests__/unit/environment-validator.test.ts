@@ -13,6 +13,16 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 
+// The connect-time transport is covered in ssrf-transport.test.ts; here it just uses (stubbed) fetch
+vi.mock("@/lib/utils/ssrf-transport", () => ({
+  pinnedRequest: (url: URL, init: RequestInit) => globalThis.fetch(url, init),
+}));
+
+// Public DNS answer so the real SSRF guard runs without network access
+vi.mock("dns/promises", () => ({
+  lookup: vi.fn(async () => [{ address: "93.184.216.34", family: 4 }]),
+}));
+
 vi.mock("@/lib/vault", () => ({
   decrypt: vi.fn(),
 }));
@@ -108,6 +118,43 @@ describe("environment-validator", () => {
 
       expect(result.valid).toBe(false);
       expect(result.errors[0]).toContain("not reachable");
+    });
+
+    it("blocks environment URLs that point at internal addresses without fetching", async () => {
+      mockPrisma.environment.findUnique.mockResolvedValue({
+        id: "env-1",
+        type: "staging",
+        url: "http://169.254.169.254/latest/meta-data",
+        projectId: "proj-1",
+        project: { id: "proj-1", name: "App" },
+      });
+      mockPrisma.secret.findMany.mockResolvedValue([]);
+
+      const result = await validateEnvironment("env-1");
+
+      expect(result.valid).toBe(false);
+      expect(result.errors[0]).toContain("URL blocked");
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    it("blocks a redirect from a public URL to an internal one", async () => {
+      mockPrisma.environment.findUnique.mockResolvedValue({
+        id: "env-1",
+        type: "staging",
+        url: "https://staging.example.com",
+        projectId: "proj-1",
+        project: { id: "proj-1", name: "App" },
+      });
+      mockPrisma.secret.findMany.mockResolvedValue([]);
+      mockFetch.mockResolvedValue(
+        new Response(null, { status: 302, headers: { location: "http://localhost:6379" } })
+      );
+
+      const result = await validateEnvironment("env-1");
+
+      expect(result.valid).toBe(false);
+      expect(result.errors[0]).toContain("URL blocked");
+      expect(mockFetch).toHaveBeenCalledTimes(1);
     });
 
     it("treats 401/403 as reachable (auth required is ok)", async () => {

@@ -42,6 +42,12 @@ import { AuthError } from "@/lib/utils/api";
 import { sealSecret } from "@/lib/integrations/secret-field";
 import { isAllowedWebhookUrl } from "@/lib/integrations/webhook-url";
 
+// Delivery goes through the DNS-pinned safeFetch; route it to the stubbed global fetch here.
+vi.mock("@/lib/utils/ssrf", () => ({
+  safeFetch: (url: string, init: RequestInit = {}, opts: { followRedirects?: boolean } = {}) =>
+    fetch(url, { ...init, redirect: opts.followRedirects === false ? "manual" : "follow" }),
+}));
+
 const pParams = { params: Promise.resolve({ projectId: "p1" }) };
 const retryParams = { params: Promise.resolve({ projectId: "p1", deliveryId: "d1" }) };
 const req = (method: string, body?: unknown) =>
@@ -108,11 +114,11 @@ describe("generic project settings cannot touch integration credentials", () => 
 });
 
 describe("webhook retry route", () => {
-  it("requires projects.update", async () => {
+  it("requires integrations.manage", async () => {
     requirePermission.mockRejectedValue(new AuthError("denied", "FORBIDDEN", 403));
     const { POST } = await import("@/app/api/projects/[projectId]/webhook-deliveries/[deliveryId]/retry/route");
     expect((await POST(req("POST"), retryParams)).status).toBe(403);
-    expect(requirePermission).toHaveBeenCalledWith("w1", "projects.update");
+    expect(requirePermission).toHaveBeenCalledWith("w1", "integrations.manage");
   });
 
   it("refuses with 409 when the endpoint is gone or its secret is unresolvable", async () => {

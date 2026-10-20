@@ -6,6 +6,7 @@ import {
   apiError,
   handleApiError,
 } from "@/lib/utils/api";
+import { requirePermission } from "@/lib/auth/rbac";
 
 export async function DELETE(
   _request: NextRequest,
@@ -18,6 +19,8 @@ export async function DELETE(
     if (authedWorkspaceId !== workspaceId) {
       return apiError("Forbidden", "FORBIDDEN", 403);
     }
+
+    await requirePermission(workspaceId, "integrations.manage");
 
     await prisma.gitHubInstallation.deleteMany({
       where: { workspaceId },

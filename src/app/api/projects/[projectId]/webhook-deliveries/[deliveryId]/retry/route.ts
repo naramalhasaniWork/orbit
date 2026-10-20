@@ -8,6 +8,7 @@ import {
 } from "@/lib/utils/api";
 import { requirePermission } from "@/lib/auth/rbac";
 import { isAllowedWebhookUrl } from "@/lib/integrations/webhook-url";
+import { safeFetch } from "@/lib/utils/ssrf";
 import {
   signPayload,
   truncateResponse,
@@ -28,7 +29,7 @@ export async function POST(
   try {
     const { workspaceId } = await requireWorkspace();
     const { projectId, deliveryId } = await params;
-    await requirePermission(workspaceId, "projects.update");
+    await requirePermission(workspaceId, "integrations.manage");
 
     const project = await prisma.project.findFirst({
       where: { id: projectId, workspaceId },
@@ -64,7 +65,7 @@ export async function POST(
     const body = JSON.stringify(delivery.payload);
     const signature = signPayload(body, secret);
 
-    const response = await fetch(delivery.url, {
+    const response = await safeFetch(delivery.url, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -73,9 +74,8 @@ export async function POST(
         "X-Orbit-Delivery-Attempt": String(delivery.attempts + 1),
       },
       body,
-      redirect: "manual",
       signal: AbortSignal.timeout(10000),
-    });
+    }, { followRedirects: false });
 
     await prisma.webhookDelivery.update({
       where: { id: deliveryId },

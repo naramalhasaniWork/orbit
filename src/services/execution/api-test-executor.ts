@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { createTrackedCompletion } from "@/lib/ai/tracked-completion";
 import { getModelForTask } from "@/lib/ai/model-router";
 import { parseLlmJson } from "@/lib/utils/json-parse";
+import { substituteCredentials } from "@/lib/utils/credentials";
 import { isProviderError } from "@/services/execution/test-case-executor";
 import type { TestCaseForExecution, TestCaseResult } from "@/services/execution/test-case-executor";
 
@@ -68,16 +69,6 @@ Rules:
 
 Respond with ONLY JSON:
 {"requiresUi": boolean, "requests": [{"method": "GET", "path": "/api/...", "headers": {}, "body": null, "expectStatus": [401, 403], "expectBodyContains": null, "description": "why this request"}]}`;
-}
-
-export function substituteCredentials(
-  value: string,
-  credentials: Record<string, string>
-): string {
-  return value.replace(
-    /\{\{credential:([^}]+)\}\}/g,
-    (_, key: string) => credentials[key.trim()] ?? ""
-  );
 }
 
 async function translateToRequestPlan(

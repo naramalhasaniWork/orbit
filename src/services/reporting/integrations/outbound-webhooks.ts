@@ -1,6 +1,7 @@
 import { createHmac } from "crypto";
 import { prisma } from "@/lib/db";
 import { isAllowedWebhookUrl } from "@/lib/integrations/webhook-url";
+import { safeFetch } from "@/lib/utils/ssrf";
 import { readStoredWebhooks, resolveWebhookSecret } from "./webhook-store";
 import type { RunSummary, FailureSummary } from "@/agents/schemas/run-summary";
 
@@ -76,7 +77,7 @@ async function deliverWebhook(
 
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     try {
-      const response = await fetch(endpoint.url, {
+      const response = await safeFetch(endpoint.url, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -85,9 +86,8 @@ async function deliverWebhook(
           "X-Orbit-Delivery-Attempt": String(attempt),
         },
         body,
-        redirect: "manual",
         signal: AbortSignal.timeout(10000),
-      });
+      }, { followRedirects: false });
 
       // Log delivery
       await prisma.webhookDelivery.create({

@@ -1,5 +1,9 @@
 export async function register() {
   if (process.env.NEXT_RUNTIME === "nodejs") {
+    // Fail fast with a readable list instead of crashing later on the first request
+    const { assertEnv } = await import("@/lib/env");
+    assertEnv();
+
     const { ensureVectorSetup } = await import("@/lib/db/vector");
     ensureVectorSetup().catch((err) => {
       console.error("[Instrumentation] pgvector setup failed:", err);

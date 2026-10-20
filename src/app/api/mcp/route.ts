@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { validateApiKey } from "@/lib/auth/api-key";
+import { requireApiKey } from "@/lib/auth/api-key";
 import {
   handleMCPRequest,
   parseJsonRpcRequest,
@@ -12,12 +12,13 @@ import type { JsonRpcResponse } from "@/services/mcp/transport";
  * POST /api/mcp — JSON-RPC request/response
  * GET  /api/mcp — SSE stream for server-initiated notifications
  *
- * Authentication: Bearer token (API key from workspace settings).
+ * Authentication: Bearer token (workspace API key).
  */
 
 export async function POST(req: NextRequest) {
-  const auth = await validateApiKey(req);
-  if (!auth) {
+  const auth = await requireApiKey(req);
+  if (auth instanceof NextResponse) {
+    if (auth.status !== 401) return auth;
     return NextResponse.json(
       {
         jsonrpc: "2.0",
@@ -61,9 +62,9 @@ export async function POST(req: NextRequest) {
  * Clients connect here to receive run progress updates, completion events, etc.
  */
 export async function GET(req: NextRequest) {
-  const auth = await validateApiKey(req);
-  if (!auth) {
-    return new NextResponse("Unauthorized", { status: 401 });
+  const auth = await requireApiKey(req);
+  if (auth instanceof NextResponse) {
+    return auth.status === 401 ? new NextResponse("Unauthorized", { status: 401 }) : auth;
   }
 
   const encoder = new TextEncoder();

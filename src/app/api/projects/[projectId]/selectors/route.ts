@@ -11,6 +11,7 @@ import {
   approveMapping,
   revokeMapping,
 } from "@/services/execution/selector-memory";
+import { requirePermission } from "@/lib/auth/rbac";
 
 // ============================================================
 // GET /api/projects/[projectId]/selectors
@@ -53,6 +54,7 @@ export async function PATCH(
 ) {
   try {
     const { workspaceId } = await requireWorkspace();
+    await requirePermission(workspaceId, "plans.update");
     const { projectId } = await params;
 
     const project = await prisma.project.findFirst({

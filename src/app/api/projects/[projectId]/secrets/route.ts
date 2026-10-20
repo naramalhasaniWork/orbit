@@ -8,6 +8,7 @@ import {
   apiError,
   handleApiError,
 } from "@/lib/utils/api";
+import { requirePermission } from "@/lib/auth/rbac";
 
 export async function GET(
   _request: NextRequest,
@@ -50,6 +51,7 @@ export async function POST(
 ) {
   try {
     const { workspaceId } = await requireWorkspace();
+    await requirePermission(workspaceId, "secrets.manage");
     const { projectId } = await params;
 
     const project = await prisma.project.findFirst({
