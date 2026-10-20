@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { motion } from "framer-motion";
@@ -22,6 +23,7 @@ import {
 import { Logo } from "@/components/ui/logo";
 import { cn } from "@/lib/utils";
 import { WorkspaceSwitcher } from "@/components/team/workspace-switcher";
+import { useMobileNav } from "@/components/layout/mobile-nav-context";
 
 const navigation = [
   { name: "Agent", href: "/dashboard/agent", icon: Sparkles },
@@ -45,13 +47,40 @@ export function Sidebar() {
   const { data: session } = useSession();
   const workspaceId = (session as { workspaceId?: string } | null)?.workspaceId;
   const projectParam = searchParams.get("project");
+  const { open, setOpen } = useMobileNav();
+
+  // Close the drawer after navigating, and on Escape.
+  useEffect(() => setOpen(false), [pathname, setOpen]);
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, setOpen]);
 
   return (
-    <aside className="flex flex-col w-14 hover:w-60 transition-all duration-300 ease-in-out surface-1 border-r border-border group overflow-hidden">
+    <>
+    {open && (
+      <div
+        aria-hidden
+        onClick={() => setOpen(false)}
+        className="md:hidden fixed inset-0 z-30 bg-black/60 backdrop-blur-sm"
+      />
+    )}
+    {/* Below md the sidebar is an off-canvas drawer; from md up it is the pinned icon rail. */}
+    <aside
+      aria-label="Primary"
+      className={cn(
+        "flex flex-col surface-1 border-r border-border group overflow-hidden",
+        "max-md:fixed max-md:inset-y-0 max-md:left-0 max-md:z-40 max-md:w-60 max-md:transition-[transform,visibility] max-md:duration-200",
+        open ? "max-md:translate-x-0 max-md:visible" : "max-md:-translate-x-full max-md:invisible",
+        "md:w-14 md:hover:w-60 md:transition-all md:duration-300 md:ease-in-out"
+      )}
+    >
       {/* Logo */}
       <div className="flex items-center h-14 px-3">
         <Logo size="sm" showText={false} className="shrink-0" />
-        <span className="ml-2 font-semibold text-sm text-foreground opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap">
+        <span className="ml-2 font-semibold text-sm text-foreground max-md:opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap">
           Orbit
         </span>
       </div>
@@ -90,7 +119,7 @@ export function Sidebar() {
                 "h-[18px] w-[18px] shrink-0 transition-colors duration-200",
                 isActive && "text-orbit-accent"
               )} />
-              <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap">
+              <span className="max-md:opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap">
                 {item.name}
               </span>
             </Link>
@@ -101,7 +130,7 @@ export function Sidebar() {
       {/* Workspace switcher */}
       <div className="p-2 mb-1">
         {workspaceId ? (
-          <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+          <div className="max-md:opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-300">
             <WorkspaceSwitcher currentWorkspaceId={workspaceId} />
           </div>
         ) : (
@@ -111,12 +140,13 @@ export function Sidebar() {
                 O
               </span>
             </div>
-            <span className="text-xs text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap truncate">
+            <span className="text-xs text-muted-foreground max-md:opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap truncate">
               Workspace
             </span>
           </div>
         )}
       </div>
     </aside>
+    </>
   );
 }
