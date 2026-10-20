@@ -6,6 +6,7 @@
  */
 
 import type { PluginDefinition, RunContext, RunResults } from "@/services/plugins/runtime";
+import { isSelfHosted } from "@/lib/self-host";
 
 function buildSlackMessage(context: RunContext, results: RunResults): Record<string, unknown> {
   const passRate = results.totalTests > 0
@@ -79,8 +80,9 @@ export const slackNotifierPlugin: PluginDefinition = {
   hooks: {
     afterRun: async (context: RunContext, results: RunResults) => {
       // Config is accessed via the runtime — this is a static definition.
-      // The webhook URL must be set via plugin config in workspace settings.
-      const webhookUrl = process.env.SLACK_WEBHOOK_URL;
+      // The operator's env webhook is only usable on single-tenant installs;
+      // on hosted Orbit it would post every workspace's results to one channel.
+      const webhookUrl = isSelfHosted() ? process.env.SLACK_WEBHOOK_URL : undefined;
       if (!webhookUrl) {
         console.warn("[slack-notifier] No webhook URL configured, skipping notification");
         return;
