@@ -223,6 +223,14 @@ Each project has one or more environments (Settings → Environments). When a ru
 
 Production environments are never picked automatically, and runs against them are refused.
 
+Archived environments and the per-PR `PR #<n> preview` environments are never picked as a default.
+
+### PR previews
+
+If a project has a **Preview source** (Settings → Environments), a PR is tested on its own
+preview deployment instead of the default environment. Setup: [Railway](integrations/railway.md),
+[Cloudflare Pages](integrations/cloudflare.md).
+
 ## Connecting Services
 
 ### Playwright (Browser Automation)

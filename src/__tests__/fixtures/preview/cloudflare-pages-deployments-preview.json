@@ -1,0 +1,26 @@
+[
+  {
+    "id": "cf-dep-3",
+    "url": "https://9c1e0b7d.acme-web.pages.dev",
+    "aliases": ["https://feature-checkout.acme-web.pages.dev"],
+    "environment": "preview",
+    "latest_stage": { "name": "build", "status": "active" },
+    "deployment_trigger": { "type": "github:push", "metadata": { "branch": "feature/other", "commit_hash": "1111111111111111111111111111111111111111" } }
+  },
+  {
+    "id": "cf-dep-2",
+    "url": "https://4f2a9c1e.acme-web.pages.dev",
+    "aliases": ["https://feature-checkout.acme-web.pages.dev"],
+    "environment": "preview",
+    "latest_stage": { "name": "deploy", "status": "success" },
+    "deployment_trigger": { "type": "github:push", "metadata": { "branch": "feature/checkout", "commit_hash": "4f2a9c1e0b7d6e5f4a3b2c1d0e9f8a7b6c5d4e3f" } }
+  },
+  {
+    "id": "cf-dep-1",
+    "url": "https://0e9f8a7b.acme-web.pages.dev",
+    "aliases": [],
+    "environment": "preview",
+    "latest_stage": { "name": "build", "status": "failure" },
+    "deployment_trigger": { "type": "github:push", "metadata": { "branch": "feature/broken", "commit_hash": "2222222222222222222222222222222222222222" } }
+  }
+]

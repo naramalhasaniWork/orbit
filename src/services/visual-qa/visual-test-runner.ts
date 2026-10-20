@@ -1,4 +1,5 @@
 import { launchBrowser, closeBrowser, type StorageState } from "@/services/execution/browser-manager";
+import { installAccessHeaders, type AccessHeaders } from "@/services/execution/access-headers";
 import { getStorage } from "@/lib/storage";
 import { compareScreenshots, type DiffResult } from "@/services/visual-qa/diff-engine";
 import { checkBrandConsistency, type BrandCheckResult } from "@/services/visual-qa/brand-checker";
@@ -19,6 +20,8 @@ export interface VisualTestInput {
   diffThreshold?: number;
   /** Logged-in session from the run, so authenticated routes aren't captured as the login page */
   storageState?: StorageState;
+  /** Cloudflare Access service-token headers, sent only to the environment's origin */
+  accessHeaders?: AccessHeaders;
 }
 
 export interface VisualTestResult {
@@ -44,11 +47,13 @@ interface BillingInfo {
 async function captureScreenshot(
   url: string,
   routePath: string,
-  storageState?: StorageState
+  storageState?: StorageState,
+  accessHeaders?: AccessHeaders
 ): Promise<Buffer> {
   const instance = await launchBrowser({ headless: true, storageState });
 
   try {
+    if (accessHeaders) await installAccessHeaders(instance.context, url, accessHeaders);
     const fullUrl = routePath.startsWith("http")
       ? routePath
       : `${url.replace(/\/$/, "")}${routePath}`;
@@ -153,10 +158,10 @@ export async function runVisualTest(
   input: VisualTestInput
 ): Promise<VisualTestResult> {
   const startTime = Date.now();
-  const { runId, projectId, routePath, environmentUrl, checkBrand, diffThreshold, storageState } = input;
+  const { runId, projectId, routePath, environmentUrl, checkBrand, diffThreshold, storageState, accessHeaders } = input;
 
   // 1. Capture screenshot
-  const screenshotData = await captureScreenshot(environmentUrl, routePath, storageState);
+  const screenshotData = await captureScreenshot(environmentUrl, routePath, storageState, accessHeaders);
   const storageKey = buildStorageKey(projectId, runId, routePath);
   const checksum = computeChecksum(screenshotData);
 

@@ -1,0 +1,17 @@
+{
+  "type": "Deployment.succeeded",
+  "details": {
+    "id": "d7b1c2e0-0000-4000-8000-000000000002",
+    "status": "SUCCESS",
+    "branch": "main",
+    "commitHash": "aaaabbbbccccddddeeeeffff0000111122223333"
+  },
+  "resource": {
+    "workspace": { "id": "ws-railway-1", "name": "Acme" },
+    "project": { "id": "rw-project-1", "name": "acme-web" },
+    "environment": { "id": "rw-env-production", "name": "production", "isEphemeral": false },
+    "service": { "id": "rw-service-web", "name": "web" },
+    "deployment": { "id": "d7b1c2e0-0000-4000-8000-000000000002" }
+  },
+  "timestamp": "2026-10-20T12:05:00.000Z"
+}

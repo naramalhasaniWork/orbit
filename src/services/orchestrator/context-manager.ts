@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { pickDefaultEnvironment } from "@/services/execution/default-environment";
+import { isDefaultCandidate, pickDefaultEnvironment } from "@/services/execution/default-environment";
 import { findSimilarNodes } from "@/lib/db/vector";
 import { createEmbedding } from "@/lib/ai";
 import type { AgentPhase } from "./token-budget";
@@ -162,7 +162,7 @@ export async function getProjectContext(projectId: string) {
 
   return {
     project,
-    defaultEnvironment: pickDefaultEnvironment(project.environments),
+    defaultEnvironment: pickDefaultEnvironment(project.environments.filter(isDefaultCandidate)),
     systemMapStats: { nodes: nodeCount, edges: edgeCount },
     activePlan: activePlan
       ? { id: activePlan.id, version: activePlan.version, testCaseCount: activePlan._count.testCases }
