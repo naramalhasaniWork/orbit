@@ -75,8 +75,8 @@ export function LiveViewport({
       ref={containerRef}
       className={cn(
         "rounded-xl border border-border overflow-hidden",
-        "bg-[hsl(var(--orbit-bg-deeper,222_47%_6%))]",
-        isFullscreen && "fixed inset-0 z-50 rounded-none border-none",
+        "bg-tm-sunken",
+        isFullscreen && "fixed inset-0 z-modal rounded-none border-none",
         className
       )}
     >

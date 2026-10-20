@@ -118,7 +118,7 @@ export function PlanApproval({
       <div className="flex items-center gap-2">
         <Button
           size="sm"
-          className="h-7 bg-orbit-pass hover:bg-orbit-pass/90 text-white gap-1.5 text-xs"
+          className="h-7 gap-1.5 text-xs"
           onClick={() => handleAction("approve")}
           disabled={loading}
         >
