@@ -1,5 +1,6 @@
 "use client";
 
+import { Pending } from "@/components/telemetry/pending";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Download, RefreshCw, FileText } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -150,7 +151,7 @@ export function AuditLogViewer({ workspaceId, showWorkspace }: AuditLogViewerPro
             disabled={loading}
             className="flex items-center gap-1.5 h-8 px-3 rounded-md text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-foreground/[0.06] transition-colors"
           >
-            <RefreshCw className={cn("h-3.5 w-3.5", loading && "animate-spin")} />
+            <RefreshCw className={cn("h-3.5 w-3.5")} />
             Refresh
           </button>
           <button
@@ -158,7 +159,7 @@ export function AuditLogViewer({ workspaceId, showWorkspace }: AuditLogViewerPro
             disabled={exporting || pagination.total === 0}
             className={cn(
               "flex items-center gap-1.5 h-8 px-3 rounded-md text-xs font-medium transition-colors",
-              "bg-orbit-accent/15 text-orbit-accent hover:bg-orbit-accent/25",
+              "bg-foreground/[0.06] text-foreground hover:bg-accent",
               (exporting || pagination.total === 0) && "opacity-50 cursor-not-allowed"
             )}
           >
@@ -173,7 +174,7 @@ export function AuditLogViewer({ workspaceId, showWorkspace }: AuditLogViewerPro
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
-              <tr className="surface-2 border-b border-border">
+              <tr className="surface-1 border-b border-border">
                 <th className="px-3 py-2 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Time</th>
                 {showWorkspace && (
                   <th className="px-3 py-2 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Workspace</th>
@@ -189,7 +190,7 @@ export function AuditLogViewer({ workspaceId, showWorkspace }: AuditLogViewerPro
               {loading && logs.length === 0 ? (
                 <tr>
                   <td colSpan={showWorkspace ? 7 : 6} className="py-16 text-center">
-                    <RefreshCw className="h-5 w-5 text-muted-foreground animate-spin mx-auto mb-2" />
+                    <Pending />
                     <p className="text-sm text-muted-foreground">Loading audit logs...</p>
                   </td>
                 </tr>

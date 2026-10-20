@@ -66,13 +66,13 @@ export function OperationsControls({
               key={flow.id}
               className={`px-2 py-1.5 rounded text-xs ${
                 flow.criticalPath
-                  ? "border border-orbit-accent/20 bg-orbit-accent/[0.04]"
+                  ? "border border-tm-line-strong bg-foreground/[0.06]"
                   : "bg-foreground/[0.02]"
               }`}
             >
               <span className="text-foreground">{flow.name}</span>
               {flow.criticalPath && (
-                <span className="ml-1 text-[9px] text-orbit-accent">critical</span>
+                <span className="ml-1 text-[9px] text-foreground">critical</span>
               )}
               <p className="text-muted-foreground text-[10px] mt-0.5 line-clamp-2">
                 {flow.description}

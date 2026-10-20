@@ -86,7 +86,7 @@ function OperationsHeader({
               {", "}
               {flowCount} flow{flowCount !== 1 ? "s" : ""}
               {criticalCount !== undefined && criticalCount > 0 && (
-                <span className="text-orbit-accent">
+                <span className="text-foreground">
                   {" "}({criticalCount} critical)
                 </span>
               )}

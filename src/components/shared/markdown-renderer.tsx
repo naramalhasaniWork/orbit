@@ -58,7 +58,7 @@ export function MarkdownRenderer({ content, className }: MarkdownRendererProps) 
           const isInline = !codeClass;
           if (isInline) {
             return (
-              <code className="text-xs font-mono bg-foreground/[0.06] text-orbit-accent px-1.5 py-0.5 rounded">
+              <code className="text-xs font-mono bg-foreground/[0.06] text-foreground px-1.5 py-0.5 rounded">
                 {children}
               </code>
             );
@@ -103,13 +103,13 @@ export function MarkdownRenderer({ content, className }: MarkdownRendererProps) 
             href={href}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-orbit-accent hover:underline"
+            className="text-foreground hover:underline"
           >
             {children}
           </a>
         ),
         blockquote: ({ children }) => (
-          <blockquote className="border-l-2 border-orbit-accent/30 pl-3 ml-1 mb-2 text-muted-foreground">
+          <blockquote className="border-l-2 border-tm-line-strong pl-3 ml-1 mb-2 text-muted-foreground">
             {children}
           </blockquote>
         ),

@@ -2,14 +2,7 @@
 
 import { useState, useCallback, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import {
-  Globe,
-  Pause,
-  Play,
-  Download,
-  Loader2,
-  Cpu,
-} from "lucide-react";
+import { Pause, Play, Download } from "lucide-react";
 import { tween } from "@/lib/motion";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -17,7 +10,9 @@ import { useScreenshotStream } from "@/hooks/use-screenshot-stream";
 import type { RunProgress, TestStepProgress, TestItem } from "@/hooks/use-run-events";
 import { TestTimelinePanel } from "@/components/execution/test-timeline-panel";
 import { LiveStepPanel, type LiveStep } from "@/components/execution/live-step-panel";
-import { ScreenshotThumbnailStrip } from "@/components/execution/screenshot-thumbnail-strip";
+import { FrameScrubber } from "@/components/execution/frame-scrubber";
+import { ClosingO } from "@/components/telemetry/closing-o";
+import { LiveDot } from "@/components/telemetry/live-dot";
 
 interface LiveViewerProps {
   projectId: string;
@@ -87,10 +82,10 @@ export function LiveExecutionViewer({
   const hasSteps = liveSteps.length > 0;
 
   return (
-    <div className={cn("flex flex-col rounded-xl border border-border overflow-hidden bg-[hsl(var(--orbit-bg-deeper,222_47%_6%))]", className)}>
-      <div className="flex flex-1 min-h-0">
-        {/* Main viewport */}
-        <div className="flex flex-col flex-[7] min-w-0">
+    <div className={cn("flex flex-col overflow-hidden rounded-xl border border-border bg-card", className)}>
+      <div className="flex min-h-0 flex-1 flex-col lg:flex-row">
+        {/* Main viewport: the browser in a sunken frame */}
+        <div className="flex min-w-0 flex-[7] flex-col">
           <ViewportHeader
             pageUrl={displayedFrame?.pageUrl ?? null}
             viewport={displayedFrame?.viewport ?? null}
@@ -99,7 +94,7 @@ export function LiveExecutionViewer({
             currentTest={progress?.currentTest ?? null}
           />
 
-          <div className="relative flex-1 bg-black/20 min-h-[360px]">
+          <div className="relative min-h-[360px] flex-1 bg-tm-sunken">
             <AnimatePresence mode="wait">
               {hasScreenshots ? (
                 <motion.img
@@ -107,10 +102,10 @@ export function LiveExecutionViewer({
                   src={`data:image/jpeg;base64,${displayedFrame.imageBase64}`}
                   alt="Live browser screenshot"
                   className="absolute inset-0 w-full h-full object-contain"
-                  initial={{ opacity: 0, scale: 0.985 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 1.005 }}
-                  transition={tween.change}
+                  initial={{ opacity: 0.6 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={tween.feedback}
                 />
               ) : (
                 <motion.div
@@ -119,32 +114,19 @@ export function LiveExecutionViewer({
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                 >
-                  <PreparationOrbit runStatus={runStatus} />
-                  {progress?.currentTest ? (
-                    <div className="flex flex-col items-center gap-1">
-                      <p className="text-xs font-medium text-foreground/70">Running test</p>
-                      <p className="text-xs text-muted-foreground max-w-[300px] truncate">{progress.currentTest}</p>
-                    </div>
-                  ) : (
-                    <p className="text-xs text-muted-foreground">
-                      {STATUS_MESSAGES[runStatus] ?? "Connecting to browser..."}
+                  <ClosingO size={48} state="running" />
+                  <div className="flex flex-col items-center gap-1" role="status">
+                    <p className="tm-label text-tm-t3">
+                      {progress?.currentTest ? "Running test" : STATUS_MESSAGES[runStatus] ?? "Connecting to browser"}
                     </p>
-                  )}
+                    {progress?.currentTest && (
+                      <p className="max-w-[300px] truncate text-[13px] text-foreground">{progress.currentTest}</p>
+                    )}
+                  </div>
                 </motion.div>
               )}
             </AnimatePresence>
 
-            {frameCount > 0 && (
-              <motion.div
-                key={frameCount}
-                initial={{ opacity: 0, scale: 0.9 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={tween.change}
-                className="absolute bottom-2 right-2 text-[10px] tabular-nums text-white/50 bg-black/40 rounded px-1.5 py-0.5 backdrop-blur-sm"
-              >
-                {frameCount} frames
-              </motion.div>
-            )}
           </div>
 
           <ControlsBar
@@ -155,13 +137,12 @@ export function LiveExecutionViewer({
             isStreaming={isStreaming}
           />
 
-          {frameHistory.length > 0 && (
-            <ScreenshotThumbnailStrip
-              frames={frameHistory}
-              activeIndex={selectedFrameIndex ?? (frameHistory.length - 1)}
-              onSelect={handleThumbnailSelect}
-            />
-          )}
+          <FrameScrubber
+            count={frameCount > 0 ? frameHistory.length : 0}
+            index={selectedFrameIndex ?? frameHistory.length - 1}
+            live={isStreaming && selectedFrameIndex === null}
+            onSelect={handleThumbnailSelect}
+          />
         </div>
 
         {/* Right panel: test timeline (primary) or step log (if we have step-level data) */}
@@ -169,13 +150,13 @@ export function LiveExecutionViewer({
           <LiveStepPanel
             steps={liveSteps}
             activeStepIndex={liveSteps.length > 0 ? liveSteps[liveSteps.length - 1].stepIndex : null}
-            className="flex-[3] max-w-[350px]"
+            className="border-t border-border lg:max-w-[320px] lg:flex-[3] lg:border-l lg:border-t-0"
           />
         ) : (
           <TestTimelinePanel
             tests={tests}
             totalTests={progress?.totalTests ?? 0}
-            className="flex-[3] max-w-[350px]"
+            className="border-t border-border lg:max-w-[320px] lg:flex-[3] lg:border-l lg:border-t-0"
           />
         )}
       </div>
@@ -183,27 +164,11 @@ export function LiveExecutionViewer({
   );
 }
 
-function PreparationOrbit({ runStatus }: { runStatus: string }) {
-  return (
-    <div className="relative w-20 h-20">
-      <motion.div className="absolute inset-0 rounded-full border-2 border-orbit-accent/15" animate={{ rotate: 360 }} transition={{ duration: 10, repeat: Infinity, ease: "linear" }} />
-      <motion.div className="absolute inset-2 rounded-full border border-dashed border-orbit-accent/10" animate={{ rotate: -360 }} transition={{ duration: 14, repeat: Infinity, ease: "linear" }} />
-      <motion.div className="absolute inset-4 rounded-full border border-orbit-accent/[0.07]" animate={{ rotate: 360 }} transition={{ duration: 6, repeat: Infinity, ease: "linear" }} />
-      <motion.div className="absolute inset-0 flex items-center justify-center" animate={{ scale: [1, 1.08, 1] }} transition={{ duration: 2.5, repeat: Infinity, ease: "easeInOut" }}>
-        {runStatus === "queued" ? <Loader2 className="h-6 w-6 text-orbit-accent animate-spin" /> : <Cpu className="h-6 w-6 text-orbit-accent" />}
-      </motion.div>
-      <motion.div className="absolute w-1.5 h-1.5 rounded-full bg-orbit-accent shadow-[0_0_8px_hsl(var(--orbit-accent)/0.6)]" style={{ top: -3, left: "calc(50% - 3px)", transformOrigin: "3px 43px" }} animate={{ rotate: 360 }} transition={{ duration: 3, repeat: Infinity, ease: "linear" }} />
-      <motion.div className="absolute w-1 h-1 rounded-full bg-orbit-accent/40 shadow-[0_0_4px_hsl(var(--orbit-accent)/0.3)]" style={{ bottom: -2, left: "calc(50% - 2px)", transformOrigin: "2px -38px" }} animate={{ rotate: -360 }} transition={{ duration: 4.5, repeat: Infinity, ease: "linear" }} />
-    </div>
-  );
-}
-
-
 const STATUS_MESSAGES: Record<string, string> = {
-  queued: "Waiting for worker...",
-  indexing: "Indexing repository...",
-  planning: "Generating test plan...",
-  reporting: "Analyzing results...",
+  queued: "Waiting for a browser",
+  indexing: "Indexing the repository",
+  planning: "Planning the tests",
+  reporting: "Writing up the results",
 };
 
 function ViewportHeader({
@@ -222,32 +187,20 @@ function ViewportHeader({
   const isActive = isStreaming || ["queued", "executing", "indexing", "planning", "reporting"].includes(runStatus);
 
   return (
-    <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-foreground/[0.02] shrink-0">
+    <div className="flex h-9 shrink-0 items-center gap-3 border-b border-border px-3">
       {isActive && (
-        <div className="flex items-center gap-1.5 shrink-0">
-          <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75" />
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500" />
-          </span>
-          <span className="text-[10px] font-bold text-red-400 uppercase tracking-wider">Live</span>
-        </div>
+        <span className="tm-label flex shrink-0 items-center gap-1.5 text-tm-live-text">
+          <LiveDot size="sm" />
+          Live
+        </span>
       )}
-
-      <div className="flex-1 min-w-0 flex items-center gap-1.5">
-        {pageUrl ? (
-          <>
-            <Globe className="h-3 w-3 text-muted-foreground shrink-0" />
-            <span className="text-xs text-muted-foreground font-mono truncate">{pageUrl}</span>
-          </>
-        ) : (
-          <span className="text-xs text-muted-foreground truncate">
-            {currentTest ?? (STATUS_MESSAGES[runStatus] ?? "Connecting to browser...")}
-          </span>
-        )}
-      </div>
-
+      <span className="min-w-0 flex-1 truncate font-mono text-[12px] text-tm-t2">
+        {pageUrl ?? currentTest ?? STATUS_MESSAGES[runStatus] ?? "Connecting to browser"}
+      </span>
       {viewport && (
-        <span className="text-[10px] tabular-nums text-muted-foreground shrink-0">{viewport.width}x{viewport.height}</span>
+        <span className="tm-label shrink-0 text-tm-t3">
+          Chromium · {viewport.width}×{viewport.height}
+        </span>
       )}
     </div>
   );
@@ -263,13 +216,20 @@ function ControlsBar({
   isStreaming: boolean;
 }) {
   return (
-    <div className="flex items-center gap-2 px-3 py-1.5 border-t border-border bg-foreground/[0.02] shrink-0">
-      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onPlayPause} disabled={!isStreaming}>
-        {isPaused ? <Play className="h-3.5 w-3.5" /> : <Pause className="h-3.5 w-3.5" />}
+    <div className="flex shrink-0 items-center gap-2 border-t border-border px-2 py-1">
+      <Button
+        variant="ghost"
+        size="icon"
+        className="size-8"
+        onClick={onPlayPause}
+        disabled={!isStreaming}
+        aria-label={isPaused ? "Follow live" : "Pause on this frame"}
+      >
+        {isPaused ? <Play aria-hidden="true" /> : <Pause aria-hidden="true" />}
       </Button>
       <div className="flex-1" />
-      <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onDownload} disabled={!hasFrame}>
-        <Download className="h-3.5 w-3.5" />
+      <Button variant="ghost" size="icon" className="size-8" onClick={onDownload} disabled={!hasFrame} aria-label="Download frame">
+        <Download aria-hidden="true" />
       </Button>
     </div>
   );

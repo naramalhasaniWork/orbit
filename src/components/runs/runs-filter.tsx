@@ -86,7 +86,7 @@ export function RunsFilter({ filters, onFiltersChange, sort, onSortChange, runs 
         <select
           value={sort}
           onChange={(e) => isRunSort(e.target.value) && onSortChange(e.target.value)}
-          className="h-7 rounded-md border border-border bg-transparent px-2 text-xs text-foreground focus:outline-none focus-visible:ring-1 focus-visible:ring-orbit-accent/50"
+          className="h-7 rounded-md border border-border bg-transparent px-2 text-xs text-foreground focus:outline-none focus-visible:ring-1 focus-visible:ring-ring"
         >
           {Object.entries(RUN_SORTS).map(([value, label]) => (
             <option key={value} value={value} className="bg-card">
@@ -125,7 +125,7 @@ function FilterGroup({
           className={cn(
             "text-xs px-2 py-1 rounded-md transition-colors",
             selected === opt.value
-              ? "bg-orbit-accent/15 text-orbit-accent"
+              ? "bg-foreground/[0.06] text-foreground"
               : "text-muted-foreground hover:text-foreground hover:bg-muted/30"
           )}
         >

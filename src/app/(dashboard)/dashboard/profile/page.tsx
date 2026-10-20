@@ -25,7 +25,7 @@ function formatDate(dateString: string | undefined): string {
 
 function roleBadgeStyle(role: string): string {
   const styles: Record<string, string> = {
-    owner: "bg-orbit-accent/15 text-orbit-accent border-orbit-accent/20",
+    owner: "bg-foreground/[0.06] text-foreground border-tm-line-strong",
     admin: "bg-blue-500/15 text-blue-400 border-blue-500/20",
     member: "bg-emerald-500/15 text-emerald-400 border-emerald-500/20",
     viewer: "bg-gray-500/15 text-gray-400 border-gray-500/20",
@@ -40,7 +40,7 @@ export default function ProfilePage() {
   if (status === "loading") {
     return (
       <div className="flex items-center justify-center h-full">
-        <div className="h-6 w-6 border-2 border-orbit-accent border-t-transparent rounded-full animate-spin" />
+        <div className="h-6 w-6 border-2 border-tm-line-strong border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }

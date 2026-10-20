@@ -163,7 +163,7 @@ export function DashboardClient({
         description="Connect your first repository to get started with AI-powered testing."
         action={
           <Link href="/dashboard/onboarding">
-            <Button className="bg-orbit-accent hover:bg-orbit-accent/90 text-white gap-2">
+            <Button className="bg-primary hover:bg-primary/85 text-primary-foreground gap-2">
               <Play className="h-4 w-4" />
               Connect Repository
             </Button>
@@ -190,7 +190,7 @@ export function DashboardClient({
             Overview and health status{" "}
             <Link
               href={`/dashboard/projects/${activeProject.id}`}
-              className="text-orbit-accent hover:text-orbit-accent/80 transition-colors"
+              className="text-foreground hover:text-foreground transition-colors"
             >
               View details
             </Link>
@@ -237,7 +237,7 @@ export function DashboardClient({
             onClick={handleCheckSync}
             disabled={checkingSync}
           >
-            <RefreshCw className={`h-3 w-3 ${checkingSync ? "animate-spin" : ""}`} />
+            <RefreshCw className={`h-3 w-3`} />
             {checkingSync ? "Checking…" : "Check"}
           </Button>
           {syncInfo?.syncDiff && (syncInfo.syncDiff.added > 0 || syncInfo.syncDiff.modified > 0 || syncInfo.syncDiff.removed > 0) && (
@@ -335,7 +335,7 @@ export function DashboardClient({
             <h2 className="text-[13px] font-medium text-foreground">System Map</h2>
             <Link
               href="/dashboard/map"
-              className="text-xs text-orbit-accent hover:text-orbit-accent/80 transition-colors"
+              className="text-xs text-foreground hover:text-foreground transition-colors"
             >
               Full view
             </Link>

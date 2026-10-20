@@ -90,8 +90,8 @@ export function TestCaseEditor({
   }, [name, journey, priorityScore, isEnabled, isCritical, rationale, steps, edgeCases, projectId, testCase.id, onSave]);
 
   return (
-    <div className="rounded-xl surface-1 border border-orbit-accent/20 overflow-hidden">
-      <div className="flex items-center justify-between px-5 py-3 border-b border-border bg-orbit-accent/5">
+    <div className="rounded-xl surface-1 border border-tm-line-strong overflow-hidden">
+      <div className="flex items-center justify-between px-5 py-3 border-b border-border bg-foreground/[0.06]">
         <span className="text-sm font-medium text-foreground">Edit Test Case</span>
         <div className="flex items-center gap-2">
           <Button
@@ -106,7 +106,7 @@ export function TestCaseEditor({
             size="sm"
             onClick={handleSave}
             disabled={saving}
-            className="h-7 bg-orbit-accent hover:bg-orbit-accent/90 text-white gap-1.5"
+            className="h-7 bg-primary hover:bg-primary/85 text-primary-foreground gap-1.5"
           >
             <Save className="h-3 w-3" />
             {saving ? "Saving..." : "Save"}
@@ -176,7 +176,7 @@ export function TestCaseEditor({
             value={rationale}
             onChange={(e) => setRationale(e.target.value)}
             rows={2}
-            className="w-full rounded-md bg-muted/30 border border-transparent px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-orbit-accent resize-y"
+            className="w-full rounded-md bg-muted/30 border border-transparent px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus-visible:ring-ring resize-y"
             placeholder="Why this test case exists..."
           />
         </div>

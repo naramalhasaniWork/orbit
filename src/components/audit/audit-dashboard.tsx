@@ -1,5 +1,6 @@
 "use client";
 
+import { Pending } from "@/components/telemetry/pending";
 import { useState, useCallback } from "react";
 import { motion } from "framer-motion";
 import { ScoreDisplay } from "@/components/audit/score-display";
@@ -8,7 +9,7 @@ import { IssueList } from "@/components/audit/issue-list";
 import { AuditTrendChart } from "@/components/audit/trend-chart";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/shared/empty-state";
-import { ShieldCheck, Loader2, AlertTriangle, RefreshCw } from "lucide-react";
+import { ShieldCheck, AlertTriangle, RefreshCw } from "lucide-react";
 import { apiErrorMessage } from "@/lib/api-client";
 
 interface AuditIssue {
@@ -116,7 +117,7 @@ export function AuditDashboard({
             <div className="flex flex-col items-center gap-3">
               <Button onClick={triggerAudit} disabled={isRunning}>
                 {isRunning ? (
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                  <Pending />
                 ) : (
                   <ShieldCheck className="h-4 w-4 mr-2" />
                 )}
@@ -150,7 +151,7 @@ export function AuditDashboard({
         </div>
         <Button onClick={triggerAudit} disabled={isRunning} size="sm">
           {isRunning ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin mr-1.5" />
+            <Pending />
           ) : (
             <RefreshCw className="h-3.5 w-3.5 mr-1.5" />
           )}
@@ -234,7 +235,7 @@ export function AuditDashboard({
       {/* Issue list */}
       {isLoading ? (
         <div className="flex items-center justify-center py-12">
-          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+          <Pending />
         </div>
       ) : selectedAudit ? (
         <div className="surface-1 rounded-xl border border-border p-6">

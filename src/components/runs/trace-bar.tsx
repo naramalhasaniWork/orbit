@@ -57,7 +57,7 @@ function ReasoningSteps({ steps }: { steps: unknown }) {
                   </p>
                 ) : null}
                 {s.result ? (
-                  <p className="text-orbit-accent mt-0.5">
+                  <p className="text-foreground mt-0.5">
                     {String(s.result)}
                   </p>
                 ) : null}
@@ -229,7 +229,7 @@ export function TraceBar({
                   "absolute h-full rounded-full",
                   trace.status === "failed"
                     ? "bg-orbit-fail/60"
-                    : phaseConfig?.bgColor ?? "bg-orbit-accent/40"
+                    : phaseConfig?.bgColor ?? "bg-foreground/[0.06]"
                 )}
                 initial={{ width: 0, left: `${leftPercent}%` }}
                 animate={{

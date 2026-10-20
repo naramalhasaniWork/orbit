@@ -1,8 +1,8 @@
 "use client";
 
+import { Pending } from "@/components/telemetry/pending";
 import { useEffect, useState } from "react";
 import { useSession } from "next-auth/react";
-import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { clearWorkspaceCookie, setWorkspaceCookie } from "@/lib/workspace-cookie";
 
@@ -59,7 +59,7 @@ export function WorkspaceRecovery() {
           </Button>
         </div>
       ) : (
-        <Loader2 className="h-6 w-6 text-orbit-accent animate-spin" />
+        <Pending />
       )}
     </div>
   );

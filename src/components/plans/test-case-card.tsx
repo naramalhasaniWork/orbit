@@ -73,7 +73,7 @@ export function TestCaseCard({ testCase, projectId, selected = false, onToggleSe
     <div
       className={cn(
         "rounded-lg bg-muted/20 transition-colors",
-        selected && "ring-1 ring-orbit-accent/40 bg-orbit-accent/[0.05]",
+        selected && "ring-1 ring-tm-line-strong bg-foreground/[0.06]",
         !enabled && "opacity-50"
       )}
     >
@@ -133,7 +133,7 @@ export function TestCaseCard({ testCase, projectId, selected = false, onToggleSe
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); setIsEditing(true); }}
-              className="text-muted-foreground/50 hover:text-orbit-accent transition-colors"
+              className="text-muted-foreground/50 hover:text-foreground transition-colors"
             >
               <Pencil className="h-3 w-3" />
             </button>

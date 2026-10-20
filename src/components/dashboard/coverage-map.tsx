@@ -141,7 +141,7 @@ export function CoverageMap({ cells, className }: CoverageMapProps) {
               className={cn(
                 "px-2 py-1 rounded text-[11px] transition-colors",
                 !filterType
-                  ? "bg-orbit-accent/10 text-orbit-accent"
+                  ? "bg-foreground/[0.06] text-foreground"
                   : "text-muted-foreground hover:text-foreground"
               )}
             >
@@ -154,7 +154,7 @@ export function CoverageMap({ cells, className }: CoverageMapProps) {
                 className={cn(
                   "px-2 py-1 rounded text-[11px] transition-colors",
                   filterType === type
-                    ? "bg-orbit-accent/10 text-orbit-accent"
+                    ? "bg-foreground/[0.06] text-foreground"
                     : "text-muted-foreground hover:text-foreground"
                 )}
               >
@@ -195,7 +195,7 @@ export function CoverageMap({ cells, className }: CoverageMapProps) {
                         "flex flex-col items-center justify-center gap-0.5",
                         coverageColors[cell.coverage],
                         selectedCell?.nodeId === cell.nodeId &&
-                          "ring-1 ring-orbit-accent"
+                          "ring-1 ring-tm-line-strong"
                       )}
                       title={`${cell.name} — ${cell.coverage}`}
                     >

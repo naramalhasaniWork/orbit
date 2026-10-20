@@ -200,7 +200,7 @@ export function ProjectDetailClient({
               </span>
               <Link
                 href={`/dashboard/map?project=${project.id}`}
-                className="text-xs text-orbit-accent hover:text-orbit-accent/80 transition-colors flex items-center gap-1"
+                className="text-xs text-foreground hover:text-foreground transition-colors flex items-center gap-1"
               >
                 Full view
                 <ArrowRight className="h-3 w-3" />
@@ -226,7 +226,7 @@ export function ProjectDetailClient({
             </h2>
             <Link
               href={`/dashboard/runs?project=${project.id}`}
-              className="text-xs text-orbit-accent hover:text-orbit-accent/80 transition-colors"
+              className="text-xs text-foreground hover:text-foreground transition-colors"
             >
               View all
             </Link>

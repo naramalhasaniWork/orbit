@@ -2,7 +2,8 @@
 
 import { useState, useCallback, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Loader2, WifiOff, CheckCircle2 } from "lucide-react";
+import { WifiOff, CheckCircle2 } from "lucide-react";
+import { ClosingO } from "@/components/telemetry/closing-o";
 import { cn } from "@/lib/utils";
 import { useBrowserViewport } from "@/hooks/use-browser-viewport";
 import { ViewportToolbar } from "@/components/execution/viewport-toolbar";
@@ -112,7 +113,7 @@ export function LiveViewport({
                 ? "Waiting for stream..."
                 : "Connected. Waiting for screenshots..."
             }
-            icon={<Loader2 className="h-6 w-6 animate-spin text-orbit-accent" />}
+            icon={<ClosingO size={32} state="running" />}
           />
         )}
 
@@ -167,7 +168,7 @@ export function LiveViewport({
         {/* Completed overlay on final screenshot */}
         {status === "completed" && currentFrame && (
           <div className="absolute inset-0 flex items-center justify-center bg-black/40">
-            <div className="flex items-center gap-2 bg-black/60 backdrop-blur-sm rounded-lg px-4 py-2">
+            <div className="flex items-center gap-2 bg-black/60 rounded-lg px-4 py-2">
               <CheckCircle2 className="h-5 w-5 text-orbit-pass" />
               <span className="text-sm font-medium text-white">Run completed</span>
             </div>

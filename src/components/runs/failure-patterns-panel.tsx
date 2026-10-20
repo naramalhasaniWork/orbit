@@ -93,7 +93,7 @@ export function FailurePatternsPanel({ projectId }: FailurePatternsPanelProps) {
 
   if (loading) {
     return (
-      <div className="rounded-xl surface-1 p-5 animate-pulse">
+      <div className="rounded-xl surface-1 p-5">
         <div className="h-4 w-32 bg-muted/40 rounded" />
         <div className="mt-4 space-y-2">
           <div className="h-8 bg-muted/30 rounded" />
@@ -116,7 +116,7 @@ export function FailurePatternsPanel({ projectId }: FailurePatternsPanelProps) {
           <button
             type="button"
             onClick={fetchPatterns}
-            className="text-[11px] font-medium text-orbit-accent hover:text-orbit-accent/80 shrink-0"
+            className="text-[11px] font-medium text-foreground hover:text-foreground shrink-0"
           >
             Retry
           </button>

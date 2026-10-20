@@ -13,19 +13,19 @@ const toneStyles = {
   healthy: {
     dot: "bg-orbit-pass",
     text: "text-orbit-pass",
-    glow: "shadow-[0_0_8px_hsl(var(--orbit-pass)/0.4)]",
+    glow: "",
     bg: "bg-orbit-pass/[0.08]",
   },
   degraded: {
     dot: "bg-orbit-flaky",
     text: "text-orbit-flaky",
-    glow: "shadow-[0_0_8px_hsl(var(--orbit-flaky)/0.4)]",
+    glow: "",
     bg: "bg-orbit-flaky/[0.08]",
   },
   failing: {
     dot: "bg-orbit-fail",
     text: "text-orbit-fail",
-    glow: "shadow-[0_0_8px_hsl(var(--orbit-fail)/0.4)]",
+    glow: "",
     bg: "bg-orbit-fail/[0.08]",
   },
 };

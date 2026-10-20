@@ -1,5 +1,6 @@
 "use client";
 
+import { Pending } from "@/components/telemetry/pending";
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import useSWR from "swr";
@@ -12,7 +13,6 @@ import {
   TrendingDown,
   ChevronRight,
   X,
-  Loader2,
   RefreshCw,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -61,10 +61,10 @@ const SEVERITY_CONFIG = {
   },
   info: {
     icon: Lightbulb,
-    border: "border-orbit-accent/20",
-    bg: "bg-orbit-accent/5",
-    text: "text-orbit-accent",
-    hoverBg: "hover:bg-orbit-accent/10",
+    border: "border-tm-line-strong",
+    bg: "bg-foreground/[0.06]",
+    text: "text-foreground",
+    hoverBg: "hover:bg-accent",
   },
 };
 
@@ -196,11 +196,11 @@ export function AISuggestionsPanel({ projectId, onGeneratePlan, refreshKey = 0 }
           onClick={() => setCollapsed(!collapsed)}
           className="flex-1 flex items-center gap-2 pl-5 py-3 text-left"
         >
-          <Lightbulb className="h-4 w-4 text-orbit-accent shrink-0" />
+          <Lightbulb className="h-4 w-4 text-foreground shrink-0" />
           <span className="text-[13px] font-medium text-foreground flex-1">AI Suggestions</span>
           {aiPending && (
             <span className="text-[11px] text-muted-foreground flex items-center gap-1">
-              <Loader2 className="h-3 w-3 animate-spin" />
+              <Pending />
               Updating AI insights
             </span>
           )}
@@ -221,7 +221,7 @@ export function AISuggestionsPanel({ projectId, onGeneratePlan, refreshKey = 0 }
             onClick={() => void handleRefresh()}
             className="p-1 rounded text-muted-foreground hover:text-foreground disabled:opacity-50"
           >
-            <RefreshCw className={cn("h-3 w-3", (refreshing || aiPending) && "animate-spin")} />
+            <RefreshCw className={cn("h-3 w-3")} />
           </button>
         )}
       </div>
@@ -265,7 +265,7 @@ export function AISuggestionsPanel({ projectId, onGeneratePlan, refreshKey = 0 }
                       isActing && "opacity-60 pointer-events-none"
                     )}
                   >
-                    {isActing && <Loader2 className="h-3 w-3 animate-spin" />}
+                    
                     {suggestion.actionLabel}
                   </button>
                 </div>

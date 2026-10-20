@@ -45,7 +45,7 @@ export function ViewportToolbar({
       <div
         className={cn(
           "h-2 w-2 rounded-full shrink-0",
-          connected && status === "streaming" && "bg-orbit-pass animate-pulse",
+          connected && status === "streaming" && "bg-orbit-pass",
           connected && status !== "streaming" && "bg-orbit-accent",
           !connected && "bg-orbit-fail"
         )}

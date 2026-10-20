@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useState } from "react";
-import { CheckCircle2, Loader2, SkipForward } from "lucide-react";
+import { CheckCircle2, SkipForward } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { BulkActionBar } from "@/components/shared/bulk-action-bar";
 import { assertOk, runBulk, summarizeBulk } from "@/lib/bulk";
@@ -65,7 +65,7 @@ export function PlanBulkActions({ projectId, testCases, onClear, onDone }: PlanB
         title="Include the selected test cases in runs"
         onClick={() => apply("approve", toApprove)}
       >
-        {busy === "approve" ? <Loader2 className="h-3 w-3 animate-spin" /> : <CheckCircle2 className="h-3 w-3" />}
+        <CheckCircle2 className="h-3 w-3" />
         Approve{toApprove.length > 0 ? ` (${toApprove.length})` : ""}
       </Button>
       <Button
@@ -76,7 +76,7 @@ export function PlanBulkActions({ projectId, testCases, onClear, onDone }: PlanB
         title="Leave the selected test cases out of runs"
         onClick={() => apply("skip", toSkip)}
       >
-        {busy === "skip" ? <Loader2 className="h-3 w-3 animate-spin" /> : <SkipForward className="h-3 w-3" />}
+        <SkipForward className="h-3 w-3" />
         Skip{toSkip.length > 0 ? ` (${toSkip.length})` : ""}
       </Button>
     </BulkActionBar>

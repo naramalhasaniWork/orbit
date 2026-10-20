@@ -69,7 +69,7 @@ export function MapControls({
           placeholder="Filter nodes..."
           value={searchQuery}
           onChange={handleSearch}
-          className="pl-8 h-8 text-xs bg-foreground/[0.06] border-border focus:border-orbit-accent/40"
+          className="pl-8 h-8 text-xs bg-foreground/[0.06] border-border focus-visible:border-tm-t3"
         />
       </div>
 

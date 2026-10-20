@@ -40,7 +40,7 @@ export function ReindexLink({ projectId }: { projectId: string }) {
         disabled={pending}
         className="ml-1 flex items-center gap-1 text-yellow-400 hover:text-yellow-300 font-medium transition-colors disabled:opacity-60"
       >
-        <RefreshCw className={cn("h-3 w-3", pending && "animate-spin")} />
+        <RefreshCw className={cn("h-3 w-3")} />
         Re-index
       </button>
       {error && <span role="alert" className="text-red-400">{error}</span>}

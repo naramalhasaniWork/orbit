@@ -1,9 +1,10 @@
 "use client";
 
+import { Pending } from "@/components/telemetry/pending";
 import { useState, useMemo, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Play, Loader2, Filter, ChevronLeft, ChevronRight } from "lucide-react";
+import { Play, Filter, ChevronLeft, ChevronRight } from "lucide-react";
 import { staggerContainer, staggerItem } from "@/lib/motion";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/shared/empty-state";
@@ -136,13 +137,13 @@ export function RunsClient({
         </div>
         <div className="flex flex-col items-end gap-1">
           <Button
-            className="bg-orbit-accent hover:bg-orbit-accent/90 text-white gap-2 disabled:opacity-60"
+            className="bg-primary hover:bg-primary/85 text-primary-foreground gap-2 disabled:opacity-60"
             onClick={preflightBlock ? undefined : handleStartRun}
             disabled={startingRun || !!preflightBlock}
             title={preflightBlock ?? undefined}
           >
             {startingRun ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <Pending />
             ) : (
               <Play className="h-4 w-4" />
             )}
@@ -179,7 +180,7 @@ export function RunsClient({
                 variant="ghost"
                 size="sm"
                 onClick={() => changeFilters({ status: "", mode: "", trigger: "" })}
-                className="text-orbit-accent hover:text-orbit-accent/80"
+                className="text-foreground hover:text-foreground"
               >
                 Clear filters
               </Button>

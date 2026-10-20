@@ -63,7 +63,7 @@ export function ProjectsListClient({ projects }: ProjectsListClientProps) {
         description="Connect your first repository to get started with AI-powered testing."
         action={
           <Link href="/dashboard/onboarding">
-            <Button className="bg-orbit-accent hover:bg-orbit-accent/90 text-white gap-2">
+            <Button className="bg-primary hover:bg-primary/85 text-primary-foreground gap-2">
               <Plus className="h-4 w-4" />
               Add Project
             </Button>

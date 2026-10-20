@@ -61,7 +61,7 @@ const triggerLabels: Record<string, string> = {
 };
 
 const modeBadgeClass: Record<string, string> = {
-  full: "bg-orbit-accent/10 text-orbit-accent border-orbit-accent/20",
+  full: "bg-foreground/[0.06] text-foreground border-tm-line-strong",
   smoke: "bg-orbit-flaky/10 text-orbit-flaky border-orbit-flaky/20",
   regression: "bg-orbit-fail/10 text-orbit-fail border-orbit-fail/20",
   targeted: "bg-orbit-pass/10 text-orbit-pass border-orbit-pass/20",
@@ -85,7 +85,7 @@ export function RunsTimeline({ runs }: { runs: Run[] }) {
               <Link
                 key={run.id}
                 href={`/dashboard/runs/${run.id}`}
-                className="flex items-center gap-3 px-4 py-2.5 hover:bg-foreground/[0.04] transition-colors duration-150 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orbit-accent/50 focus-visible:ring-inset"
+                className="flex items-center gap-3 px-4 py-2.5 hover:bg-foreground/[0.04] transition-colors duration-150 cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset"
               >
                 <StatusDot status={status} pulse={status === "running"} />
 
