@@ -11,6 +11,7 @@ vi.mock("@/lib/db", () => ({
       create: vi.fn(),
       update: vi.fn(),
       findUnique: vi.fn(),
+      findUniqueOrThrow: vi.fn(),
     },
     testResult: { groupBy: vi.fn() },
     workspace: { update: vi.fn() },
@@ -47,8 +48,8 @@ vi.mock("@/services/orchestrator/run-manager", () => ({
   isRunCancelled: vi.fn().mockResolvedValue(false),
 }));
 
-vi.mock("@/lib/billing/usage-aggregator", () => ({
-  checkBudgetLimit: vi.fn().mockResolvedValue({ isOverLimit: false }),
+vi.mock("@/lib/auth/tenant", () => ({
+  canConsume: vi.fn().mockResolvedValue({ allowed: true }),
 }));
 
 vi.mock("@/services/tracing", () => ({
@@ -86,7 +87,9 @@ vi.mock("@/services/reporting/reporter", () => ({
 import { prisma } from "@/lib/db";
 import { getProjectContext } from "@/services/orchestrator/context-manager";
 import { createRun, updateRunStatus, updateRunStats } from "@/services/orchestrator/run-manager";
-import { executePipeline } from "@/services/orchestrator/pipeline";
+import { executePipeline, executePipelineForRun } from "@/services/orchestrator/pipeline";
+import { canConsume } from "@/lib/auth/tenant";
+import { selectRunMode } from "@/services/orchestrator/mode-selector";
 
 const mockPrisma = prisma as unknown as {
   project: { findUnique: ReturnType<typeof vi.fn>; update: ReturnType<typeof vi.fn> };
@@ -94,6 +97,7 @@ const mockPrisma = prisma as unknown as {
     create: ReturnType<typeof vi.fn>;
     update: ReturnType<typeof vi.fn>;
     findUnique: ReturnType<typeof vi.fn>;
+    findUniqueOrThrow: ReturnType<typeof vi.fn>;
   };
   testResult: { groupBy: ReturnType<typeof vi.fn> };
   workspace: { update: ReturnType<typeof vi.fn> };
@@ -297,5 +301,82 @@ describe("orchestrator pipeline", () => {
 
     expect(result.tokenUsage.inputTokens).toBe(50000);
     expect(result.tokenUsage.outputTokens).toBe(10000);
+  });
+
+  describe("existing (event-triggered) runs", () => {
+    const context = {
+      project: { id: "p1", defaultBranch: "main", workspaceId: "ws-1" },
+      defaultEnvironment: { id: "env-1" },
+      systemMapStats: { nodes: 5, edges: 3 },
+      activePlan: { id: "plan-1", version: 1, testCaseCount: 5 },
+      lastRun: { id: "run-pr", status: "queued", passed: 0, failed: 0 },
+    };
+
+    beforeEach(() => {
+      mockGetContext.mockResolvedValue(context);
+      mockPrisma.testRun.findUniqueOrThrow.mockResolvedValue({
+        projectId: "p1", mode: "targeted", trigger: "pr", branch: "feature/x",
+        commitSha: "abc", prNumber: 7, triggeredById: null,
+        environmentId: null, testPlanId: null,
+      });
+      mockPrisma.testRun.update.mockResolvedValue({});
+      mockPrisma.testRun.findUnique.mockResolvedValue({ status: "completed", summary: null });
+      mockPrisma.project.findUnique.mockResolvedValue({ lastIndexedAt: new Date() });
+      mockPrisma.project.update.mockResolvedValue({});
+      mockUpdateStatus.mockResolvedValue({});
+      mockUpdateStats.mockResolvedValue({
+        passed: 2, failed: 0, flaky: 0, totalTests: 2, durationMs: 100, creditsConsumed: 2,
+      });
+    });
+
+    it("drives the stored run through execution without creating a new one", async () => {
+      const { runTestSuite } = await import("@/services/execution/runner");
+      (runTestSuite as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
+      (selectRunMode as ReturnType<typeof vi.fn>).mockReturnValueOnce({
+        mode: "targeted", reason: "Explicitly requested", skipIndexing: false, skipPlanning: true,
+      });
+
+      const result = await executePipelineForRun("run-pr");
+
+      expect(mockCreateRun).not.toHaveBeenCalled();
+      expect(selectRunMode).toHaveBeenCalledWith(
+        expect.objectContaining({ trigger: "pr", requestedMode: "targeted" })
+      );
+      // Defaults the webhook could not know are attached to the run
+      expect(mockPrisma.testRun.update).toHaveBeenCalledWith({
+        where: { id: "run-pr" },
+        data: { environmentId: "env-1", testPlanId: "plan-1" },
+      });
+      // Targeted mode runs through the sequential runner
+      expect(runTestSuite).toHaveBeenCalledWith("run-pr", "plan-1", "targeted");
+      expect(result).toMatchObject({ runId: "run-pr", status: "completed", creditsConsumed: 2 });
+    });
+
+    it("fails the run with the reason when credits ran out while queued", async () => {
+      (canConsume as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+        allowed: false, code: "INSUFFICIENT_CREDITS", reason: "Credit balance is 0.",
+      });
+
+      const result = await executePipelineForRun("run-pr");
+
+      expect(result.status).toBe("failed");
+      expect(mockUpdateStatus).toHaveBeenCalledWith("run-pr", "failed", "Credit balance is 0.");
+    });
+
+    it("does not report a run the runner already failed as completed", async () => {
+      const { runTestSuite } = await import("@/services/execution/runner");
+      (runTestSuite as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
+      mockPrisma.testRun.findUnique.mockResolvedValue({
+        status: "failed", summary: "Environment validation failed: unreachable",
+      });
+
+      const result = await executePipelineForRun("run-pr");
+
+      expect(result.status).toBe("failed");
+      expect(mockUpdateStatus).not.toHaveBeenCalledWith("run-pr", "completed", expect.anything());
+      expect(mockUpdateStatus).toHaveBeenCalledWith(
+        "run-pr", "failed", "Environment validation failed: unreachable"
+      );
+    });
   });
 });

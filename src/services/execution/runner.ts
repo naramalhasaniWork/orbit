@@ -11,7 +11,8 @@ import { validateEnvironment } from "@/services/execution/environment-validator"
 import { isTestQuarantined } from "@/services/execution/flaky-registry";
 import { executeTestCase } from "@/services/execution/test-case-executor";
 import { executeApiTestCase } from "@/services/execution/api-test-executor";
-import type { TestCaseForExecution } from "@/services/execution/test-case-executor";
+import { loadTestCases } from "@/services/execution/test-case-loader";
+import { chargeRunCredits } from "@/lib/billing/run-credits";
 import type { StorageState } from "@/services/execution/browser-manager";
 import { isRunCancelled } from "@/services/orchestrator/run-manager";
 import { executeParallel } from "@/services/orchestrator/parallel-executor";
@@ -38,6 +39,14 @@ export async function executeRun(options: RunOptions): Promise<void> {
 
   try {
     await executeRunInner(options);
+  } catch (err) {
+    // Never leave the run "executing": record the crash as a terminal failure.
+    // Not rethrown — a queue retry would re-run tests and duplicate results.
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(`[Runner] Run ${runId} crashed:`, err);
+    await failRun(runId, `Execution crashed: ${msg}`).catch((failErr) =>
+      console.error(`[Runner] Could not mark run ${runId} failed:`, failErr)
+    );
   } finally {
     await releaseLock(lock);
   }
@@ -56,7 +65,7 @@ async function executeRunInner(options: RunOptions): Promise<void> {
 
   const run = await prisma.testRun.findUniqueOrThrow({
     where: { id: runId },
-    select: { projectId: true, testPlanId: true, mode: true },
+    select: { id: true, projectId: true, testPlanId: true, mode: true, trigger: true, prNumber: true, metadata: true },
   });
 
   log(`Validating environment...`);
@@ -68,7 +77,7 @@ async function executeRunInner(options: RunOptions): Promise<void> {
   }
   log(`Environment OK: ${validation.environmentUrl} (warnings: ${validation.warnings.length})`);
 
-  const testCases = await loadTestCases(run.projectId, run.testPlanId, run.mode);
+  const testCases = await loadTestCases(run);
   log(`Loaded ${testCases.length} test cases (mode: ${run.mode})`);
   if (testCases.length === 0) {
     await prisma.testRun.update({
@@ -82,12 +91,12 @@ async function executeRunInner(options: RunOptions): Promise<void> {
   await prisma.testRun.update({ where: { id: runId }, data: { totalTests: testCases.length } });
 
   await emitRunStarted(runId, {
-    runId, projectId: run.projectId, mode: run.mode, trigger: "manual", totalTests: testCases.length,
+    runId, projectId: run.projectId, mode: run.mode, trigger: run.trigger, totalTests: testCases.length,
   });
 
   // Fire run.started webhook asynchronously
   dispatchRunStarted(run.projectId, {
-    runId, mode: run.mode, trigger: "manual",
+    runId, mode: run.mode, trigger: run.trigger,
   }).catch((err) => console.error("[Runner] Webhook delivery failed:", err));
 
   const counters = { passed: 0, failed: 0, flaky: 0, skipped: 0 };
@@ -115,6 +124,7 @@ async function executeRunInner(options: RunOptions): Promise<void> {
 
     if (await isRunCancelled(runId)) {
       await prisma.testRun.update({ where: { id: runId }, data: { status: "cancelled", completedAt: new Date() } });
+      await chargeRunCredits(runId);
       await emitRunProgress(runId, {
         runId, status: "cancelled", currentTest: "", totalTests: testCases.length,
         passed: counters.passed, failed: counters.failed, flaky: counters.flaky,
@@ -266,6 +276,7 @@ async function failRun(runId: string, summary: string): Promise<void> {
     where: { id: runId },
     data: { status: "failed", summary, completedAt: new Date() },
   });
+  await chargeRunCredits(runId);
   await emitRunProgress(runId, { runId, status: "failed", currentTest: "", totalTests: 0, passed: 0, failed: 0, flaky: 0 });
 }
 
@@ -284,9 +295,10 @@ async function completeRun(
     data: {
       status: "completed", passed: counters.passed, failed: counters.failed,
       flaky: counters.flaky, skipped: counters.skipped, completedAt, durationMs,
-      creditsConsumed: totalTests,
     },
   });
+
+  const creditsConsumed = await chargeRunCredits(runId);
 
   await emitRunProgress(runId, {
     runId, status: "completed", currentTest: "", totalTests, passed: counters.passed, failed: counters.failed, flaky: counters.flaky,
@@ -310,30 +322,13 @@ async function completeRun(
     dispatchRunCompleted(projectId, {
       runId, projectId, totalTests, passed: counters.passed, failed: counters.failed,
       flaky: counters.flaky, skipped: counters.skipped, durationMs,
-      creditsConsumed: totalTests,
+      creditsConsumed,
       mode: (completedRunData?.mode as "full" | "smoke" | "regression" | "targeted") ?? "full",
       trigger: (completedRunData?.trigger as "push" | "pr" | "scheduled" | "manual" | "linear" | "api") ?? "manual",
       summary: `${counters.passed}/${totalTests} passed`,
       failures: [],
     }).catch((err) => console.error("[Runner] Webhook delivery failed:", err));
   }
-}
-
-async function loadTestCases(
-  projectId: string, testPlanId: string | null, mode: string
-): Promise<TestCaseForExecution[]> {
-  const where: Record<string, unknown> = { projectId, isEnabled: true };
-  if (testPlanId) where.testPlanId = testPlanId;
-  if (mode === "smoke") where.priorityScore = { gte: 80 };
-  else if (mode === "regression") where.lastVerdict = { in: ["fail", "flaky"] };
-
-  const cases = await prisma.testCase.findMany({ where, orderBy: { priorityScore: "desc" } });
-  return cases.map((tc) => ({
-    id: tc.id, name: tc.name, type: tc.type,
-    steps: tc.steps as Array<{ action: string; expected: string; selector?: string }>,
-    projectId: tc.projectId, isCritical: tc.isCritical,
-    requiredRole: tc.requiredRole ?? undefined,
-  }));
 }
 
 /** Sequential entry point -- used by orchestrator pipeline */
@@ -359,6 +354,7 @@ export async function runTestSuiteParallel(
   const result = await executeParallel({ runId, testPlanId, environmentId: run.environmentId, mode, maxConcurrency });
   if (result.cancelled) {
     await prisma.testRun.update({ where: { id: runId }, data: { status: "cancelled", completedAt: new Date() } });
+    await chargeRunCredits(runId);
     return;
   }
 
