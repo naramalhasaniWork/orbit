@@ -25,33 +25,33 @@ export const AGENT_PHASE_CONFIG: Record<
 > = {
   analyst: {
     label: "Analyst",
-    color: "text-blue-400",
-    bgColor: "bg-blue-500/20",
-    borderColor: "border-blue-500/40",
+    color: "text-tm-info",
+    bgColor: "bg-tm-info/20",
+    borderColor: "border-tm-info/40",
   },
   planner: {
     label: "Planner",
-    color: "text-purple-400",
-    bgColor: "bg-purple-500/20",
-    borderColor: "border-purple-500/40",
+    color: "text-tm-t2",
+    bgColor: "bg-tm-t2/20",
+    borderColor: "border-tm-t2/40",
   },
   executor: {
     label: "Executor",
-    color: "text-amber-400",
-    bgColor: "bg-amber-500/20",
-    borderColor: "border-amber-500/40",
+    color: "text-tm-warn",
+    bgColor: "bg-tm-warn/20",
+    borderColor: "border-tm-warn/40",
   },
   reporter: {
     label: "Reporter",
-    color: "text-emerald-400",
-    bgColor: "bg-emerald-500/20",
-    borderColor: "border-emerald-500/40",
+    color: "text-tm-pass",
+    bgColor: "bg-tm-pass/20",
+    borderColor: "border-tm-pass/40",
   },
   auditor: {
     label: "Auditor",
-    color: "text-rose-400",
-    bgColor: "bg-rose-500/20",
-    borderColor: "border-rose-500/40",
+    color: "text-tm-fail",
+    bgColor: "bg-tm-fail/20",
+    borderColor: "border-tm-fail/40",
   },
 };
 

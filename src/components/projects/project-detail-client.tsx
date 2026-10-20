@@ -111,7 +111,7 @@ export function ProjectDetailClient({
       <motion.div variants={fadeUp} className="flex items-start justify-between">
         <div className="space-y-1">
           <div className="flex items-center gap-3">
-            <h1 className="text-lg font-semibold text-foreground">
+            <h1 className="text-lg font-medium text-foreground">
               {project.name}
             </h1>
             <StatusDot
@@ -278,7 +278,7 @@ function MiniStat({
         <Icon className="h-4 w-4 text-muted-foreground" />
       </div>
       <div>
-        <span className="text-lg font-semibold tabular-nums text-foreground block leading-tight">
+        <span className="text-lg font-medium tabular-nums text-foreground block leading-tight">
           {value}
         </span>
         <span className="text-[11px] text-muted-foreground">{label}</span>

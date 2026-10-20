@@ -175,14 +175,14 @@ export function AuditLogViewer({ workspaceId, showWorkspace }: AuditLogViewerPro
           <table className="w-full">
             <thead>
               <tr className="surface-1 border-b border-border">
-                <th className="px-3 py-2 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Time</th>
+                <th className="px-3 py-2 text-left text-muted-foreground tm-label">Time</th>
                 {showWorkspace && (
-                  <th className="px-3 py-2 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Workspace</th>
+                  <th className="px-3 py-2 text-left text-muted-foreground tm-label">Workspace</th>
                 )}
-                <th className="px-3 py-2 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider">User</th>
-                <th className="px-3 py-2 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Action</th>
-                <th className="px-3 py-2 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider">Resource</th>
-                <th className="px-3 py-2 text-left text-[11px] font-medium text-muted-foreground uppercase tracking-wider">IP Address</th>
+                <th className="px-3 py-2 text-left text-muted-foreground tm-label">User</th>
+                <th className="px-3 py-2 text-left text-muted-foreground tm-label">Action</th>
+                <th className="px-3 py-2 text-left text-muted-foreground tm-label">Resource</th>
+                <th className="px-3 py-2 text-left text-muted-foreground tm-label">IP Address</th>
                 <th className="w-8" />
               </tr>
             </thead>

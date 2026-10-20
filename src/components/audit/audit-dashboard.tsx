@@ -146,7 +146,7 @@ export function AuditDashboard({
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-foreground">Code Audit</h1>
+          <h1 className="text-xl font-medium text-foreground">Code Audit</h1>
           <p className="text-sm text-muted-foreground mt-0.5">{projectName}</p>
         </div>
         <Button onClick={triggerAudit} disabled={isRunning} size="sm">
@@ -177,7 +177,7 @@ export function AuditDashboard({
                 {displayAudit.issueCount} issues
               </span>
               {displayAudit.criticalCount > 0 && (
-                <span className="flex items-center gap-1 text-red-400">
+                <span className="flex items-center gap-1 text-tm-fail">
                   <AlertTriangle className="h-3.5 w-3.5" />
                   {displayAudit.criticalCount} critical
                 </span>

@@ -185,7 +185,7 @@ function ExpandedDetails({
     <div className="px-4 pb-3 pt-1 border-t border-border space-y-3">
       {rationale && (
         <div>
-          <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
+          <span className=" tm-label text-muted-foreground">
             Rationale
           </span>
           <p className="text-xs text-foreground/80 mt-0.5">{rationale}</p>
@@ -194,7 +194,7 @@ function ExpandedDetails({
 
       {steps.length > 0 && (
         <div>
-          <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
+          <span className=" tm-label text-muted-foreground">
             Steps
           </span>
           <ol className="mt-1 space-y-1">
@@ -212,7 +212,7 @@ function ExpandedDetails({
 
       {parsedEdgeCases.length > 0 && (
         <div>
-          <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
+          <span className=" tm-label text-muted-foreground">
             Edge Cases
           </span>
           <ul className="mt-1 space-y-0.5">

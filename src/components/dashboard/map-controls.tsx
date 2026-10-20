@@ -75,7 +75,7 @@ export function MapControls({
 
       {/* Node Types */}
       <div>
-        <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-2 block">
+        <span className=" tm-label text-muted-foreground mb-2 block">
           Node Types
         </span>
         <div className="flex flex-wrap gap-1.5">
@@ -99,7 +99,7 @@ export function MapControls({
 
       {/* Status Filters */}
       <div>
-        <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-2 block">
+        <span className=" tm-label text-muted-foreground mb-2 block">
           Test Status
         </span>
         <div className="flex flex-wrap gap-1.5">
@@ -157,7 +157,7 @@ export function MapControls({
 
       {/* Legend */}
       <div className="pt-1 border-t border-border">
-        <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground mb-2 block">
+        <span className=" tm-label text-muted-foreground mb-2 block">
           Legend
         </span>
         <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[10px] text-muted-foreground">

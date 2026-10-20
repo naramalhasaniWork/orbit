@@ -77,7 +77,7 @@ export function UserMenu() {
         )}
         <DropdownMenuSeparator />
         <DropdownMenuItem
-          className="cursor-pointer gap-2 text-red-400 focus:text-red-400 focus:bg-red-500/10"
+          className="cursor-pointer gap-2 text-tm-fail focus:text-tm-fail focus:bg-tm-fail/10"
           onClick={() => signOut({ callbackUrl: "/login" })}
         >
           <LogOut className="h-4 w-4" />

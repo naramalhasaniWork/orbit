@@ -71,10 +71,10 @@ function TraceSummary({ traces }: { traces: TraceNodeData[] }) {
 function SummaryStat({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex flex-col gap-0.5 p-3 rounded-lg surface-1 border border-border">
-      <span className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider">
+      <span className=" text-muted-foreground tm-label">
         {label}
       </span>
-      <span className="text-lg font-semibold tabular-nums text-foreground">
+      <span className="text-lg font-medium tabular-nums text-foreground">
         {value}
       </span>
     </div>

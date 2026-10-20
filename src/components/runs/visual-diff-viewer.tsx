@@ -103,7 +103,7 @@ function ScoreGauge({ score, label }: { score: number; label: string }) {
             className={color}
           />
         </svg>
-        <span className={cn("absolute inset-0 flex items-center justify-center text-[10px] font-bold", color)}>
+        <span className={cn("absolute inset-0 flex items-center justify-center text-[10px] font-medium", color)}>
           {score}
         </span>
       </div>
@@ -132,7 +132,7 @@ function ImagePanel({ url, label, fallback }: { url?: string; label: string; fal
 
   return (
     <div className="space-y-1.5">
-      <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">{label}</div>
+      <div className=" text-muted-foreground tm-label">{label}</div>
       <div className="rounded-lg border border-border/50 overflow-hidden bg-orbit-surface-1">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={url} alt={label} className="w-full h-auto" />
@@ -146,7 +146,7 @@ function DiffRegionOverlay({ regions }: { regions: DiffRegion[] }) {
 
   return (
     <div className="space-y-2">
-      <div className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
+      <div className=" text-muted-foreground tm-label">
         Changed Regions ({regions.length})
       </div>
       <div className="grid gap-1.5">

@@ -81,7 +81,7 @@ export function ProjectsListClient({ projects }: ProjectsListClientProps) {
       className="space-y-6 max-w-4xl"
     >
       <motion.div variants={fadeUp} className="flex items-center justify-between">
-        <h1 className="text-lg font-semibold text-foreground">Projects</h1>
+        <h1 className="text-lg font-medium text-foreground">Projects</h1>
         <Link href="/dashboard/onboarding">
           <Button
             variant="outline"

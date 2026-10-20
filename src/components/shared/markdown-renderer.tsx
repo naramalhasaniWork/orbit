@@ -16,12 +16,12 @@ export function MarkdownRenderer({ content, className }: MarkdownRendererProps) 
       remarkPlugins={[remarkGfm]}
       components={{
         h1: ({ children }) => (
-          <h1 className="text-base font-semibold text-foreground mt-4 mb-2 first:mt-0">
+          <h1 className="text-base font-medium text-foreground mt-4 mb-2 first:mt-0">
             {children}
           </h1>
         ),
         h2: ({ children }) => (
-          <h2 className="text-sm font-semibold text-foreground mt-3 mb-1.5 first:mt-0">
+          <h2 className="text-sm font-medium text-foreground mt-3 mb-1.5 first:mt-0">
             {children}
           </h2>
         ),
@@ -36,7 +36,7 @@ export function MarkdownRenderer({ content, className }: MarkdownRendererProps) 
           </p>
         ),
         strong: ({ children }) => (
-          <strong className="font-semibold text-foreground">{children}</strong>
+          <strong className="font-medium text-foreground">{children}</strong>
         ),
         em: ({ children }) => (
           <em className="text-muted-foreground">{children}</em>
@@ -89,7 +89,7 @@ export function MarkdownRenderer({ content, className }: MarkdownRendererProps) 
           <thead className="border-b border-border">{children}</thead>
         ),
         th: ({ children }) => (
-          <th className="text-left px-3 py-1.5 text-muted-foreground font-medium text-[11px] uppercase tracking-wider">
+          <th className="text-left px-3 py-1.5 text-muted-foreground tm-label">
             {children}
           </th>
         ),

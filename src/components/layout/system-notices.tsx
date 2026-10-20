@@ -11,7 +11,7 @@ export function MaintenanceScreen({ message }: { message: string }) {
         <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl border border-border surface-1">
           <Wrench className="h-5 w-5 text-foreground" />
         </div>
-        <h1 className="text-lg font-semibold text-foreground">Down for maintenance</h1>
+        <h1 className="text-lg font-medium text-foreground">Down for maintenance</h1>
         <p className="text-sm text-muted-foreground">{message || DEFAULT_MAINTENANCE_MESSAGE}</p>
       </div>
     </div>

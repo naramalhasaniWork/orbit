@@ -48,7 +48,7 @@ export function MapNodeDetail({
       {/* Header */}
       <div className="flex items-start justify-between p-4">
         <div className="flex-1 min-w-0">
-          <h3 className="text-sm font-semibold text-foreground truncate">
+          <h3 className="text-sm font-medium text-foreground truncate">
             {node.name}
           </h3>
           <div className="flex items-center gap-2 mt-1">
@@ -78,7 +78,7 @@ export function MapNodeDetail({
           {/* File Path */}
           {node.filePath && (
             <div>
-              <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground block mb-1">
+              <span className=" tm-label text-muted-foreground block mb-1">
                 File Path
               </span>
               <div className="flex items-start gap-1.5">
@@ -92,7 +92,7 @@ export function MapNodeDetail({
 
           {/* Test Status Summary */}
           <div>
-            <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground block mb-1">
+            <span className=" tm-label text-muted-foreground block mb-1">
               Test Coverage
             </span>
             <div
@@ -166,7 +166,7 @@ function ConnectionList({
 }: ConnectionListProps) {
   return (
     <div>
-      <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground block mb-1.5">
+      <span className=" tm-label text-muted-foreground block mb-1.5">
         {title} ({edges.length})
       </span>
       <div className="space-y-1">

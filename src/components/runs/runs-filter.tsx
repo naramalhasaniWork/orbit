@@ -82,7 +82,7 @@ export function RunsFilter({ filters, onFiltersChange, sort, onSortChange, runs 
       )}
 
       <label className="ml-auto flex items-center gap-1.5">
-        <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Sort</span>
+        <span className=" text-muted-foreground tm-label">Sort</span>
         <select
           value={sort}
           onChange={(e) => isRunSort(e.target.value) && onSortChange(e.target.value)}
@@ -114,7 +114,7 @@ function FilterGroup({
 
   return (
     <div className="flex items-center gap-1">
-      <span className="text-[10px] text-muted-foreground uppercase tracking-wider mr-1">
+      <span className=" text-muted-foreground tm-label mr-1">
         {label}
       </span>
       {options.map((opt) => (

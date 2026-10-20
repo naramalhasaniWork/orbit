@@ -11,9 +11,9 @@ interface ScoreDisplayProps {
 }
 
 function getScoreColor(score: number): string {
-  if (score >= 90) return "text-emerald-400";
-  if (score >= 70) return "text-amber-400";
-  return "text-red-400";
+  if (score >= 90) return "text-tm-pass";
+  if (score >= 70) return "text-tm-warn";
+  return "text-tm-fail";
 }
 
 function getScoreGlow(score: number): string {
@@ -23,9 +23,9 @@ function getScoreGlow(score: number): string {
 }
 
 function getScoreBg(score: number): string {
-  if (score >= 90) return "bg-emerald-400/10";
-  if (score >= 70) return "bg-amber-400/10";
-  return "bg-red-400/10";
+  if (score >= 90) return "bg-tm-pass/10";
+  if (score >= 70) return "bg-tm-warn/10";
+  return "bg-tm-fail/10";
 }
 
 const sizeMap = {
@@ -49,7 +49,7 @@ export function ScoreDisplay({ score, label, size = "lg" }: ScoreDisplayProps) {
         getScoreGlow(score)
       )}
     >
-      <span className={cn("font-bold tabular-nums", s.text, getScoreColor(score))}>
+      <span className={cn("font-medium tabular-nums", s.text, getScoreColor(score))}>
         {score}
       </span>
       {label && (

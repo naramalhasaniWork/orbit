@@ -29,7 +29,7 @@ export function OperationsControls({
     <div className="w-56 shrink-0 p-3 overflow-y-auto space-y-4">
       {/* Type filters */}
       <div>
-        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+        <p className=" tm-label text-muted-foreground mb-2">
           Operation Types
         </p>
         <div className="space-y-1">
@@ -57,7 +57,7 @@ export function OperationsControls({
 
       {/* Flows summary */}
       <div>
-        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+        <p className=" tm-label text-muted-foreground mb-2">
           Flows ({flows.length})
         </p>
         <div className="space-y-1">
@@ -85,7 +85,7 @@ export function OperationsControls({
       {/* Selected operation detail */}
       {selectedOp && (
         <div className="border-t border-border pt-3">
-          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">
+          <p className=" tm-label text-muted-foreground mb-1">
             Selected
           </p>
           <p className="text-sm font-medium text-foreground">{selectedOp.name}</p>

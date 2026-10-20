@@ -102,21 +102,21 @@ export default async function MapPage({
     <div className="flex flex-col h-[calc(100vh-4rem)]">
       <div className="flex items-center justify-between px-1 pb-3">
         <div>
-          <h1 className="text-lg font-semibold text-foreground">System Map</h1>
+          <h1 className="text-lg font-medium text-foreground">System Map</h1>
           <p className="text-xs text-muted-foreground flex items-center gap-2 flex-wrap">
             <span>{project.name} — {nodes.length} nodes, {edges.length} edges</span>
             {syncDiff && (syncDiff.added > 0 || syncDiff.modified > 0 || syncDiff.removed > 0) && (
               <span className="flex items-center gap-1">
                 <span className="text-muted-foreground/40">·</span>
-                {syncDiff.added > 0 && <span className="text-blue-400">+{syncDiff.added} new</span>}
+                {syncDiff.added > 0 && <span className="text-tm-info">+{syncDiff.added} new</span>}
                 {syncDiff.added > 0 && syncDiff.modified > 0 && <span className="text-muted-foreground/40"> · </span>}
-                {syncDiff.modified > 0 && <span className="text-purple-400">~{syncDiff.modified} changed</span>}
+                {syncDiff.modified > 0 && <span className="text-tm-t2">~{syncDiff.modified} changed</span>}
                 {(syncDiff.added > 0 || syncDiff.modified > 0) && syncDiff.removed > 0 && <span className="text-muted-foreground/40"> · </span>}
-                {syncDiff.removed > 0 && <span className="text-red-400">-{syncDiff.removed} removed</span>}
+                {syncDiff.removed > 0 && <span className="text-tm-fail">-{syncDiff.removed} removed</span>}
               </span>
             )}
             {commitsBehind > 0 && (
-              <span className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-yellow-500/10 text-yellow-400 border border-yellow-500/20 text-[10px]">
+              <span className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-tm-warn/10 text-tm-warn border border-tm-warn/20 text-[10px]">
                 ↑ {commitsBehind} commit{commitsBehind !== 1 ? "s" : ""} ahead on GitHub
                 {lastCommitSha && (
                   <span className="font-mono opacity-70">{lastCommitSha.slice(0, 7)}</span>

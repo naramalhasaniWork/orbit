@@ -286,7 +286,7 @@ export function CoverageMap({ cells, className }: CoverageMapProps) {
               {/* Test cases list */}
               {selectedCell.testCases && selectedCell.testCases.length > 0 && (
                 <div className="border-t border-border pt-3">
-                  <span className="text-[11px] font-medium text-muted-foreground uppercase tracking-wider">
+                  <span className=" text-muted-foreground tm-label">
                     Test Cases
                   </span>
                   <ScrollArea className="h-[200px] mt-2">

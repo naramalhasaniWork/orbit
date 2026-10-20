@@ -38,12 +38,12 @@ export function ReindexLink({ projectId }: { projectId: string }) {
       <button
         onClick={reindex}
         disabled={pending}
-        className="ml-1 flex items-center gap-1 text-yellow-400 hover:text-yellow-300 font-medium transition-colors disabled:opacity-60"
+        className="ml-1 flex items-center gap-1 text-tm-warn hover:text-tm-warn font-medium transition-colors disabled:opacity-60"
       >
         <RefreshCw className={cn("h-3 w-3")} />
         Re-index
       </button>
-      {error && <span role="alert" className="text-red-400">{error}</span>}
+      {error && <span role="alert" className="text-tm-fail">{error}</span>}
     </>
   );
 }

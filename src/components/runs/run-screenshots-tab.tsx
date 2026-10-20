@@ -92,7 +92,7 @@ export function RunScreenshotsTab({ runId, projectId }: RunScreenshotsTabProps) 
   if (error) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center">
-        <p className="text-sm text-red-400">{error}</p>
+        <p className="text-sm text-tm-fail">{error}</p>
         <button
           onClick={fetchScreenshots}
           className="mt-3 text-xs text-foreground hover:underline"
