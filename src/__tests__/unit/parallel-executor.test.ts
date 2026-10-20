@@ -27,6 +27,7 @@ import { saveTestResult, recordEnvironmentError } from "@/services/execution/tes
 import { validateEnvironment } from "@/services/execution/environment-validator";
 import { executeParallel } from "@/services/orchestrator/parallel-executor";
 import { BudgetExceededError } from "@/server/ai/errors";
+import { RunLockedError } from "@/lib/queue/run-locked";
 import { requestShutdown, resetShutdownForTests, ShutdownError } from "@/lib/queue/shutdown";
 
 const db = prisma as unknown as {
@@ -76,10 +77,14 @@ describe("executeParallel", () => {
     expect(result).toMatchObject({ passed: 1, failed: 0, skipped: 1 });
   });
 
-  it("aborts the run when the AI budget is exhausted instead of failing every case", async () => {
-    dispatch.mockRejectedValueOnce(new BudgetExceededError("workspace", "AI budget exceeded"));
+  it.each([
+    ["the AI budget is exhausted", new BudgetExceededError("workspace", "AI budget exceeded")],
+    ["the worker is shutting down", new ShutdownError()],
+    ["another worker holds the run", new RunLockedError("run-1", 1000)],
+  ])("aborts the run instead of failing every case when %s", async (_why, error) => {
+    dispatch.mockRejectedValueOnce(error);
 
-    await expect(executeParallel(options)).rejects.toBeInstanceOf(BudgetExceededError);
+    await expect(executeParallel(options)).rejects.toBe(error);
     expect(dispatch).toHaveBeenCalledTimes(1);
     expect(saveTestResult).not.toHaveBeenCalled();
   });

@@ -26,6 +26,7 @@ import { loadRecordedVerdicts, verdictBucket, isLoginCase } from "@/services/exe
 import type { TestVerdict } from "@/generated/prisma/enums";
 import type { TestResultEvent } from "@/lib/websocket/channels";
 import { isBudgetExceeded } from "@/server/ai/errors";
+import { isRunAbort } from "@/services/execution/run-abort";
 
 const RUN_LOCK_TTL_SECONDS = 300; // 5 min lock with auto-refresh
 const RUN_LOCK_RETRY_MS = 30_000;
@@ -263,7 +264,7 @@ async function executeRunInner(options: RunOptions): Promise<void> {
         data: { lastVerdict: result.verdict as TestVerdict, lastRunAt: new Date() },
       });
     } catch (err) {
-      if (isBudgetExceeded(err)) throw err;
+      if (isRunAbort(err)) throw err;
       counters.failed++;
       const errorMsg = err instanceof Error ? err.message : "Unknown error";
       log(`  -> CRASH: ${errorMsg}`);

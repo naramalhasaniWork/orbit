@@ -3,7 +3,7 @@ import { emitRunProgress } from "@/lib/websocket";
 import { isRunCancelled } from "./run-manager";
 import type { TestVerdict } from "@/generated/prisma/enums";
 import type { RoleSessions } from "@/services/execution/role-sessions";
-import { isBudgetExceeded } from "@/server/ai/errors";
+import { isRunAbort } from "@/services/execution/run-abort";
 import { throwIfShuttingDown } from "@/lib/queue/shutdown";
 import { loadRecordedVerdicts, verdictBucket, isLoginCase } from "@/services/execution/resume";
 
@@ -316,8 +316,8 @@ async function executePartition(
       const key = verdictMap[result.verdict] ?? "failed";
       counters[key]++;
     } catch (err) {
-      // Out of AI budget: abort the run instead of failing every remaining case.
-      if (isBudgetExceeded(err)) throw err;
+      // Shutdown, lost run lock or exhausted AI budget: abort instead of failing every remaining case.
+      if (isRunAbort(err)) throw err;
       counters.failed++;
     }
   }
