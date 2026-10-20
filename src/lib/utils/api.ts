@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { ZodError } from "zod";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { Prisma } from "@/generated/prisma/client";
 import type { OrbitSession } from "@/lib/utils/types";
 
 interface ApiError {
@@ -131,12 +132,15 @@ export function handleApiError(error: unknown): NextResponse {
     return apiError(firstError, "VALIDATION_ERROR", 400);
   }
 
-  // Handle Prisma "not found" errors
-  if (
-    error instanceof Error &&
-    error.name === "NotFoundError"
-  ) {
-    return apiError("Resource not found", "NOT_FOUND", 404);
+  // Prisma 7: record not found (findUniqueOrThrow, update/delete of a
+  // missing row) and unique-constraint violations
+  if (error instanceof Prisma.PrismaClientKnownRequestError) {
+    if (error.code === "P2025") {
+      return apiError("Resource not found", "NOT_FOUND", 404);
+    }
+    if (error.code === "P2002") {
+      return apiError("A record with these details already exists", "CONFLICT", 409);
+    }
   }
 
   console.error("Unhandled API error:", error);
