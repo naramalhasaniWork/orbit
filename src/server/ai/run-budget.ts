@@ -1,17 +1,14 @@
-import { getModelCosts } from "@/lib/ai/model-router";
+// Per-run token budget. The gateway records every call made inside runWithBudget()
+// and refuses new calls once the run is over budget.
+
+import { AsyncLocalStorage } from "async_hooks";
+import type { AgentPhase } from "@/server/ai/types";
 
 interface TokenUsage {
   inputTokens: number;
   outputTokens: number;
   cachedTokens: number;
 }
-
-function getCostForModel(model: string) {
-  const costs = getModelCosts(model);
-  return costs ?? { input: 0.003, output: 0.015, cached: 0.0003 };
-}
-
-type AgentPhase = "analyst" | "planner" | "executor" | "reporter" | "auditor";
 
 interface AgentTokenUsage extends TokenUsage {
   callCount: number;
@@ -125,24 +122,21 @@ export class TokenBudget {
     return Math.max(0, this.config.maxOutputTokens - this.usage.outputTokens);
   }
 
-  estimateCost(model?: string): number {
-    // Use model-specific pricing if available, otherwise default to Sonnet pricing
-    const costs = model
-      ? getCostForModel(model)
-      : { input: 0.003, output: 0.015, cached: 0.0003 };
-
-    const effectiveInput = this.usage.inputTokens - this.usage.cachedTokens;
-    return (
-      (effectiveInput / 1000) * costs.input +
-      (this.usage.outputTokens / 1000) * costs.output +
-      (this.usage.cachedTokens / 1000) * costs.cached
-    );
-  }
-
   reset(): void {
     this.usage = { inputTokens: 0, outputTokens: 0, cachedTokens: 0 };
     this.agentUsage.clear();
   }
+}
+
+const activeBudget = new AsyncLocalStorage<TokenBudget>();
+
+/** Run fn with budget attached: every gateway call inside it is recorded against it. */
+export function runWithBudget<T>(budget: TokenBudget, fn: () => Promise<T>): Promise<T> {
+  return activeBudget.run(budget, fn);
+}
+
+export function currentRunBudget(): TokenBudget | undefined {
+  return activeBudget.getStore();
 }
 
 export type { TokenUsage, AgentPhase, AgentTokenUsage, TokenBudgetConfig };

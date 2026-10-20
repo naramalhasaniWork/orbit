@@ -6,7 +6,7 @@ generator client {
 
 datasource db {
   provider   = "postgresql"
-  extensions = [vector]
+  extensions = [vector, pg_trgm]
 }
 
 // ============================================================
@@ -482,7 +482,7 @@ model SystemMapNode {
   name          String
   filePath      String                         @map("file_path")
   metadata      Json                           @default("{}")
-  embedding     Unsupported("vector(1536)")?
+  embedding     Unsupported("vector")?
   lastIndexedAt DateTime                       @default(now()) @map("last_indexed_at")
   createdAt     DateTime                       @default(now()) @map("created_at")
   updatedAt     DateTime                       @default(now()) @updatedAt @map("updated_at")
@@ -865,6 +865,7 @@ model TokenUsage {
   inputTokens   Int        @map("input_tokens")
   outputTokens  Int        @map("output_tokens")
   cachedTokens  Int        @default(0) @map("cached_tokens")
+  cacheCreationTokens Int  @default(0) @map("cache_creation_tokens")
   cost          Decimal    @db.Decimal(10, 6)
   agentPhase    AgentPhase @map("agent_phase")
   runId         String?    @map("run_id") @db.Uuid
@@ -1154,7 +1155,7 @@ model DomainKnowledgeFile {
   storageKey  String                          @map("storage_key")
   sizeBytes   Int                             @map("size_bytes")
   chunkCount  Int                             @default(0) @map("chunk_count")
-  embedding   Unsupported("vector(1536)")?
+  embedding   Unsupported("vector")?
   metadata    Json                            @default("{}")
   uploadedBy  String?                         @map("uploaded_by") @db.Uuid
   createdAt   DateTime                        @default(now()) @map("created_at")
@@ -1178,7 +1179,7 @@ model KnowledgeChunk {
   workspaceId     String                          @map("workspace_id") @db.Uuid
   content         String
   chunkIndex      Int                             @map("chunk_index")
-  embedding       Unsupported("vector(1536)")?
+  embedding       Unsupported("vector")?
   metadata        Json                            @default("{}")
   createdAt       DateTime                        @default(now()) @map("created_at")
 
@@ -1297,6 +1298,18 @@ model ProviderConfig {
 // ============================================================
 // MODEL REGISTRY — cache of available models from all providers
 // ============================================================
+
+// Which embedding provider/model/dimension produced the stored vectors (single row).
+// Changing ORBIT_EMBEDDINGS clears vectors and rebuilds the HNSW index for the new dimension.
+model EmbeddingConfig {
+  id         String   @id @default("default")
+  provider   String
+  model      String
+  dimensions Int
+  updatedAt  DateTime @default(now()) @updatedAt @map("updated_at")
+
+  @@map("embedding_config")
+}
 
 model ModelRegistry {
   id              String    @id @default(uuid()) @db.Uuid

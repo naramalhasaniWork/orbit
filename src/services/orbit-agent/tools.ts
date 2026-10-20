@@ -4,7 +4,7 @@
  */
 
 import { prisma } from "@/lib/db";
-import type { ToolDefinition } from "@/lib/ai/providers/anthropic-tools";
+import type { ToolDefinition } from "@/server/ai/types";
 import { ENVIRONMENT_TOOLS, environmentHandlers, listProjectEnvironments } from "./environments";
 
 // ============================================================
@@ -381,13 +381,13 @@ const handlers: Record<string, ToolHandler> = {
     }
 
     // Otherwise, generate one using the reporter
-    const { createCompletion } = await import("@/lib/ai");
+    const { complete } = await import("@/server/ai/gateway");
     const { getModelForTask } = await import("@/lib/ai/model-router");
     const model = await getModelForTask("failure_analysis", ctx.workspaceId);
 
-    const completion = await createCompletion({
+    const completion = await complete({
       model,
-      systemPrompt: "You are a test failure analyst. Explain why this test failed and suggest a fix.",
+      system: "You are a test failure analyst. Explain why this test failed and suggest a fix.",
       messages: [
         {
           role: "user",
@@ -402,6 +402,11 @@ const handlers: Record<string, ToolHandler> = {
       ],
       maxTokens: 1024,
       temperature: 0.2,
+    }, {
+      workspaceId: ctx.workspaceId,
+      projectId: ctx.projectId,
+      runId: result.testRun.id,
+      agentPhase: "reporter",
     });
 
     return {

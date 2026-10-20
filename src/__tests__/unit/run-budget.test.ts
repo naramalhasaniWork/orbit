@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { TokenBudget } from "@/services/orchestrator/token-budget";
+import { TokenBudget } from "@/server/ai/run-budget";
 
 describe("TokenBudget", () => {
   let budget: TokenBudget;
@@ -100,28 +100,6 @@ describe("TokenBudget", () => {
       budget.record(3_000_000, 600_000);
       expect(budget.getRemainingInput()).toBe(0);
       expect(budget.getRemainingOutput()).toBe(0);
-    });
-  });
-
-  describe("estimateCost", () => {
-    it("returns 0 for zero usage", () => {
-      expect(budget.estimateCost()).toBe(0);
-    });
-
-    it("computes cost based on effective input (minus cached)", () => {
-      budget.record(1000, 1000, 500);
-      // effectiveInput = 1000 - 500 = 500
-      // inputCost = (500/1000) * 0.003 = 0.0015
-      // outputCost = (1000/1000) * 0.015 = 0.015
-      // cachedCost = (500/1000) * 0.0003 = 0.00015
-      const expected = 0.0015 + 0.015 + 0.00015;
-      expect(budget.estimateCost()).toBeCloseTo(expected, 6);
-    });
-
-    it("treats all input as effective when no cached tokens", () => {
-      budget.record(1000, 0);
-      const expected = (1000 / 1000) * 0.003;
-      expect(budget.estimateCost()).toBeCloseTo(expected, 6);
     });
   });
 

@@ -5,7 +5,8 @@ export async function register() {
     assertEnv();
 
     const { ensureVectorSetup } = await import("@/lib/db/vector");
-    ensureVectorSetup().catch((err) => {
+    const { ensureVectorIndexForStoredConfig } = await import("@/server/ai/embedding-config");
+    ensureVectorSetup().then(ensureVectorIndexForStoredConfig).catch((err) => {
       console.error("[Instrumentation] pgvector setup failed:", err);
     });
 

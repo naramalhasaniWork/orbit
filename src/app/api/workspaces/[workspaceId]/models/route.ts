@@ -3,7 +3,7 @@ import { prisma } from "@/lib/db";
 import { requirePermission } from "@/lib/auth/rbac";
 import { apiSuccess, handleApiError } from "@/lib/utils/api";
 import { getWorkspaceApiKey } from "@/lib/ai/model-router";
-import { ensureModelRegistryFresh } from "@/lib/ai/providers/openrouter";
+import { ensureModelRegistryFresh } from "@/server/ai/openrouter-registry";
 import type { AgentPhase } from "@/generated/prisma/client";
 
 interface ModelInfo {

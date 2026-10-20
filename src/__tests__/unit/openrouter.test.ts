@@ -13,7 +13,7 @@ import {
   createOpenRouterCompletion,
   discoverOpenRouterModels,
   streamOpenRouterCompletion,
-} from "@/lib/ai/providers/openrouter";
+} from "@/server/ai/openrouter-registry";
 
 const MOCK_API_KEY = "sk-or-test-key-12345";
 

@@ -5,14 +5,10 @@
 
 import { prisma } from "@/lib/db";
 import type { Prisma } from "@/generated/prisma/client";
-import {
-  streamWithTools,
-  buildToolResultMessage,
-  buildAssistantToolUseMessage,
-  type ConversationMessage,
-  type StreamEvent,
-} from "@/lib/ai/providers/anthropic-tools";
-import { MODELS } from "@/lib/ai";
+import { streamWithTools } from "@/server/ai/gateway";
+import { buildToolResultMessage, buildAssistantToolUseMessage } from "@/server/ai/tool-messages";
+import { modelForTier } from "@/server/ai/model-catalog";
+import type { ChatMessage as ConversationMessage } from "@/server/ai/types";
 import { ORBIT_TOOLS, executeTool, type ToolContext } from "./tools";
 import { buildOrbitAgentPrompt } from "./prompt";
 import { describeEnvironments, listProjectEnvironments } from "./environments";
@@ -103,15 +99,18 @@ export async function* runOrbitAgent(
       }> = [];
       let stopReason = "end_turn";
 
-      // Stream from Anthropic
-      for await (const event of streamWithTools({
-        model: MODELS.SONNET,
-        systemPrompt,
-        messages,
-        tools: ORBIT_TOOLS,
-        maxTokens: 4096,
-        temperature: 0.3,
-      })) {
+      for await (const event of streamWithTools(
+        {
+          model: modelForTier("balanced"),
+          system: systemPrompt,
+          messages,
+          tools: ORBIT_TOOLS,
+          maxTokens: 4096,
+          temperature: 0.3,
+        },
+        // The assistant has no phase of its own; its spend is reported under reporter.
+        { workspaceId, projectId, agentPhase: "reporter" }
+      )) {
         switch (event.type) {
           case "text_delta":
             textParts.push(event.text);
