@@ -207,15 +207,23 @@
     background-color: hsl(var(--tm-sunken) / 0.5);
   }
 
-  /* The only loop in the product: the live dot, 1.6s, only while live. */
+  /* The only loop in the product: the live dot, 1.6s, only while live.
+     <LiveDot> sets data-offscreen to pause it when it is not visible. */
   .tm-live-pulse {
     animation: tm-live 1.6s linear infinite;
+  }
+  .tm-live-pulse[data-offscreen] {
+    animation-play-state: paused;
   }
   .pulse-status {
     animation: tm-live 1.6s linear infinite;
   }
 }
 
+/* ═══════════════════════════════════════════════════
+   NAMED EVENTS (SPEC-orbit-motion.md). Transform + opacity only;
+   the O's stroke-dashoffset is a paint animation on a 24-unit glyph.
+   ═══════════════════════════════════════════════════ */
 @keyframes tm-live {
   0%,
   100% {
@@ -223,6 +231,90 @@
   }
   50% {
     opacity: 0.35;
+  }
+}
+/* RUN STARTS: the ground track draws left to right. */
+@keyframes tm-draw {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+/* STEP: the finished step's bar settles to full width. */
+@keyframes tm-settle {
+  from {
+    transform: scaleX(0.62);
+  }
+  to {
+    transform: scaleX(1);
+  }
+}
+/* RUN STARTS: the live dot appears. FAILS: the square lands. */
+@keyframes tm-dot-in {
+  from {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+/* STEP: a tick lands on the track. */
+@keyframes tm-tick {
+  from {
+    transform: translateY(-6px);
+    opacity: 0;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+/* STEP: the step count rolls. */
+@keyframes tm-roll {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: none;
+  }
+}
+/* FAILS: a 1px rule draws top to bottom. */
+@keyframes tm-rule-down {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+/* PASSES: the arc closes and the dot merges into the stroke. */
+@keyframes tm-close {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes tm-merge {
+  to {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+}
+/* Running O: the dot travels once per 2.4s and the arc draws behind it. */
+@keyframes tm-orbit {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes tm-trace {
+  from {
+    stroke-dashoffset: 100;
+  }
+  to {
+    stroke-dashoffset: 0;
   }
 }
 

@@ -32,7 +32,7 @@ export function MarketingHeader() {
       <div className="mx-auto max-w-6xl px-6">
         <div className="flex h-16 items-center justify-between">
           <Link href="/" className="flex items-center">
-            <Logo size="md" />
+            <Logo size="md" brand />
           </Link>
 
           <nav className="hidden md:flex items-center gap-8">

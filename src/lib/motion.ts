@@ -149,3 +149,55 @@ export const expandCollapse: Variants = {
   animate: { height: "auto", opacity: 1, transition: tween.open },
   exit: { height: 0, opacity: 0, transition: exit(durations.open) },
 };
+
+// ============================================================
+// StepBar timing: a running step's bar grows linearly from elapsed time.
+// A CSS animation with a negative delay resumes at the right point after any re-render.
+// ============================================================
+
+/** Default expected step length; the bar reaches full width here and holds. */
+export const STEP_EXPECTED_MS = 10_000;
+
+export interface StepBarTiming {
+  /** Negative: how far into the animation the bar already is. */
+  delayMs: number;
+  durationMs: number;
+  /** 0..1, for static rendering (reduced motion, server). */
+  progress: number;
+}
+
+export function stepBarTiming(
+  startedAtMs: number,
+  nowMs: number,
+  expectedMs: number = STEP_EXPECTED_MS
+): StepBarTiming {
+  const duration = Math.max(1, expectedMs);
+  const elapsed = Math.min(Math.max(0, nowMs - startedAtMs), duration);
+  return { delayMs: -elapsed, durationMs: duration, progress: elapsed / duration };
+}
+
+// ============================================================
+// Route direction: into a child, back to a parent, or across to a sibling.
+// ============================================================
+
+export type RouteDirection = "child" | "back" | "sibling" | "none";
+
+const depth = (path: string) => path.split("/").filter(Boolean).length;
+
+export function routeDirection(prevPath: string | null, nextPath: string): RouteDirection {
+  if (prevPath === null || prevPath === nextPath) return "none";
+  const a = depth(prevPath);
+  const b = depth(nextPath);
+  if (b > a && nextPath.startsWith(prevPath)) return "child";
+  if (b < a && prevPath.startsWith(nextPath)) return "back";
+  if (b > a) return "child";
+  if (b < a) return "back";
+  return "sibling";
+}
+
+export function routeVariants(direction: RouteDirection, reduced: boolean): Variants {
+  if (reduced || direction === "none") return crossfade;
+  if (direction === "child") return routeChild;
+  if (direction === "back") return routeBack;
+  return routeSibling(1);
+}

@@ -4,7 +4,7 @@ import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { Sidebar } from "@/components/layout/sidebar";
 import { DashboardHeader } from "@/components/layout/dashboard-header";
-import { ContentTransition } from "@/components/layout/content-transition";
+import { RouteTransition } from "@/components/layout/route-transition";
 import { ChatPanelWrapper } from "@/components/chat/chat-panel-wrapper";
 import { GlobalActivityBar } from "@/components/dashboard/global-activity-bar";
 import { getActiveOperations } from "@/lib/dashboard/active-operations";
@@ -112,9 +112,9 @@ export default async function DashboardLayout({
             <main className="flex-1 overflow-auto px-4 py-4 md:px-6 md:py-5 lg:px-8 xl:px-10 border-t border-white/[0.04]">
               <div className="max-w-[1440px] mx-auto">
                 <Suspense>
-                  <ContentTransition>
+                  <RouteTransition>
                     {children}
-                  </ContentTransition>
+                  </RouteTransition>
                 </Suspense>
               </div>
             </main>
