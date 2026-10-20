@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { getInstallUrl, isGitHubAppConfigured } from "@/lib/github/app";
 import { apiError } from "@/lib/utils/api";
+import { safeReturnPath } from "@/lib/utils/safe-redirect";
 
 export const dynamic = "force-dynamic";
 
@@ -16,7 +17,7 @@ export async function GET(request: NextRequest) {
     return apiError("GitHub App not configured", "NOT_CONFIGURED", 503);
   }
 
-  const returnTo = request.nextUrl.searchParams.get("return_to") ?? "/dashboard/onboarding";
+  const returnTo = safeReturnPath(request.nextUrl.searchParams.get("return_to"));
 
   const cookieStore = await cookies();
   cookieStore.set("orbit_install_return", returnTo, {

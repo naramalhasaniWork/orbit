@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { prisma } from "@/lib/db";
 import { requireWorkspace } from "@/lib/utils/api";
+import { safeReturnPath } from "@/lib/utils/safe-redirect";
 import {
   isGitHubAppConfigured,
   getInstallationInfo,
@@ -12,7 +13,7 @@ export const dynamic = "force-dynamic";
 
 export async function GET(request: NextRequest) {
   const cookieStore = await cookies();
-  const returnTo = cookieStore.get("orbit_install_return")?.value ?? "/dashboard/onboarding";
+  const returnTo = safeReturnPath(cookieStore.get("orbit_install_return")?.value);
 
   try {
     const { workspaceId } = await requireWorkspace();
