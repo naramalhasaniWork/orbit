@@ -13,7 +13,7 @@ import {
 const SECRETS = {
   TEST_EMAIL: "qa.bot@acme-example.com",
   TEST_PASSWORD: "hunter2-Sup3r!Secret",
-  API_TOKEN: "tok_live_9f8e7d6c5b4a",
+  API_TOKEN: "fixture-secret-value-123",
 };
 
 function baseContext(overrides: Partial<ExecutorContext> = {}): ExecutorContext {
