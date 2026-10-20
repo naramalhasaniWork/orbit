@@ -14,6 +14,8 @@ export const LinearSettingsSchema = z
     ...base,
     /** File issues for critical/high failures. Unset keeps the pre-toggle behaviour (on). */
     autoCreateIssues: z.boolean().default(true).catch(true),
+    /** Project that runs triggered by the inbound Linear webhook belong to. */
+    inboundProjectId: z.string().uuid().nullable().optional().catch(undefined),
   })
   .passthrough();
 
@@ -27,6 +29,10 @@ export const SlackSettingsSchema = z
     provider: z.literal("slack"),
     ...base,
     notifications: SlackNotificationsSchema.default({}).catch({ runCompleted: true, testFailed: true }),
+    /** When the pending `/orbit link` code (hash in inboundTokenHash) stops working. */
+    linkCodeExpiresAt: z.string().nullable().optional().catch(undefined),
+    /** A Slack team that linked here while another Orbit workspace holds it; awaits admin confirmation. */
+    pendingTeamId: z.string().nullable().optional().catch(undefined),
   })
   .passthrough();
 

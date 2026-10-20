@@ -1078,6 +1078,8 @@ model IntegrationConfig {
   credentialsSealed Json?               @map("credentials_sealed")
   /// Provider settings (domain/config/integrations), including lastError/lastErrorAt.
   settings          Json                @default("{}")
+  /// sha256 of the inbound token: the Linear webhook URL token, or a pending Slack link code.
+  inboundTokenHash  String?             @map("inbound_token_hash")
   /// Deprecated: superseded by settings/credentialsSealed; dropped a release after the 20261025 backfill.
   config            Json                @default("{}")
   /// Deprecated: see `config`.
@@ -1088,6 +1090,8 @@ model IntegrationConfig {
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@unique([workspaceId, provider], name: "integration_config_unique")
+  @@index([provider, externalAccountId])
+  @@index([inboundTokenHash])
   @@map("integration_configs")
 }
 

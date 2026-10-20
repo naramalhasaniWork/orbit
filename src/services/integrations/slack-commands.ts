@@ -1,24 +1,7 @@
 import { prisma } from "@/lib/db";
-import { parseWorkspaceSettings } from "@/server/data/settings-repo";
 import { launchPipelineRun } from "@/services/orchestrator/run-launcher";
 
 type SlackResponse = Record<string, unknown>;
-
-export async function findWorkspaceBySlackTeam(
-  teamId: string
-): Promise<{ id: string } | null> {
-  const workspaces = await prisma.workspace.findMany({
-    select: { id: true, settings: true },
-  });
-
-  for (const ws of workspaces) {
-    if (parseWorkspaceSettings(ws.settings).slackTeamId === teamId) {
-      return { id: ws.id };
-    }
-  }
-
-  return null;
-}
 
 export async function handleStatus(workspaceId: string): Promise<SlackResponse> {
   const projects = await prisma.project.findMany({

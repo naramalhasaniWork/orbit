@@ -1,4 +1,3 @@
-import { createHash, randomBytes, timingSafeEqual } from "crypto";
 import { prisma } from "@/lib/db";
 import type { Prisma } from "@/generated/prisma/client";
 import { encrypt, decrypt } from "@/lib/vault";
@@ -32,25 +31,9 @@ export function encryptCredentials(token: string): Prisma.InputJsonValue {
   return { encryptedToken: encrypted, iv };
 }
 
-// -- Webhook token (X-Orbit-Token) --
+// -- Webhook token (X-Orbit-Token): shared with the Linear/Slack inbound routes --
 
-/** A fresh webhook token; only its sha256 is stored. */
-export function generateWebhookToken(): { token: string; hash: string } {
-  const token = `orbit_wh_${randomBytes(32).toString("base64url")}`;
-  return { token, hash: hashWebhookToken(token) };
-}
-
-export function hashWebhookToken(token: string): string {
-  return createHash("sha256").update(token).digest("hex");
-}
-
-/** Constant-time comparison of a presented token against the stored hash. Fails closed. */
-export function webhookTokenMatches(presented: string | null, storedHash: string | null): boolean {
-  if (!presented || !storedHash) return false;
-  const a = Buffer.from(hashWebhookToken(presented), "hex");
-  const b = Buffer.from(storedHash, "hex");
-  return a.length === b.length && timingSafeEqual(a, b);
-}
+export { generateWebhookToken, hashWebhookToken, webhookTokenMatches } from "@/lib/integrations/inbound-token";
 
 // -- Queries --
 

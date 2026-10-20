@@ -57,9 +57,14 @@ export default async function SettingsPage() {
   }
 
   const settings = parseWorkspaceSettings(workspace?.settings);
-  const [linear, slack] = await Promise.all([
+  const [linear, slack, workspaceProjects] = await Promise.all([
     getIntegration(workspaceId, "linear"),
     getIntegration(workspaceId, "slack"),
+    prisma.project.findMany({
+      where: { workspaceId, status: "active" },
+      select: { id: true, name: true },
+      orderBy: { name: "asc" },
+    }),
   ]);
 
   // Preview providers (Railway, Cloudflare Pages): connection state plus the webhook URL to copy
@@ -77,9 +82,19 @@ export default async function SettingsPage() {
           teamId: linear.externalAccountId ?? undefined,
           teamName: linear.displayName ?? undefined,
           autoCreateIssues: linear.settings.autoCreateIssues,
+          hasInboundUrl: linear.hasInboundToken,
+          inboundProjectId: linear.settings.inboundProjectId ?? null,
+          projects: workspaceProjects,
         }
       : { connected: false },
-    slack: slack?.connected ? { connected: true, notifications: slack.settings.notifications } : { connected: false },
+    slack: slack?.connected
+      ? {
+          connected: true,
+          notifications: slack.settings.notifications,
+          teamId: slack.externalAccountId,
+          pendingTeamId: slack.settings.pendingTeamId ?? null,
+        }
+      : { connected: false },
   };
 
   return (

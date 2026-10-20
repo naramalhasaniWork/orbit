@@ -1,6 +1,6 @@
 /**
  * POST   /api/workspaces/:workspaceId/integrations/linear — Connect (validate + store encrypted API key)
- * PATCH  /api/workspaces/:workspaceId/integrations/linear — Toggle auto-create issues
+ * PATCH  /api/workspaces/:workspaceId/integrations/linear — Toggle auto-create issues, pick the inbound project
  * DELETE /api/workspaces/:workspaceId/integrations/linear — Disconnect
  *
  * The connection lives in IntegrationConfig (provider "linear"): the API key sealed in
@@ -8,6 +8,7 @@
  */
 
 import { z } from "zod";
+import { prisma } from "@/lib/db";
 import { auditSettingsChange } from "@/lib/auth/audit";
 import { apiError } from "@/lib/utils/api";
 import {
@@ -23,7 +24,13 @@ const connectSchema = z.object({
   teamId: z.string().trim().min(1).optional(),
 });
 
-const patchSchema = z.object({ autoCreateIssues: z.boolean() });
+const patchSchema = z
+  .object({
+    autoCreateIssues: z.boolean().optional(),
+    /** Project the inbound Linear webhook runs against; null falls back to the only active project. */
+    inboundProjectId: z.string().uuid().nullable().optional(),
+  })
+  .refine((v) => v.autoCreateIssues !== undefined || v.inboundProjectId !== undefined, "Nothing to update");
 
 export const POST = route(
   { workspace: "param", permission: "settings.manage", body: connectSchema },
@@ -56,10 +63,17 @@ export const POST = route(
 
 export const PATCH = route(
   { workspace: "param", permission: "settings.manage", body: patchSchema },
-  async ({ body: { autoCreateIssues }, workspaceId }) => {
-    const saved = await patchIntegrationSettings(workspaceId, "linear", { autoCreateIssues });
+  async ({ body, workspaceId }) => {
+    if (body.inboundProjectId) {
+      const project = await prisma.project.findFirst({
+        where: { id: body.inboundProjectId, workspaceId },
+        select: { id: true },
+      });
+      if (!project) return apiError("Project not found", "NOT_FOUND", 404);
+    }
+    const saved = await patchIntegrationSettings(workspaceId, "linear", body);
     if (!saved) return apiError("Linear is not connected", "NOT_CONNECTED", 409);
-    return { autoCreateIssues };
+    return body;
   }
 );
 

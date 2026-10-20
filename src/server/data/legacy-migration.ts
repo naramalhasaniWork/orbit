@@ -10,7 +10,7 @@ import {
   parseLegacyList,
   type TypedProvider,
 } from "@/server/domain/config";
-import { defaultDb, type Db } from "./db";
+import { defaultDb, withTransaction, type Db } from "./db";
 import { isTypedRow, legacyProjectOverride, legacyWorkspaceIntegration, type LegacyIntegration } from "./integration-legacy";
 import { patchSettingsJson } from "./json-patch";
 import { parseProjectSettings, readWorkspaceSettings } from "./settings-repo";
@@ -173,10 +173,4 @@ export async function migrateProjectLegacy(projectId: string, db: Db = defaultDb
 function toDate(value: string | undefined): Date | undefined {
   const date = value ? new Date(value) : undefined;
   return date && !Number.isNaN(date.getTime()) ? date : undefined;
-}
-
-/** Run inside the caller's transaction when given one, else open a new one. */
-async function withTransaction<T>(db: Db, fn: (tx: Db) => Promise<T>): Promise<T> {
-  const client = db as Db & { $transaction?: (fn: (tx: Db) => Promise<T>) => Promise<T> };
-  return typeof client.$transaction === "function" ? client.$transaction(fn) : fn(db);
 }

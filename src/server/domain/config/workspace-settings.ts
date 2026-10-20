@@ -44,8 +44,6 @@ export const WorkspaceSettingsSchema = z
     excludePaths: stringList,
     finishSetupDismissed: z.boolean().optional().catch(undefined),
     github: GitHubDisplaySchema.optional().catch(undefined),
-    /** Slack slash-command routing (written outside the integration routes). */
-    slackTeamId: z.string().optional().catch(undefined),
     // Legacy (pre-W3): read by the dual-read fallback and the 20261025 backfill only
     linear: LegacyLinearDisplaySchema.optional().catch(undefined),
     slack: LegacySlackDisplaySchema.optional().catch(undefined),

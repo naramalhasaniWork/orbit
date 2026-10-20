@@ -1,35 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createHmac, timingSafeEqual } from "crypto";
+import { claimSlackTeam } from "@/server/data/inbound-repo";
+import { slackWorkspace, verifiedSlackBody } from "@/services/integrations/slack-inbound";
 import {
-  findWorkspaceBySlackTeam,
   handleStatus,
   handleRun,
   handleResults,
   handleHealth,
 } from "@/services/integrations/slack-commands";
-
-function verifySlackSignature(
-  body: string,
-  timestamp: string | null,
-  signature: string | null,
-  signingSecret: string
-): boolean {
-  if (!timestamp || !signature) return false;
-
-  // Reject requests older than 5 minutes (replay protection)
-  const now = Math.floor(Date.now() / 1000);
-  if (Math.abs(now - Number(timestamp)) > 300) return false;
-
-  const baseString = `v0:${timestamp}:${body}`;
-  const expected =
-    "v0=" + createHmac("sha256", signingSecret).update(baseString).digest("hex");
-
-  try {
-    return timingSafeEqual(Buffer.from(expected), Buffer.from(signature));
-  } catch {
-    return false;
-  }
-}
 
 interface SlackCommandPayload {
   text: string;
@@ -44,49 +21,46 @@ function parseCommandPayload(body: string): SlackCommandPayload {
   };
 }
 
+const LINK_REPLIES = {
+  linked: "Linked: `/orbit` commands from this Slack workspace now act on your Orbit workspace.",
+  pending:
+    "This Slack workspace is already linked to another Orbit workspace. An admin of the Orbit workspace that issued this code must confirm the move in Settings → Integrations → Slack.",
+  invalid: "That link code is invalid or expired. Get a new one in Orbit Settings → Integrations → Slack.",
+} as const;
+
 export async function POST(req: NextRequest) {
-  const signingSecret = process.env.SLACK_SIGNING_SECRET;
+  const verified = await verifiedSlackBody(req);
+  if (verified instanceof NextResponse) return verified;
 
-  const body = await req.text();
-  const timestamp = req.headers.get("x-slack-request-timestamp");
-  const signature = req.headers.get("x-slack-signature");
+  const command = parseCommandPayload(verified.body);
+  const [subcommand = "", ...rest] = command.text.trim().split(/\s+/);
 
-  // Fail closed: never accept an unverifiable request
-  if (!signingSecret) {
-    return NextResponse.json(
-      { error: "SLACK_SIGNING_SECRET is not configured; request rejected" },
-      { status: 503 }
-    );
-  }
-  if (!verifySlackSignature(body, timestamp, signature, signingSecret)) {
-    return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
+  // Binding: only a signed request carrying a code issued to an Orbit admin can claim a team
+  if (subcommand.toLowerCase() === "link") {
+    const outcome = await claimSlackTeam(rest[0] ?? "", command.team_id);
+    return NextResponse.json({ response_type: "ephemeral", text: LINK_REPLIES[outcome] });
   }
 
-  const command = parseCommandPayload(body);
-
-  const workspace = await findWorkspaceBySlackTeam(command.team_id);
-  if (!workspace) {
-    return NextResponse.json({
-      response_type: "ephemeral",
-      text: "This Slack workspace is not connected to an Orbit workspace. Configure the integration in Orbit settings.",
-    });
+  const workspace = await slackWorkspace(command.team_id);
+  if ("message" in workspace) {
+    return NextResponse.json({ response_type: "ephemeral", text: workspace.message });
   }
+  const workspaceId = workspace.workspaceId;
 
-  const subcommand = command.text.trim().split(/\s+/)[0]?.toLowerCase() ?? "";
-  const args = command.text.trim().split(/\s+/).slice(1).join(" ");
+  const args = rest.join(" ");
 
   let response: Record<string, unknown>;
 
-  switch (subcommand) {
+  switch (subcommand.toLowerCase()) {
     case "status":
-      response = await handleStatus(workspace.id);
+      response = await handleStatus(workspaceId);
       break;
 
     case "run":
       if (!args) {
         response = { response_type: "ephemeral", text: "Usage: `/orbit run [project-name]`" };
       } else {
-        response = await handleRun(workspace.id, args);
+        response = await handleRun(workspaceId, args);
       }
       break;
 
@@ -94,12 +68,12 @@ export async function POST(req: NextRequest) {
       if (!args) {
         response = { response_type: "ephemeral", text: "Usage: `/orbit results [project-name]`" };
       } else {
-        response = await handleResults(workspace.id, args);
+        response = await handleResults(workspaceId, args);
       }
       break;
 
     case "health":
-      response = await handleHealth(workspace.id);
+      response = await handleHealth(workspaceId);
       break;
 
     default:
@@ -111,6 +85,7 @@ export async function POST(req: NextRequest) {
           "`/orbit run [project]` — Trigger a smoke test run",
           "`/orbit results [project]` — Show last run results",
           "`/orbit health` — Workspace health overview",
+          "`/orbit link [code]` — Link this Slack workspace to Orbit",
         ].join("\n"),
       };
       break;

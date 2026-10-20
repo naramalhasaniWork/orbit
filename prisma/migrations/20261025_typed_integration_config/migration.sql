@@ -10,7 +10,12 @@ ALTER TABLE "integration_configs" ADD COLUMN     "credentials_sealed" JSONB,
 ADD COLUMN     "display_name" TEXT,
 ADD COLUMN     "external_account_id" TEXT,
 ADD COLUMN     "settings" JSONB NOT NULL DEFAULT '{}',
-ADD COLUMN     "status" "IntegrationStatus" NOT NULL DEFAULT 'connected';
+ADD COLUMN     "status" "IntegrationStatus" NOT NULL DEFAULT 'connected',
+ADD COLUMN     "inbound_token_hash" TEXT;
+
+-- Inbound routing: Slack commands by bound team id, Linear/Slack inbound tokens by hash
+CREATE INDEX "integration_configs_provider_external_account_id_idx" ON "integration_configs"("provider", "external_account_id");
+CREATE INDEX "integration_configs_inbound_token_hash_idx" ON "integration_configs"("inbound_token_hash");
 
 -- Repurpose the never-read webhook_subscriptions table as webhook_endpoints.
 -- Its plaintext `secret` and `description` go: no code ever dispatched to these rows.

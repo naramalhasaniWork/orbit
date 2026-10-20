@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { GitHubCard } from "@/components/settings/integration-github";
-import { LinearCard } from "@/components/settings/integration-linear";
-import { SlackCard } from "@/components/settings/integration-slack";
+import { LinearCard, type LinearConfig } from "@/components/settings/integration-linear";
+import { SlackCard, type SlackConfig } from "@/components/settings/integration-slack";
 import {
   PreviewProviderCard,
   type PreviewConnectionState,
@@ -16,19 +16,8 @@ interface IntegrationConfig {
     installationId?: string;
     repos?: string[];
   };
-  linear?: {
-    connected: boolean;
-    teamId?: string;
-    teamName?: string;
-    autoCreateIssues?: boolean;
-  };
-  slack?: {
-    connected: boolean;
-    notifications?: {
-      runCompleted: boolean;
-      testFailed: boolean;
-    };
-  };
+  linear?: LinearConfig;
+  slack?: SlackConfig;
 }
 
 interface IntegrationSettingsProps {

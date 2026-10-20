@@ -16,6 +16,8 @@ export interface IntegrationView<P extends TypedProvider> {
   externalAccountId: string | null;
   displayName: string | null;
   settings: SettingsFor<P>;
+  /** An inbound token (Linear webhook URL, Slack link code) is set; the token itself is never readable. */
+  hasInboundToken: boolean;
 }
 
 interface LoadedIntegration<P extends TypedProvider> {
@@ -31,7 +33,9 @@ async function loadIntegration<P extends TypedProvider>(
 ): Promise<LoadedIntegration<P> | null> {
   const row = await db.integrationConfig.findUnique({
     where: { integration_config_unique: { workspaceId, provider } },
-    select: { status: true, externalAccountId: true, displayName: true, settings: true, credentialsSealed: true },
+    select: {
+      status: true, externalAccountId: true, displayName: true, settings: true, credentialsSealed: true, inboundTokenHash: true,
+    },
   });
   if (row && isTypedRow(row)) {
     const connected = row.status === "connected" && row.credentialsSealed !== null;
@@ -43,6 +47,7 @@ async function loadIntegration<P extends TypedProvider>(
         externalAccountId: row.externalAccountId,
         displayName: row.displayName,
         settings: parseIntegrationSettings(provider, row.settings),
+        hasInboundToken: row.inboundTokenHash !== null,
       },
       sealed: connected ? row.credentialsSealed : null,
     };
@@ -53,7 +58,7 @@ async function loadIntegration<P extends TypedProvider>(
   if (!legacy) return null;
   recordLegacyRead(`workspace.${provider}`, { workspaceId });
   const { secret, ...rest } = legacy;
-  return { view: { provider, status: "connected", connected: true, ...rest }, sealed: secret };
+  return { view: { provider, status: "connected", connected: true, hasInboundToken: false, ...rest }, sealed: secret };
 }
 
 export async function getIntegration<P extends TypedProvider>(
@@ -112,17 +117,19 @@ export async function connectIntegration<P extends TypedProvider>(
     status: "connected" as const,
     isEnabled: true,
     credentialsSealed: { ...sealSecret(input.secret) },
-    externalAccountId: input.externalAccountId ?? null,
-    displayName: input.displayName ?? null,
     settings: settings as Prisma.InputJsonValue,
+    // Left as they are on reconnect unless given (e.g. a Slack team binding survives a new webhook URL)
+    ...(input.externalAccountId !== undefined ? { externalAccountId: input.externalAccountId } : {}),
+    ...(input.displayName !== undefined ? { displayName: input.displayName } : {}),
   };
-  await db.integrationConfig.upsert({
+  const row = await db.integrationConfig.upsert({
     where: { integration_config_unique: { workspaceId, provider } },
     create: { workspaceId, provider, ...data },
     update: data,
+    select: { status: true, externalAccountId: true, displayName: true, inboundTokenHash: true },
   });
-  const { credentialsSealed: _sealed, isEnabled: _enabled, ...view } = data;
-  return { provider, connected: true, ...view, settings };
+  const { inboundTokenHash, ...view } = row;
+  return { provider, connected: true, ...view, settings, hasInboundToken: inboundTokenHash !== null };
 }
 
 /** Disconnect: the row stays as the record that the legacy keys no longer apply. */
@@ -133,6 +140,7 @@ export async function disconnectIntegration(workspaceId: string, provider: Typed
     credentialsSealed: Prisma.DbNull,
     externalAccountId: null,
     displayName: null,
+    inboundTokenHash: null,
   };
   await db.integrationConfig.upsert({
     where: { integration_config_unique: { workspaceId, provider } },

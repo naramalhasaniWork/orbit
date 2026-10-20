@@ -20,17 +20,13 @@ import { AuditLogViewer } from "@/components/audit/audit-log-viewer";
 import { KnowledgeUpload } from "@/components/settings/knowledge-upload";
 import { AgentSettingsList } from "@/components/settings/agent-settings-list";
 import { TestingNotes } from "@/components/settings/testing-notes";
+import type { LinearConfig } from "@/components/settings/integration-linear";
+import type { SlackConfig } from "@/components/settings/integration-slack";
 
 interface IntegrationConfig {
   github?: { connected: boolean; installationId?: string; repos?: string[] };
-  linear?: { connected: boolean; teamId?: string; teamName?: string; autoCreateIssues?: boolean };
-  slack?: {
-    connected: boolean;
-    notifications?: {
-      runCompleted: boolean;
-      testFailed: boolean;
-    };
-  };
+  linear?: LinearConfig;
+  slack?: SlackConfig;
 }
 
 interface SettingsClientProps {

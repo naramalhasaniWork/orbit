@@ -16,7 +16,7 @@ function matches(row: Row, where: Where = {}): boolean {
     if (cond && typeof cond === "object" && !Array.isArray(cond)) {
       const c = cond as Row;
       if ("equals" in c) return c.equals === Prisma.DbNull ? row[key] === null || row[key] === undefined : row[key] === c.equals;
-      if ("not" in c) return row[key] !== c.not;
+      if ("not" in c) return c.not === Prisma.DbNull ? row[key] !== null && row[key] !== undefined : row[key] !== c.not;
     }
     return row[key] === cond;
   });
@@ -41,8 +41,8 @@ function table(rows: Row[], defaults: () => Row, key: (row: Row) => string = (r)
   };
   return {
     rows,
-    findMany: async ({ where, select }: { where?: Where; select?: Row } = {}) =>
-      rows.filter((r) => matches(r, where)).map((r) => pick(r, select)),
+    findMany: async ({ where, select, take }: { where?: Where; select?: Row; take?: number } = {}) =>
+      rows.filter((r) => matches(r, where)).slice(0, take).map((r) => pick(r, select)),
     findFirst: async ({ where, select }: { where?: Where; select?: Row } = {}) => {
       const row = rows.find((r) => matches(r, where));
       return row ? pick(row, select) : null;
@@ -87,7 +87,10 @@ export function createFakeConfigDb() {
 
   const integrationConfig = table(
     [],
-    () => ({ status: "connected", isEnabled: true, credentialsSealed: null, settings: {}, externalAccountId: null, displayName: null }),
+    () => ({
+      status: "connected", isEnabled: true, credentialsSealed: null, settings: {},
+      externalAccountId: null, displayName: null, inboundTokenHash: null,
+    }),
     (r) => `${r.workspaceId}:${r.provider}`
   );
   const webhookEndpoint = table([], () => ({ isEnabled: true, events: [], secretSealed: null, projectId: null }));
@@ -109,7 +112,9 @@ export function createFakeConfigDb() {
     let target: Row[] = [];
     if (sql.sql.includes('"projects"')) target = projects.filter((r) => r.id === keys[0]);
     else if (sql.sql.includes('"workspaces"')) target = workspaces.filter((r) => r.id === keys[0]);
-    else if (sql.sql.includes('"integration_configs"')) {
+    else if (sql.sql.includes('"integration_configs"') && keys.length === 1) {
+      target = integrationConfig.rows.filter((r) => r.id === keys[0]);
+    } else if (sql.sql.includes('"integration_configs"')) {
       target = integrationConfig.rows.filter(
         (r) => r.workspaceId === keys[0] && r.provider === keys[1] && r.status === "connected" && r.credentialsSealed
       );
@@ -129,7 +134,8 @@ export function createFakeConfigDb() {
         const row = projects.find((r) => matches(r, where));
         return row ? pick(row, select) : null;
       },
-      findMany: async ({ select }: { select?: Row } = {}) => projects.map((r) => pick(r, select)),
+      findMany: async ({ where, select, take }: { where?: Where; select?: Row; take?: number } = {}) =>
+        projects.filter((r) => matches(r, where)).slice(0, take).map((r) => pick(r, select)),
       update: async ({ where, data }: { where: { id: string }; data: Row }) => {
         const row = projects.find((r) => r.id === where.id);
         if (!row) throw new Error("P2025");
@@ -142,9 +148,9 @@ export function createFakeConfigDb() {
         const row = integrationConfig.rows.find((r) => matches(r, where.integration_config_unique));
         return row ? pick(row, select) : null;
       },
-      upsert: async ({ where, create, update }: { where: { integration_config_unique: Row }; create: Row; update: Row }) => {
+      upsert: async ({ where, create, update, select }: { where: { integration_config_unique: Row }; create: Row; update: Row; select?: Row }) => {
         const row = integrationConfig.rows.find((r) => matches(r, where.integration_config_unique));
-        return row ? Object.assign(row, normalize(update)) : integrationConfig.insert(create);
+        return pick(row ? Object.assign(row, normalize(update)) : integrationConfig.insert(create), select);
       },
     },
     webhookEndpoint,
@@ -185,7 +191,7 @@ export function createFakeConfigDb() {
       workspaces.push({ id, settings, createdAt: new Date() });
     },
     addProject: (id: string, workspaceId: string, settings: Row = {}) => {
-      projects.push({ id, workspaceId, settings, name: id, createdAt: new Date() });
+      projects.push({ id, workspaceId, settings, name: id, status: "active", defaultBranch: "main", createdAt: new Date() });
     },
   };
   registry.set(client, fake);
