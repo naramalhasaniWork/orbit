@@ -7,7 +7,7 @@
 import { createTrackedCompletion } from "@/lib/ai/tracked-completion";
 import { getSubAgentDef } from "@/services/agents/registry";
 import { windowContext, estimateContextTokens } from "@/services/agents/context-window";
-import { credentialPlaceholder, redactCredentials } from "@/lib/utils/credentials";
+import { serializeContextWithoutSecrets } from "@/lib/utils/credentials";
 import { buildSubAgentPrompt } from "@/services/agents/prompt-router";
 
 export interface SubAgentInput {
@@ -259,29 +259,6 @@ function getContextPriorities(agentType: string): {
 }
 
 /**
- * Serialize context for the model with secret values replaced by credential
- * placeholders ({{credential:KEY}}); the real values stay server-side.
- */
-function withoutCredentialValues(context: Record<string, unknown>): string {
-  const raw = context.testCredentials;
-  const credentials =
-    raw && typeof raw === "object"
-      ? (Object.fromEntries(
-          Object.entries(raw).filter(([, v]) => typeof v === "string")
-        ) as Record<string, string>)
-      : undefined;
-  if (!credentials) return JSON.stringify(context, null, 2);
-
-  const placeholders = Object.fromEntries(
-    Object.keys(credentials).map((key) => [key, credentialPlaceholder(key)])
-  );
-  return redactCredentials(
-    JSON.stringify({ ...context, testCredentials: placeholders }, null, 2),
-    credentials
-  );
-}
-
-/**
  * Build the user message for the sub-agent based on its type.
  */
 function buildUserMessage(
@@ -291,12 +268,11 @@ function buildUserMessage(
   const contextSummary = Object.keys(context)
     .map((key) => `- ${key}`)
     .join("\n");
-  const safeContext = withoutCredentialValues(context);
 
   return (
     `Execute your task as the ${agentType} sub-agent. ` +
     `Context fields provided:\n${contextSummary}\n\n` +
-    `Full context:\n${safeContext}\n\n` +
+    `Full context:\n${serializeContextWithoutSecrets(context)}\n\n` +
     `Output valid JSON only. Follow the output schema exactly.`
   );
 }

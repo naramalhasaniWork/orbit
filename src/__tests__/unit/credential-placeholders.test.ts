@@ -5,6 +5,7 @@ import { buildAuthSpecialistPrompt } from "@/agents/prompts/sub-agents/auth-spec
 import { performAction } from "@/services/execution/action-performer";
 import {
   redactCredentials,
+  serializeContextWithoutSecrets,
   substituteCredentials,
   findMissingCredentialKeys,
 } from "@/lib/utils/credentials";
@@ -172,5 +173,22 @@ describe("credential helpers", () => {
     expect(redactCredentials("ab password-123 password", creds)).toBe(
       "ab {{credential:LONG}} {{credential:PREFIX}}"
     );
+  });
+});
+
+describe("serializeContextWithoutSecrets (sub-agent context)", () => {
+  it("replaces testCredentials values and scrubs leaks elsewhere in the context", () => {
+    const out = serializeContextWithoutSecrets({
+      authType: "login",
+      testCredentials: SECRETS,
+      previousActions: [{ action: "fill", result: `typed ${SECRETS.TEST_PASSWORD}` }],
+    });
+    expectNoSecrets(out);
+    expect(out).toContain("{{credential:TEST_PASSWORD}}");
+    expect(out).toContain('"authType": "login"');
+  });
+
+  it("serializes contexts without credentials unchanged", () => {
+    expect(serializeContextWithoutSecrets({ a: 1 })).toBe(JSON.stringify({ a: 1 }, null, 2));
   });
 });

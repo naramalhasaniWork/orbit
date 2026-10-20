@@ -129,13 +129,20 @@ pnpm workers
 | `STORAGE_PROVIDER` | No | `local`, `s3`, or `r2` (default: `local`) |
 | `S3_BUCKET` | No | S3/R2 bucket for artifacts |
 | `S3_REGION` | No | S3 region |
-| `S3_ACCESS_KEY_ID` | No | S3 access key |
-| `S3_SECRET_ACCESS_KEY` | No | S3 secret key |
+| `S3_ACCESS_KEY` | No | S3 access key (required when `STORAGE_PROVIDER=s3`) |
+| `S3_SECRET_KEY` | No | S3 secret key (required when `STORAGE_PROVIDER=s3`) |
 | `S3_ENDPOINT` | No | Custom S3 endpoint (for R2) |
 | `LINEAR_API_KEY` | No | Linear integration API key |
 | `SLACK_BOT_TOKEN` | No | Slack bot OAuth token |
 | `SLACK_SIGNING_SECRET` | No | Slack request signing secret |
 | `GITHUB_WEBHOOK_SECRET` | No | GitHub webhook HMAC secret |
+| `ORBIT_SELF_HOSTED` | No | `true` disables billing and tier limits, redirects `/` to `/login`, and makes the first user owner + super admin |
+| `ORBIT_SIGNUP` | No | `open`, `invite` or `closed`. Default: `open` on cloud, `invite` when self-hosted |
+| `ORBIT_ALLOWED_EMAIL_DOMAINS` | No | Comma-separated domains allowed to sign in (default: any) |
+| `ORBIT_ALLOW_PRIVATE_TARGETS` | No | `true` lets environments and MCP servers target localhost/private networks (link-local stays blocked) |
+| `SKIP_ENV_VALIDATION` | No | `true` skips the boot-time check for required variables |
+
+Required variables are validated at startup (`src/lib/env.ts`): the server refuses to boot and lists every missing or invalid one. Missing optional integrations are logged as warnings.
 
 ## Available Scripts
 

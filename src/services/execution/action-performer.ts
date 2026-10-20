@@ -1,6 +1,6 @@
 import type { Page, Locator } from "playwright";
 import type { ExecutorAction } from "@/agents/schemas/execution-result";
-import { findMissingCredentialKeys, substituteCredentials } from "@/lib/utils/credentials";
+import { resolveFillValue } from "@/lib/utils/credentials";
 
 const ACTION_TIMEOUT = 10_000;
 
@@ -59,10 +59,7 @@ export async function resolveLocator(page: Page, ref: string): Promise<Locator> 
 // ============================================================
 
 export async function performAction(
-  page: Page,
-  action: ExecutorAction,
-  baseUrl?: string,
-  credentials: Record<string, string> = {}
+  page: Page, action: ExecutorAction, baseUrl?: string, credentials: Record<string, string> = {}
 ): Promise<string> {
   switch (action.action) {
     case "navigate": {
@@ -110,14 +107,7 @@ export async function performAction(
     case "fill": {
       if (!action.selector) throw new Error("Fill action requires a selector");
       const locator = await resolveLocator(page, action.selector);
-      // The model only emits {{credential:KEY}} placeholders; the real value is
-      // substituted here and never appears in a result string or prompt.
-      const requested = action.value ?? "";
-      const missing = findMissingCredentialKeys(requested, credentials);
-      if (missing.length > 0) {
-        throw new Error(`Unknown credential placeholder: ${missing.join(", ")}`);
-      }
-      await locator.fill(substituteCredentials(requested, credentials), { timeout: ACTION_TIMEOUT });
+      await locator.fill(resolveFillValue(action.value ?? "", credentials), { timeout: ACTION_TIMEOUT });
       return `Filled ${action.selector} with value`;
     }
     case "select": {

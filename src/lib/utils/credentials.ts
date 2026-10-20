@@ -57,6 +57,33 @@ export function redactCredentials(
   return result;
 }
 
+/** Value to type into a field: placeholders resolved. Throws (naming the key only) for unknown keys. */
+export function resolveFillValue(value: string, credentials: Record<string, string>): string {
+  const missing = findMissingCredentialKeys(value, credentials);
+  if (missing.length > 0) throw new Error(`Unknown credential placeholder: ${missing.join(", ")}`);
+  return substituteCredentials(value, credentials);
+}
+
+/**
+ * Pretty-print an agent context for the model with `testCredentials` values replaced by
+ * placeholders, and any other occurrence of a secret value scrubbed from the output.
+ */
+export function serializeContextWithoutSecrets(context: Record<string, unknown>): string {
+  const raw = context.testCredentials;
+  if (!raw || typeof raw !== "object") return JSON.stringify(context, null, 2);
+
+  const credentials = Object.fromEntries(
+    Object.entries(raw).filter((entry): entry is [string, string] => typeof entry[1] === "string")
+  );
+  const placeholders = Object.fromEntries(
+    Object.keys(credentials).map((key) => [key, credentialPlaceholder(key)])
+  );
+  return redactCredentials(
+    JSON.stringify({ ...context, testCredentials: placeholders }, null, 2),
+    credentials
+  );
+}
+
 /** Prompt lines listing the credential keys with how to reference them (never values). */
 export function describeCredentialPlaceholders(
   credentials: Record<string, string> | undefined
