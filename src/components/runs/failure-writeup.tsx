@@ -22,7 +22,7 @@ export function FailureWriteup({ result, projectId, runId, otherFailures }: Fail
   const steps = parseSteps(result.steps);
   const failed = steps.find((s) => s.status === "fail");
   const headline = failed
-    ? `${result.testCase.name} fails at “${failed.action}”.`
+    ? `${result.testCase.name} failed at step ${String(steps.indexOf(failed) + 1).padStart(2, "0")}: ${failed.action}`
     : `${result.testCase.name} failed.`;
 
   return (
