@@ -53,13 +53,17 @@ const CreateEnvironmentSchema = z.object({
   { message: "Environment URL is required (url or baseUrl)", path: ["url"] }
 );
 
+/**
+ * Project secrets are sent to whatever URL an environment points at, so creating or
+ * re-pointing one needs secrets.manage, not just projects.update.
+ */
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ projectId: string }> }
 ) {
   try {
     const { workspaceId } = await requireWorkspace();
-    await requirePermission(workspaceId, "projects.update");
+    await requirePermission(workspaceId, "secrets.manage");
     const { projectId } = await params;
 
     const project = await prisma.project.findFirst({
@@ -149,6 +153,10 @@ export async function PATCH(
 
     if (!env) {
       return apiError("Environment not found", "NOT_FOUND", 404);
+    }
+
+    if (parsed.data.url !== undefined && parsed.data.url !== env.url) {
+      await requirePermission(workspaceId, "secrets.manage");
     }
 
     // If setting as default, unset other defaults first

@@ -39,13 +39,14 @@ export async function GET(
   }
 }
 
+/** Deleting an environment cascades to its secrets, so it needs secrets.manage. */
 export async function DELETE(
   _request: NextRequest,
   { params }: { params: Promise<{ projectId: string; envId: string }> }
 ) {
   try {
     const { workspaceId } = await requireWorkspace();
-    await requirePermission(workspaceId, "projects.update");
+    await requirePermission(workspaceId, "secrets.manage");
     const { projectId, envId } = await params;
 
     const project = await prisma.project.findFirst({

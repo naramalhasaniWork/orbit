@@ -93,7 +93,7 @@ export async function PATCH(
 ) {
   try {
     const { workspaceId } = await requireWorkspace();
-    await requirePermission(workspaceId, "runs.create");
+    await requirePermission(workspaceId, "runs.cancel");
     const { projectId, runId } = await params;
 
     const project = await prisma.project.findFirst({
