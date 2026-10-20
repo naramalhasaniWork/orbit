@@ -15,9 +15,12 @@ import {
   Globe,
 } from "lucide-react";
 import Link from "next/link";
+import { formatRunTitle } from "@/lib/runs/run-title";
 
-interface Run {
+export interface Run {
   id: string;
+  sequenceNumber: number;
+  prNumber: number | null;
   status: string;
   mode: string;
   trigger: string;
@@ -91,7 +94,7 @@ export function RunsTimeline({ runs }: { runs: Run[] }) {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium text-foreground">
-                      {triggerLabels[run.trigger] ?? run.trigger}
+                      {formatRunTitle(run)}
                     </span>
                     <Badge
                       variant="outline"
@@ -102,7 +105,7 @@ export function RunsTimeline({ runs }: { runs: Run[] }) {
                   </div>
                   <div className="flex items-center gap-2 mt-0.5">
                     <span className="text-xs text-muted-foreground">
-                      {formatDistanceToNow(new Date(run.createdAt), { addSuffix: true })}
+                      {triggerLabels[run.trigger] ?? run.trigger} · {formatDistanceToNow(new Date(run.createdAt), { addSuffix: true })}
                     </span>
                     {run.durationMs != null && run.durationMs > 0 && (
                       <span className="text-xs text-muted-foreground">

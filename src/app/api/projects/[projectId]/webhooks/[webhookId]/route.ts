@@ -22,9 +22,7 @@ const patchSchema = z
 
 type RouteContext = { params: Promise<{ projectId: string; webhookId: string }> };
 
-async function authorize(projectId: string) {
-  const { workspaceId } = await requireWorkspace();
-  await requirePermission(workspaceId, "projects.update");
+function findProject(projectId: string, workspaceId: string) {
   return prisma.project.findFirst({
     where: { id: projectId, workspaceId },
     select: { id: true },
@@ -34,7 +32,9 @@ async function authorize(projectId: string) {
 export async function PATCH(request: NextRequest, { params }: RouteContext) {
   try {
     const { projectId, webhookId } = await params;
-    const project = await authorize(projectId);
+    const { workspaceId } = await requireWorkspace();
+    await requirePermission(workspaceId, "integrations.manage");
+    const project = await findProject(projectId, workspaceId);
     if (!project) return apiError("Project not found", "NOT_FOUND", 404);
 
     const { isEnabled, events } = patchSchema.parse(await request.json());
@@ -62,7 +62,9 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
 export async function DELETE(_request: NextRequest, { params }: RouteContext) {
   try {
     const { projectId, webhookId } = await params;
-    const project = await authorize(projectId);
+    const { workspaceId } = await requireWorkspace();
+    await requirePermission(workspaceId, "integrations.manage");
+    const project = await findProject(projectId, workspaceId);
     if (!project) return apiError("Project not found", "NOT_FOUND", 404);
 
     let found = false;

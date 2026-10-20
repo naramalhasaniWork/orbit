@@ -63,7 +63,7 @@ export default async function AdminWorkspaceDetailPage({ params }: PageProps) {
         id: workspace.id,
         name: workspace.name,
         slug: workspace.slug,
-        plan: workspace.plan,
+        tier: workspace.tier,
         creditBalance: workspace.creditBalance,
         monthlyCredits: workspace.monthlyCredits,
         createdAt: workspace.createdAt.toISOString(),

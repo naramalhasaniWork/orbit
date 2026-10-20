@@ -39,12 +39,17 @@ vi.mock("@/lib/utils/api", async () => {
   };
 });
 
+vi.mock("@/lib/auth/rbac", () => ({
+  requirePermission: vi.fn(),
+}));
+
 vi.mock("@/lib/vault", () => ({
   encrypt: vi.fn(() => ({ encrypted: "enc-value", iv: "enc-iv" })),
 }));
 
 import { prisma } from "@/lib/db";
 import { requireWorkspace } from "@/lib/utils/api";
+import { requirePermission } from "@/lib/auth/rbac";
 import { NextRequest } from "next/server";
 
 const mockPrisma = prisma as unknown as {
@@ -57,6 +62,7 @@ const mockPrisma = prisma as unknown as {
   };
 };
 const mockRequireWorkspace = requireWorkspace as ReturnType<typeof vi.fn>;
+const mockRequirePermission = requirePermission as ReturnType<typeof vi.fn>;
 
 describe("api-secrets", () => {
   beforeEach(() => {

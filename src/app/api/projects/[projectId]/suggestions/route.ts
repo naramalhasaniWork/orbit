@@ -7,6 +7,7 @@ import {
   handleApiError,
 } from "@/lib/utils/api";
 import { requireQueueAvailable } from "@/lib/queue/availability";
+import { requirePermission } from "@/lib/auth/rbac";
 import { generateRuleSuggestions, mergeSuggestions } from "@/services/ai-suggestions/suggestion-engine";
 import { getLLMSuggestions, requestSuggestionRefresh } from "@/services/ai-suggestions/suggestion-cache";
 import type { Suggestion } from "@/services/ai-suggestions/suggestion-types";
@@ -74,6 +75,8 @@ export async function POST(
 ) {
   try {
     const { workspaceId } = await requireWorkspace();
+    // Regenerating spends model tokens, so viewers cannot trigger it
+    await requirePermission(workspaceId, "plans.create");
     const { projectId } = await params;
 
     if (!(await findProject(projectId, workspaceId))) {

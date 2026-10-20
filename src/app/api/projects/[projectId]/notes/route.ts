@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { requireWorkspace, apiSuccess, apiError, handleApiError } from "@/lib/utils/api";
 import { prisma } from "@/lib/db";
 import { randomUUID } from "crypto";
+import { requirePermission } from "@/lib/auth/rbac";
 
 interface TestingNote {
   id: string;
@@ -42,6 +43,7 @@ export async function POST(
 ) {
   try {
     const { workspaceId } = await requireWorkspace();
+    await requirePermission(workspaceId, "projects.update");
     const { projectId } = await params;
     const body = await req.json();
 
@@ -90,6 +92,7 @@ export async function PATCH(
 ) {
   try {
     const { workspaceId } = await requireWorkspace();
+    await requirePermission(workspaceId, "projects.update");
     const { projectId } = await params;
     const body = await req.json();
 
@@ -141,6 +144,7 @@ export async function DELETE(
 ) {
   try {
     const { workspaceId } = await requireWorkspace();
+    await requirePermission(workspaceId, "projects.update");
     const { projectId } = await params;
     const { searchParams } = new URL(req.url);
     const noteId = searchParams.get("noteId");

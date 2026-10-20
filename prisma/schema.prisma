@@ -173,14 +173,10 @@ model Workspace {
   id              String        @id @default(uuid()) @db.Uuid
   name            String
   slug            String        @unique
-  plan            String        @default("free")
   tier            WorkspaceTier @default(free)
   creditBalance   Int           @default(100) @map("credit_balance")
   monthlyCredits  Int           @default(100) @map("monthly_credits")
   tokenBudgetMonthly Int?       @map("token_budget_monthly")
-  runLimit        Int           @default(100) @map("run_limit")
-  memberLimit     Int           @default(2) @map("member_limit")
-  projectLimit    Int           @default(1) @map("project_limit")
   settings        Json          @default("{}")
 
   // Stripe billing fields
@@ -198,6 +194,7 @@ model Workspace {
   members              WorkspaceMember[]
   projects             Project[]
   auditLogs            AuditLog[]
+  apiKeys              ApiKey[]
   creditTransactions   CreditTransaction[]
   integrationConfigs   IntegrationConfig[]
   pluginInstallations  PluginInstallation[]
@@ -236,6 +233,7 @@ model User {
   testPlans      TestPlan[]              @relation("ApprovedBy")
   testRuns       TestRun[]               @relation("TriggeredBy")
   auditLogs      AuditLog[]
+  apiKeys        ApiKey[]                @relation("ApiKeyCreatedBy")
   invitedUsers   WorkspaceInvitation[]   @relation("InvitedBy")
   promptVersions PromptVersion[]         @relation("PromptCreatedBy")
   conversations  Conversation[]
@@ -374,6 +372,8 @@ model Project {
   config              Json          @default("{}")
   settings            Json          @default("{}")
   onboardingCompleted Boolean       @default(false) @map("onboarding_completed")
+  /// Last TestRun.sequenceNumber handed out; advanced by the test_runs insert trigger.
+  runCounter          Int           @default(0) @map("run_counter")
   deletedAt           DateTime?     @map("deleted_at")
   createdAt           DateTime      @default(now()) @map("created_at")
   updatedAt           DateTime      @default(now()) @updatedAt @map("updated_at")
@@ -594,6 +594,8 @@ model TestRun {
   branch         String?
   commitSha      String?    @map("commit_sha")
   prNumber       Int?       @map("pr_number")
+  /// Human run number per project (#412). Assigned by the test_runs insert trigger; never set from code.
+  sequenceNumber Int        @default(0) @map("sequence_number")
   totalTests     Int        @default(0) @map("total_tests")
   passed         Int        @default(0)
   failed         Int        @default(0)
@@ -620,6 +622,7 @@ model TestRun {
   @@index([projectId, status])
   @@index([projectId, createdAt])
   @@index([status])
+  @@unique([projectId, sequenceNumber])
   @@map("test_runs")
 }
 
@@ -715,6 +718,28 @@ model AuditLog {
   @@index([action])
   @@index([createdAt])
   @@map("audit_logs")
+}
+
+// ============================================================
+// API KEYS (public API + MCP authentication)
+// ============================================================
+
+model ApiKey {
+  id          String    @id @default(uuid()) @db.Uuid
+  workspaceId String    @map("workspace_id") @db.Uuid
+  name        String
+  prefix      String
+  keyHash     String    @unique @map("key_hash")
+  createdBy   String?   @map("created_by") @db.Uuid
+  lastUsedAt  DateTime? @map("last_used_at")
+  revokedAt   DateTime? @map("revoked_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  creator   User?     @relation("ApiKeyCreatedBy", fields: [createdBy], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId])
+  @@map("api_keys")
 }
 
 // ============================================================

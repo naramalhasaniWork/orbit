@@ -11,6 +11,16 @@ import { ConfigureEnv } from "./steps/configure-env";
 import { PlanPreview } from "./steps/plan-preview";
 import { LaunchRun } from "./steps/launch-run";
 import type { RepoItem } from "./onboarding-types";
+import { detectOnboardingProgress } from "./detect-progress";
+import { parseStepParam, resolveResumeStep } from "@/lib/onboarding/resume";
+
+/** Keep the current step in the URL (alongside ?project=) so a reload resumes it. */
+function writeStepToUrl(step: number, projectId?: string) {
+  const url = new URL(window.location.href);
+  url.searchParams.set("step", String(step));
+  if (projectId) url.searchParams.set("project", projectId);
+  window.history.replaceState({}, "", url.toString());
+}
 
 const pageVariants = {
   enter: (direction: number) => ({
@@ -33,69 +43,6 @@ const pageTransition = {
   ease: "easeInOut" as const,
 };
 
-/**
- * Detect onboarding progress for a specific project. Returns the step to
- * resume from and the project context needed to render it.
- */
-async function detectOnboardingProgress(
-  targetProjectId: string | null
-): Promise<{
-  step: number;
-  projectId: string | null;
-  repo: RepoItem | null;
-  enabledTestCount: number;
-}> {
-  const empty = { step: 1, projectId: null, repo: null, enabledTestCount: 0 };
-
-  // No project specified — start fresh at step 1
-  if (!targetProjectId) return empty;
-
-  try {
-    // Fetch the specific project
-    const res = await fetch(`/api/projects/${targetProjectId}`);
-    if (!res.ok) return empty;
-
-    const json = await res.json();
-    if (!json.success) return empty;
-
-    const project = json.data;
-    const pid = project.id as string;
-    const repo: RepoItem = {
-      id: pid,
-      name: project.repoName ?? project.name,
-      fullName: `${project.repoOwner ?? ""}/${project.repoName ?? project.name}`,
-      url: project.repoUrl ?? "",
-      owner: project.repoOwner ?? "",
-      defaultBranch: project.defaultBranch ?? "main",
-      isPrivate: false,
-      language: project.framework ?? "Unknown",
-      stars: 0,
-      updatedAt: project.updatedAt ?? new Date().toISOString(),
-    };
-
-    // Check if there's a test plan with enabled test cases
-    const planRes = await fetch(`/api/projects/${pid}/plan`);
-    if (planRes.ok) {
-      const planJson = await planRes.json();
-      const testCases = planJson.data?.testCases ?? [];
-      if (testCases.length > 0) {
-        const enabled = testCases.filter((t: { isEnabled: boolean }) => t.isEnabled).length;
-        return { step: 5, projectId: pid, repo, enabledTestCount: enabled };
-      }
-    }
-
-    // Indexed but no plan -> map preview
-    if (project.lastIndexedAt) {
-      return { step: 3, projectId: pid, repo, enabledTestCount: 0 };
-    }
-
-    // Project exists but not indexed -> indexing step
-    return { step: 2, projectId: pid, repo, enabledTestCount: 0 };
-  } catch {
-    return empty;
-  }
-}
-
 interface OnboardingWizardProps {
   initialProjectId?: string | null;
 }
@@ -109,19 +56,23 @@ export function OnboardingWizard({ initialProjectId }: OnboardingWizardProps) {
 
   // On mount, detect where the user left off
   useEffect(() => {
+    const requested = parseStepParam(new URLSearchParams(window.location.search).get("step"));
     detectOnboardingProgress(initialProjectId ?? null).then((result) => {
       if (result.projectId) {
         setProjectId(result.projectId);
         setSelectedRepo(result.repo);
         setEnabledTestCount(result.enabledTestCount);
       }
-      setStep(result.step);
+      const resumeAt = resolveResumeStep(requested, result.snapshot);
+      writeStepToUrl(resumeAt);
+      setStep(resumeAt);
     });
   }, [initialProjectId]);
 
   const goTo = useCallback((nextStep: number) => {
     setDirection(nextStep > step ? 1 : -1);
     setStep(nextStep);
+    writeStepToUrl(nextStep);
   }, [step]);
 
   const handleRepoSelect = useCallback(
@@ -129,9 +80,7 @@ export function OnboardingWizard({ initialProjectId }: OnboardingWizardProps) {
       setSelectedRepo(repo);
       setProjectId(newProjectId);
       // Update URL so page refresh resumes correctly
-      const url = new URL(window.location.href);
-      url.searchParams.set("project", newProjectId);
-      window.history.replaceState({}, "", url.toString());
+      writeStepToUrl(2, newProjectId);
       goTo(2);
     },
     [goTo]

@@ -30,7 +30,7 @@ export async function GET() {
     }
 
     const membership = await prisma.workspaceMember.findFirst({
-      where: { userId: session.user.id, workspaceId: session.workspaceId },
+      where: { userId: session.user.id, workspaceId: session.workspaceId, workspace: { deletedAt: null } },
       include: {
         workspace: {
           select: {

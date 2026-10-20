@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { setWorkspaceCookie } from "@/lib/workspace-cookie";
 
 interface Workspace {
   id: string;
@@ -70,7 +71,7 @@ export function WorkspaceSwitcher({
       // Update the JWT with the new workspace via NextAuth's built-in mechanism
       await updateSession({ workspaceId: workspace.id });
       // Persist preference in cookie for cross-session persistence
-      document.cookie = `orbit_workspace=${workspace.id};path=/;max-age=${30 * 24 * 60 * 60}`;
+      setWorkspaceCookie(workspace.id);
       window.location.href = "/dashboard";
     } catch {
       setSwitching(null);
@@ -100,7 +101,7 @@ export function WorkspaceSwitcher({
 
       // Update JWT with the new workspace, persist cookie, and reload
       await updateSession({ workspaceId: json.data.id });
-      document.cookie = `orbit_workspace=${json.data.id};path=/;max-age=${30 * 24 * 60 * 60}`;
+      setWorkspaceCookie(json.data.id);
       window.location.href = "/dashboard";
     } catch {
       setError("Something went wrong. Please try again.");

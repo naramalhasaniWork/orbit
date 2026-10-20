@@ -78,7 +78,7 @@ export async function POST(request: NextRequest, { params }: RouteContext) {
   try {
     const { workspaceId } = await requireWorkspace();
     const { projectId } = await params;
-    await requirePermission(workspaceId, "projects.update");
+    await requirePermission(workspaceId, "integrations.manage");
 
     const { url, events } = createSchema.parse(await request.json());
 

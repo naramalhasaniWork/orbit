@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
-import { listAllAppInstallations } from "@/lib/github/app";
+import { listUserInstallations, type UserInstallation } from "@/lib/github/app";
+import { decryptToken } from "@/lib/vault/token";
 
 interface InstallationPayload {
   installation: {
@@ -109,33 +110,52 @@ async function registerInstallation(
   );
 }
 
+/** Installations of the app that this user can access on GitHub; null if we hold no token for them. */
+export async function listInstallationsForUser(userId: string): Promise<UserInstallation[] | null> {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { githubAccessToken: true },
+  });
+  const token = decryptToken(user?.githubAccessToken);
+  return token ? listUserInstallations(token) : null;
+}
+
+/** Link one (already verified) installation to a workspace and refresh its GitHub settings. */
+export async function linkInstallation(workspaceId: string, inst: UserInstallation): Promise<void> {
+  const fields = {
+    accountLogin: inst.account.login,
+    accountType: inst.account.type,
+    avatarUrl: inst.account.avatar_url,
+  };
+  await prisma.gitHubInstallation.upsert({
+    where: { workspace_installation_unique: { workspaceId, installationId: inst.id } },
+    update: fields,
+    create: { workspaceId, installationId: inst.id, ...fields },
+  });
+  await syncWorkspaceGitHubSettings(workspaceId);
+}
+
 /**
- * Sync all GitHub App installations into the workspace.
- * Useful for catching installs that happened outside the callback flow.
+ * Attach the installations the signed-in user can access on GitHub to the workspace.
+ * Never lists the app's installations globally: other customers' installs are not claimable.
+ * Returns how many were newly linked, or null if the user has no GitHub token on file.
  */
-export async function syncInstallations(workspaceId: string): Promise<number> {
-  const installations = await listAllAppInstallations();
+export async function syncInstallations(workspaceId: string, userId: string): Promise<number | null> {
+  const accessible = await listInstallationsForUser(userId);
+  if (!accessible) return null;
+
+  const linked = await prisma.gitHubInstallation.findMany({
+    where: { workspaceId },
+    select: { installationId: true },
+  });
+  const already = new Set(linked.map((l) => l.installationId));
+
   let synced = 0;
-
-  for (const inst of installations) {
-    const existing = await prisma.gitHubInstallation.findFirst({
-      where: { installationId: inst.id },
-    });
-
-    if (!existing) {
-      await prisma.gitHubInstallation.create({
-        data: {
-          workspaceId,
-          installationId: inst.id,
-          accountLogin: inst.account.login,
-          accountType: inst.account.type,
-          avatarUrl: inst.account.avatar_url,
-        },
-      });
-      synced++;
-    }
+  for (const inst of accessible) {
+    if (already.has(inst.id)) continue;
+    await linkInstallation(workspaceId, inst);
+    synced++;
   }
-
   return synced;
 }
 
@@ -180,6 +200,8 @@ async function findWorkspaceForGitHubUser(
       user: {
         select: {
           memberships: {
+            where: { workspace: { deletedAt: null } },
+            orderBy: { createdAt: "desc" },
             select: { workspaceId: true },
             take: 1,
           },

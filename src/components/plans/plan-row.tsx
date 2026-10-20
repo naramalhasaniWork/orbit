@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronRight, Plus, RefreshCw } from "lucide-react";
@@ -11,8 +11,15 @@ import { PlanSummary } from "@/components/plans/plan-summary";
 import { JourneyGroup } from "@/components/plans/journey-group";
 import { AddTestDialog } from "@/components/plans/add-test-dialog";
 import { PlanApproval } from "@/components/plans/plan-approval";
+import { PlanTestFilters } from "@/components/plans/plan-test-filters";
+import { PlanBulkActions } from "@/components/plans/plan-bulk-actions";
+import { useRowSelection } from "@/hooks/use-row-selection";
+import { useUrlParams } from "@/hooks/use-url-state";
+import { filterTestCases, groupByJourney } from "@/lib/plans/test-case-filter";
 import { type TestPlanData, type PlanSummaryStats } from "@/components/plans/plan-types";
 import { formatDistanceToNow } from "date-fns";
+
+const FILTER_DEFAULTS = { q: "", type: "", show: "all" };
 
 interface PlanRowProps {
   plan: TestPlanData;
@@ -28,7 +35,15 @@ interface PlanRowProps {
 export function PlanRow({ plan, stats, isExpanded, onToggle, projectId, onRegenerate, generating }: PlanRowProps) {
   const router = useRouter();
   const [showAddTest, setShowAddTest] = useState(false);
-  const journeyGroups = groupByJourney(plan.testCases);
+  const [filters, setFilters] = useUrlParams(FILTER_DEFAULTS);
+  const visibleCases = useMemo(() => filterTestCases(plan.testCases, filters), [plan.testCases, filters]);
+  const journeyGroups = useMemo(() => groupByJourney(visibleCases), [visibleCases]);
+  // Shift-click ranges follow what is on screen: journey by journey, in order.
+  const visibleIds = useMemo(() => journeyGroups.flatMap((g) => g.cases.map((c) => c.id)), [journeyGroups]);
+  const selection = useRowSelection(visibleIds);
+  const selectedCases = visibleCases.filter((c) => selection.selected.has(c.id));
+  const caseTypes = useMemo(() => Array.from(new Set(plan.testCases.map((c) => c.type))), [plan.testCases]);
+  const refresh = useCallback(() => router.refresh(), [router]);
 
   const approval = (plan.summary as Record<string, unknown>)?.approval as {
     status: string;
@@ -137,31 +152,49 @@ export function PlanRow({ plan, stats, isExpanded, onToggle, projectId, onRegene
                 </div>
               )}
 
+              {projectId && (
+                <PlanTestFilters
+                  filters={filters}
+                  onChange={setFilters}
+                  types={caseTypes}
+                  shownCount={visibleCases.length}
+                  totalCount={plan.testCases.length}
+                  allSelected={selection.allSelected}
+                  onToggleAll={() => (selection.allSelected ? selection.clear() : selection.selectAll())}
+                />
+              )}
+
               <div className="px-5 pb-4 space-y-4">
                 {journeyGroups.map(({ journey, cases }) => (
-                  <JourneyGroup key={journey} journey={journey} testCases={cases} projectId={projectId ?? undefined} />
+                  <JourneyGroup
+                    key={journey}
+                    journey={journey}
+                    testCases={cases}
+                    projectId={projectId ?? undefined}
+                    selection={projectId ? { selected: selection.selected, onToggle: selection.toggle } : undefined}
+                  />
                 ))}
+                {journeyGroups.length === 0 && plan.testCases.length > 0 && (
+                  <p className="text-xs text-muted-foreground py-4 text-center">
+                    No test cases match these filters.
+                  </p>
+                )}
               </div>
+
+              {projectId && (
+                <div className="px-5 pb-4">
+                  <PlanBulkActions
+                    projectId={projectId}
+                    testCases={selectedCases}
+                    onClear={selection.clear}
+                    onDone={refresh}
+                  />
+                </div>
+              )}
             </div>
           </motion.div>
         )}
       </AnimatePresence>
     </div>
   );
-}
-
-function groupByJourney(
-  testCases: TestPlanData["testCases"]
-): Array<{ journey: string; cases: TestPlanData["testCases"] }> {
-  const groups = new Map<string, TestPlanData["testCases"]>();
-  for (const tc of testCases) {
-    const key = tc.journey ?? "Uncategorized";
-    const existing = groups.get(key);
-    if (existing) {
-      existing.push(tc);
-    } else {
-      groups.set(key, [tc]);
-    }
-  }
-  return Array.from(groups.entries()).map(([journey, cases]) => ({ journey, cases }));
 }

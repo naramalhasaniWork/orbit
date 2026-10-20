@@ -7,6 +7,7 @@
 
 import { prisma } from "@/lib/db";
 import { decrypt } from "@/lib/vault";
+import { safeFetch } from "@/lib/utils/ssrf";
 
 // ============================================================
 // Types
@@ -103,7 +104,7 @@ async function sendJsonRpc(
   const timeout = setTimeout(() => controller.abort(), TOOL_CALL_TIMEOUT_MS);
 
   try {
-    const response = await fetch(serverUrl, {
+    const response = await safeFetch(serverUrl, {
       method: "POST",
       headers,
       body: JSON.stringify({

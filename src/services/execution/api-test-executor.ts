@@ -3,6 +3,8 @@ import { prisma } from "@/lib/db";
 import { createTrackedCompletion } from "@/lib/ai/tracked-completion";
 import { getModelForTask } from "@/lib/ai/model-router";
 import { parseLlmJson } from "@/lib/utils/json-parse";
+import { substituteCredentials } from "@/lib/utils/credentials";
+import { safeFetch } from "@/lib/utils/ssrf";
 import { isProviderError } from "@/services/execution/test-case-executor";
 import type { TestCaseForExecution, TestCaseResult } from "@/services/execution/test-case-executor";
 
@@ -68,16 +70,6 @@ Rules:
 
 Respond with ONLY JSON:
 {"requiresUi": boolean, "requests": [{"method": "GET", "path": "/api/...", "headers": {}, "body": null, "expectStatus": [401, 403], "expectBodyContains": null, "description": "why this request"}]}`;
-}
-
-export function substituteCredentials(
-  value: string,
-  credentials: Record<string, string>
-): string {
-  return value.replace(
-    /\{\{credential:([^}]+)\}\}/g,
-    (_, key: string) => credentials[key.trim()] ?? ""
-  );
 }
 
 async function translateToRequestPlan(
@@ -179,13 +171,12 @@ export async function executeApiTestCase(
     try {
       const controller = new AbortController();
       const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
-      const response = await fetch(url, {
-        method: req.method,
-        headers,
-        body,
-        redirect: "manual",
-        signal: controller.signal,
-      });
+      // Environment URL + LLM-chosen path: SSRF-guarded, redirects reported (3xx) not followed
+      const response = await safeFetch(
+        url,
+        { method: req.method, headers, body, signal: controller.signal },
+        { followRedirects: false }
+      );
       clearTimeout(timer);
 
       const statusOk = req.expectStatus.includes(response.status);

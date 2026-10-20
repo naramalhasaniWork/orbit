@@ -115,10 +115,14 @@ Required for every deployment:
 | `REDIS_URL` | Redis connection string (BullMQ queues, pub/sub) |
 | `NEXTAUTH_URL` | Public URL of the app |
 | `NEXTAUTH_SECRET` | JWT signing secret |
-| `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | GitHub OAuth app credentials |
+| `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | Credentials of your **GitHub App** (login and repo access; plain OAuth Apps are not supported) |
 | `ENCRYPTION_KEY` | Key for the secrets vault; losing it makes stored secrets unreadable |
 | `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` | AI providers. OpenAI is also used for embeddings |
 | `PLAYWRIGHT_WS_ENDPOINT` | Remote browser (browserless). Falls back to local Chromium if unset |
+
+**GitHub setup:** create one GitHub App for both login and repo access. Set its callback URL to `<NEXTAUTH_URL>/api/auth/callback/github`, its setup URL to `<NEXTAUTH_URL>/api/github/installations/callback`, and enable "Request user authorization (OAuth) during installation". Also set `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY` and `GITHUB_APP_SLUG` (required at boot unless `ORBIT_SELF_HOSTED=true`, where only a warning is logged). Permissions come from the App's configuration; OAuth scopes are not requested. On self-hosted instances `GITHUB_TOKEN` is used only for public repos unless `ORBIT_GITHUB_TOKEN_FALLBACK=true`; it is never used on hosted Orbit.
+
+`STORAGE_PROVIDER` is `local`, `s3` or `r2`; `s3` and `r2` need `S3_BUCKET`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, and `r2` also needs `S3_ENDPOINT`. Anything else fails at boot.
 
 Everything else (storage, GitHub App, GitLab, Linear, Slack, Stripe, `ORBIT_*` deployment
 flags, `SUPER_ADMIN_EMAILS`) is optional and documented in [`.env.example`](./.env.example).
@@ -157,7 +161,7 @@ in the `storage-data` volume.
 
 ### Railway
 
-See [docs/self-hosting/railway.md](./docs/self-hosting/railway.md).
+See [docs/self-hosting/railway.md](./docs/self-hosting/railway.md) for the services, then [docs/self-hosting/first-run.md](./docs/self-hosting/first-run.md) for the first-run walkthrough (`/setup` checklist, GitHub App, first admin login).
 
 ## Contributing
 

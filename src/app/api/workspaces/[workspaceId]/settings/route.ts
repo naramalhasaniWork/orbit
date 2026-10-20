@@ -1,17 +1,12 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { requirePermission } from "@/lib/auth/rbac";
+import { redactSettings } from "@/lib/integrations/redact";
 import {
   apiSuccess,
   apiError,
   handleApiError,
 } from "@/lib/utils/api";
-
-/** Never return credentials stored by the integration routes. */
-function redactSettings(settings: unknown): Record<string, unknown> {
-  const { linearApiKey: _key, slackWebhookUrl: _url, ...safe } = (settings ?? {}) as Record<string, unknown>;
-  return safe;
-}
 
 export async function GET(
   _request: NextRequest,

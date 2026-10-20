@@ -1,3 +1,4 @@
+import { billingWorkspaceId } from "@/lib/billing/workspace-header";
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
@@ -16,7 +17,7 @@ const purchaseSchema = z.object({
 export async function GET(request: NextRequest) {
   try {
     const ctx = await requirePermission(
-      request.headers.get("x-workspace-id") ?? "",
+      await billingWorkspaceId(request),
       "billing.view"
     );
 
@@ -65,7 +66,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const ctx = await requirePermission(
-      request.headers.get("x-workspace-id") ?? "",
+      await billingWorkspaceId(request),
       "billing.manage"
     );
 

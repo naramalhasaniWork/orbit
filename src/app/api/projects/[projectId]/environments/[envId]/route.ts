@@ -6,6 +6,7 @@ import {
   apiError,
   handleApiError,
 } from "@/lib/utils/api";
+import { requirePermission } from "@/lib/auth/rbac";
 
 export async function GET(
   _request: NextRequest,
@@ -38,12 +39,14 @@ export async function GET(
   }
 }
 
+/** Deleting an environment cascades to its secrets, so it needs secrets.manage. */
 export async function DELETE(
   _request: NextRequest,
   { params }: { params: Promise<{ projectId: string; envId: string }> }
 ) {
   try {
     const { workspaceId } = await requireWorkspace();
+    await requirePermission(workspaceId, "secrets.manage");
     const { projectId, envId } = await params;
 
     const project = await prisma.project.findFirst({

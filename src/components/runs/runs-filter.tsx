@@ -10,19 +10,17 @@ import {
   TRIGGER_LABELS,
 } from "@/components/runs/run-types";
 
-interface Filters {
-  status: string | null;
-  mode: string | null;
-  trigger: string | null;
-}
+import { RUN_SORTS, isRunSort, type RunFilters, type RunSort } from "@/lib/runs/run-list";
 
 interface RunsFilterProps {
-  filters: Filters;
-  onFiltersChange: (filters: Filters) => void;
+  filters: RunFilters;
+  onFiltersChange: (filters: Partial<RunFilters>) => void;
+  sort: RunSort;
+  onSortChange: (sort: RunSort) => void;
   runs: RunListItem[];
 }
 
-export function RunsFilter({ filters, onFiltersChange, runs }: RunsFilterProps) {
+export function RunsFilter({ filters, onFiltersChange, sort, onSortChange, runs }: RunsFilterProps) {
   const availableStatuses = useMemo(
     () => Array.from(new Set(runs.map((r) => r.status))),
     [runs]
@@ -49,7 +47,7 @@ export function RunsFilter({ filters, onFiltersChange, runs }: RunsFilterProps) 
           label: RUN_STATUS_CONFIG[s]?.label ?? s,
         }))}
         selected={filters.status}
-        onSelect={(v) => onFiltersChange({ ...filters, status: v })}
+        onSelect={(v) => onFiltersChange({ status: v })}
       />
 
       <FilterGroup
@@ -59,7 +57,7 @@ export function RunsFilter({ filters, onFiltersChange, runs }: RunsFilterProps) 
           label: MODE_LABELS[m] ?? m,
         }))}
         selected={filters.mode}
-        onSelect={(v) => onFiltersChange({ ...filters, mode: v })}
+        onSelect={(v) => onFiltersChange({ mode: v })}
       />
 
       <FilterGroup
@@ -69,7 +67,7 @@ export function RunsFilter({ filters, onFiltersChange, runs }: RunsFilterProps) 
           label: TRIGGER_LABELS[t] ?? t,
         }))}
         selected={filters.trigger}
-        onSelect={(v) => onFiltersChange({ ...filters, trigger: v })}
+        onSelect={(v) => onFiltersChange({ trigger: v })}
       />
 
       {hasActiveFilters && (
@@ -77,11 +75,26 @@ export function RunsFilter({ filters, onFiltersChange, runs }: RunsFilterProps) 
           variant="ghost"
           size="sm"
           className="text-xs text-muted-foreground h-7 px-2"
-          onClick={() => onFiltersChange({ status: null, mode: null, trigger: null })}
+          onClick={() => onFiltersChange({ status: "", mode: "", trigger: "" })}
         >
           Clear
         </Button>
       )}
+
+      <label className="ml-auto flex items-center gap-1.5">
+        <span className="text-[10px] text-muted-foreground uppercase tracking-wider">Sort</span>
+        <select
+          value={sort}
+          onChange={(e) => isRunSort(e.target.value) && onSortChange(e.target.value)}
+          className="h-7 rounded-md border border-border bg-transparent px-2 text-xs text-foreground focus:outline-none focus-visible:ring-1 focus-visible:ring-orbit-accent/50"
+        >
+          {Object.entries(RUN_SORTS).map(([value, label]) => (
+            <option key={value} value={value} className="bg-card">
+              {label}
+            </option>
+          ))}
+        </select>
+      </label>
     </div>
   );
 }
@@ -94,8 +107,8 @@ function FilterGroup({
 }: {
   label: string;
   options: Array<{ value: string; label: string }>;
-  selected: string | null;
-  onSelect: (value: string | null) => void;
+  selected: string;
+  onSelect: (value: string) => void;
 }) {
   if (options.length <= 1) return null;
 
@@ -108,7 +121,7 @@ function FilterGroup({
         <button
           key={opt.value}
           type="button"
-          onClick={() => onSelect(selected === opt.value ? null : opt.value)}
+          onClick={() => onSelect(selected === opt.value ? "" : opt.value)}
           className={cn(
             "text-xs px-2 py-1 rounded-md transition-colors",
             selected === opt.value

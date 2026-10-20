@@ -17,7 +17,7 @@ vi.mock("@/lib/billing/usage-aggregator", () => ({
 import { prisma } from "@/lib/db";
 import { checkBudgetLimit } from "@/lib/billing/usage-aggregator";
 import { canConsume, TIER_LIMITS } from "@/lib/auth/tenant";
-import { getAllTierConfigs, getTierLimits } from "@/lib/stripe/prices";
+import { getAllTierConfigs, getMonthlyCreditGrant } from "@/lib/stripe/prices";
 import pricingContent from "@/app/(marketing)/content/pricing.json";
 
 const db = prisma as unknown as {
@@ -81,19 +81,19 @@ describe("canConsume", () => {
 });
 
 describe("advertised limits match TIER_LIMITS", () => {
-  it("Stripe grants use TIER_LIMITS credits and caps", () => {
-    expect(getTierLimits("starter")).toEqual({
-      monthlyCredits: TIER_LIMITS.starter.monthlyCredits,
-      maxProjects: TIER_LIMITS.starter.projects,
-      maxMembers: TIER_LIMITS.starter.members,
-    });
-    expect(getTierLimits("enterprise").monthlyCredits).toBe(-1);
+  it("Stripe grants use TIER_LIMITS credits, multiplied by seats on seat-based tiers", () => {
+    expect(getMonthlyCreditGrant("starter", 3)).toBe(TIER_LIMITS.starter.monthlyCredits * 3);
+    expect(getMonthlyCreditGrant("professional", 0)).toBe(TIER_LIMITS.professional.monthlyCredits);
+    expect(getMonthlyCreditGrant("free", 5)).toBe(TIER_LIMITS.free.monthlyCredits);
+    expect(getMonthlyCreditGrant("enterprise")).toBeNull();
   });
 
   it("plan feature lists carry the enforced numbers and no nonexistent products", () => {
     const configs = getAllTierConfigs();
     const freeCredits = `${TIER_LIMITS.free.monthlyCredits.toLocaleString("en-US")} credits/month`;
     expect(configs.free.features).toContain(freeCredits);
+    const proCredits = `${TIER_LIMITS.starter.monthlyCredits.toLocaleString("en-US")} credits/month per seat`;
+    expect(configs.starter.features).toContain(proCredits);
 
     for (const config of Object.values(configs)) {
       const text = config.features.join(" ");
@@ -108,5 +108,14 @@ describe("advertised limits match TIER_LIMITS", () => {
       expect(text).not.toMatch(/VS Code|CLI/);
       expect(Object.keys(TIER_LIMITS)).toContain(tier.tier);
     }
+  });
+
+  it("does not count expired pending invitations against member seats", async () => {
+    db.workspaceMember.count.mockResolvedValue(1);
+    db.workspaceInvitation.count.mockResolvedValue(0);
+    await canConsume("ws-1", "member");
+    expect(db.workspaceInvitation.count).toHaveBeenCalledWith({
+      where: { workspaceId: "ws-1", status: "pending", expiresAt: { gt: expect.any(Date) } },
+    });
   });
 });
