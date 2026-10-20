@@ -1,1 +1,5 @@
 c3e0d9e3164687eae468ff84fb456211aef67bca:src/__tests__/unit/openrouter.test.ts:generic-api-key:18
+
+# Real Railway Postgres URL with password, committed in d652427. The credential MUST be rotated and
+# history squashed/rewritten before this repo goes public; remove this entry afterwards.
+d6524274a4405383a2d817d8fa4dd877e5af205f:scripts/sync-schema.mjs:url-inline-credentials:12
