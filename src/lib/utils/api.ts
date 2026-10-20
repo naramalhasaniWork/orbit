@@ -49,6 +49,8 @@ export async function requireWorkspace(): Promise<{
         workspaceId: session.workspaceId,
         userId: session.user.id,
       },
+      // A soft-deleted workspace admits nobody
+      workspace: { deletedAt: null },
     },
     select: { role: true },
   });

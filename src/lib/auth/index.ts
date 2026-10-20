@@ -60,6 +60,7 @@ export const authOptions: AuthOptions = {
           where: {
             userId: token.userId as string,
             workspaceId: requestedId,
+            workspace: { deletedAt: null },
           },
           include: { workspace: { select: { slug: true } } },
         });
@@ -126,7 +127,7 @@ export const authOptions: AuthOptions = {
           token.userRole = dbUser?.role ?? "user";
 
           const membership = await prisma.workspaceMember.findFirst({
-            where: { userId: user.id },
+            where: { userId: user.id, workspace: { deletedAt: null } },
             include: { workspace: { select: { slug: true } } },
           });
 
@@ -142,6 +143,7 @@ export const authOptions: AuthOptions = {
                   email: user.email!.toLowerCase(),
                   status: "pending",
                   expiresAt: { gt: new Date() },
+                  workspace: { deletedAt: null },
                 },
                 include: {
                   workspace: { select: { id: true, slug: true } },
