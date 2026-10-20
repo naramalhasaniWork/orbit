@@ -14,7 +14,6 @@ interface ApiKey {
   prefix: string;
   lastUsedAt: string | null;
   createdAt: string;
-  expiresAt: string | null;
 }
 
 interface ApiKeySettingsProps {
@@ -64,9 +63,9 @@ export function ApiKeySettings({ workspaceId }: ApiKeySettingsProps) {
         body: JSON.stringify({ name: newKeyName }),
       });
       if (res.ok) {
-        const data = await res.json();
-        setNewKeyValue(data.key);
-        setKeys((prev) => [data.apiKey, ...prev]);
+        const json = await res.json();
+        setNewKeyValue(json.data.key);
+        setKeys((prev) => [json.data.apiKey, ...prev]);
         setNewKeyName("");
       }
     } finally {
@@ -197,11 +196,6 @@ export function ApiKeySettings({ workspaceId }: ApiKeySettingsProps) {
                       <span>
                         Last used {formatDistanceToNow(new Date(key.lastUsedAt), { addSuffix: true })}
                       </span>
-                    )}
-                    {key.expiresAt && (
-                      <Badge variant="outline" className="text-[10px] text-orbit-flaky">
-                        Expires {formatDistanceToNow(new Date(key.expiresAt), { addSuffix: true })}
-                      </Badge>
                     )}
                   </div>
                 </div>

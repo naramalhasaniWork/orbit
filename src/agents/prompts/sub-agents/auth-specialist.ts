@@ -5,6 +5,11 @@
  */
 
 import { buildPrompt } from "@/agents/prompts/prompt-builder";
+import {
+  CREDENTIAL_PLACEHOLDER_INSTRUCTIONS,
+  describeCredentialPlaceholders,
+  redactCredentials,
+} from "@/lib/utils/credentials";
 
 export interface AuthSpecialistContext {
   /** Type of auth flow being tested */
@@ -128,14 +133,12 @@ export function buildAuthSpecialistPrompt(
     )
     .join("\n");
 
-  const credStr = Object.entries(testCredentials)
-    .map(([k, v]) => `  - ${k}: ${v}`)
-    .join("\n");
+  // The model only ever sees credential placeholders, never the secret values
+  const credStr = describeCredentialPlaceholders(testCredentials);
+  const scrub = (text: string) => redactCredentials(text, testCredentials);
 
   const historyStr = previousActions?.length
-    ? previousActions
-        .map((a) => `  - ${a.action} -> ${a.result}`)
-        .join("\n")
+    ? scrub(previousActions.map((a) => `  - ${a.action} -> ${a.result}`).join("\n"))
     : "  (none)";
 
   const agentInstructions = `## Sub-Agent Role: Auth Specialist
@@ -161,6 +164,7 @@ You are an expert at navigating authentication flows in web applications. You an
 - **Expected Outcome:** ${expectedOutcome}
 
 ## Test Credentials
+You do not have access to the credential values, only to placeholders. ${CREDENTIAL_PLACEHOLDER_INSTRUCTIONS}
 ${credStr}
 
 ## Previous Actions
@@ -170,7 +174,7 @@ ${historyStr}
 ${elementsStr}
 
 ## Page HTML (truncated)
-${pageHtml.slice(0, 3000)}
+${scrub(pageHtml.slice(0, 3000))}
 
 ${buildAuthPatterns()}
 

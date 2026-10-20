@@ -4,6 +4,13 @@ import GitLabProvider from "next-auth/providers/gitlab";
 import { PrismaAdapter } from "@next-auth/prisma-adapter";
 import { prisma } from "@/lib/db";
 import { generateSlug } from "@/lib/utils/slug";
+import { encryptToken } from "@/lib/vault/token";
+import { evaluateSignIn } from "./signup-policy";
+import { consumeRateLimit } from "./rate-limit";
+import { isSelfHosted } from "@/lib/self-host";
+
+const SIGNIN_ATTEMPTS_PER_ACCOUNT = 10;
+const SIGNIN_WINDOW_SEC = 600;
 
 export const authOptions: AuthOptions = {
   adapter: PrismaAdapter(prisma),
@@ -33,7 +40,15 @@ export const authOptions: AuthOptions = {
   callbacks: {
     async signIn({ user }) {
       if (!user.email) return false;
-      return true;
+      // Second limit keyed on the account, so rotating IPs does not help guess at one account
+      const attempts = await consumeRateLimit(
+        `signin:${user.email.toLowerCase()}`,
+        SIGNIN_ATTEMPTS_PER_ACCOUNT,
+        SIGNIN_WINDOW_SEC
+      );
+      if (!attempts.allowed) return "/login?error=RateLimited";
+      const decision = await evaluateSignIn(user.email);
+      return decision.allowed ? true : `/login?error=${decision.error}`;
     },
 
     async jwt({ token, user, trigger, account, session: updateData }) {
@@ -61,12 +76,17 @@ export const authOptions: AuthOptions = {
         if (account?.access_token) {
           if (account.provider === "github") {
             token.githubAccessToken = account.access_token;
-            // Persist to DB so background workers can access it
+            // Persist (encrypted) so background workers can access it. This also
+            // upgrades any legacy plaintext value on the user's next login.
             if (user?.id) {
-              await prisma.user.update({
-                where: { id: user.id },
-                data: { githubAccessToken: account.access_token },
-              });
+              try {
+                await prisma.user.update({
+                  where: { id: user.id },
+                  data: { githubAccessToken: encryptToken(account.access_token) },
+                });
+              } catch (err) {
+                console.error("[Auth] Could not store encrypted GitHub token:", err);
+              }
             }
           } else if (account.provider === "gitlab") {
             token.gitlabAccessToken = account.access_token;
@@ -84,9 +104,12 @@ export const authOptions: AuthOptions = {
             .map((e) => e.trim().toLowerCase())
             .filter(Boolean);
 
+          // On a self-hosted instance the first account to exist owns it
+          const isFirstSelfHostUser = isSelfHosted() && (await prisma.user.count()) === 1;
+
           const isSuperAdmin =
-            user.email &&
-            superAdminEmails.includes(user.email.toLowerCase());
+            isFirstSelfHostUser ||
+            (user.email && superAdminEmails.includes(user.email.toLowerCase()));
 
           if (isSuperAdmin) {
             await prisma.user.update({
@@ -116,7 +139,7 @@ export const authOptions: AuthOptions = {
             const pendingInvitation =
               await prisma.workspaceInvitation.findFirst({
                 where: {
-                  email: user.email!,
+                  email: user.email!.toLowerCase(),
                   status: "pending",
                   expiresAt: { gt: new Date() },
                 },
@@ -184,8 +207,6 @@ export const authOptions: AuthOptions = {
         workspaceSlug: token.workspaceSlug as string,
         role: token.role as string,
         userRole: (token.userRole as string) ?? "user",
-        githubAccessToken: token.githubAccessToken as string | undefined,
-        gitlabAccessToken: token.gitlabAccessToken as string | undefined,
         provider: token.provider as string | undefined,
       };
     },

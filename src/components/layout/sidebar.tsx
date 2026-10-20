@@ -23,6 +23,8 @@ import { Logo } from "@/components/ui/logo";
 import { cn } from "@/lib/utils";
 import { WorkspaceSwitcher } from "@/components/team/workspace-switcher";
 
+const BILLING_HREF = "/dashboard/settings/billing";
+
 const navigation = [
   { name: "Agent", href: "/dashboard/agent", icon: Sparkles },
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
@@ -36,15 +38,23 @@ const navigation = [
   { name: "Providers", href: "/dashboard/settings/providers", icon: KeyRound },
   { name: "MCP Tools", href: "/dashboard/settings/mcp", icon: Plug },
   { name: "Team", href: "/dashboard/settings/members", icon: Users },
-  { name: "Billing", href: "/dashboard/settings/billing", icon: CreditCard },
+  { name: "Billing", href: BILLING_HREF, icon: CreditCard },
 ];
 
-export function Sidebar() {
+interface SidebarProps {
+  /** Hide the billing entry (self-hosted instances have no billing). */
+  hideBilling?: boolean;
+}
+
+export function Sidebar({ hideBilling = false }: SidebarProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { data: session } = useSession();
   const workspaceId = (session as { workspaceId?: string } | null)?.workspaceId;
   const projectParam = searchParams.get("project");
+  const navItems = hideBilling
+    ? navigation.filter((item) => item.href !== BILLING_HREF)
+    : navigation;
 
   return (
     <aside className="flex flex-col w-14 hover:w-60 transition-all duration-300 ease-in-out surface-1 border-r border-border group overflow-hidden">
@@ -58,7 +68,7 @@ export function Sidebar() {
 
       {/* Navigation */}
       <nav className="flex-1 py-3 px-2 space-y-1">
-        {navigation.map((item) => {
+        {navItems.map((item) => {
           const isActive =
             pathname === item.href ||
             (item.href !== "/dashboard" && pathname?.startsWith(item.href));

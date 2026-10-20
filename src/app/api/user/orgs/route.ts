@@ -5,7 +5,7 @@ import {
   apiError,
   handleApiError,
 } from "@/lib/utils/api";
-import { isGitHubAppConfigured, getInstallUrl } from "@/lib/github/app";
+import { isGitHubAppConfigured } from "@/lib/github/app";
 
 export const dynamic = "force-dynamic";
 
@@ -76,7 +76,7 @@ export async function GET() {
     return apiSuccess({
       orgs: items,
       appConfigured: isGitHubAppConfigured(),
-      installUrl: isGitHubAppConfigured() ? getInstallUrl() : null,
+      installUrl: isGitHubAppConfigured() ? "/api/github/install" : null,
     });
   } catch (error) {
     return handleApiError(error);

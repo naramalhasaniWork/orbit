@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { substituteCredentials } from "@/services/execution/api-test-executor";
+import { substituteCredentials } from "@/lib/utils/credentials";
 import { isProviderError } from "@/services/execution/test-case-executor";
 
 describe("isProviderError", () => {

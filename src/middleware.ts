@@ -1,8 +1,14 @@
 import { getToken } from "next-auth/jwt";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
+import { isSelfHosted } from "@/lib/self-host";
 
 const PUBLIC_PATHS = ["/login", "/api/auth"];
+
+/** Routes that do not exist on a self-hosted instance (no billing, no Stripe). */
+function isBillingApiPath(pathname: string): boolean {
+  return pathname.startsWith("/api/billing") || pathname === "/api/webhooks/stripe";
+}
 
 function isPublicPath(pathname: string): boolean {
   return PUBLIC_PATHS.some((path) => pathname.startsWith(path));
@@ -10,6 +16,13 @@ function isPublicPath(pathname: string): boolean {
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  if (isSelfHosted() && isBillingApiPath(pathname)) {
+    return NextResponse.json(
+      { success: false, error: { message: "Not found", code: "NOT_FOUND" } },
+      { status: 404 }
+    );
+  }
 
   // Allow public paths through
   if (isPublicPath(pathname)) {
@@ -51,5 +64,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/admin/:path*"],
+  matcher: ["/dashboard/:path*", "/admin/:path*", "/api/billing/:path*", "/api/webhooks/stripe"],
 };

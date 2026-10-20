@@ -6,6 +6,7 @@ import {
   apiError,
   handleApiError,
 } from "@/lib/utils/api";
+import { requirePermission } from "@/lib/auth/rbac";
 
 // Dynamic import: planner transitively imports prompt files containing
 // markdown with backtick-escaped code examples that confuse the Next.js
@@ -93,6 +94,7 @@ export async function POST(
 ) {
   try {
     const { workspaceId } = await requireWorkspace();
+    await requirePermission(workspaceId, "plans.create");
     const { projectId } = await params;
 
     const project = await validateProjectAccess(projectId, workspaceId);

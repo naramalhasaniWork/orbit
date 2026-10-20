@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { decrypt } from "@/lib/vault";
+import { safeFetch, UnsafeUrlError } from "@/lib/utils/ssrf";
 
 // ============================================================
 // Types
@@ -22,10 +23,9 @@ async function checkUrlReachable(url: string): Promise<{ ok: boolean; error?: st
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 10_000);
 
-    const response = await fetch(url, {
+    const response = await safeFetch(url, {
       method: "HEAD",
       signal: controller.signal,
-      redirect: "follow",
     });
 
     clearTimeout(timeout);
@@ -39,6 +39,9 @@ async function checkUrlReachable(url: string): Promise<{ ok: boolean; error?: st
 
     return { ok: true };
   } catch (err) {
+    if (err instanceof UnsafeUrlError) {
+      return { ok: false, error: `URL blocked: ${err.message}` };
+    }
     const message = err instanceof Error ? err.message : "Unknown error";
     return { ok: false, error: `Cannot reach URL: ${message}` };
   }

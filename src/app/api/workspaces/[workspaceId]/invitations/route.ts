@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { requirePermission } from "@/lib/auth/rbac";
+import { requirePermission, assertCanManageRole } from "@/lib/auth/rbac";
 import { canConsume } from "@/lib/auth/tenant";
 import { apiSuccess, apiError, handleApiError } from "@/lib/utils/api";
 import { writeAuditLog } from "@/lib/auth/audit";
@@ -62,6 +62,9 @@ export async function POST(
     const { role } = parsed.data;
     const email = normalizeInviteEmail(parsed.data.email);
     const now = new Date();
+
+    // Cannot invite someone at or above your own level
+    assertCanManageRole(ctx.role, role);
 
     const allowance = await canConsume(workspaceId, "member");
     if (!allowance.allowed) {

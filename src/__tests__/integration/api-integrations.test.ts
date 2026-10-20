@@ -38,6 +38,12 @@ vi.mock("@/lib/utils/api", async (orig) => ({
 import { AuthError } from "@/lib/utils/api";
 import { openSecret } from "@/lib/integrations/secret-field";
 
+// Delivery goes through the DNS-pinned safeFetch; route it to the stubbed global fetch here.
+vi.mock("@/lib/utils/ssrf", () => ({
+  safeFetch: (url: string, init: RequestInit = {}, opts: { followRedirects?: boolean } = {}) =>
+    fetch(url, { ...init, redirect: opts.followRedirects === false ? "manual" : "follow" }),
+}));
+
 const wsParams = { params: Promise.resolve({ workspaceId: "w1" }) };
 
 function req(method: string, body?: unknown) {

@@ -11,6 +11,7 @@ import {
   isValidCronExpression,
   getNextCronDate,
 } from "@/services/scheduler/cron-parser";
+import { requirePermission } from "@/lib/auth/rbac";
 
 // ============================================================
 // GET /api/projects/[projectId]/schedules
@@ -79,6 +80,7 @@ export async function POST(
 ) {
   try {
     const { workspaceId } = await requireWorkspace();
+    await requirePermission(workspaceId, "runs.create");
     const { projectId } = await params;
 
     const project = await prisma.project.findFirst({
@@ -156,6 +158,7 @@ export async function PATCH(
 ) {
   try {
     const { workspaceId } = await requireWorkspace();
+    await requirePermission(workspaceId, "runs.create");
     const { projectId } = await params;
 
     const project = await prisma.project.findFirst({
@@ -218,6 +221,7 @@ export async function DELETE(
 ) {
   try {
     const { workspaceId } = await requireWorkspace();
+    await requirePermission(workspaceId, "runs.create");
     const { projectId } = await params;
 
     const project = await prisma.project.findFirst({

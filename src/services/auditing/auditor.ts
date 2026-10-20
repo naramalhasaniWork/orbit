@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { getStorage } from "@/lib/storage";
+import { decryptToken } from "@/lib/vault/token";
 import { createTrackedCompletion } from "@/lib/ai/tracked-completion";
 import { getModelForTask } from "@/lib/ai/model-router";
 import { buildAuditorPrompt } from "@/agents/prompts/auditor-prompt";
@@ -251,7 +252,7 @@ async function getGitHubTokenForProject(
     include: { user: { select: { githubAccessToken: true } } },
   });
 
-  return member?.user.githubAccessToken ?? null;
+  return decryptToken(member?.user.githubAccessToken);
 }
 
 /**

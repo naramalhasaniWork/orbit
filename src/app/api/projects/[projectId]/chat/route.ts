@@ -11,6 +11,7 @@ import {
   saveAssistantResponse,
 } from "@/services/orbit-agent/runner";
 import type { AgentStreamEvent } from "@/services/orbit-agent/runner";
+import { requirePermission } from "@/lib/auth/rbac";
 
 // ============================================================
 // POST /api/projects/[projectId]/chat — Send message, stream response
@@ -22,6 +23,7 @@ export async function POST(
 ) {
   try {
     const { session, workspaceId } = await requireWorkspace();
+    await requirePermission(workspaceId, "runs.create");
     const { projectId } = await params;
 
     // Verify project belongs to workspace
@@ -183,6 +185,7 @@ export async function DELETE(
 ) {
   try {
     const { session, workspaceId } = await requireWorkspace();
+    await requirePermission(workspaceId, "projects.update");
     const { projectId } = await params;
 
     const project = await prisma.project.findFirst({

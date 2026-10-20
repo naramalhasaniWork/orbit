@@ -4,6 +4,7 @@
  */
 
 import { prisma } from "@/lib/db";
+import { isSelfHosted } from "@/lib/self-host";
 import { checkBudgetLimit } from "@/lib/billing/usage-aggregator";
 import { TIER_LIMITS, type WorkspaceTier } from "./tier-limits";
 
@@ -24,6 +25,7 @@ export function withWorkspaceAnd<T extends Record<string, unknown>>(
 
 /** Check if a workspace tier allows a specific model. */
 export function isModelAllowed(tier: WorkspaceTier, model: string): boolean {
+  if (isSelfHosted()) return true;
   const limits = TIER_LIMITS[tier];
   if (limits.rateLimit === Infinity) return true; // enterprise
   return limits.allowedModels.includes(model);
@@ -69,6 +71,8 @@ export async function canConsume(
   workspaceId: string,
   kind: ConsumptionKind
 ): Promise<ConsumeDecision> {
+  // Self-hosted instances have no plans, so nothing is metered.
+  if (isSelfHosted()) return { allowed: true };
   const workspace = await prisma.workspace.findUnique({
     where: { id: workspaceId },
     select: { tier: true, creditBalance: true },

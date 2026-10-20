@@ -14,6 +14,7 @@ import {
   acceptAsBaseline,
   listBaselines,
 } from "@/services/visual-qa/baseline-manager";
+import { requirePermission } from "@/lib/auth/rbac";
 
 // ============================================================
 // GET /api/projects/[projectId]/baselines
@@ -75,6 +76,7 @@ export async function POST(
 ) {
   try {
     const { workspaceId } = await requireWorkspace();
+    await requirePermission(workspaceId, "plans.update");
     const { projectId } = await params;
 
     const project = await prisma.project.findFirst({
