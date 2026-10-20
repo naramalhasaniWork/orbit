@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { getIndexingQueue } from "@/lib/queue/queues";
+import { requireQueueAvailable, withQueueTimeout } from "@/lib/queue/availability";
 import {
   requireWorkspace,
   apiSuccess,
@@ -34,8 +35,9 @@ export async function POST(
     const changedFiles = body.changedFiles ?? [];
     const isIncremental = changedFiles.length > 0;
 
+    await requireQueueAvailable();
     const queue = getIndexingQueue();
-    const job = await queue.add(
+    const job = await withQueueTimeout(queue.add(
       `index-${projectId}`,
       {
         projectId,
@@ -46,7 +48,7 @@ export async function POST(
       {
         jobId: `index-${projectId}-${Date.now()}`,
       }
-    );
+    ));
 
     return apiSuccess(
       {
@@ -94,9 +96,11 @@ export async function GET(
     });
 
     // Check if there's an active indexing job
+    await requireQueueAvailable();
     const queue = getIndexingQueue();
-    const activeJobs = await queue.getActive();
-    const waitingJobs = await queue.getWaiting();
+    const [activeJobs, waitingJobs] = await withQueueTimeout(
+      Promise.all([queue.getActive(), queue.getWaiting()])
+    );
 
     const isIndexing = [...activeJobs, ...waitingJobs].some((job) =>
       job.data.projectId === projectId

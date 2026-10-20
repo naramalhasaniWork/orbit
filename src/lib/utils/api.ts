@@ -74,9 +74,26 @@ export class AuthError extends Error {
   }
 }
 
+/** A dependency (Redis, the job queue) is down; the request can be retried. */
+export class ServiceUnavailableError extends Error {
+  code: string;
+
+  constructor(message: string, code = "SERVICE_UNAVAILABLE") {
+    super(message);
+    this.code = code;
+    this.name = "ServiceUnavailableError";
+  }
+}
+
 export function handleApiError(error: unknown): NextResponse {
   if (error instanceof AuthError) {
     return apiError(error.message, error.code, error.status);
+  }
+
+  if (error instanceof ServiceUnavailableError) {
+    const res = apiError(error.message, error.code, 503);
+    res.headers.set("Retry-After", "30");
+    return res;
   }
 
   if (error instanceof ZodError) {

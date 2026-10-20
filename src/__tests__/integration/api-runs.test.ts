@@ -62,6 +62,13 @@ vi.mock("@/lib/queue/queues", () => ({
   getExecutionQueue: vi.fn(() => ({ add: queueAdd })),
 }));
 
+const requireQueueAvailable = vi.fn();
+vi.mock("@/lib/queue/availability", () => ({
+  WORKERS_UNAVAILABLE_MESSAGE: "Background workers unavailable: Redis is not reachable",
+  requireQueueAvailable: () => requireQueueAvailable(),
+  withQueueTimeout: <T>(op: Promise<T>) => op,
+}));
+
 vi.mock("@/lib/websocket", () => ({
   emitRunStarted: vi.fn(),
   emitRunProgress: vi.fn(),
@@ -202,8 +209,19 @@ describe("api-runs", () => {
       const json = await response.json();
 
       expect(response.status).toBe(503);
-      expect(json.error.code).toBe("QUEUE_UNAVAILABLE");
+      expect(json.error.code).toBe("WORKERS_UNAVAILABLE");
+      expect(json.error.message).toBe("Background workers unavailable: Redis is not reachable");
       expect(mockPrisma.testRun.delete).toHaveBeenCalledWith({ where: { id: "run-new" } });
+    });
+
+    it("does not create a run when the queue is unreachable", async () => {
+      mockRunnableProject();
+      requireQueueAvailable.mockRejectedValueOnce(new Error("Background workers unavailable: Redis is not reachable"));
+
+      await postRun();
+
+      expect(mockPrisma.testRun.create).not.toHaveBeenCalled();
+      expect(queueAdd).not.toHaveBeenCalled();
     });
 
     it("blocks the run with the allowance reason at zero credits", async () => {
