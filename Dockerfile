@@ -47,16 +47,17 @@ RUN adduser --system --uid 1001 nextjs
 COPY --from=builder /app/public ./public
 
 # Copy standalone build output
-COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
-COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+COPY --from=builder /app/.next/standalone ./
+COPY --from=builder /app/.next/static ./.next/static
 
 # Prisma CLI, schema, migrations and config live in /prisma and are used by scripts/start.sh
-COPY --from=prisma-cli --chown=nextjs:nodejs /prisma/node_modules /prisma/node_modules
-COPY --from=builder --chown=nextjs:nodejs /app/prisma /prisma/prisma
-COPY --from=builder --chown=nextjs:nodejs /app/prisma.config.ts /prisma/prisma.config.ts
+COPY --from=prisma-cli /prisma/node_modules /prisma/node_modules
+COPY --from=builder /app/prisma /prisma/prisma
+COPY --from=builder /app/prisma.config.ts /prisma/prisma.config.ts
 COPY --from=builder /app/src/generated/prisma ./src/generated/prisma
-COPY --chown=nextjs:nodejs scripts/start.sh ./start.sh
+COPY scripts/start.sh ./start.sh
 
+# App code stays root-owned (read-only to the runtime user); only storage is writable
 # Create storage directories
 RUN mkdir -p /data/storage /tmp/orbit-storage && chown -R nextjs:nodejs /data/storage /tmp/orbit-storage
 
