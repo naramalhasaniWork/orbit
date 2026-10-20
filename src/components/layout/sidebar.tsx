@@ -1,63 +1,106 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
-import { motion } from "framer-motion";
-import {
-  LayoutDashboard,
-  Map,
-  Workflow,
-  ClipboardList,
-  Play,
-  ShieldCheck,
-  Settings,
-  Users,
-  CreditCard,
-  FolderGit2,
-  KeyRound,
-  Plug,
-  Sparkles,
-} from "lucide-react";
 import { Logo } from "@/components/ui/logo";
-import { cn } from "@/lib/utils";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { ClosingO } from "@/components/telemetry/closing-o";
+import { LiveDot } from "@/components/telemetry/live-dot";
 import { WorkspaceSwitcher } from "@/components/team/workspace-switcher";
 import { useMobileNav } from "@/components/layout/mobile-nav-context";
-
-const BILLING_HREF = "/dashboard/settings/billing";
-
-const navigation = [
-  { name: "Agent", href: "/dashboard/agent", icon: Sparkles },
-  { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
-  { name: "Projects", href: "/dashboard/projects", icon: FolderGit2 },
-  { name: "System Map", href: "/dashboard/map", icon: Map },
-  { name: "Operations", href: "/dashboard/operations", icon: Workflow },
-  { name: "Test Plans", href: "/dashboard/plans", icon: ClipboardList },
-  { name: "Runs", href: "/dashboard/runs", icon: Play },
-  { name: "Code Audit", href: "/dashboard/audit", icon: ShieldCheck },
-  { name: "Settings", href: "/dashboard/settings", icon: Settings },
-  { name: "Providers", href: "/dashboard/settings/providers", icon: KeyRound },
-  { name: "MCP Tools", href: "/dashboard/settings/mcp", icon: Plug },
-  { name: "Team", href: "/dashboard/settings/members", icon: Users },
-  { name: "Billing", href: BILLING_HREF, icon: CreditCard },
-];
+import { useShortcutAction } from "@/components/shortcuts/shortcut-provider";
+import { ThemeToggle } from "@/components/layout/theme-toggle";
+import { LiveFavicon } from "@/components/layout/live-favicon";
+import { LiveModule, RunModules } from "@/components/layout/sidebar-modules";
+import { SETTINGS_LINK, SHORTCUTS, isActiveHref, withProjectParam, type NavLink } from "@/components/layout/nav-model";
+import { useWorkspaceActivity } from "@/hooks/use-workspace-activity";
+import { sidebarCookie } from "@/lib/sidebar-pref";
+import { cn } from "@/lib/utils";
 
 interface SidebarProps {
-  /** Hide the billing entry (self-hosted instances have no billing). */
-  hideBilling?: boolean;
+  /** From the cookie, so the server renders the right width. */
+  initialExpanded?: boolean;
 }
 
-export function Sidebar({ hideBilling = false }: SidebarProps) {
+const FOCUS = "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+const PANEL_ID = "orbit-sidebar";
+
+/** Re-render on an interval only while something on screen reads the clock. */
+function useNow(intervalMs: number | null): number {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    if (intervalMs === null) return;
+    const id = setInterval(() => setNow(Date.now()), intervalMs);
+    return () => clearInterval(id);
+  }, [intervalMs]);
+  return now;
+}
+
+function RailLink({ item, href, active }: { item: NavLink; href: string; active: boolean }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Link
+          href={href}
+          aria-label={item.name}
+          aria-current={active ? "page" : undefined}
+          className={cn(
+            "flex size-10 items-center justify-center rounded-md text-tm-t2 transition-colors hover:bg-accent hover:text-foreground",
+            active && "border border-border bg-card text-foreground",
+            FOCUS
+          )}
+        >
+          <item.icon aria-hidden="true" className="size-[18px]" strokeWidth={1.6} />
+        </Link>
+      </TooltipTrigger>
+      <TooltipContent side="right">{item.name}</TooltipContent>
+    </Tooltip>
+  );
+}
+
+function ListLink({ item, href, active }: { item: NavLink; href: string; active: boolean }) {
+  return (
+    <Link
+      href={href}
+      aria-current={active ? "page" : undefined}
+      className={cn(
+        "flex h-8 items-center gap-2.5 rounded-md px-2 text-[13px] text-tm-t2 transition-colors hover:bg-accent hover:text-foreground",
+        active && "bg-accent text-foreground",
+        FOCUS
+      )}
+    >
+      <item.icon aria-hidden="true" className="size-4" strokeWidth={1.6} />
+      {item.name}
+    </Link>
+  );
+}
+
+/**
+ * Rail (64px) or expanded (320px) with live modules; toggled by the logo or `[`, persisted.
+ * Below md it is an off-canvas drawer that always shows the expanded view.
+ */
+export function Sidebar({ initialExpanded = false }: SidebarProps) {
   const pathname = usePathname();
-  const searchParams = useSearchParams();
+  const project = useSearchParams().get("project");
   const { data: session } = useSession();
   const workspaceId = (session as { workspaceId?: string } | null)?.workspaceId;
-  const projectParam = searchParams.get("project");
-  const navItems = hideBilling
-    ? navigation.filter((item) => item.href !== BILLING_HREF)
-    : navigation;
   const { open, setOpen } = useMobileNav();
+  const [expanded, setExpanded] = useState(initialExpanded);
+  const { operations } = useWorkspaceActivity();
+  const liveCount = operations.length;
+  // Module bodies mount (and fetch) only once someone can see them.
+  const showModules = expanded || open;
+  const now = useNow(showModules ? (liveCount > 0 ? 1000 : 60_000) : null);
+
+  function toggle() {
+    if (window.matchMedia("(max-width: 767px)").matches) return setOpen(false);
+    const next = !expanded;
+    setExpanded(next);
+    document.cookie = sidebarCookie(next);
+  }
+  useShortcutAction("sidebar", toggle);
 
   // Close the drawer after navigating, and on Escape.
   useEffect(() => setOpen(false), [pathname, setOpen]);
@@ -68,95 +111,103 @@ export function Sidebar({ hideBilling = false }: SidebarProps) {
     return () => window.removeEventListener("keydown", onKey);
   }, [open, setOpen]);
 
+  const link = (item: NavLink) => ({
+    item,
+    href: withProjectParam(item.href, project),
+    active: isActiveHref(pathname, item.href),
+  });
+  const settingsActive = isActiveHref(pathname, SETTINGS_LINK.href, []);
+
   return (
-    <>
-    {open && (
-      <div
-        aria-hidden
-        onClick={() => setOpen(false)}
-        className="md:hidden fixed inset-0 z-30 bg-black/60 backdrop-blur-sm"
-      />
-    )}
-    {/* Below md the sidebar is an off-canvas drawer; from md up it is the pinned icon rail. */}
-    <aside
-      aria-label="Primary"
-      className={cn(
-        "flex flex-col surface-1 border-r border-border group overflow-hidden",
-        "max-md:fixed max-md:inset-y-0 max-md:left-0 max-md:z-40 max-md:w-60 max-md:transition-[transform,visibility] max-md:duration-200",
-        open ? "max-md:translate-x-0 max-md:visible" : "max-md:-translate-x-full max-md:invisible",
-        "md:w-14 md:hover:w-60 md:transition-all md:duration-300 md:ease-in-out"
+    <TooltipProvider delayDuration={300}>
+      <LiveFavicon live={liveCount > 0} />
+      {open && (
+        <div aria-hidden="true" onClick={() => setOpen(false)} className="fixed inset-0 z-drawer bg-tm-t1/30 md:hidden dark:bg-black/60" />
       )}
-    >
-      {/* Logo */}
-      <div className="flex items-center h-14 px-3">
-        <Logo size="sm" showText={false} className="shrink-0" />
-        <span className="ml-2 font-semibold text-sm text-foreground max-md:opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap">
-          Orbit
-        </span>
-      </div>
 
-      {/* Navigation */}
-      <nav className="flex-1 py-3 px-2 space-y-1">
-        {navItems.map((item) => {
-          const isActive =
-            pathname === item.href ||
-            (item.href !== "/dashboard" && pathname?.startsWith(item.href));
-
-          const href = projectParam && !item.href.includes("/settings")
-            ? `${item.href}?project=${projectParam}`
-            : item.href;
-
-          return (
-            <Link
-              key={item.name}
-              href={href}
-              className={cn(
-                "relative flex items-center gap-2.5 px-2 py-2 rounded-lg text-[13px] font-medium transition-all duration-200",
-                isActive
-                  ? "text-foreground bg-orbit-accent/[0.08] border border-orbit-accent/[0.12]"
-                  : "text-muted-foreground hover:text-foreground hover:bg-foreground/[0.06]"
-              )}
-            >
-              {/* Active indicator bar */}
-              {isActive && (
-                <motion.div
-                  layoutId="sidebar-active"
-                  className="absolute left-0 top-1/2 -translate-y-1/2 w-[2px] h-4 rounded-r-full bg-orbit-accent shadow-[0_0_8px_hsl(var(--orbit-accent)/0.5)]"
-                  transition={{ type: "spring", stiffness: 350, damping: 30 }}
-                />
-              )}
-              <item.icon className={cn(
-                "h-[18px] w-[18px] shrink-0 transition-colors duration-200",
-                isActive && "text-orbit-accent"
-              )} />
-              <span className="max-md:opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap">
-                {item.name}
-              </span>
-            </Link>
-          );
-        })}
-      </nav>
-
-      {/* Workspace switcher */}
-      <div className="p-2 mb-1">
-        {workspaceId ? (
-          <div className="max-md:opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-300">
-            <WorkspaceSwitcher currentWorkspaceId={workspaceId} />
+      {/* Rail: md and up, collapsed. */}
+      {!expanded && (
+        <nav aria-label="Primary" className="hidden w-16 shrink-0 flex-col items-center gap-1.5 py-3 md:flex">
+          <button
+            type="button"
+            onClick={toggle}
+            aria-label="Expand sidebar"
+            aria-expanded={false}
+            aria-controls={PANEL_ID}
+            className={cn("mb-2 flex size-10 items-center justify-center rounded-md hover:bg-accent", FOCUS)}
+          >
+            <ClosingO size={26} state={liveCount > 0 ? "running" : "idle"} />
+          </button>
+          {liveCount > 0 && (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Link
+                  href="/dashboard/runs"
+                  aria-label={`Live runs, ${liveCount} running`}
+                  className={cn("flex size-10 items-center justify-center rounded-md hover:bg-accent", FOCUS)}
+                >
+                  <LiveDot />
+                </Link>
+              </TooltipTrigger>
+              <TooltipContent side="right">{liveCount} running</TooltipContent>
+            </Tooltip>
+          )}
+          {SHORTCUTS.map((item) => (
+            <RailLink key={item.href} {...link(item)} />
+          ))}
+          <div className="mt-auto flex flex-col items-center gap-1.5">
+            <ThemeToggle className="size-10" />
+            <RailLink item={SETTINGS_LINK} href={SETTINGS_LINK.href} active={settingsActive} />
           </div>
-        ) : (
-          <div className="flex items-center gap-2.5 px-2 py-2 rounded-lg hover:bg-foreground/[0.06] transition-colors cursor-pointer">
-            <div className="h-6 w-6 rounded-md bg-orbit-accent/15 flex items-center justify-center shrink-0">
-              <span className="text-[10px] font-semibold text-orbit-accent">
-                O
-              </span>
-            </div>
-            <span className="text-xs text-muted-foreground max-md:opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap truncate">
-              Workspace
-            </span>
-          </div>
+        </nav>
+      )}
+
+      {/* Expanded panel; the off-canvas drawer below md. */}
+      <aside
+        id={PANEL_ID}
+        aria-label="Primary"
+        className={cn(
+          "flex w-80 shrink-0 flex-col gap-3 overflow-hidden py-3 pl-2 pr-1",
+          "max-md:fixed max-md:inset-y-0 max-md:left-0 max-md:z-drawer max-md:max-w-[85vw] max-md:border-r max-md:border-border max-md:bg-background",
+          "max-md:pb-[max(0.75rem,env(safe-area-inset-bottom))] max-md:pt-[max(0.75rem,env(safe-area-inset-top))]",
+          "max-md:transition-[transform,visibility] max-md:duration-open max-md:ease-out",
+          open ? "max-md:visible max-md:translate-x-0" : "max-md:invisible max-md:-translate-x-full",
+          !expanded && "md:hidden"
         )}
-      </div>
-    </aside>
-    </>
+      >
+        <button
+          type="button"
+          onClick={toggle}
+          aria-label="Collapse sidebar"
+          aria-expanded={true}
+          aria-controls={PANEL_ID}
+          className={cn("flex h-10 w-fit items-center rounded-md px-2 hover:bg-accent", FOCUS)}
+        >
+          <Logo size="md" state={liveCount > 0 ? "running" : "idle"} />
+        </button>
+
+        <div className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto pr-1">
+          {showModules && (
+            <>
+              <LiveModule operations={operations} now={now} />
+              <RunModules now={now} />
+            </>
+          )}
+          <nav aria-label="Shortcuts" className="mt-1 flex flex-col gap-0.5">
+            {SHORTCUTS.map((item) => (
+              <ListLink key={item.href} {...link(item)} />
+            ))}
+          </nav>
+        </div>
+
+        <div className="flex flex-col gap-1 border-t border-border pt-2">
+          {workspaceId && <WorkspaceSwitcher currentWorkspaceId={workspaceId} />}
+          <div className="flex items-center gap-1">
+            <ListLink item={SETTINGS_LINK} href={SETTINGS_LINK.href} active={settingsActive} />
+            <ThemeToggle className="ml-auto" />
+          </div>
+        </div>
+      </aside>
+    </TooltipProvider>
   );
 }
