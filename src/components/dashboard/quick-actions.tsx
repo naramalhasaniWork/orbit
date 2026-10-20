@@ -7,7 +7,12 @@ import { cn } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogTitle,
 } from "@/components/ui/dialog";
+import { ShortcutKeys } from "@/components/shortcuts/shortcut-keys";
+import { useShortcutAction } from "@/components/shortcuts/shortcut-provider";
+import type { ShortcutId } from "@/lib/shortcuts/registry";
 import { Input } from "@/components/ui/input";
 import {
   Play,
@@ -33,7 +38,7 @@ interface QuickAction {
   description: string;
   icon: React.ElementType;
   category: "navigation" | "action" | "project";
-  shortcut?: string;
+  shortcutId?: ShortcutId;
   href?: string;
   action?: () => void;
 }
@@ -68,7 +73,7 @@ export function QuickActions({
         description: "Start a new test run for the current project",
         icon: Play,
         category: "action",
-        shortcut: "R",
+        shortcutId: "run",
         action: () => {
           onTriggerRun?.();
           setOpen(false);
@@ -80,7 +85,7 @@ export function QuickActions({
         description: "See results from the most recent test run",
         icon: BarChart3,
         category: "navigation",
-        shortcut: "L",
+        shortcutId: "latest",
         href: "/dashboard/runs",
       },
       {
@@ -89,7 +94,7 @@ export function QuickActions({
         description: "View the system architecture map",
         icon: MapIcon,
         category: "navigation",
-        shortcut: "M",
+        shortcutId: "map",
         href: "/dashboard/map",
       },
       {
@@ -98,6 +103,7 @@ export function QuickActions({
         description: "View and manage test plans",
         icon: FileText,
         category: "navigation",
+        shortcutId: "go-plans",
         href: "/dashboard/plans",
       },
       {
@@ -106,6 +112,7 @@ export function QuickActions({
         description: "Browse test run history",
         icon: TestTube2,
         category: "navigation",
+        shortcutId: "go-runs",
         href: "/dashboard/runs",
       },
       {
@@ -114,7 +121,7 @@ export function QuickActions({
         description: "Project and workspace settings",
         icon: Settings,
         category: "navigation",
-        shortcut: ",",
+        shortcutId: "settings",
         href: "/dashboard/settings",
       },
       {
@@ -195,17 +202,8 @@ export function QuickActions({
     [router]
   );
 
-  // Global keyboard shortcut
-  useEffect(() => {
-    function handleKeyDown(e: KeyboardEvent) {
-      if ((e.metaKey || e.ctrlKey) && e.key === "k") {
-        e.preventDefault();
-        setOpen((prev) => !prev);
-      }
-    }
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, []);
+  // Cmd/Ctrl+K is bound globally by the ShortcutProvider
+  useShortcutAction("palette", () => setOpen((prev) => !prev));
 
   // Keyboard navigation inside dialog
   const handleKeyDown = useCallback(
@@ -236,8 +234,9 @@ export function QuickActions({
       {/* Trigger button */}
       <button
         onClick={() => setOpen(true)}
+        aria-label="Search and commands"
         className={cn(
-          "flex items-center gap-2 px-3 py-1.5 rounded-lg",
+          "flex items-center justify-center gap-2 h-8 min-w-8 px-2 sm:px-3 sm:py-1.5 rounded-lg",
           "border border-border bg-white/[0.03]",
           "text-sm text-muted-foreground hover:text-foreground hover:bg-white/[0.06]",
           "transition-all duration-200"
@@ -256,6 +255,10 @@ export function QuickActions({
           className="max-w-lg p-0 gap-0 overflow-hidden"
           onKeyDown={handleKeyDown}
         >
+          <DialogTitle className="sr-only">Command palette</DialogTitle>
+          <DialogDescription className="sr-only">
+            Search for a page or action. Use the arrow keys to move and Enter to select.
+          </DialogDescription>
           {/* Search input */}
           <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
             <Search className="h-4 w-4 text-muted-foreground shrink-0" />
@@ -318,11 +321,7 @@ export function QuickActions({
                           {action.description}
                         </span>
                       </div>
-                      {action.shortcut && (
-                        <kbd className="px-1.5 py-0.5 rounded bg-white/[0.08] text-[10px] font-mono text-muted-foreground shrink-0">
-                          {action.shortcut}
-                        </kbd>
-                      )}
+                      {action.shortcutId && <ShortcutKeys id={action.shortcutId} className="shrink-0" />}
                       {isSelected && (
                         <ArrowRight className="h-3 w-3 text-muted-foreground shrink-0" />
                       )}
