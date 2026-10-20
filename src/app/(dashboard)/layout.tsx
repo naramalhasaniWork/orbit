@@ -109,7 +109,7 @@ export default async function DashboardLayout({
               maintenanceActiveForAdmin={systemConfig.maintenanceMode}
             />
             <GlobalActivityBar initialOperations={initialOperations} />
-            <main className="flex-1 overflow-auto px-4 py-4 md:px-6 md:py-5 lg:px-8 xl:px-10 border-t border-white/[0.04]">
+            <main className="flex-1 overflow-auto px-4 py-4 md:px-6 md:py-5 lg:px-8 xl:px-10 border-t border-border">
               <div className="max-w-[1440px] mx-auto">
                 <Suspense>
                   <RouteTransition>

@@ -49,12 +49,12 @@ export function LiveStepPanel({
     <div
       className={cn(
         "flex flex-col bg-[hsl(var(--orbit-bg-deeper,222_47%_6%))]",
-        "border-l border-white/[0.06] overflow-hidden",
+        "border-l border-border overflow-hidden",
         className
       )}
     >
       {/* Panel header */}
-      <div className="px-3 py-2 border-b border-white/[0.04] shrink-0">
+      <div className="px-3 py-2 border-b border-border shrink-0">
         <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
           Step Log
         </span>
@@ -107,7 +107,7 @@ function StepEntry({
       transition={{ duration: 0.2 }}
       className={cn(
         "flex items-start gap-2 px-2 py-1.5 rounded-md transition-colors",
-        isActive && "bg-white/[0.04]",
+        isActive && "bg-foreground/[0.04]",
         step.status === "failed" && "bg-orbit-fail/[0.06]"
       )}
     >

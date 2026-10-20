@@ -112,14 +112,14 @@ export function SettingsClient({
             className={cn(
               "px-3.5 py-1.5 text-[13px] font-medium transition-colors rounded-md relative whitespace-nowrap",
               activeTab === tab.id
-                ? "text-foreground bg-white/[0.06]"
-                : "text-muted-foreground hover:text-foreground hover:bg-white/[0.03]"
+                ? "text-foreground bg-foreground/[0.06]"
+                : "text-muted-foreground hover:text-foreground hover:bg-foreground/[0.03]"
             )}
           >
             {activeTab === tab.id && (
               <motion.div
                 layoutId="settings-tab-indicator"
-                className="absolute inset-0 rounded-md bg-white/[0.06]"
+                className="absolute inset-0 rounded-md bg-foreground/[0.06]"
                 transition={tween.change}
               />
             )}

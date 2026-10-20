@@ -114,7 +114,7 @@ export function Sidebar({ hideBilling = false }: SidebarProps) {
                 "relative flex items-center gap-2.5 px-2 py-2 rounded-lg text-[13px] font-medium transition-all duration-200",
                 isActive
                   ? "text-foreground bg-orbit-accent/[0.08] border border-orbit-accent/[0.12]"
-                  : "text-muted-foreground hover:text-foreground hover:bg-white/[0.06]"
+                  : "text-muted-foreground hover:text-foreground hover:bg-foreground/[0.06]"
               )}
             >
               {/* Active indicator bar */}
@@ -144,7 +144,7 @@ export function Sidebar({ hideBilling = false }: SidebarProps) {
             <WorkspaceSwitcher currentWorkspaceId={workspaceId} />
           </div>
         ) : (
-          <div className="flex items-center gap-2.5 px-2 py-2 rounded-lg hover:bg-white/[0.06] transition-colors cursor-pointer">
+          <div className="flex items-center gap-2.5 px-2 py-2 rounded-lg hover:bg-foreground/[0.06] transition-colors cursor-pointer">
             <div className="h-6 w-6 rounded-md bg-orbit-accent/15 flex items-center justify-center shrink-0">
               <span className="text-[10px] font-semibold text-orbit-accent">
                 O

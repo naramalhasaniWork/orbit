@@ -104,7 +104,7 @@ export function AgentSettingsCard({ config, workspaceId, onSaved }: AgentSetting
       <div className="rounded-xl surface-1 p-6 space-y-5">
         <div className="flex items-start justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-lg bg-white/[0.06] flex items-center justify-center">
+            <div className="w-9 h-9 rounded-lg bg-foreground/[0.06] flex items-center justify-center">
               <Icon className="w-4.5 h-4.5 text-orbit-accent" />
             </div>
             <div>
@@ -146,7 +146,7 @@ export function AgentSettingsCard({ config, workspaceId, onSaved }: AgentSetting
               step="0.1"
               value={temperature}
               onChange={(e) => setTemperature(parseFloat(e.target.value))}
-              className="w-full h-2 rounded-full appearance-none cursor-pointer bg-white/[0.08] accent-orbit-accent"
+              className="w-full h-2 rounded-full appearance-none cursor-pointer bg-foreground/[0.08] accent-orbit-accent"
             />
             <div className="flex justify-between text-[10px] text-muted-foreground">
               <span>Precise (0.0)</span>
@@ -165,7 +165,7 @@ export function AgentSettingsCard({ config, workspaceId, onSaved }: AgentSetting
               type="number"
               value={maxInputTokens}
               onChange={(e) => setMaxInputTokens(parseInt(e.target.value) || 0)}
-              className="bg-white/[0.04]"
+              className="bg-foreground/[0.04]"
             />
           </div>
 
@@ -178,7 +178,7 @@ export function AgentSettingsCard({ config, workspaceId, onSaved }: AgentSetting
               type="number"
               value={maxOutputTokens}
               onChange={(e) => setMaxOutputTokens(parseInt(e.target.value) || 0)}
-              className="bg-white/[0.04]"
+              className="bg-foreground/[0.04]"
             />
           </div>
         </div>
@@ -190,7 +190,7 @@ export function AgentSettingsCard({ config, workspaceId, onSaved }: AgentSetting
             onChange={(e) => setCustomPrompt(e.target.value)}
             placeholder="Additional instructions for this agent..."
             rows={3}
-            className="w-full rounded-md bg-white/[0.04] border border-transparent px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-orbit-accent resize-y"
+            className="w-full rounded-md bg-foreground/[0.04] border border-transparent px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-orbit-accent resize-y"
           />
         </div>
 

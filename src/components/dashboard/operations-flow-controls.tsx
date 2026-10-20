@@ -37,7 +37,7 @@ export function OperationsControls({
             <button
               key={type}
               onClick={() => onToggleType(type)}
-              className="flex items-center gap-2 w-full px-2 py-1 rounded text-xs hover:bg-white/[0.04] transition-colors"
+              className="flex items-center gap-2 w-full px-2 py-1 rounded text-xs hover:bg-foreground/[0.04] transition-colors"
             >
               <span
                 className="h-2.5 w-2.5 rounded-full shrink-0"
@@ -67,7 +67,7 @@ export function OperationsControls({
               className={`px-2 py-1.5 rounded text-xs ${
                 flow.criticalPath
                   ? "border border-orbit-accent/20 bg-orbit-accent/[0.04]"
-                  : "bg-white/[0.02]"
+                  : "bg-foreground/[0.02]"
               }`}
             >
               <span className="text-foreground">{flow.name}</span>

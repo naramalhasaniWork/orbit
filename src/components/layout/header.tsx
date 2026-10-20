@@ -118,13 +118,13 @@ export function Header({ projects = [], activeProjectId, healthStatus }: HeaderP
           type="button"
           aria-label="Open navigation"
           onClick={() => setNavOpen(true)}
-          className="md:hidden flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-white/[0.06] transition-colors"
+          className="md:hidden flex h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-foreground/[0.06] transition-colors"
         >
           <Menu className="h-4 w-4" />
         </button>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <button className="flex items-center gap-2 px-2 py-1 rounded-md text-sm font-medium text-foreground hover:bg-white/[0.06] transition-colors min-w-0">
+            <button className="flex items-center gap-2 px-2 py-1 rounded-md text-sm font-medium text-foreground hover:bg-foreground/[0.06] transition-colors min-w-0">
               <div className="h-5 w-5 rounded bg-orbit-accent/15 flex items-center justify-center">
                 <span className="text-[9px] font-bold text-orbit-accent">
                   {active?.name?.charAt(0)?.toUpperCase() ?? "P"}

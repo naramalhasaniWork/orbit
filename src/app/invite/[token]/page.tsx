@@ -120,7 +120,7 @@ export default function AcceptInvitationPage() {
         </div>
 
         {/* Card */}
-        <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-6 space-y-4">
+        <div className="rounded-xl border border-border bg-foreground/[0.02] p-6 space-y-4">
           {error && !invitation && (
             <div className="text-center space-y-3">
               <XCircle className="h-10 w-10 text-red-400 mx-auto" />

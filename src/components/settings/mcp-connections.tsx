@@ -414,7 +414,7 @@ function AddConnectionForm({
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="My MCP Server"
-            className="bg-white/[0.04]"
+            className="bg-foreground/[0.04]"
             required
           />
         </div>
@@ -425,7 +425,7 @@ function AddConnectionForm({
             value={serverUrl}
             onChange={(e) => setServerUrl(e.target.value)}
             placeholder="https://mcp-server.example.com/mcp"
-            className="bg-white/[0.04]"
+            className="bg-foreground/[0.04]"
             required
           />
         </div>
@@ -438,7 +438,7 @@ function AddConnectionForm({
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="What tools does this server provide?"
-            className="bg-white/[0.04]"
+            className="bg-foreground/[0.04]"
           />
         </div>
 
@@ -452,7 +452,7 @@ function AddConnectionForm({
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
               placeholder="Bearer token for authentication"
-              className="bg-white/[0.04] pr-9"
+              className="bg-foreground/[0.04] pr-9"
             />
             <button
               type="button"
@@ -510,7 +510,7 @@ function StatusDot({
         : "bg-muted-foreground/40";
 
   return (
-    <div className="w-9 h-9 rounded-lg bg-white/[0.06] flex items-center justify-center">
+    <div className="w-9 h-9 rounded-lg bg-foreground/[0.06] flex items-center justify-center">
       <div className={`w-2 h-2 rounded-full ${color}`} />
     </div>
   );

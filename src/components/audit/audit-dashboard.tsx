@@ -171,7 +171,7 @@ export function AuditDashboard({
           className="grid grid-cols-1 lg:grid-cols-3 gap-6"
         >
           {/* Score card */}
-          <div className="surface-1 rounded-xl border border-white/[0.04] p-6 flex flex-col items-center justify-center">
+          <div className="surface-1 rounded-xl border border-border p-6 flex flex-col items-center justify-center">
             <ScoreDisplay score={displayAudit.overallScore} label="Overall" />
             <div className="flex items-center gap-4 mt-4 text-sm">
               <span className="text-muted-foreground">
@@ -187,7 +187,7 @@ export function AuditDashboard({
           </div>
 
           {/* Category breakdown */}
-          <div className="surface-1 rounded-xl border border-white/[0.04] p-6 lg:col-span-2">
+          <div className="surface-1 rounded-xl border border-border p-6 lg:col-span-2">
             <h2 className="text-sm font-medium text-foreground mb-4">
               Category Breakdown
             </h2>
@@ -205,7 +205,7 @@ export function AuditDashboard({
 
       {/* Trend chart */}
       {trendData.length > 1 && (
-        <div className="surface-1 rounded-xl border border-white/[0.04] p-6">
+        <div className="surface-1 rounded-xl border border-border p-6">
           <h2 className="text-sm font-medium text-foreground mb-4">
             Score Trend
           </h2>
@@ -223,8 +223,8 @@ export function AuditDashboard({
               onClick={() => loadAuditDetail(a.id)}
               className={`shrink-0 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
                 displayAudit?.id === a.id
-                  ? "bg-white/[0.08] text-foreground"
-                  : "text-muted-foreground hover:text-foreground hover:bg-white/[0.04]"
+                  ? "bg-foreground/[0.08] text-foreground"
+                  : "text-muted-foreground hover:text-foreground hover:bg-foreground/[0.04]"
               }`}
             >
               {new Date(a.createdAt).toLocaleDateString()} — {a.overallScore}
@@ -239,7 +239,7 @@ export function AuditDashboard({
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
         </div>
       ) : selectedAudit ? (
-        <div className="surface-1 rounded-xl border border-white/[0.04] p-6">
+        <div className="surface-1 rounded-xl border border-border p-6">
           <h2 className="text-sm font-medium text-foreground mb-4">
             Issues ({selectedAudit.issues.length})
           </h2>

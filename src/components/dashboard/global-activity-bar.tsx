@@ -70,7 +70,7 @@ function OperationItem({ op }: { op: ActiveOperation }) {
   return (
     <Link
       href={link}
-      className="group flex items-center gap-2.5 px-3 py-1.5 rounded-lg hover:bg-white/[0.04] transition-colors min-w-0"
+      className="group flex items-center gap-2.5 px-3 py-1.5 rounded-lg hover:bg-foreground/[0.04] transition-colors min-w-0"
     >
       <StatusDot status="running" pulse size="sm" />
 
@@ -156,7 +156,7 @@ export function GlobalActivityBar({ initialOperations }: GlobalActivityBarProps)
   return (
     <div
       className={cn(
-        "border-b border-white/[0.04] bg-gradient-to-r from-orbit-accent/[0.03] to-transparent",
+        "border-b border-border bg-gradient-to-r from-orbit-accent/[0.03] to-transparent",
         "animate-fade-in"
       )}
     >

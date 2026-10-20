@@ -74,7 +74,7 @@ export function CostDashboard({ workspaceId }: CostDashboardProps) {
     return (
       <div className="space-y-4">
         {[1, 2, 3, 4].map((i) => (
-          <div key={i} className="h-28 rounded-xl bg-white/[0.02] animate-pulse" />
+          <div key={i} className="h-28 rounded-xl bg-foreground/[0.02] animate-pulse" />
         ))}
       </div>
     );
@@ -177,7 +177,7 @@ function SummaryCard({
   sub: string;
 }) {
   return (
-    <div className="p-4 rounded-xl border border-white/[0.06] bg-white/[0.02]">
+    <div className="p-4 rounded-xl border border-border bg-foreground/[0.02]">
       <div className="flex items-center gap-2 mb-2">
         <Icon className="h-3.5 w-3.5 text-muted-foreground" />
         <span className="text-[11px] font-medium text-muted-foreground">{label}</span>
@@ -198,14 +198,14 @@ function CreditBar({
   percent: number;
 }) {
   return (
-    <div className="rounded-xl border border-white/[0.06] bg-white/[0.02] p-4">
+    <div className="rounded-xl border border-border bg-foreground/[0.02] p-4">
       <div className="flex items-center justify-between mb-2">
         <span className="text-xs font-medium text-muted-foreground">Credit Usage</span>
         <span className="text-xs text-foreground">
           {used.toLocaleString()} / {total.toLocaleString()}
         </span>
       </div>
-      <div className="h-2.5 rounded-full bg-white/[0.06] overflow-hidden">
+      <div className="h-2.5 rounded-full bg-foreground/[0.06] overflow-hidden">
         <div
           className={cn(
             "h-full rounded-full transition-all",
@@ -230,7 +230,7 @@ function PeriodSelector({
   onChange: (p: "7d" | "30d" | "90d") => void;
 }) {
   return (
-    <div className="flex items-center gap-1 p-0.5 rounded-lg bg-white/[0.04]">
+    <div className="flex items-center gap-1 p-0.5 rounded-lg bg-foreground/[0.04]">
       {(["7d", "30d", "90d"] as const).map((p) => (
         <button
           key={p}
@@ -238,7 +238,7 @@ function PeriodSelector({
           className={cn(
             "px-3 py-1 rounded-md text-xs font-medium transition-colors",
             period === p
-              ? "bg-white/10 text-foreground"
+              ? "bg-foreground/10 text-foreground"
               : "text-muted-foreground hover:text-foreground"
           )}
         >

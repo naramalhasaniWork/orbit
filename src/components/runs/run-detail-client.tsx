@@ -434,7 +434,7 @@ function VerdictFilterBar({
         onClick={() => onSelect(null)}
         className={cn(
           "text-xs px-2.5 py-1 rounded-md transition-colors",
-          !selected ? "bg-white/[0.06] text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-white/[0.03]"
+          !selected ? "bg-foreground/[0.06] text-foreground" : "text-muted-foreground hover:text-foreground hover:bg-foreground/[0.03]"
         )}
       >
         All ({results.length})
@@ -446,7 +446,7 @@ function VerdictFilterBar({
           onClick={() => onSelect(selected === verdict ? null : verdict)}
           className={cn(
             "text-xs px-2.5 py-1 rounded-md transition-colors",
-            selected === verdict ? "bg-white/[0.06]" : "hover:bg-white/[0.03]",
+            selected === verdict ? "bg-foreground/[0.06]" : "hover:bg-foreground/[0.03]",
             colors[verdict] ?? "text-muted-foreground"
           )}
         >

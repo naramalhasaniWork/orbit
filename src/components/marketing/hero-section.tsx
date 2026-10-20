@@ -23,13 +23,13 @@ function SystemMapMockup() {
   ];
 
   return (
-    <div className="relative w-full aspect-[4/3] rounded-xl surface-1 border border-white/[0.06] overflow-hidden">
+    <div className="relative w-full aspect-[4/3] rounded-xl surface-1 border border-border overflow-hidden">
       {/* Header bar */}
-      <div className="flex items-center gap-2 px-4 py-3 border-b border-white/[0.06]">
+      <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
         <div className="flex gap-1.5">
-          <span className="w-2.5 h-2.5 rounded-full bg-white/10" />
-          <span className="w-2.5 h-2.5 rounded-full bg-white/10" />
-          <span className="w-2.5 h-2.5 rounded-full bg-white/10" />
+          <span className="w-2.5 h-2.5 rounded-full bg-foreground/10" />
+          <span className="w-2.5 h-2.5 rounded-full bg-foreground/10" />
+          <span className="w-2.5 h-2.5 rounded-full bg-foreground/10" />
         </div>
         <span className="text-[10px] text-muted-foreground ml-2 font-mono">System Map</span>
         <div className="ml-auto flex items-center gap-3">
@@ -149,7 +149,7 @@ export function HeroSection() {
               </Link>
               <Link
                 href="/features"
-                className="inline-flex items-center justify-center font-medium text-muted-foreground hover:text-foreground px-7 py-3.5 rounded-full text-[15px] border border-white/[0.08] hover:border-white/[0.15] transition-all duration-300"
+                className="inline-flex items-center justify-center font-medium text-muted-foreground hover:text-foreground px-7 py-3.5 rounded-full text-[15px] border border-border hover:border-border transition-all duration-300"
               >
                 See How It Works
               </Link>

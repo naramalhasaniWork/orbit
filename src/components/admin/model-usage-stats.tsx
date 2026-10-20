@@ -29,7 +29,7 @@ export function ModelUsageStats({ models }: ModelUsageStatsProps) {
   if (topByUsage.length === 0) return null;
 
   return (
-    <div className="rounded-xl surface-1 border border-white/[0.04] p-5 space-y-4">
+    <div className="rounded-xl surface-1 border border-border p-5 space-y-4">
       <div className="flex items-center gap-2">
         <TrendingUp className="h-4 w-4 text-orbit-accent" />
         <h3 className="text-sm font-medium text-foreground">

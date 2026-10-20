@@ -35,11 +35,11 @@ export function TestTimelinePanel({
     <div
       className={cn(
         "flex flex-col bg-[hsl(var(--orbit-bg-deeper,222_47%_6%))]",
-        "border-l border-white/[0.06] overflow-hidden",
+        "border-l border-border overflow-hidden",
         className
       )}
     >
-      <div className="px-3 py-2 border-b border-white/[0.04] shrink-0 flex items-center justify-between">
+      <div className="px-3 py-2 border-b border-border shrink-0 flex items-center justify-between">
         <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
           Test Timeline
         </span>
@@ -51,7 +51,7 @@ export function TestTimelinePanel({
 
       {/* Progress micro-bar */}
       {totalTests > 0 && (
-        <div className="h-0.5 bg-white/[0.04] shrink-0 overflow-hidden">
+        <div className="h-0.5 bg-foreground/[0.04] shrink-0 overflow-hidden">
           <motion.div
             className="h-full bg-orbit-accent shadow-[2px_0_6px_hsl(var(--orbit-accent)/0.5)]"
             initial={{ width: 0 }}
@@ -160,7 +160,7 @@ function VerdictIcon({ status }: { status: TestItem["status"] }) {
     case "skipped":
       return <SkipForward className={cn(s, "text-muted-foreground")} />;
     default:
-      return <div className={cn(s, "rounded-full border border-white/10")} />;
+      return <div className={cn(s, "rounded-full border border-border")} />;
   }
 }
 
