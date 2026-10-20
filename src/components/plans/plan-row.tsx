@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ChevronRight, Plus, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Status } from "@/components/telemetry/status";
 import { cn } from "@/lib/utils";
 import { PlanSummary } from "@/components/plans/plan-summary";
 import { JourneyGroup } from "@/components/plans/journey-group";
@@ -67,16 +68,11 @@ export function PlanRow({ plan, stats, isExpanded, onToggle, projectId, onRegene
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
             <span className="text-sm font-medium text-foreground">v{plan.version}</span>
-            <Badge
-              className={cn(
-                "text-[10px] px-1.5 py-0 font-medium border",
-                plan.isActive
-                  ? "bg-orbit-pass/15 text-orbit-pass border-orbit-pass/30"
-                  : "bg-muted/50 text-muted-foreground border-border/50"
-              )}
-            >
-              {plan.isActive ? "Active" : "Inactive"}
-            </Badge>
+            {plan.isActive ? (
+              <Status tone="pass" label="Active" mono />
+            ) : (
+              <Status tone="skipped" label="Inactive" mono />
+            )}
             <span className="text-xs text-muted-foreground">{plan.generatedBy}</span>
           </div>
           <span className="text-xs text-muted-foreground mt-0.5 block">
@@ -87,7 +83,7 @@ export function PlanRow({ plan, stats, isExpanded, onToggle, projectId, onRegene
           <span>{stats.total} cases</span>
           <span>{stats.enabled} enabled</span>
           {stats.critical > 0 && (
-            <span className="text-orbit-fail">{stats.critical} critical</span>
+            <span>{stats.critical} critical</span>
           )}
         </div>
       </button>

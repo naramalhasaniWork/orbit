@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronDown, ChevronRight, ShieldAlert, Pencil } from "lucide-react";
+import { ChevronDown, ChevronRight, Pencil } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { StatusDot } from "@/components/shared/status-dot";
@@ -72,8 +72,8 @@ export function TestCaseCard({ testCase, projectId, selected = false, onToggleSe
   return (
     <div
       className={cn(
-        "rounded-lg bg-muted/20 transition-colors",
-        selected && "ring-1 ring-tm-line-strong bg-foreground/[0.06]",
+        "border-b border-border transition-colors last:border-b-0",
+        selected && "bg-accent",
         !enabled && "opacity-50"
       )}
     >
@@ -105,7 +105,7 @@ export function TestCaseCard({ testCase, projectId, selected = false, onToggleSe
               {testCase.name}
             </span>
             {testCase.isCritical && (
-              <ShieldAlert className="h-3.5 w-3.5 text-orbit-fail shrink-0" />
+              <span className="tm-label shrink-0 rounded-sm border border-tm-line-strong px-1 text-tm-t2">Critical</span>
             )}
           </div>
           {testCase.rationale && (
@@ -125,7 +125,7 @@ export function TestCaseCard({ testCase, projectId, selected = false, onToggleSe
             {typeConfig?.label ?? testCase.type}
           </Badge>
 
-          <span className={cn("text-xs font-medium tabular-nums", priority.className)}>
+          <span className={cn("tm-num text-[11px]", priority.className)}>
             {testCase.priorityScore}
           </span>
 

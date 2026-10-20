@@ -5,13 +5,9 @@ import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import {
   RefreshCw,
-  CheckCircle2,
   AlertCircle,
-  Database,
-  GitBranch,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
 import { useIndexingStream } from "@/hooks/use-indexing-stream";
 import { formatDistanceToNow } from "date-fns";
 
@@ -105,12 +101,9 @@ export function IndexingStatus({
   const edgeCount = isActive || isComplete ? liveEdgeCount || initialEdgeCount : initialEdgeCount;
 
   return (
-    <div className="rounded-xl surface-1 border border-border p-4">
-      <div className="flex items-center justify-between mb-3">
-        <div className="flex items-center gap-2">
-          <Database className="h-4 w-4 text-muted-foreground" />
-          <h3 className="text-[13px] font-medium text-foreground">System Index</h3>
-        </div>
+    <section aria-label="System index" className="flex flex-col gap-2">
+      <div className="flex items-center justify-between gap-3">
+        <h3 className="tm-label text-tm-t3">System index</h3>
         <ReindexButton
           isActive={isActive}
           isTriggering={isTriggering}
@@ -147,7 +140,7 @@ export function IndexingStatus({
           justCompleted={isComplete}
         />
       )}
-    </div>
+    </section>
   );
 }
 
@@ -267,33 +260,18 @@ function CompletedView({
 
   if (!hasBeenIndexed) {
     return (
-      <div className="flex items-center gap-2 text-sm text-muted-foreground">
-        <GitBranch className="h-4 w-4" />
-        <span>Not yet indexed. Click Re-index to start.</span>
-      </div>
+      <p className="text-[13px] text-tm-t2">Not indexed yet. Re-index to map the repository.</p>
     );
   }
 
   return (
-    <div className="space-y-2">
-      <div className="flex items-center gap-2 text-sm">
-        <CheckCircle2 className={cn(
-          "h-4 w-4 shrink-0",
-          justCompleted ? "text-orbit-pass" : "text-muted-foreground"
-        )} />
-        <span className={justCompleted ? "text-orbit-pass" : "text-muted-foreground"}>
-          {justCompleted ? "Indexing complete" : "Indexed"}
-        </span>
-        {lastIndexedAt && (
-          <span className="text-xs text-muted-foreground">
-            {formatDistanceToNow(new Date(lastIndexedAt), { addSuffix: true })}
-          </span>
-        )}
-      </div>
-      <div className="flex items-center gap-4 text-xs text-muted-foreground">
-        <span className="tabular-nums">{nodeCount} nodes</span>
-        <span className="tabular-nums">{edgeCount} edges</span>
-      </div>
-    </div>
+    <p className="tm-label flex flex-wrap items-center gap-x-2 text-tm-t2">
+      <span className={justCompleted ? "text-tm-pass" : undefined}>
+        <span aria-hidden="true">✓ </span>
+        {justCompleted ? "Indexing complete" : "Indexed"}
+      </span>
+      {lastIndexedAt && <span className="normal-case">· {formatDistanceToNow(new Date(lastIndexedAt), { addSuffix: true })}</span>}
+      <span className="tm-num">· {nodeCount} nodes · {edgeCount} edges</span>
+    </p>
   );
 }

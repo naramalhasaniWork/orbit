@@ -40,12 +40,13 @@ export function RunRow({ run, selected, onToggleSelect }: RunRowProps) {
         <Status tone={tone} label={word} mono />
         <span className="min-w-0">
           <span className="block truncate text-[13px] font-medium text-foreground">{title}</span>
-          <span className="tm-label mt-0.5 flex gap-2 truncate text-tm-t3">
-            <span>{TRIGGER_LABELS[run.trigger] ?? run.trigger}</span>
-            <span>· {MODE_LABELS[run.mode] ?? run.mode}</span>
-            {run.branch && <span className="truncate normal-case">· {run.branch}</span>}
-            {run.commitSha && <span className="normal-case">· {run.commitSha.slice(0, 7)}</span>}
-            <span className="normal-case">· {formatDistanceToNow(new Date(run.createdAt), { addSuffix: true })}</span>
+          {/* Inline text so it ends in an ellipsis; below sm only trigger and age. */}
+          <span className="tm-label mt-0.5 block truncate text-tm-t3">
+            {TRIGGER_LABELS[run.trigger] ?? run.trigger}
+            <span className="hidden sm:inline"> · {MODE_LABELS[run.mode] ?? run.mode}</span>
+            {run.branch && <span className="hidden normal-case sm:inline"> · {run.branch}</span>}
+            {run.commitSha && <span className="hidden normal-case sm:inline"> · {run.commitSha.slice(0, 7)}</span>}
+            <span className="normal-case"> · {formatDistanceToNow(new Date(run.createdAt), { addSuffix: true })}</span>
           </span>
         </span>
         <TestCounts run={run} />

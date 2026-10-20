@@ -9,12 +9,14 @@ import {
   ChevronDown,
   ArrowRight,
   Menu,
+  MessageSquareText,
   X,
 } from "lucide-react";
 import { QuickActions } from "@/components/dashboard/quick-actions";
 import { UserMenu } from "@/components/layout/user-menu";
 import { useBreadcrumbValue } from "@/components/layout/breadcrumb-context";
 import { useMobileNav } from "@/components/layout/mobile-nav-context";
+import { useChatOpen } from "@/components/chat/chat-context";
 import { useShortcutAction } from "@/components/shortcuts/shortcut-provider";
 import { useStartRun } from "@/hooks/use-start-run";
 import { cn } from "@/lib/utils";
@@ -73,6 +75,7 @@ export function Header({ projects = [], activeProjectId, healthStatus }: HeaderP
   const searchParams = useSearchParams();
   const breadcrumbLabel = useBreadcrumbValue();
   const { setOpen: setNavOpen } = useMobileNav();
+  const { open: chatOpen, setOpen: setChatOpen } = useChatOpen();
   const title = breadcrumbLabel ?? getPageTitle(pathname);
 
   const active = projects.find((p) => p.id === activeProjectId);
@@ -222,6 +225,17 @@ export function Header({ projects = [], activeProjectId, healthStatus }: HeaderP
             </Button>
           </span>
         )}
+
+        <button
+          type="button"
+          onClick={() => setChatOpen(!chatOpen)}
+          aria-label="Ask the agent"
+          aria-expanded={chatOpen}
+          title="Ask the agent"
+          className="flex size-8 shrink-0 items-center justify-center rounded-md text-tm-t2 transition-colors hover:bg-accent hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <MessageSquareText aria-hidden="true" className="size-4" strokeWidth={1.6} />
+        </button>
 
         <UserMenu />
       </div>
