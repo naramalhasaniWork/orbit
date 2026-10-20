@@ -1,29 +1,26 @@
 "use client";
 
 import { useState, useMemo, useCallback } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Play, ArrowRight, Loader2, Filter } from "lucide-react";
+import { Play, Loader2, Filter, ChevronLeft, ChevronRight } from "lucide-react";
 import { staggerContainer, staggerItem } from "@/lib/motion";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { StatusDot } from "@/components/shared/status-dot";
 import { EmptyState } from "@/components/shared/empty-state";
-import { cn } from "@/lib/utils";
+import { SelectCheckbox } from "@/components/shared/select-checkbox";
 import { RunsFilter } from "@/components/runs/runs-filter";
+import { RunRow } from "@/components/runs/run-row";
+import { RunsBulkActions } from "@/components/runs/runs-bulk-actions";
 import { RunsSummaryBar } from "@/components/runs/runs-summary-bar";
 import { RunsListSkeleton } from "@/components/runs/runs-skeleton";
-import {
-  type RunListItem,
-  RUN_STATUS_CONFIG,
-  MODE_LABELS,
-  TRIGGER_LABELS,
-  formatDuration,
-  getRunVerdictStatus,
-} from "@/components/runs/run-types";
-import { formatDistanceToNow } from "date-fns";
+import type { RunListItem } from "@/components/runs/run-types";
 import { useRuns } from "@/hooks/use-runs";
+import { useRowSelection } from "@/hooks/use-row-selection";
+import { useUrlParams } from "@/hooks/use-url-state";
+import { parsePositiveInt } from "@/lib/url-state";
+import { filterRuns, isRunSort, paginate, sortRuns } from "@/lib/runs/run-list";
+
+const URL_DEFAULTS = { status: "", mode: "", trigger: "", sort: "newest", page: "1" };
 
 interface RunsClientProps {
   projectId: string | null;
@@ -38,12 +35,6 @@ interface RunsClientProps {
   loading?: boolean;
 }
 
-interface Filters {
-  status: string | null;
-  mode: string | null;
-  trigger: string | null;
-}
-
 export function RunsClient({
   projectId,
   projectName,
@@ -56,11 +47,13 @@ export function RunsClient({
   // SWR keeps data fresh across navigations; initialRuns provides instant first paint
   const { runs: swrRuns, mutate: mutateRuns } = useRuns(projectId);
   const runs = swrRuns.length > 0 ? swrRuns : initialRuns;
-  const [filters, setFilters] = useState<Filters>({
-    status: null,
-    mode: null,
-    trigger: null,
-  });
+  // Filters, sort and page live in the URL so reload and shared links restore the view.
+  const [params, setParams] = useUrlParams(URL_DEFAULTS);
+  const filters = useMemo(
+    () => ({ status: params.status, mode: params.mode, trigger: params.trigger }),
+    [params.status, params.mode, params.trigger]
+  );
+  const sort = isRunSort(params.sort) ? params.sort : "newest";
   const [startingRun, setStartingRun] = useState(false);
   const [runError, setRunError] = useState<string | null>(null);
 
@@ -103,14 +96,23 @@ export function RunsClient({
     }
   }, [projectId, startingRun, router, mutateRuns]);
 
-  const filteredRuns = useMemo(() => {
-    return runs.filter((run) => {
-      if (filters.status && run.status !== filters.status) return false;
-      if (filters.mode && run.mode !== filters.mode) return false;
-      if (filters.trigger && run.trigger !== filters.trigger) return false;
-      return true;
-    });
-  }, [runs, filters]);
+  const filteredRuns = useMemo(
+    () => sortRuns(filterRuns(runs, filters), sort),
+    [runs, filters, sort]
+  );
+  const pageData = paginate(filteredRuns, parsePositiveInt(params.page, 1));
+  const pageIds = useMemo(() => pageData.items.map((r) => r.id), [pageData.items]);
+  const selection = useRowSelection(pageIds);
+  const selectedRuns = pageData.items.filter((r) => selection.selected.has(r.id));
+
+  const changeFilters = useCallback(
+    (next: Partial<typeof filters>) => setParams({ ...next, page: null }),
+    [setParams]
+  );
+  const refreshRuns = useCallback(() => {
+    mutateRuns();
+    router.refresh();
+  }, [mutateRuns, router]);
 
   if (!projectId) {
     return (
@@ -165,7 +167,13 @@ export function RunsClient({
 
       <RunsSummaryBar runs={runs} />
 
-      <RunsFilter filters={filters} onFiltersChange={setFilters} runs={runs} />
+      <RunsFilter
+        filters={filters}
+        onFiltersChange={changeFilters}
+        sort={sort}
+        onSortChange={(next) => setParams({ sort: next, page: null })}
+        runs={runs}
+      />
 
       {filteredRuns.length === 0 ? (
         runs.length > 0 ? (
@@ -177,7 +185,7 @@ export function RunsClient({
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => setFilters({ status: null, mode: null, trigger: null })}
+                onClick={() => changeFilters({ status: "", mode: "", trigger: "" })}
                 className="text-orbit-accent hover:text-orbit-accent/80"
               >
                 Clear filters
@@ -192,102 +200,67 @@ export function RunsClient({
           />
         )
       ) : (
-        <motion.div
-          variants={staggerContainer(0.04)}
-          initial="hidden"
-          animate="show"
-          className="rounded-xl surface-1 border border-border overflow-hidden divide-y divide-border"
-        >
-          {filteredRuns.map((run) => (
-            <motion.div key={run.id} variants={staggerItem}>
-              <RunRow run={run} />
-            </motion.div>
-          ))}
-        </motion.div>
+        <>
+          <div className="flex items-center gap-2 px-5 text-xs text-muted-foreground">
+            <SelectCheckbox
+              checked={selection.allSelected}
+              onToggle={() => (selection.allSelected ? selection.clear() : selection.selectAll())}
+              label="Select all runs on this page"
+            />
+            <span>Select all on page</span>
+          </div>
+          <motion.div
+            variants={staggerContainer(0.04)}
+            initial="hidden"
+            animate="show"
+            className="rounded-xl surface-1 border border-border overflow-hidden divide-y divide-border"
+          >
+            {pageData.items.map((run) => (
+              <motion.div key={run.id} variants={staggerItem}>
+                <RunRow
+                  run={run}
+                  selected={selection.selected.has(run.id)}
+                  onToggleSelect={(shift) => selection.toggle(run.id, shift)}
+                />
+              </motion.div>
+            ))}
+          </motion.div>
+          {pageData.pageCount > 1 && (
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span className="tabular-nums">
+                Page {pageData.page} of {pageData.pageCount} &middot; {pageData.total} runs
+              </span>
+              <div className="flex items-center gap-1">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 gap-1 text-xs"
+                  disabled={pageData.page <= 1}
+                  onClick={() => setParams({ page: String(pageData.page - 1) })}
+                >
+                  <ChevronLeft className="h-3 w-3" /> Prev
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 gap-1 text-xs"
+                  disabled={pageData.page >= pageData.pageCount}
+                  onClick={() => setParams({ page: String(pageData.page + 1) })}
+                >
+                  Next <ChevronRight className="h-3 w-3" />
+                </Button>
+              </div>
+            </div>
+          )}
+        </>
       )}
-    </div>
-  );
-}
 
-function RunRow({ run }: { run: RunListItem }) {
-  const statusConfig = RUN_STATUS_CONFIG[run.status];
-  const verdictStatus = getRunVerdictStatus(run);
-  const isInProgress = verdictStatus === "running";
-
-  return (
-    <Link
-      href={`/dashboard/runs/${run.id}`}
-      className="flex items-center gap-4 px-5 py-3.5 hover:bg-white/[0.04] transition-colors duration-150 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orbit-accent/50 focus-visible:ring-inset"
-    >
-      <StatusDot
-        status={statusConfig?.dot ?? "untested"}
-        pulse={isInProgress}
-        size="md"
+      <RunsBulkActions
+        projectId={projectId}
+        runs={selectedRuns}
+        onClear={selection.clear}
+        onDone={refreshRuns}
       />
-
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-foreground">
-            {TRIGGER_LABELS[run.trigger] ?? run.trigger}
-          </span>
-          <Badge
-            className={cn(
-              "text-[10px] px-1.5 py-0 font-medium border",
-              "bg-muted/50 text-muted-foreground border-border/50"
-            )}
-          >
-            {MODE_LABELS[run.mode] ?? run.mode}
-          </Badge>
-          <Badge
-            className={cn(
-              "text-[10px] px-1.5 py-0 font-medium border",
-              statusConfig?.dot === "pass" && "bg-orbit-pass/15 text-orbit-pass border-orbit-pass/30",
-              statusConfig?.dot === "fail" && "bg-orbit-fail/15 text-orbit-fail border-orbit-fail/30",
-              statusConfig?.dot === "running" && "bg-orbit-accent/15 text-orbit-accent border-orbit-accent/30",
-              statusConfig?.dot === "untested" && "bg-muted/50 text-muted-foreground border-border/50",
-              statusConfig?.dot === "skipped" && "bg-muted/50 text-muted-foreground border-border/50"
-            )}
-          >
-            {statusConfig?.label ?? run.status}
-          </Badge>
-        </div>
-        <div className="flex items-center gap-3 mt-1 text-xs text-muted-foreground">
-          <span>
-            {formatDistanceToNow(new Date(run.createdAt), { addSuffix: true })}
-          </span>
-          {run.branch && (
-            <span className="font-mono truncate max-w-[120px]">{run.branch}</span>
-          )}
-          {run.commitSha && (
-            <span className="font-mono">{run.commitSha.slice(0, 7)}</span>
-          )}
-        </div>
-      </div>
-
-      <TestCountsDisplay run={run} />
-
-      <span className="text-xs text-muted-foreground tabular-nums w-16 text-right">
-        {formatDuration(run.durationMs)}
-      </span>
-
-      <ArrowRight className="h-4 w-4 text-muted-foreground/50 group-hover:text-foreground transition-colors duration-150 shrink-0" />
-    </Link>
-  );
-}
-
-function TestCountsDisplay({ run }: { run: RunListItem }) {
-  if (run.totalTests === 0) {
-    return <span className="text-xs text-muted-foreground w-28 text-right">--</span>;
-  }
-
-  return (
-    <div className="flex items-center gap-2 text-xs tabular-nums w-28 justify-end">
-      {run.passed > 0 && <span className="text-orbit-pass">{run.passed}P</span>}
-      {run.failed > 0 && <span className="text-orbit-fail">{run.failed}F</span>}
-      {run.flaky > 0 && <span className="text-orbit-flaky">{run.flaky}Fl</span>}
-      {run.skipped > 0 && <span className="text-muted-foreground">{run.skipped}S</span>}
     </div>
   );
 }
-
-export { RunsListSkeleton } from "@/components/runs/runs-skeleton";
