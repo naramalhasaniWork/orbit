@@ -39,3 +39,18 @@ export async function saveTestResult(
     }
   }
 }
+
+/**
+ * The run's environment is unusable: record every case as environment_error
+ * with the reason, so the report shows why nothing executed.
+ */
+export async function recordEnvironmentError(
+  runId: string, testCaseIds: string[], reason: string
+): Promise<void> {
+  for (const testCaseId of testCaseIds) {
+    await saveTestResult(runId, testCaseId, "environment_error", 0, [{
+      stepIndex: 0, action: "environment_validation", expected: "Environment reachable and configured",
+      actual: reason, status: "failed", durationMs: 0,
+    }], {}, []);
+  }
+}

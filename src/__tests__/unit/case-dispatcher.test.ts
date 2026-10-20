@@ -39,7 +39,8 @@ describe("executeCaseByType", () => {
     const result = await executeCaseByType("run-1", visualCase, "https://staging.example.com", {});
 
     expect(visual).toHaveBeenCalledWith({
-      runId: "run-1", projectId: "p1", routePath: "/pricing", environmentUrl: "https://staging.example.com",
+      runId: "run-1", projectId: "p1", routePath: "/pricing",
+      environmentUrl: "https://staging.example.com", storageState: undefined,
     });
     expect(browser).not.toHaveBeenCalled();
     expect(result.verdict).toBe("fail");
@@ -83,5 +84,34 @@ describe("executeCaseByType", () => {
 
     expect(api).toHaveBeenCalled();
     expect(browser).toHaveBeenCalled();
+  });
+
+  it("captures visual routes with the run's logged-in session", async () => {
+    const session = { cookies: [{ name: "sid" }], origins: [] };
+    visual.mockResolvedValue({ passed: true, isBaselineCapture: true, screenshotKey: "k", durationMs: 1 });
+
+    await executeCaseByType("run-1", visualCase, "https://staging.example.com", { TEST_EMAIL: "qa@x.com" }, {
+      storageState: session,
+    });
+
+    expect(browser).not.toHaveBeenCalled(); // no extra login needed
+    expect(visual).toHaveBeenCalledWith(expect.objectContaining({ storageState: session }));
+  });
+
+  it("logs in first when there is no session but credentials exist, and returns the session", async () => {
+    const session = { cookies: [{ name: "sid" }], origins: [] };
+    browser.mockResolvedValue({ ...browserResult, storageState: session });
+    visual.mockResolvedValue({ passed: true, isBaselineCapture: true, screenshotKey: "k", durationMs: 1 });
+
+    const result = await executeCaseByType(
+      "run-1", visualCase, "https://staging.example.com", { TEST_EMAIL: "qa@x.com" }
+    );
+
+    expect(browser).toHaveBeenCalledWith(
+      "run-1", expect.objectContaining({ name: "Log in with valid credentials" }),
+      "https://staging.example.com", { TEST_EMAIL: "qa@x.com" }
+    );
+    expect(visual).toHaveBeenCalledWith(expect.objectContaining({ storageState: session }));
+    expect(result.storageState).toBe(session);
   });
 });
