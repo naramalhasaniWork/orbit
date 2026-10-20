@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
             select: { members: true, projects: true },
           },
           members: {
-            where: { role: "admin" },
+            where: { role: "owner" },
             take: 1,
             include: { user: { select: { name: true, email: true } } },
           },

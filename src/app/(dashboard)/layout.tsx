@@ -9,6 +9,7 @@ import { ChatPanelWrapper } from "@/components/chat/chat-panel-wrapper";
 import { GlobalActivityBar } from "@/components/dashboard/global-activity-bar";
 import { getActiveOperations } from "@/lib/dashboard/active-operations";
 import { SWRProvider } from "@/components/layout/swr-provider";
+import { WorkspaceRecovery } from "@/components/layout/workspace-recovery";
 
 export const dynamic = "force-dynamic";
 
@@ -31,6 +32,16 @@ export default async function DashboardLayout({
 
   const session = await getServerSession(authOptions);
   const workspaceId = (session as { workspaceId?: string } | null)?.workspaceId;
+
+  // The session may point at a workspace that was deleted or that the user left
+  const userId = (session?.user as { id?: string } | undefined)?.id;
+  if (workspaceId && userId) {
+    const membership = await prisma.workspaceMember.findFirst({
+      where: { workspaceId, userId, workspace: { deletedAt: null } },
+      select: { id: true },
+    });
+    if (!membership) return <WorkspaceRecovery />;
+  }
 
   let initialOperations: Awaited<ReturnType<typeof getActiveOperations>> = [];
 

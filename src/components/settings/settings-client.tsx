@@ -57,6 +57,7 @@ interface SettingsClientProps {
     updatedAt: Date;
   }>;
   integrations?: IntegrationConfig;
+  role?: string | null;
 }
 
 const tabs = [
@@ -84,6 +85,7 @@ export function SettingsClient({
   environments,
   secrets,
   integrations,
+  role = null,
 }: SettingsClientProps) {
   const searchParams = useSearchParams();
   const requestedTab = searchParams.get("tab");
@@ -171,7 +173,7 @@ export function SettingsClient({
           {activeTab === "plugins" && (
             <PluginSettings workspaceId={workspace?.id ?? null} />
           )}
-          {activeTab === "workspace" && <WorkspaceSettings workspace={workspace} />}
+          {activeTab === "workspace" && <WorkspaceSettings workspace={workspace} role={role} />}
           {activeTab === "audit" && workspace && <AuditLogViewer workspaceId={workspace.id} />}
         </motion.div>
       </AnimatePresence>
