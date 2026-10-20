@@ -25,4 +25,19 @@ describe("handleApiError with Prisma errors", () => {
   it("keeps other Prisma errors as 500", () => {
     expect(handleApiError(prismaError("P1001")).status).toBe(500);
   });
+
+  it("shares route()'s mapping: all zod issues, 503 Retry-After, request id on 500", async () => {
+    const { z } = await import("zod");
+    const zod = z.object({ a: z.string(), b: z.number() }).safeParse({});
+    const bad = handleApiError(zod.success ? null : zod.error);
+    expect(bad.status).toBe(400);
+    expect((await bad.json()).error.details).toHaveLength(2);
+
+    const { ServiceUnavailableError } = await import("@/server/http/errors");
+    expect(handleApiError(new ServiceUnavailableError("down")).headers.get("Retry-After")).toBe("30");
+
+    const err = await handleApiError(new Error("secret detail")).json();
+    expect(err.error.requestId).toBeTruthy();
+    expect(JSON.stringify(err)).not.toContain("secret detail");
+  });
 });
