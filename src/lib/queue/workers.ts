@@ -26,13 +26,13 @@ export function registerWorkers(): void {
 
   const indexingWorker = new Worker<IndexingJobData>(
     QUEUE_NAMES.indexing,
-    handleIndexingJob,
+    (job, token) => handleIndexingJob(job, token),
     { connection, concurrency: 2 }
   );
 
   const executionWorker = new Worker<ExecutionJobData>(
     QUEUE_NAMES.execution,
-    handleExecutionJob,
+    (job, token) => handleExecutionJob(job, token),
     { connection, concurrency: 5 }
   );
 
