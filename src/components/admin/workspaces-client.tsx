@@ -26,7 +26,7 @@ interface WorkspacesClientProps {
 }
 
 const tierColors: Record<WorkspaceTier, string> = {
-  free: "bg-gray-500/15 text-gray-400 border-gray-500/20",
+  free: "bg-tm-t3/15 text-tm-t3 border-tm-t3/20",
   starter: "bg-tm-info/15 text-tm-info border-tm-info/20",
   professional: "bg-tm-t2/15 text-tm-t2 border-tm-t2/20",
   enterprise: "bg-tm-warn/15 text-tm-warn border-tm-warn/20",

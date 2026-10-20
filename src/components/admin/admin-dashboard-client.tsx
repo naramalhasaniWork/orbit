@@ -10,8 +10,8 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { StatsCard } from "@/components/admin/stats-card";
-import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
+import { Status } from "@/components/telemetry/status";
+import { toneForRun } from "@/lib/status-tone";
 
 interface RecentRun {
   id: string;
@@ -37,16 +37,6 @@ interface AdminDashboardClientProps {
   recentRuns: RecentRun[];
 }
 
-const statusColors: Record<string, string> = {
-  completed: "bg-tm-pass/15 text-tm-pass border-tm-pass/20",
-  failed: "bg-tm-fail/15 text-tm-fail border-tm-fail/20",
-  executing: "bg-tm-info/15 text-tm-info border-tm-info/20",
-  queued: "bg-tm-warn/15 text-tm-warn border-tm-warn/20",
-  planning: "bg-tm-t2/15 text-tm-t2 border-tm-t2/20",
-  indexing: "bg-tm-info/15 text-tm-info border-tm-info/20",
-  reporting: "bg-tm-t2/15 text-tm-t2 border-tm-t2/20",
-  cancelled: "bg-gray-500/15 text-gray-400 border-gray-500/20",
-};
 
 function formatTimeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -155,14 +145,7 @@ export function AdminDashboardClient({ stats, recentRuns }: AdminDashboardClient
                   className="border-b border-border/50 hover:bg-muted/30 transition-colors"
                 >
                   <td className="px-4 py-3">
-                    <Badge
-                      className={cn(
-                        "text-[10px] font-medium border",
-                        statusColors[run.status] ?? statusColors.cancelled
-                      )}
-                    >
-                      {run.status}
-                    </Badge>
+                    <Status tone={toneForRun(run.status, run)} label={run.status} mono />
                   </td>
                   <td className="px-4 py-3 font-medium">{run.projectName}</td>
                   <td className="px-4 py-3 text-muted-foreground">

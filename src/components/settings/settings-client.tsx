@@ -101,7 +101,7 @@ export function SettingsClient({
           className="h-9 w-full rounded-md border border-input bg-card px-2 text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           {tabs.map((t) => (
-            <option key={t.id} value={t.id}>{t.group} · {t.label}</option>
+            <option key={t.id} value={t.id}>{t.group === t.label ? t.label : `${t.group} · ${t.label}`}</option>
           ))}
         </select>
       </div>

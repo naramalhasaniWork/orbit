@@ -45,7 +45,7 @@ const TYPE_BADGE_COLORS: Record<string, string> = {
   design_system: "bg-tm-t2/15 text-tm-t2",
   business_rules: "bg-tm-warn/15 text-tm-warn",
   test_credentials: "bg-tm-fail/15 text-tm-fail",
-  other: "bg-zinc-500/15 text-zinc-400",
+  other: "bg-tm-t3/15 text-tm-t3",
 };
 
 function formatBytes(bytes: number): string {

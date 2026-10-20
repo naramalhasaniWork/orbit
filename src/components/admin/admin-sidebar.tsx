@@ -2,8 +2,6 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { motion } from "framer-motion";
-import { tween } from "@/lib/motion";
 import {
   LayoutDashboard,
   Building2,
@@ -11,13 +9,13 @@ import {
   Settings2,
   BarChart3,
   ScrollText,
-  Shield,
   Orbit,
   Cpu,
   FileText,
   Inbox,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { ClosingO } from "@/components/telemetry/closing-o";
 
 const navigation = [
   { name: "Overview", href: "/admin/dashboard", icon: LayoutDashboard },
@@ -35,15 +33,11 @@ export function AdminSidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="flex flex-col w-[52px] hover:w-52 transition-all duration-300 ease-in-out surface-1 border-r border-border group overflow-hidden">
+    <aside aria-label="Admin" className="flex w-14 shrink-0 flex-col overflow-hidden border-r border-border bg-background md:w-52">
       {/* Logo */}
       <div className="flex items-center h-14 px-3.5">
-        <div className="flex items-center justify-center h-7 w-7 rounded-lg bg-tm-fail/15 shrink-0 shadow-[0_0_12px_rgba(239,68,68,0.15)]">
-          <Shield className="h-4 w-4 text-tm-fail" />
-        </div>
-        <span className="ml-3 font-medium text-sm text-foreground opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap">
-          Admin Panel
-        </span>
+        <ClosingO size={24} />
+        <span className="ml-2.5 hidden whitespace-nowrap text-sm font-medium md:inline">Admin</span>
       </div>
 
       {/* Navigation */}
@@ -57,27 +51,16 @@ export function AdminSidebar() {
             <Link
               key={item.name}
               href={item.href}
+              aria-current={isActive ? "page" : undefined}
+              title={item.name}
               className={cn(
-                "relative flex items-center gap-3 px-2 py-2 rounded-lg text-[13px] font-medium transition-all duration-200",
-                isActive
-                  ? "text-foreground bg-foreground/[0.06]"
-                  : "text-muted-foreground hover:text-foreground hover:bg-foreground/[0.04]"
+                "relative flex h-9 items-center gap-3 rounded-md px-2 text-[13px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                isActive ? "bg-accent text-foreground" : "text-tm-t2 hover:bg-accent hover:text-foreground"
               )}
             >
-              {isActive && (
-                <motion.div
-                  layoutId="admin-sidebar-active"
-                  className="absolute left-0 top-1/2 -translate-y-1/2 w-[2px] h-4 rounded-r-full bg-tm-fail shadow-[0_0_8px_rgba(239,68,68,0.5)]"
-                  transition={tween.change}
-                />
-              )}
-              <item.icon
-                className={cn(
-                  "h-[18px] w-[18px] shrink-0 transition-colors duration-200",
-                  isActive && "text-tm-fail"
-                )}
-              />
-              <span className="opacity-0 group-hover:opacity-100 transition-opacity duration-300 whitespace-nowrap">
+
+              <item.icon aria-hidden="true" className="size-[18px] shrink-0" strokeWidth={1.6} />
+              <span className="sr-only whitespace-nowrap md:not-sr-only">
                 {item.name}
               </span>
             </Link>

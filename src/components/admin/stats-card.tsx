@@ -10,18 +10,19 @@ interface StatsCardProps {
   variant?: "default" | "accent" | "warning" | "danger";
 }
 
+// Hairline cells; only a real problem (danger) changes colour, and only the number's border.
 const variantStyles = {
-  default: "bg-muted/30 border-border",
-  accent: "bg-foreground/[0.06] border-tm-line-strong",
-  warning: "bg-tm-warn/5 border-tm-warn/10",
-  danger: "bg-tm-fail/5 border-tm-fail/10",
+  default: "bg-card border-border",
+  accent: "bg-card border-border",
+  warning: "bg-card border-border",
+  danger: "bg-card border-tm-fail/50",
 };
 
 const iconVariants = {
-  default: "bg-muted/50 text-muted-foreground",
-  accent: "bg-foreground/[0.06] text-foreground",
-  warning: "bg-tm-warn/15 text-tm-warn",
-  danger: "bg-tm-fail/15 text-tm-fail",
+  default: "text-tm-t3",
+  accent: "text-tm-t3",
+  warning: "text-tm-t3",
+  danger: "text-tm-fail",
 };
 
 export function StatsCard({
@@ -35,7 +36,7 @@ export function StatsCard({
   return (
     <div
       className={cn(
-        "rounded-xl border p-4 transition-colors",
+        "rounded-lg border p-4",
         variantStyles[variant]
       )}
     >

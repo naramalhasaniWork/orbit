@@ -29,7 +29,7 @@ function roleBadgeStyle(role: string): string {
     owner: "bg-foreground/[0.06] text-foreground border-tm-line-strong",
     admin: "bg-tm-info/15 text-tm-info border-tm-info/20",
     member: "bg-tm-pass/15 text-tm-pass border-tm-pass/20",
-    viewer: "bg-gray-500/15 text-gray-400 border-gray-500/20",
+    viewer: "bg-tm-t3/15 text-tm-t3 border-tm-t3/20",
     billing: "bg-tm-warn/15 text-tm-warn border-tm-warn/20",
   };
   return styles[role] ?? styles.member;

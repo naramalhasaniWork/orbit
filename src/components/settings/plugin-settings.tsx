@@ -252,7 +252,7 @@ function PluginCard({
                   className={
                     plugin.enabled
                       ? "text-[10px] border-tm-pass/30 text-tm-pass shrink-0"
-                      : "text-[10px] border-zinc-500/30 text-zinc-400 shrink-0"
+                      : "text-[10px] border-tm-t3/30 text-tm-t3 shrink-0"
                   }
                 >
                   {plugin.enabled ? "Active" : "Disabled"}

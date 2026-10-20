@@ -66,19 +66,20 @@ interface WorkspaceDetailClientProps {
   };
 }
 
+// Word in its status colour on a hairline; no filled pills.
 const statusColors: Record<string, string> = {
-  completed: "bg-tm-pass/15 text-tm-pass border-tm-pass/20",
-  failed: "bg-tm-fail/15 text-tm-fail border-tm-fail/20",
-  executing: "bg-tm-info/15 text-tm-info border-tm-info/20",
-  queued: "bg-tm-warn/15 text-tm-warn border-tm-warn/20",
-  active: "bg-tm-pass/15 text-tm-pass border-tm-pass/20",
-  paused: "bg-tm-warn/15 text-tm-warn border-tm-warn/20",
-  archived: "bg-gray-500/15 text-gray-400 border-gray-500/20",
+  completed: "border-border bg-transparent text-tm-pass",
+  failed: "border-border bg-transparent text-tm-fail",
+  executing: "border-border bg-transparent text-tm-live-text",
+  queued: "border-border bg-transparent text-tm-t3",
+  active: "border-border bg-transparent text-tm-pass",
+  paused: "border-border bg-transparent text-tm-t3",
+  archived: "border-border bg-transparent text-tm-t3",
 };
 
 const healthColors: Record<string, string> = {
   healthy: "text-tm-pass",
-  degraded: "text-tm-warn",
+  degraded: "text-tm-flaky",
   failing: "text-tm-fail",
 };
 

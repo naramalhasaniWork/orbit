@@ -13,7 +13,7 @@ const LANGUAGE_COLORS: Record<string, string> = {
   Rust: "bg-tm-warn",
   Ruby: "bg-tm-fail",
   Java: "bg-tm-warn",
-  Unknown: "bg-gray-400",
+  Unknown: "bg-tm-t3",
 };
 
 function formatUpdatedAt(dateStr: string): string {
@@ -61,7 +61,7 @@ export function RepoList({ repos, selectedId, onSelect }: RepoListProps) {
             </div>
             <div className="flex items-center gap-3 text-xs text-muted-foreground">
               <span className="flex items-center gap-1">
-                <span className={cn("h-2 w-2 rounded-full", LANGUAGE_COLORS[repo.language] ?? "bg-gray-400")} />
+                <span className={cn("h-2 w-2 rounded-full", LANGUAGE_COLORS[repo.language] ?? "bg-tm-t3")} />
                 {repo.language}
               </span>
               <span className="flex items-center gap-1">
