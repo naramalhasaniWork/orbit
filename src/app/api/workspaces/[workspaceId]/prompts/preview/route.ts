@@ -1,20 +1,14 @@
-import { NextRequest } from "next/server";
-import { requirePermission } from "@/lib/auth/rbac";
-import { apiSuccess, apiError, handleApiError } from "@/lib/utils/api";
+import { apiSuccess, apiError } from "@/lib/utils/api";
 import { buildPrompt, estimateTokens } from "@/agents/prompts/prompt-builder";
 import type { AgentPhase } from "@/generated/prisma/client";
+import { route } from "@/server/http/route";
 
 const VALID_PHASES: AgentPhase[] = ["analyst", "planner", "executor", "reporter", "auditor"];
 const MAX_CONTENT_LENGTH = 50000;
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ workspaceId: string }> }
-) {
-  try {
-    const { workspaceId } = await params;
-    await requirePermission(workspaceId, "settings.view");
-
+export const POST = route(
+  { workspace: "param", permission: "settings.view" },
+  async ({ req: request, workspaceId }) => {
     const body = (await request.json()) as { agentPhase?: string; content?: string };
 
     if (!body.agentPhase || !VALID_PHASES.includes(body.agentPhase as AgentPhase)) {
@@ -49,7 +43,5 @@ export async function POST(
       assembled: assembled.systemPrompt,
       estimatedTokens: estimateTokens(assembled.systemPrompt),
     });
-  } catch (error) {
-    return handleApiError(error);
   }
-}
+);

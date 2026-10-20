@@ -4,7 +4,11 @@ import { useState } from "react";
 import { GitHubCard } from "@/components/settings/integration-github";
 import { LinearCard } from "@/components/settings/integration-linear";
 import { SlackCard } from "@/components/settings/integration-slack";
-import { RailwayConnectCard } from "@/components/integrations/railway-connect";
+import {
+  PreviewProviderCard,
+  type PreviewConnectionState,
+} from "@/components/integrations/preview/preview-provider-card";
+import { PREVIEW_PROVIDER_CATALOG } from "@/services/preview/catalog";
 
 interface IntegrationConfig {
   github?: {
@@ -25,22 +29,15 @@ interface IntegrationConfig {
       testFailed: boolean;
     };
   };
-  railway?: {
-    connected: boolean;
-    userName?: string;
-    railwayProjectId?: string;
-    railwayProjectName?: string;
-    serviceCount?: number;
-  };
 }
 
 interface IntegrationSettingsProps {
   workspaceId: string | null;
-  projectId?: string | null;
   integrations: IntegrationConfig;
+  previewConnections: Record<string, PreviewConnectionState>;
 }
 
-export function IntegrationSettings({ workspaceId, projectId, integrations: initial }: IntegrationSettingsProps) {
+export function IntegrationSettings({ workspaceId, integrations: initial, previewConnections }: IntegrationSettingsProps) {
   const [integrations, setIntegrations] = useState(initial);
 
   if (!workspaceId) {
@@ -82,12 +79,17 @@ export function IntegrationSettings({ workspaceId, projectId, integrations: init
         onUpdate={(cfg) => updateIntegration("slack", cfg)}
       />
 
-      <RailwayConnectCard
-        workspaceId={workspaceId}
-        projectId={projectId ?? null}
-        config={integrations.railway}
-        onUpdate={(cfg) => updateIntegration("railway", cfg)}
-      />
+      <h2 className="pt-4 text-xs font-medium uppercase tracking-wide text-muted-foreground">Preview deployments</h2>
+      <p className="text-xs text-muted-foreground text-pretty -mt-2">
+        Connect where your PR previews are deployed. Orbit waits for each PR&apos;s preview, tests it, and reports on the PR.
+      </p>
+      {PREVIEW_PROVIDER_CATALOG.map((info) => (
+        <PreviewProviderCard
+          key={info.id}
+          info={info}
+          initial={previewConnections[info.id] ?? { connection: null, webhookUrl: null }}
+        />
+      ))}
     </div>
   );
 }

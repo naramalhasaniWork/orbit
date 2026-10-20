@@ -12,7 +12,7 @@ export const PROTECTED_SETTINGS_KEYS = [
   "linearTeamId",
 ] as const;
 
-const SECRET_WEBHOOK_FIELDS = ["secret", "secretSealed"] as const;
+export const SECRET_WEBHOOK_FIELDS = ["secret", "secretSealed"] as const;
 
 function asSettings(value: unknown): Settings {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as Settings) : {};

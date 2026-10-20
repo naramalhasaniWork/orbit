@@ -9,6 +9,7 @@
 import { prisma } from "@/lib/db";
 import { resolveGitHubToken } from "@/lib/github/token";
 import { getIndexingQueue } from "@/lib/queue/queues";
+import { addDeterministicJob } from "@/lib/queue/deterministic-job";
 import { githubRepoApiUrl, assertSafeRepoPath } from "@/lib/github/repo-paths";
 
 interface CommitPollResult {
@@ -178,19 +179,11 @@ export async function pollProjectCommits(
     });
 
     // Trigger incremental re-indexing
-    const queue = getIndexingQueue();
-    await queue.add(
+    await addDeterministicJob(
+      getIndexingQueue(),
       `index-${projectId}-auto`,
-      {
-        projectId,
-        branch: project.defaultBranch,
-        isIncremental: true,
-      },
-      {
-        jobId: `index-${projectId}-auto-${Date.now()}`,
-        // Deduplicate: don't queue if one is already waiting
-        skipDuplicates: true,
-      } as Parameters<typeof queue.add>[2]
+      { projectId, branch: project.defaultBranch, isIncremental: true },
+      `index:${projectId}:${latest.sha}`
     );
 
     console.log(

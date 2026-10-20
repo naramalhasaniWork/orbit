@@ -4,6 +4,7 @@ import { executeApiTestCase } from "@/services/execution/api-test-executor";
 import type { StorageState } from "@/services/execution/browser-manager";
 import { runVisualTest } from "@/services/visual-qa/visual-test-runner";
 import { isBudgetExceeded } from "@/server/ai/errors";
+import { splitAccessCredentials } from "@/services/execution/access-headers";
 
 // Routes a test case to the executor for its type. Shared by the sequential
 // runner and the parallel executor so both treat every type the same way.
@@ -30,9 +31,10 @@ export async function executeCaseByType(
     if (visual) return visual;
   }
 
-  // API contract tests run over plain HTTP; the browser is the fallback
+  // API contract tests run over plain HTTP; the browser is the fallback. Their prompt lists
+  // credential names, so the Cloudflare Access token is kept out of it.
   if (testCase.type === "api_contract") {
-    const api = await executeApiTestCase(runId, testCase, environmentUrl, credentials);
+    const api = await executeApiTestCase(runId, testCase, environmentUrl, splitAccessCredentials(credentials).credentials);
     if (api) return api;
   }
 
@@ -58,8 +60,9 @@ async function executeVisualCase(
   try {
     const storageState = existingSession
       ?? await acquireSession(runId, testCase, environmentUrl, credentials);
+    const accessHeaders = splitAccessCredentials(credentials).headers ?? undefined;
     const result = await runVisualTest({
-      runId, projectId: testCase.projectId, routePath, environmentUrl, storageState,
+      runId, projectId: testCase.projectId, routePath, environmentUrl, storageState, accessHeaders,
     });
     const comparison = result.isBaselineCapture
       ? "No baseline yet: captured this screenshot as the baseline"
@@ -102,7 +105,8 @@ async function acquireSession(
   environmentUrl: string,
   credentials: Record<string, string>
 ): Promise<StorageState | undefined> {
-  const hasCredentials = Object.values(credentials).some((v) => typeof v === "string" && v.length > 0);
+  const loginCredentials = splitAccessCredentials(credentials).credentials;
+  const hasCredentials = Object.values(loginCredentials).some((v) => typeof v === "string" && v.length > 0);
   if (!hasCredentials) return undefined;
 
   const login = await executeTestCase(runId, {

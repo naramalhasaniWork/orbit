@@ -1,19 +1,13 @@
-import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
-import { requirePermission } from "@/lib/auth/rbac";
-import { apiSuccess, apiError, handleApiError } from "@/lib/utils/api";
+import { apiSuccess, apiError } from "@/lib/utils/api";
 import type { AgentPhase } from "@/generated/prisma/client";
+import { route } from "@/server/http/route";
 
 const VALID_PHASES: AgentPhase[] = ["analyst", "planner", "executor", "reporter", "auditor"];
 
-export async function POST(
-  _request: NextRequest,
-  { params }: { params: Promise<{ workspaceId: string; agentPhase: string; version: string }> }
-) {
-  try {
-    const { workspaceId, agentPhase, version: versionStr } = await params;
-    await requirePermission(workspaceId, "settings.manage");
-
+export const POST = route(
+  { workspace: "param", permission: "settings.manage" },
+  async ({ params: { agentPhase, version: versionStr }, workspaceId }) => {
     if (!VALID_PHASES.includes(agentPhase as AgentPhase)) {
       return apiError(
         "Invalid agentPhase. Must be one of: analyst, planner, executor, reporter, auditor",
@@ -61,7 +55,5 @@ export async function POST(
     });
 
     return apiSuccess(restored);
-  } catch (error) {
-    return handleApiError(error);
   }
-}
+);

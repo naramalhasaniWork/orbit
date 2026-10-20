@@ -1,47 +1,31 @@
-import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
-import {
-  requireWorkspace,
-  apiSuccess,
-  apiError,
-  handleApiError,
-} from "@/lib/utils/api";
-import { requirePermission } from "@/lib/auth/rbac";
+import { apiSuccess, apiError } from "@/lib/utils/api";
+import { route } from "@/server/http/route";
 
 // ============================================================
 // GET /api/projects/[projectId]/test-cases/[testCaseId]
 // ============================================================
 
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: Promise<{ projectId: string; testCaseId: string }> }
-) {
-  try {
-    const { workspaceId } = await requireWorkspace();
-    const { projectId, testCaseId } = await params;
+export const GET = route({}, async ({ params: { projectId, testCaseId }, workspaceId }) => {
+  const project = await prisma.project.findFirst({
+    where: { id: projectId, workspaceId },
+    select: { id: true },
+  });
 
-    const project = await prisma.project.findFirst({
-      where: { id: projectId, workspaceId },
-      select: { id: true },
-    });
-
-    if (!project) {
-      return apiError("Project not found", "NOT_FOUND", 404);
-    }
-
-    const testCase = await prisma.testCase.findFirst({
-      where: { id: testCaseId, projectId },
-    });
-
-    if (!testCase) {
-      return apiError("Test case not found", "NOT_FOUND", 404);
-    }
-
-    return apiSuccess(testCase);
-  } catch (error) {
-    return handleApiError(error);
+  if (!project) {
+    return apiError("Project not found", "NOT_FOUND", 404);
   }
-}
+
+  const testCase = await prisma.testCase.findFirst({
+    where: { id: testCaseId, projectId },
+  });
+
+  if (!testCase) {
+    return apiError("Test case not found", "NOT_FOUND", 404);
+  }
+
+  return apiSuccess(testCase);
+});
 
 // ============================================================
 // PATCH /api/projects/[projectId]/test-cases/[testCaseId]
@@ -59,15 +43,9 @@ interface UpdateTestCaseBody {
   priorityScore?: number;
 }
 
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: Promise<{ projectId: string; testCaseId: string }> }
-) {
-  try {
-    const { workspaceId } = await requireWorkspace();
-    await requirePermission(workspaceId, "plans.update");
-    const { projectId, testCaseId } = await params;
-
+export const PATCH = route(
+  { permission: "plans.update" },
+  async ({ req: request, params: { projectId, testCaseId }, workspaceId }) => {
     const project = await prisma.project.findFirst({
       where: { id: projectId, workspaceId },
       select: { id: true },
@@ -140,24 +118,16 @@ export async function PATCH(
     });
 
     return apiSuccess(updated);
-  } catch (error) {
-    return handleApiError(error);
   }
-}
+);
 
 // ============================================================
 // DELETE /api/projects/[projectId]/test-cases/[testCaseId]
 // ============================================================
 
-export async function DELETE(
-  _request: NextRequest,
-  { params }: { params: Promise<{ projectId: string; testCaseId: string }> }
-) {
-  try {
-    const { workspaceId } = await requireWorkspace();
-    await requirePermission(workspaceId, "plans.update");
-    const { projectId, testCaseId } = await params;
-
+export const DELETE = route(
+  { permission: "plans.update" },
+  async ({ params: { projectId, testCaseId }, workspaceId }) => {
     const project = await prisma.project.findFirst({
       where: { id: projectId, workspaceId },
       select: { id: true },
@@ -179,7 +149,5 @@ export async function DELETE(
     await prisma.testCase.delete({ where: { id: testCaseId } });
 
     return apiSuccess({ deleted: true });
-  } catch (error) {
-    return handleApiError(error);
   }
-}
+);

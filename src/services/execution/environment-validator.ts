@@ -1,7 +1,8 @@
 import { prisma } from "@/lib/db";
 import { decrypt } from "@/lib/vault";
 import { safeFetch, UnsafeUrlError } from "@/lib/utils/ssrf";
-import { pickDefaultEnvironment } from "@/services/execution/default-environment";
+import { isDefaultCandidate, pickDefaultEnvironment } from "@/services/execution/default-environment";
+import { gateAccessCredentials } from "@/services/execution/access-headers";
 
 // ============================================================
 // Types
@@ -131,7 +132,7 @@ export async function validateEnvironment(
     errors,
     warnings,
     environmentUrl: environment.url,
-    credentials,
+    credentials: gateAccessCredentials(credentials, environment.accessMode),
   };
 }
 
@@ -144,7 +145,7 @@ export async function getDefaultEnvironment(
 ): Promise<string | null> {
   const environments = await prisma.environment.findMany({
     where: { projectId },
-    select: { id: true, type: true, isDefault: true, createdAt: true },
+    select: { id: true, type: true, isDefault: true, createdAt: true, archivedAt: true, source: true },
   });
-  return pickDefaultEnvironment(environments)?.id ?? null;
+  return pickDefaultEnvironment(environments.filter(isDefaultCandidate))?.id ?? null;
 }

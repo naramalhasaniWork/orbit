@@ -5,7 +5,7 @@ import { getModelForTask } from "@/lib/ai/model-router";
 import { parseLlmJson } from "@/lib/utils/json-parse";
 import { substituteCredentials } from "@/lib/utils/credentials";
 import { safeFetch } from "@/lib/utils/ssrf";
-import { isProviderError } from "@/services/execution/test-case-executor";
+import { isProviderError } from "@/services/execution/error-classifier";
 import type { TestCaseForExecution, TestCaseResult } from "@/services/execution/test-case-executor";
 import { isBudgetExceeded } from "@/server/ai/errors";
 

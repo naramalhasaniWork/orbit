@@ -1,31 +1,19 @@
-import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
-import {
-  requireWorkspace,
-  apiError,
-  apiSuccess,
-  handleApiError,
-} from "@/lib/utils/api";
+import { apiError, apiSuccess } from "@/lib/utils/api";
 import {
   runOrbitAgent,
   saveAssistantResponse,
 } from "@/services/orbit-agent/runner";
 import type { AgentStreamEvent } from "@/services/orbit-agent/runner";
-import { requirePermission } from "@/lib/auth/rbac";
+import { route } from "@/server/http/route";
 
 // ============================================================
 // POST /api/projects/[projectId]/chat — Send message, stream response
 // ============================================================
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ projectId: string }> }
-) {
-  try {
-    const { session, workspaceId } = await requireWorkspace();
-    await requirePermission(workspaceId, "runs.create");
-    const { projectId } = await params;
-
+export const POST = route(
+  { permission: "runs.create" },
+  async ({ req: request, params: { projectId }, workspaceId, session }) => {
     // Verify project belongs to workspace
     const project = await prisma.project.findFirst({
       where: { id: projectId, workspaceId },
@@ -170,24 +158,16 @@ export async function POST(
         "X-Conversation-Id": conversationId,
       },
     });
-  } catch (error) {
-    return handleApiError(error);
   }
-}
+);
 
 // ============================================================
 // DELETE /api/projects/[projectId]/chat — Clear conversation
 // ============================================================
 
-export async function DELETE(
-  _request: NextRequest,
-  { params }: { params: Promise<{ projectId: string }> }
-) {
-  try {
-    const { session, workspaceId } = await requireWorkspace();
-    await requirePermission(workspaceId, "projects.update");
-    const { projectId } = await params;
-
+export const DELETE = route(
+  { permission: "projects.update" },
+  async ({ params: { projectId }, workspaceId, session }) => {
     const project = await prisma.project.findFirst({
       where: { id: projectId, workspaceId },
       select: { id: true },
@@ -207,10 +187,8 @@ export async function DELETE(
     });
 
     return apiSuccess({ cleared: true });
-  } catch (error) {
-    return handleApiError(error);
   }
-}
+);
 
 function safeJsonParse(str: string): unknown {
   try {

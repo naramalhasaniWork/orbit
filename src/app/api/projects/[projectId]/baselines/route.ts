@@ -1,11 +1,5 @@
-import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
-import {
-  requireWorkspace,
-  apiSuccess,
-  apiError,
-  handleApiError,
-} from "@/lib/utils/api";
+import { apiSuccess, apiError } from "@/lib/utils/api";
 import {
   getProjectBaselines,
   compareWithBaseline,
@@ -14,50 +8,40 @@ import {
   acceptAsBaseline,
   listBaselines,
 } from "@/services/visual-qa/baseline-manager";
-import { requirePermission } from "@/lib/auth/rbac";
+import { route } from "@/server/http/route";
 
 // ============================================================
 // GET /api/projects/[projectId]/baselines
 // ============================================================
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ projectId: string }> }
-) {
-  try {
-    const { workspaceId } = await requireWorkspace();
-    const { projectId } = await params;
+export const GET = route({}, async ({ req: request, params: { projectId }, workspaceId }) => {
+  const project = await prisma.project.findFirst({
+    where: { id: projectId, workspaceId },
+    select: { id: true },
+  });
 
-    const project = await prisma.project.findFirst({
-      where: { id: projectId, workspaceId },
-      select: { id: true },
-    });
-
-    if (!project) {
-      return apiError("Project not found", "NOT_FOUND", 404);
-    }
-
-    const type = request.nextUrl.searchParams.get("type") ?? undefined;
-    const runId = request.nextUrl.searchParams.get("runId");
-    const source = request.nextUrl.searchParams.get("source");
-
-    // Visual QA baselines — deduplicated per route
-    if (source === "visual-qa") {
-      const baselines = await listBaselines(projectId);
-      return apiSuccess({ baselines });
-    }
-
-    if (runId) {
-      const comparisons = await compareWithBaseline(projectId, runId);
-      return apiSuccess({ comparisons });
-    }
-
-    const baselines = await getProjectBaselines(projectId, { type });
-    return apiSuccess({ baselines });
-  } catch (error) {
-    return handleApiError(error);
+  if (!project) {
+    return apiError("Project not found", "NOT_FOUND", 404);
   }
-}
+
+  const type = request.nextUrl.searchParams.get("type") ?? undefined;
+  const runId = request.nextUrl.searchParams.get("runId");
+  const source = request.nextUrl.searchParams.get("source");
+
+  // Visual QA baselines — deduplicated per route
+  if (source === "visual-qa") {
+    const baselines = await listBaselines(projectId);
+    return apiSuccess({ baselines });
+  }
+
+  if (runId) {
+    const comparisons = await compareWithBaseline(projectId, runId);
+    return apiSuccess({ comparisons });
+  }
+
+  const baselines = await getProjectBaselines(projectId, { type });
+  return apiSuccess({ baselines });
+});
 
 // ============================================================
 // POST /api/projects/[projectId]/baselines — Accept as baseline
@@ -70,15 +54,9 @@ interface AcceptBaselineBody {
   runId: string;
 }
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ projectId: string }> }
-) {
-  try {
-    const { workspaceId } = await requireWorkspace();
-    await requirePermission(workspaceId, "plans.update");
-    const { projectId } = await params;
-
+export const POST = route(
+  { permission: "plans.update" },
+  async ({ req: request, params: { projectId }, workspaceId }) => {
     const project = await prisma.project.findFirst({
       where: { id: projectId, workspaceId },
       select: { id: true },
@@ -107,7 +85,5 @@ export async function POST(
     );
 
     return apiSuccess({ baseline }, 201);
-  } catch (error) {
-    return handleApiError(error);
   }
-}
+);

@@ -14,8 +14,13 @@ import {
   emitIndexingFailed,
 } from "@/lib/websocket";
 import { runPipelineForJob, markRunFailed, errorMessage } from "@/lib/queue/run-job-guards";
+import { gateAccessCredentials } from "@/services/execution/access-headers";
+import { ShutdownError } from "@/lib/queue/shutdown";
+import { RunLockedError } from "@/lib/queue/run-locked";
+import { withRunSlot } from "@/lib/queue/run-slots";
+import { saveTestResult } from "@/services/execution/test-result-store";
 
-export async function handleIndexingJob(job: Job<IndexingJobData>): Promise<void> {
+export async function handleIndexingJob(job: Job<IndexingJobData>, token?: string): Promise<void> {
   const data = IndexingJobDataSchema.parse(job.data);
   console.log(`[Worker:indexing] Processing job ${job.id}`, {
     projectId: data.projectId,
@@ -26,10 +31,12 @@ export async function handleIndexingJob(job: Job<IndexingJobData>): Promise<void
   await job.updateProgress(10);
 
   // Event-triggered run: the orchestrator owns indexing → planning →
-  // execution → reporting and the run's terminal status. Not retried by the
-  // queue, since a retry would repeat phases on a run already marked failed.
+  // execution → reporting and the run's terminal status. Crashes are recorded
+  // on the run, not retried (a retry would repeat phases on a failed run);
+  // only a ShutdownError escapes, and the retry resumes at execution.
   if (data.runId) {
-    await runPipelineForJob(data.runId, data.changedFiles);
+    const { runId, changedFiles } = data;
+    await withRunSlot(job, token, runId, () => runPipelineForJob(runId, changedFiles));
     await job.updateProgress(100);
     return;
   }
@@ -80,7 +87,7 @@ export async function handleIndexingJob(job: Job<IndexingJobData>): Promise<void
   await job.updateProgress(100);
 }
 
-export async function handleExecutionJob(job: Job<ExecutionJobData>): Promise<void> {
+export async function handleExecutionJob(job: Job<ExecutionJobData>, token?: string): Promise<void> {
   const data = ExecutionJobDataSchema.parse(job.data);
   console.log(`[Worker:execution] Processing job ${job.id}`, {
     runId: data.runId,
@@ -92,16 +99,19 @@ export async function handleExecutionJob(job: Job<ExecutionJobData>): Promise<vo
   // Full-run execution: delegate to the unified runner. executeRun records
   // its own crashes; this guards failures before it starts (e.g. import).
   if (data.testCaseId === "__full_run__") {
-    try {
-      const runnerModule = await import("@/services/execution/runner");
-      await runnerModule.executeRun({ runId: data.runId, environmentId: data.environmentId });
-    } catch (importErr) {
-      const msg = importErr instanceof Error
-        ? `${importErr.name}: ${importErr.message}\n${importErr.stack}`
-        : String(importErr);
-      console.error(`[Worker:execution] Runner import/execute failed:\n${msg}`);
-      await markRunFailed(data.runId, `Execution could not start: ${errorMessage(importErr)}`);
-    }
+    await withRunSlot(job, token, data.runId, async () => {
+      try {
+        const runnerModule = await import("@/services/execution/runner");
+        await runnerModule.executeRun({ runId: data.runId, environmentId: data.environmentId });
+      } catch (importErr) {
+        if (importErr instanceof ShutdownError || importErr instanceof RunLockedError) throw importErr;
+        const msg = importErr instanceof Error
+          ? `${importErr.name}: ${importErr.message}\n${importErr.stack}`
+          : String(importErr);
+        console.error(`[Worker:execution] Runner import/execute failed:\n${msg}`);
+        await markRunFailed(data.runId, `Execution could not start: ${errorMessage(importErr)}`);
+      }
+    });
     await job.updateProgress(100);
     return;
   }
@@ -134,17 +144,15 @@ export async function handleExecutionJob(job: Job<ExecutionJobData>): Promise<vo
       credentials
     );
 
-    await prisma.testResult.create({
-      data: {
-        testRunId: data.runId,
-        testCaseId: data.testCaseId,
-        verdict: result.verdict as "pass" | "fail" | "flaky" | "skipped" | "healed",
-        durationMs: result.durationMs,
-        steps: JSON.parse(JSON.stringify(result.steps)),
-        artifacts: JSON.parse(JSON.stringify(result.artifacts)),
-        healedSelectors: JSON.parse(JSON.stringify(result.healedSelectors)),
-      },
-    });
+    await saveTestResult(
+      data.runId,
+      data.testCaseId,
+      result.verdict as "pass" | "fail" | "flaky" | "skipped" | "healed",
+      result.durationMs,
+      result.steps as unknown as Array<Record<string, unknown>>,
+      result.artifacts as unknown as Record<string, string>,
+      result.healedSelectors as unknown as string[]
+    );
 
     await prisma.testCase.update({
       where: { id: data.testCaseId },
@@ -165,26 +173,24 @@ export async function handleExecutionJob(job: Job<ExecutionJobData>): Promise<vo
     const errorMsg = err instanceof Error ? err.message : String(err);
     console.error(`[Worker:execution] Test ${data.testCaseId} failed:`, errorMsg);
 
-    await prisma.testResult.create({
-      data: {
-        testRunId: data.runId,
-        testCaseId: data.testCaseId,
-        verdict: "fail",
-        durationMs: 0,
-        steps: [
-          {
-            stepIndex: 0,
-            action: "worker_execution",
-            expected: "Test completes",
-            actual: `Worker error: ${errorMsg}`,
-            status: "failed",
-            durationMs: 0,
-          },
-        ],
-        artifacts: {},
-        healedSelectors: [],
-      },
-    });
+    await saveTestResult(
+      data.runId,
+      data.testCaseId,
+      "fail",
+      0,
+      [
+        {
+          stepIndex: 0,
+          action: "worker_execution",
+          expected: "Test completes",
+          actual: `Worker error: ${errorMsg}`,
+          status: "failed",
+          durationMs: 0,
+        },
+      ],
+      {},
+      []
+    );
 
     const testCase = await prisma.testCase.findUnique({
       where: { id: data.testCaseId },
@@ -274,8 +280,7 @@ async function loadCredentials(environmentId: string): Promise<Record<string, st
   const { decrypt } = await import("@/lib/vault");
 
   const environment = await prisma.environment.findUnique({
-    where: { id: environmentId },
-    select: { id: true, projectId: true },
+    where: { id: environmentId }, select: { id: true, projectId: true, accessMode: true },
   });
 
   if (!environment) return {};
@@ -296,5 +301,5 @@ async function loadCredentials(environmentId: string): Promise<Record<string, st
     }
   }
 
-  return credentials;
+  return gateAccessCredentials(credentials, environment.accessMode);
 }

@@ -93,8 +93,10 @@ pnpm dev
 ```
 
 The app runs at `http://localhost:3000`. Background workers (BullMQ) start in-process
-with the web server via `src/instrumentation.ts`; there is no separate worker service.
-Do not run `pnpm workers` alongside a running server, or jobs are processed twice.
+with the web server via `src/instrumentation.ts` (`ORBIT_ROLE=all`, the default). To run them in
+their own container set `ORBIT_ROLE=web` on the server and `ORBIT_ROLE=worker` on a second container
+(see `docs/self-hosting/railway.md`). `pnpm workers` starts workers alone for development; don't run it
+next to a server that also runs them, or the two just share the queues.
 
 Generate the two required secrets:
 

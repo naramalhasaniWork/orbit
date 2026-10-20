@@ -3,11 +3,13 @@ import { getQueueConnection } from "@/lib/queue";
 import {
   QUEUE_NAMES,
   getSchedulerQueue,
+  getPreviewQueue,
   type IndexingJobData,
   type ExecutionJobData,
   type ReportingJobData,
   type SchedulerJobData,
   type PlanningJobData,
+  type PreviewJobData,
 } from "@/lib/queue/queues";
 import {
   handleIndexingJob,
@@ -16,6 +18,8 @@ import {
 } from "@/lib/queue/worker-handlers";
 import { handleSchedulerJob } from "@/lib/queue/scheduler-handler";
 import { handlePlanningJob } from "@/lib/queue/planning-handler";
+import { recordJobFailure } from "@/lib/queue/dead-letter";
+import { requestShutdown } from "@/lib/queue/shutdown";
 
 const activeWorkers: Worker[] = [];
 
@@ -24,13 +28,13 @@ export function registerWorkers(): void {
 
   const indexingWorker = new Worker<IndexingJobData>(
     QUEUE_NAMES.indexing,
-    handleIndexingJob,
+    (job, token) => handleIndexingJob(job, token),
     { connection, concurrency: 2 }
   );
 
   const executionWorker = new Worker<ExecutionJobData>(
     QUEUE_NAMES.execution,
-    handleExecutionJob,
+    (job, token) => handleExecutionJob(job, token),
     { connection, concurrency: 5 }
   );
 
@@ -52,7 +56,17 @@ export function registerWorkers(): void {
     { connection, concurrency: 2 }
   );
 
-  const workers = [indexingWorker, executionWorker, reportingWorker, schedulerWorker, planningWorker];
+  const previewWorker = new Worker<PreviewJobData>(
+    QUEUE_NAMES.preview,
+    async () => {
+      const { reconcilePreviews } = await import("@/services/preview/reconcile");
+      const result = await reconcilePreviews();
+      if (result.changed > 0) console.log(`[Worker:preview] ${result.changed}/${result.checked} preview(s) moved on`);
+    },
+    { connection, concurrency: 1 }
+  );
+
+  const workers = [indexingWorker, executionWorker, reportingWorker, schedulerWorker, planningWorker, previewWorker];
 
   workers.forEach((worker) => {
     worker.on("completed", (job) => {
@@ -64,6 +78,7 @@ export function registerWorkers(): void {
         `[Worker:${worker.name}] Job ${job?.id} failed:`,
         err.message
       );
+      void recordJobFailure(worker.name, job, err);
     });
 
     worker.on("error", (err) => {
@@ -78,7 +93,20 @@ export function registerWorkers(): void {
     console.error("[Workers] Failed to register scheduler repeatable:", err.message);
   });
 
+  registerPreviewRepeatable().catch((err) => {
+    console.error("[Workers] Failed to register preview reconcile repeatable:", err.message);
+  });
+
   console.log("[Workers] All workers registered");
+}
+
+/** Re-resolve pending PR previews every 2 minutes (and time them out after 15). */
+async function registerPreviewRepeatable(): Promise<void> {
+  await getPreviewQueue().upsertJobScheduler(
+    "preview-reconcile",
+    { every: 120_000 },
+    { name: "reconcile_previews", data: { type: "reconcile_previews" as const } }
+  );
 }
 
 async function registerSchedulerRepeatable(): Promise<void> {
@@ -98,6 +126,8 @@ async function registerSchedulerRepeatable(): Promise<void> {
 
 export async function shutdownWorkers(): Promise<void> {
   console.log("[Workers] Shutting down...");
+  // Lets running jobs stop between test cases; close() then waits for them.
+  requestShutdown();
   await Promise.all(activeWorkers.map((w) => w.close()));
   activeWorkers.length = 0;
   console.log("[Workers] All workers shut down");

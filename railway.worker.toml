@@ -1,0 +1,10 @@
+# Worker service for split mode (ORBIT_ROLE=worker): same image as web, no HTTP.
+# Point the worker service's Config as Code path at this file.
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3
+drainingSeconds = 90

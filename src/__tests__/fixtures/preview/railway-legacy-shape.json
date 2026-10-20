@@ -1,0 +1,6 @@
+{
+  "type": "DEPLOY_COMPLETED",
+  "timestamp": "2026-10-20T12:00:00.000Z",
+  "project": { "id": "rw-project-1", "name": "acme-web" },
+  "deployment": { "id": "x", "status": "SUCCESS", "url": "https://evil.example.com", "staticUrl": null }
+}

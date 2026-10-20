@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
+import { resetRouteAuth } from "../helpers/route-auth";
 
 type Row = Record<string, unknown>;
 let invites: Row[];
@@ -35,10 +36,11 @@ vi.mock("@/lib/db", () => ({
     },
   },
 }));
-vi.mock("@/lib/auth/rbac", () => ({
-  requirePermission: vi.fn(async () => ({ role: "owner", session: { user: { id: "u1", name: "Sam" } } })),
-  assertCanManageRole: vi.fn(),
-}));
+vi.mock("@/lib/auth/rbac", () => ({ assertCanManageRole: vi.fn() }));
+vi.mock("@/server/http/session", async () => (await import("../helpers/route-auth")).sessionMock());
+vi.mock("@/server/http/auth", async (orig) =>
+  (await import("../helpers/route-auth")).authMock(await orig<Record<string, unknown>>())
+);
 vi.mock("@/lib/auth/tenant", () => ({ canConsume: (...a: unknown[]) => canConsume(...a) }));
 vi.mock("@/lib/auth/audit", () => ({ writeAuditLog: vi.fn() }));
 vi.mock("@/lib/email/invite-email", () => ({
@@ -51,6 +53,7 @@ const post = (body: unknown) =>
 
 beforeEach(() => {
   vi.clearAllMocks();
+  resetRouteAuth();
   invites = [];
   members = [];
   canConsume.mockResolvedValue({ allowed: true });

@@ -2,12 +2,10 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
 import { existsSync } from "fs";
 import { join } from "path";
+import { resetRouteAuth, routeAuth } from "../helpers/route-auth";
 
-type Ctx = { role: string; memberId: string };
-let ctx: Ctx;
 let workspace: Record<string, unknown> | null;
 let ownerCount: number;
-const requirePermission = vi.fn();
 const audit = vi.fn();
 const wsCreate = vi.fn();
 
@@ -32,9 +30,10 @@ vi.mock("@/lib/db", () => ({
     },
   },
 }));
-vi.mock("@/lib/auth/rbac", () => ({
-  requirePermission: (...a: unknown[]) => requirePermission(...a),
-}));
+vi.mock("@/server/http/session", async () => (await import("../helpers/route-auth")).sessionMock());
+vi.mock("@/server/http/auth", async (orig) =>
+  (await import("../helpers/route-auth")).authMock(await orig<Record<string, unknown>>())
+);
 vi.mock("@/lib/auth/audit", () => ({ writeAuditLog: (...a: unknown[]) => audit(...a) }));
 vi.mock("@/lib/utils/api", async (orig) => ({
   ...(await orig<typeof import("@/lib/utils/api")>()),
@@ -47,10 +46,9 @@ const req = (method: string, body?: unknown) =>
 
 beforeEach(() => {
   vi.clearAllMocks();
-  ctx = { role: "owner", memberId: "m1" };
+  resetRouteAuth();
   workspace = { id: "w1", name: "Acme", slug: "acme", stripeSubscriptionId: null };
   ownerCount = 1;
-  requirePermission.mockImplementation(async () => ({ ...ctx, session: { user: { id: "u1" } } }));
 });
 
 describe("PATCH /api/workspaces/[id]", () => {
@@ -58,7 +56,9 @@ describe("PATCH /api/workspaces/[id]", () => {
     const { PATCH } = await import("@/app/api/workspaces/[workspaceId]/route");
     const ok = await PATCH(req("PATCH", { name: "New Name", slug: "new-name" }), params);
     expect(ok.status).toBe(200);
-    expect(requirePermission).toHaveBeenCalledWith("w1", "workspace.update");
+    routeAuth.role = "viewer";
+    expect((await PATCH(req("PATCH", { name: "Nope" }), params)).status).toBe(403);
+    routeAuth.role = "owner";
     expect(audit).toHaveBeenCalledWith(expect.objectContaining({ action: "workspace.settings_updated" }));
 
     expect((await PATCH(req("PATCH", { slug: "taken" }), params)).status).toBe(409);
@@ -88,10 +88,10 @@ describe("DELETE /api/workspaces/[id]", () => {
 
   it("is owner only and refuses while a subscription is active", async () => {
     const { DELETE } = await import("@/app/api/workspaces/[workspaceId]/route");
-    ctx.role = "admin";
+    routeAuth.role = "admin";
     expect((await DELETE(req("DELETE", { confirmName: "Acme" }), params)).status).toBe(403);
 
-    ctx.role = "owner";
+    routeAuth.role = "owner";
     workspace = { ...workspace, stripeSubscriptionId: "sub_1" };
     expect((await DELETE(req("DELETE", { confirmName: "Acme" }), params)).status).toBe(409);
   });
@@ -105,7 +105,7 @@ describe("DELETE /api/workspaces/[id]", () => {
 
 describe("POST /api/workspaces/[id]/leave", () => {
   it("lets a member leave and audits it", async () => {
-    ctx.role = "member";
+    routeAuth.role = "member";
     const { POST } = await import("@/app/api/workspaces/[workspaceId]/leave/route");
     expect((await POST(req("POST"), params)).status).toBe(200);
     expect(audit).toHaveBeenCalledWith(expect.objectContaining({ action: "member.left" }));

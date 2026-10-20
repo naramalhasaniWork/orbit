@@ -15,6 +15,7 @@ const nextConfig = {
       "@aws-sdk/s3-request-presigner",
       "stripe",
       "sharp",
+      "pino",
     ],
     outputFileTracingIncludes: {
       "/**": [

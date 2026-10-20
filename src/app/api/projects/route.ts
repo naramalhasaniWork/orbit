@@ -1,38 +1,26 @@
 import { redactSettingsOf } from "@/lib/integrations/redact";
-import { NextRequest } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { requirePermission } from "@/lib/auth/rbac";
 import { canConsume } from "@/lib/auth/tenant";
-import {
-  requireWorkspace,
-  apiSuccess,
-  apiError,
-  handleApiError,
-} from "@/lib/utils/api";
+import { apiSuccess, apiError } from "@/lib/utils/api";
 import { generateSlug } from "@/lib/utils/slug";
+import { route } from "@/server/http/route";
 
-export async function GET(request: NextRequest) {
-  try {
-    const { workspaceId } = await requireWorkspace();
+export const GET = route({}, async ({ req: request, workspaceId }) => {
+  const { searchParams } = new URL(request.url);
+  const status = searchParams.get("status") ?? "active";
 
-    const { searchParams } = new URL(request.url);
-    const status = searchParams.get("status") ?? "active";
-
-    const where: Record<string, unknown> = { workspaceId };
-    if (status !== "all") {
-      where.status = status;
-    }
-
-    const projectList = await prisma.project.findMany({
-      where,
-    });
-
-    return apiSuccess(projectList.map(redactSettingsOf));
-  } catch (error) {
-    return handleApiError(error);
+  const where: Record<string, unknown> = { workspaceId };
+  if (status !== "all") {
+    where.status = status;
   }
-}
+
+  const projectList = await prisma.project.findMany({
+    where,
+  });
+
+  return apiSuccess(projectList.map(redactSettingsOf));
+});
 
 const CreateProjectSchema = z.object({
   name: z.string().min(1, "Project name is required").max(100),
@@ -42,13 +30,9 @@ const CreateProjectSchema = z.object({
   defaultBranch: z.string().optional().default("main"),
 });
 
-export async function POST(request: NextRequest) {
-  try {
-    const { workspaceId } = await requireWorkspace();
-
-    // RBAC: require projects.create permission
-    await requirePermission(workspaceId, "projects.create");
-
+export const POST = route(
+  { permission: "projects.create" },
+  async ({ req: request, workspaceId }) => {
     const allowance = await canConsume(workspaceId, "project");
     if (!allowance.allowed) {
       return apiError(allowance.reason, allowance.code, allowance.code === "NOT_FOUND" ? 404 : 403);
@@ -78,7 +62,5 @@ export async function POST(request: NextRequest) {
     });
 
     return apiSuccess(redactSettingsOf(project), 201);
-  } catch (error) {
-    return handleApiError(error);
   }
-}
+);

@@ -29,6 +29,9 @@ RUN pnpm prisma generate
 # Build Next.js (standalone output)
 RUN pnpm build
 
+# Standalone worker bundle (dist/worker.mjs) for ORBIT_ROLE=worker
+RUN pnpm build:worker
+
 # --- Runner ---
 FROM base AS runner
 WORKDIR /app
@@ -49,6 +52,8 @@ COPY --from=builder /app/public ./public
 # Copy standalone build output
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
+# Worker entry; its externals resolve from the standalone node_modules above
+COPY --from=builder /app/dist/worker.mjs ./worker.mjs
 
 # Prisma CLI, schema, migrations and config live in /prisma and are used by scripts/start.sh
 COPY --from=prisma-cli /prisma/node_modules /prisma/node_modules

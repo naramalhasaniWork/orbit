@@ -1,14 +1,8 @@
-import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
-import {
-  requireWorkspace,
-  apiSuccess,
-  apiError,
-  handleApiError,
-} from "@/lib/utils/api";
+import { apiSuccess, apiError } from "@/lib/utils/api";
 import { enqueuePlanGeneration } from "@/services/planning/plan-jobs";
-import { requirePermission } from "@/lib/auth/rbac";
 import { isProjectIndexed, INDEX_REQUIRED_MESSAGE } from "@/services/indexing/index-status";
+import { route } from "@/server/http/route";
 
 // Dynamic import: planner transitively imports prompt files containing
 // markdown with backtick-escaped code examples that confuse the Next.js
@@ -38,71 +32,55 @@ async function validateProjectAccess(projectId: string, workspaceId: string) {
   return project;
 }
 
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: Promise<{ projectId: string }> }
-) {
-  try {
-    const { workspaceId } = await requireWorkspace();
-    const { projectId } = await params;
-
-    const project = await validateProjectAccess(projectId, workspaceId);
-    if (!project) {
-      return apiError("Project not found", "NOT_FOUND", 404);
-    }
-
-    const { getExistingPlan } = await getPlannerService();
-    const cached = await getExistingPlan(projectId);
-    if (!cached) {
-      return apiSuccess({ plan: null, testCases: [] });
-    }
-
-    return apiSuccess({
-      plan: {
-        id: cached.plan.id,
-        projectId: cached.plan.projectId,
-        version: cached.plan.version,
-        isActive: cached.plan.isActive,
-        generatedBy: cached.plan.generatedBy,
-        summary: cached.plan.summary,
-        createdAt: cached.plan.createdAt,
-      },
-      testCases: cached.testCases.map((tc) => ({
-        id: tc.id,
-        name: tc.name,
-        type: tc.type,
-        journey: tc.journey,
-        priorityScore: tc.priorityScore,
-        criticality: tc.criticality,
-        risk: tc.risk,
-        coverageGap: tc.coverageGap,
-        steps: tc.steps,
-        rationale: tc.rationale,
-        edgeCases: tc.edgeCases,
-        isEnabled: tc.isEnabled,
-        isCritical: tc.isCritical,
-        lastVerdict: tc.lastVerdict,
-      })),
-    });
-  } catch (error) {
-    return handleApiError(error);
+export const GET = route({}, async ({ params: { projectId }, workspaceId }) => {
+  const project = await validateProjectAccess(projectId, workspaceId);
+  if (!project) {
+    return apiError("Project not found", "NOT_FOUND", 404);
   }
-}
+
+  const { getExistingPlan } = await getPlannerService();
+  const cached = await getExistingPlan(projectId);
+  if (!cached) {
+    return apiSuccess({ plan: null, testCases: [] });
+  }
+
+  return apiSuccess({
+    plan: {
+      id: cached.plan.id,
+      projectId: cached.plan.projectId,
+      version: cached.plan.version,
+      isActive: cached.plan.isActive,
+      generatedBy: cached.plan.generatedBy,
+      summary: cached.plan.summary,
+      createdAt: cached.plan.createdAt,
+    },
+    testCases: cached.testCases.map((tc) => ({
+      id: tc.id,
+      name: tc.name,
+      type: tc.type,
+      journey: tc.journey,
+      priorityScore: tc.priorityScore,
+      criticality: tc.criticality,
+      risk: tc.risk,
+      coverageGap: tc.coverageGap,
+      steps: tc.steps,
+      rationale: tc.rationale,
+      edgeCases: tc.edgeCases,
+      isEnabled: tc.isEnabled,
+      isCritical: tc.isCritical,
+      lastVerdict: tc.lastVerdict,
+    })),
+  });
+});
 
 /**
  * Queues plan generation and returns 202 immediately. Generation takes
  * minutes of LLM work; progress streams from ./progress and the latest state
  * is readable from ./job, so the UI survives a reload.
  */
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ projectId: string }> }
-) {
-  try {
-    const { workspaceId } = await requireWorkspace();
-    await requirePermission(workspaceId, "plans.create");
-    const { projectId } = await params;
-
+export const POST = route(
+  { permission: "plans.create" },
+  async ({ req: request, params: { projectId }, workspaceId }) => {
     const project = await validateProjectAccess(projectId, workspaceId);
     if (!project) {
       return apiError("Project not found", "NOT_FOUND", 404);
@@ -137,7 +115,5 @@ export async function POST(
     });
 
     return apiSuccess({ job: state, alreadyRunning }, 202);
-  } catch (error) {
-    return handleApiError(error);
   }
-}
+);

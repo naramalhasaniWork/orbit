@@ -6,9 +6,6 @@ vi.mock("@/services/orchestrator/run-launcher", () => ({
   launchPipelineRun: vi.fn(),
   launchSummary: vi.fn(),
 }));
-vi.mock("@/services/integrations/railway/environment-sync", () => ({
-  updateEnvironmentUrl: vi.fn(),
-}));
 vi.mock("@/services/integrations/slack-commands", () => ({
   findWorkspaceBySlackTeam: vi.fn(),
   handleStatus: vi.fn(),
@@ -32,12 +29,6 @@ const CASES: WebhookCase[] = [
     envVar: "LINEAR_WEBHOOK_SECRET",
     route: () => import("@/app/api/webhooks/linear/route"),
     signatureHeaders: { "linear-signature": "bad" },
-  },
-  {
-    name: "railway",
-    envVar: "RAILWAY_WEBHOOK_SECRET",
-    route: () => import("@/app/api/webhooks/railway/route"),
-    signatureHeaders: { "x-railway-signature": "bad" },
   },
   {
     name: "slack commands",
