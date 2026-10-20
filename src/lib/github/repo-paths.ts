@@ -1,5 +1,6 @@
 /**
- * Safe construction of GitHub API URLs and repo storage keys.
+ * Safe construction of Git provider API URLs (GitHub, GitLab, Bitbucket)
+ * and repo storage keys.
  *
  * Paths, refs and names reach these builders from indexing, webhooks and user
  * input, and the requests carry the project's GitHub token. Without checks,
@@ -124,4 +125,80 @@ export function repoStorageKey(projectId: string, branch: string, filePath?: str
   const prefix = `repos/${projectId}/${branch}`;
   if (filePath === undefined) return prefix;
   return `${prefix}/${assertSafeRepoPath(filePath, "path")}`;
+}
+
+// ============================================================
+// Token-bearing downloads and other providers
+// ============================================================
+
+/** Hosts that may receive a GitHub token when following a download_url. */
+const GITHUB_DOWNLOAD_HOSTS = new Set(["raw.githubusercontent.com", "api.github.com"]);
+
+/** True when a URL from a GitHub API response may be fetched with the token. */
+export function isTrustedGitHubDownloadUrl(url: string): boolean {
+  try {
+    const parsed = new URL(url);
+    return (
+      parsed.protocol === "https:" &&
+      GITHUB_DOWNLOAD_HOSTS.has(parsed.hostname) &&
+      parsed.port === "" &&
+      !parsed.username &&
+      !parsed.password
+    );
+  } catch {
+    return false;
+  }
+}
+
+const GITLAB_API = "https://gitlab.com";
+
+function gitlabProjectBase(projectPath: string): string {
+  assertSafeRepoPath(projectPath, "GitLab project");
+  for (const segment of projectPath.split("/")) assertSafeRepoName(segment, "GitLab namespace");
+  return `/api/v4/projects/${encodeURIComponent(projectPath)}/repository/`;
+}
+
+/** GitLab repository tree listing for a directory ("" = root). */
+export function gitlabTreeUrl(projectPath: string, ref: string, dirPath: string): string {
+  const base = gitlabProjectBase(projectPath);
+  assertSafeRepoPath(ref, "ref");
+  assertSafeRepoPath(dirPath, "path", true);
+  const qs = new URLSearchParams({ ref, path: dirPath || "/", per_page: "100" });
+  return assertUnder(`${GITLAB_API}${base}tree?${qs.toString()}`, `${base}tree`);
+}
+
+/** GitLab raw file content. The file path is one encoded segment, per GitLab's API. */
+export function gitlabRawFileUrl(projectPath: string, filePath: string, ref: string): string {
+  const base = gitlabProjectBase(projectPath);
+  assertSafeRepoPath(filePath, "path");
+  assertSafeRepoPath(ref, "ref");
+  const prefix = `${base}files/`;
+  const url = `${GITLAB_API}${prefix}${encodeURIComponent(filePath)}/raw?${new URLSearchParams({ ref }).toString()}`;
+  return assertUnder(url, prefix);
+}
+
+const BITBUCKET_API = "https://api.bitbucket.org";
+
+function bitbucketSrcPrefix(workspace: string, repo: string): string {
+  return `/2.0/repositories/${encodeURIComponent(assertSafeRepoName(workspace, "workspace"))}/${encodeURIComponent(assertSafeRepoName(repo, "repo"))}/src/`;
+}
+
+/** Bitbucket `src` endpoint: a directory listing (no filePath) or a file's content. */
+export function bitbucketSrcUrl(
+  workspace: string, repo: string, ref: string, filePath?: string, query?: Record<string, string>
+): string {
+  const prefix = bitbucketSrcPrefix(workspace, repo);
+  assertSafeRepoPath(ref, "ref");
+  const path = filePath === undefined ? "" : encodeSegments(assertSafeRepoPath(filePath, "path"));
+  const qs = query ? `?${new URLSearchParams(query).toString()}` : "";
+  return assertUnder(`${BITBUCKET_API}${prefix}${encodeURIComponent(ref)}/${path}${qs}`, prefix);
+}
+
+/** A Bitbucket pagination `next` link may only continue the same listing on the API host. */
+export function assertBitbucketPageUrl(next: string, workspace: string, repo: string): string {
+  const parsed = new URL(next);
+  if (parsed.protocol !== "https:" || parsed.host !== "api.bitbucket.org") {
+    throw new UnsafeRepoPathError(`Unexpected Bitbucket pagination host: ${parsed.host}`);
+  }
+  return assertUnder(next, bitbucketSrcPrefix(workspace, repo));
 }
