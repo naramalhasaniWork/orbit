@@ -1,4 +1,5 @@
 "use client";
+import { Pending } from "@/components/telemetry/pending";
 
 import { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -37,10 +38,10 @@ const typeConfig: Record<
   BackgroundOperation["type"],
   { icon: LucideIcon; color: string; barColor: string }
 > = {
-  indexing: { icon: Search, color: "text-blue-400", barColor: "bg-blue-400" },
-  planning: { icon: ClipboardList, color: "text-violet-400", barColor: "bg-violet-400" },
-  execution: { icon: Play, color: "text-amber-400", barColor: "bg-amber-400" },
-  reporting: { icon: FileText, color: "text-emerald-400", barColor: "bg-emerald-400" },
+  indexing: { icon: Search, color: "text-tm-info", barColor: "bg-tm-info" },
+  planning: { icon: ClipboardList, color: "text-tm-t2", barColor: "bg-tm-t2" },
+  execution: { icon: Play, color: "text-tm-warn", barColor: "bg-tm-warn" },
+  reporting: { icon: FileText, color: "text-tm-pass", barColor: "bg-tm-pass" },
 };
 
 // ============================================================
@@ -60,14 +61,11 @@ export function AgentActivityPanel({ operations }: AgentActivityPanelProps) {
     <div className="w-[280px] shrink-0 flex flex-col bg-foreground/[0.02] overflow-hidden">
       {/* Header */}
       <div className="px-4 py-3 border-b border-border flex items-center gap-2">
-        <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+        <span className=" tm-label text-muted-foreground">
           Activity
         </span>
         {hasActive && (
-          <span className="relative flex h-2 w-2">
-            <span className="absolute inset-0 rounded-full bg-orbit-accent animate-ping opacity-75" />
-            <span className="relative inline-flex h-2 w-2 rounded-full bg-orbit-accent" />
-          </span>
+          <Pending label="Agent working" />
         )}
       </div>
 
@@ -106,12 +104,12 @@ function OperationCard({ operation }: { operation: BackgroundOperation }) {
       transition={{ duration: 0.2 }}
       className={cn(
         "rounded-lg bg-foreground/[0.03] border border-border p-3 space-y-2",
-        isError && "border-red-400/20",
+        isError && "border-tm-fail/20",
       )}
     >
       {/* Label row */}
       <div className="flex items-center gap-2">
-        <Icon className={cn("h-3.5 w-3.5 shrink-0", isError ? "text-red-400" : color)} />
+        <Icon className={cn("h-3.5 w-3.5 shrink-0", isError ? "text-tm-fail" : color)} />
         <span className="flex-1 text-xs font-medium text-foreground truncate">
           {operation.label}
         </span>
@@ -125,7 +123,7 @@ function OperationCard({ operation }: { operation: BackgroundOperation }) {
         <div
           className={cn(
             "h-full rounded-full transition-[width] duration-500 ease-out",
-            isError ? "bg-red-400" : barColor,
+            isError ? "bg-tm-fail" : barColor,
           )}
           style={{ width: `${Math.min(operation.progress, 100)}%` }}
         />

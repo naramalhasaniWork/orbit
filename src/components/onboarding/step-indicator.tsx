@@ -39,21 +39,21 @@ export function StepIndicator({ currentStep }: StepIndicatorProps) {
                 animate={{
                   scale: isCurrent ? 1 : isComplete ? 0.95 : 0.9,
                   backgroundColor: isComplete
-                    ? "hsl(var(--orbit-accent))"
+                    ? "hsl(var(--tm-t1))"
                     : isCurrent
-                      ? "hsl(var(--orbit-accent) / 0.1)"
+                      ? "hsl(var(--tm-t1) / 0.1)"
                       : "transparent",
                   borderColor: isComplete
-                    ? "hsl(var(--orbit-accent))"
+                    ? "hsl(var(--tm-t1))"
                     : isCurrent
-                      ? "hsl(var(--orbit-accent))"
+                      ? "hsl(var(--tm-t1))"
                       : "hsl(var(--muted-foreground) / 0.3)",
                 }}
                 transition={{ duration: 0.3, ease: "easeOut" }}
                 className={cn(
                   "flex items-center justify-center h-8 w-8 rounded-full text-xs font-medium border",
                   isComplete && "text-white",
-                  isCurrent && "text-orbit-accent",
+                  isCurrent && "text-foreground",
                   !isComplete && !isCurrent && "text-muted-foreground/50"
                 )}
               >
@@ -103,7 +103,7 @@ export function StepIndicator({ currentStep }: StepIndicatorProps) {
                         : 0,
                   }}
                   transition={{ duration: 0.5, ease: "easeOut" }}
-                  className="absolute inset-y-0 left-0 right-0 bg-orbit-accent origin-left"
+                  className="absolute inset-y-0 left-0 right-0 bg-foreground origin-left"
                 />
               </div>
             )}

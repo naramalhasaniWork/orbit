@@ -2,8 +2,10 @@
 
 import { Pending } from "@/components/telemetry/pending";
 import { useState, useEffect, useCallback } from "react";
-import { Image as ImageIcon, X, ChevronLeft, ChevronRight } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Image as ImageIcon, ChevronLeft, ChevronRight } from "lucide-react";
+
+import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { EmptyState } from "@/components/shared/empty-state";
 import { formatDistanceToNow } from "date-fns";
 
@@ -59,27 +61,6 @@ export function RunScreenshotsTab({ runId, projectId }: RunScreenshotsTabProps) 
   useEffect(() => {
     fetchScreenshots();
   }, [fetchScreenshots]);
-
-  useEffect(() => {
-    if (lightboxIndex === null) return;
-
-    function handleKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") setLightboxIndex(null);
-      if (e.key === "ArrowLeft") {
-        setLightboxIndex((prev) =>
-          prev !== null && prev > 0 ? prev - 1 : prev
-        );
-      }
-      if (e.key === "ArrowRight") {
-        setLightboxIndex((prev) =>
-          prev !== null && prev < screenshots.length - 1 ? prev + 1 : prev
-        );
-      }
-    }
-
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [lightboxIndex, screenshots.length]);
 
   if (loading) {
     return (
@@ -157,6 +138,7 @@ export function RunScreenshotsTab({ runId, projectId }: RunScreenshotsTabProps) 
   );
 }
 
+/** Screenshot viewer on the Dialog primitive: focus trap, Escape, focus returns to the thumbnail; ← → step. */
 function Lightbox({
   screenshots,
   currentIndex,
@@ -170,73 +152,38 @@ function Lightbox({
 }) {
   const current = screenshots[currentIndex];
   if (!current) return null;
-
   const hasPrev = currentIndex > 0;
   const hasNext = currentIndex < screenshots.length - 1;
+  const label = stepLabel(current.stepIndex, current.fileName);
 
   return (
-    <div
-      className="fixed inset-0 z-modal flex items-center justify-center bg-black/80"
-      onClick={onClose}
-    >
-      <div
-        className="relative max-w-[90vw] max-h-[90vh] flex flex-col"
-        onClick={(e) => e.stopPropagation()}
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent
+        className="max-w-[min(1100px,calc(100%-2rem))] gap-3 p-4"
+        onKeyDown={(e) => {
+          if (e.key === "ArrowLeft" && hasPrev) onNavigate(currentIndex - 1);
+          if (e.key === "ArrowRight" && hasNext) onNavigate(currentIndex + 1);
+        }}
       >
-        {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 bg-black/60 rounded-t-xl">
-          <div>
-            <p className="text-sm font-medium text-foreground">
-              {stepLabel(current.stepIndex, current.fileName)}
-            </p>
-            <p className="text-[11px] text-muted-foreground">
-              {currentIndex + 1} of {screenshots.length}
-              {" -- "}
-              {formatDistanceToNow(new Date(current.createdAt), { addSuffix: true })}
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-md hover:bg-foreground/[0.1] transition-colors text-muted-foreground hover:text-foreground"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-
-        {/* Image */}
-        <div className="relative overflow-auto bg-black/40 rounded-b-xl">
+        <DialogHeader className="pr-10">
+          <DialogTitle>{label}</DialogTitle>
+          <DialogDescription className="tm-label text-tm-t3">
+            {currentIndex + 1} of {screenshots.length} · {formatDistanceToNow(new Date(current.createdAt), { addSuffix: true })}
+          </DialogDescription>
+        </DialogHeader>
+        <div className="flex min-h-[240px] items-center justify-center overflow-auto rounded-md border border-border bg-tm-sunken">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={current.url}
-            alt={stepLabel(current.stepIndex, current.fileName)}
-            className="max-w-full max-h-[75vh] object-contain mx-auto"
-          />
+          <img src={current.url} alt={label} className="mx-auto max-h-[70dvh] max-w-full object-contain" />
         </div>
-
-        {/* Navigation */}
-        {hasPrev && (
-          <button
-            onClick={() => onNavigate(currentIndex - 1)}
-            className={cn(
-              "absolute left-2 top-1/2 -translate-y-1/2 p-2 rounded-full",
-              "bg-black/60 hover:bg-black/80 text-white transition-colors"
-            )}
-          >
-            <ChevronLeft className="h-5 w-5" />
-          </button>
-        )}
-        {hasNext && (
-          <button
-            onClick={() => onNavigate(currentIndex + 1)}
-            className={cn(
-              "absolute right-2 top-1/2 -translate-y-1/2 p-2 rounded-full",
-              "bg-black/60 hover:bg-black/80 text-white transition-colors"
-            )}
-          >
-            <ChevronRight className="h-5 w-5" />
-          </button>
-        )}
-      </div>
-    </div>
+        <div className="flex items-center justify-between">
+          <Button variant="outline" size="sm" disabled={!hasPrev} onClick={() => onNavigate(currentIndex - 1)}>
+            <ChevronLeft aria-hidden="true" /> Previous
+          </Button>
+          <Button variant="outline" size="sm" disabled={!hasNext} onClick={() => onNavigate(currentIndex + 1)}>
+            Next <ChevronRight aria-hidden="true" />
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }

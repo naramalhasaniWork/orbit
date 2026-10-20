@@ -6,7 +6,7 @@ import { SelectCheckbox } from "@/components/shared/select-checkbox";
 import { Status } from "@/components/telemetry/status";
 import { cn } from "@/lib/utils";
 import { formatRunTitle } from "@/lib/runs/run-title";
-import { toneForRun } from "@/lib/status-tone";
+import { runWord, toneForRun } from "@/lib/status-tone";
 import {
   type RunListItem,
   RUN_STATUS_CONFIG,
@@ -25,8 +25,7 @@ interface RunRowProps {
 export function RunRow({ run, selected, onToggleSelect }: RunRowProps) {
   const title = formatRunTitle(run);
   const tone = toneForRun(run.status, run);
-  const word =
-    run.status === "completed" ? (tone === "fail" ? "Failed" : tone === "flaky" ? "Flaky" : "Passed") : RUN_STATUS_CONFIG[run.status]?.label ?? run.status;
+  const word = run.status === "completed" ? runWord(run.status, run) : RUN_STATUS_CONFIG[run.status]?.label ?? run.status;
 
   return (
     <div className={cn("flex items-center transition-colors", selected ? "bg-accent" : "hover:bg-accent/60")}>
@@ -40,12 +39,13 @@ export function RunRow({ run, selected, onToggleSelect }: RunRowProps) {
         <Status tone={tone} label={word} mono />
         <span className="min-w-0">
           <span className="block truncate text-[13px] font-medium text-foreground">{title}</span>
-          <span className="tm-label mt-0.5 flex gap-2 truncate text-tm-t3">
-            <span>{TRIGGER_LABELS[run.trigger] ?? run.trigger}</span>
-            <span>· {MODE_LABELS[run.mode] ?? run.mode}</span>
-            {run.branch && <span className="truncate normal-case">· {run.branch}</span>}
-            {run.commitSha && <span className="normal-case">· {run.commitSha.slice(0, 7)}</span>}
-            <span className="normal-case">· {formatDistanceToNow(new Date(run.createdAt), { addSuffix: true })}</span>
+          {/* Inline text so it ends in an ellipsis; below sm only trigger and age. */}
+          <span className="tm-label mt-0.5 block truncate text-tm-t3">
+            {TRIGGER_LABELS[run.trigger] ?? run.trigger}
+            <span className="hidden sm:inline"> · {MODE_LABELS[run.mode] ?? run.mode}</span>
+            {run.branch && <span className="hidden normal-case sm:inline"> · {run.branch}</span>}
+            {run.commitSha && <span className="hidden normal-case sm:inline"> · {run.commitSha.slice(0, 7)}</span>}
+            <span className="normal-case"> · {formatDistanceToNow(new Date(run.createdAt), { addSuffix: true })}</span>
           </span>
         </span>
         <TestCounts run={run} />

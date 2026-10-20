@@ -113,7 +113,7 @@ export function JobsClient({ initialFailures, initialTotal }: JobsClientProps) {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-foreground">Dead-letter Jobs</h2>
+          <h2 className="text-lg font-medium text-foreground">Dead-letter Jobs</h2>
           <p className="text-sm text-muted-foreground">Jobs that exhausted their retries. Retry re-queues the job; Discard closes it.</p>
         </div>
         <Select value={status} onValueChange={(v) => { const s = v as FailureStatus; setStatus(s); setPage(1); load(1, s); }}>

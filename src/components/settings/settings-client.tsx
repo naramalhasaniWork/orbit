@@ -1,7 +1,5 @@
 "use client";
 
-import { motion, AnimatePresence } from "framer-motion";
-import { tween } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { useUrlParams } from "@/hooks/use-url-state";
 import { ProjectSettings } from "@/components/settings/project-settings";
@@ -52,21 +50,22 @@ interface SettingsClientProps {
   role?: string | null;
 }
 
+// Grouped so General reads as one vertical sub-nav under the section tabs, not a second tab row.
 const tabs = [
-  { id: "project", label: "Project" },
-  { id: "config", label: "Config" },
-  { id: "environments", label: "Environments" },
-  { id: "schedules", label: "Schedules" },
-  { id: "secrets", label: "Secrets" },
-  { id: "notes", label: "Notes" },
-  { id: "agents", label: "Agents" },
-  { id: "knowledge", label: "Knowledge" },
-  { id: "integrations", label: "Integrations" },
-  { id: "webhooks", label: "Webhooks" },
-  { id: "api-keys", label: "API Keys" },
-  { id: "plugins", label: "Plugins" },
-  { id: "workspace", label: "Workspace" },
-  { id: "audit", label: "Audit Log" },
+  { id: "project", label: "Project", group: "Project" },
+  { id: "config", label: "Config", group: "Project" },
+  { id: "environments", label: "Environments", group: "Project" },
+  { id: "schedules", label: "Schedules", group: "Project" },
+  { id: "secrets", label: "Secrets", group: "Project" },
+  { id: "notes", label: "Notes", group: "Project" },
+  { id: "agents", label: "Agents", group: "Agent" },
+  { id: "knowledge", label: "Knowledge", group: "Agent" },
+  { id: "integrations", label: "Integrations", group: "Connections" },
+  { id: "webhooks", label: "Webhooks", group: "Connections" },
+  { id: "api-keys", label: "API Keys", group: "Connections" },
+  { id: "plugins", label: "Plugins", group: "Connections" },
+  { id: "workspace", label: "Workspace", group: "Workspace" },
+  { id: "audit", label: "Audit Log", group: "Workspace" },
 ] as const;
 
 type TabId = (typeof tabs)[number]["id"];
@@ -88,48 +87,45 @@ export function SettingsClient({
   const setActiveTab = (id: TabId) => setUrlParams({ tab: id });
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-lg font-semibold text-foreground">Settings</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          Manage your project, environments, and workspace configuration.
-        </p>
-      </div>
-
-      <div className="flex gap-0.5 overflow-x-auto">
-        {tabs.map((tab) => (
-          <button
-            key={tab.id}
-            type="button"
-            onClick={() => setActiveTab(tab.id)}
-            className={cn(
-              "px-3.5 py-1.5 text-[13px] font-medium transition-colors rounded-md relative whitespace-nowrap",
-              activeTab === tab.id
-                ? "text-foreground bg-foreground/[0.06]"
-                : "text-muted-foreground hover:text-foreground hover:bg-foreground/[0.03]"
-            )}
-          >
-            {activeTab === tab.id && (
-              <motion.div
-                layoutId="settings-tab-indicator"
-                className="absolute inset-0 rounded-md bg-foreground/[0.06]"
-                transition={tween.change}
-              />
-            )}
-            <span className="relative">{tab.label}</span>
-          </button>
-        ))}
-      </div>
-
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={activeTab}
-          initial={{ opacity: 0, y: 4 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -4 }}
-          transition={{ duration: 0.2 }}
-          className="min-h-[400px]"
+    <div className="grid gap-6 md:grid-cols-[180px_minmax(0,1fr)]">
+      <div className="md:hidden">
+        <label htmlFor="settings-section" className="tm-label mb-1.5 block text-tm-t3">Section</label>
+        <select
+          id="settings-section"
+          value={activeTab}
+          onChange={(e) => setActiveTab(e.target.value as TabId)}
+          className="h-9 w-full rounded-md border border-input bg-card px-2 text-base focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
+          {tabs.map((t) => (
+            <option key={t.id} value={t.id}>{t.group === t.label ? t.label : `${t.group} · ${t.label}`}</option>
+          ))}
+        </select>
+      </div>
+
+      <nav aria-label="General settings" className="hidden md:block">
+        {Array.from(new Set(tabs.map((t) => t.group))).map((group) => (
+          <div key={group} className="mb-4">
+            <p className="tm-label mb-1 px-2 text-tm-t3">{group}</p>
+            {tabs.filter((t) => t.group === group).map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id)}
+                aria-current={activeTab === tab.id ? "page" : undefined}
+                className={cn(
+                  "flex h-8 w-full items-center rounded-md px-2 text-left text-[13px] transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  activeTab === tab.id ? "bg-accent font-medium text-foreground" : "text-tm-t2 hover:bg-accent hover:text-foreground"
+                )}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
+        ))}
+      </nav>
+
+      <div className="min-w-0">
+        <div key={activeTab} className="min-h-[400px]">
           {activeTab === "project" && <ProjectSettings project={project} />}
           {activeTab === "config" && <ConfigEditor projectId={project?.id ?? null} />}
           {activeTab === "environments" && (
@@ -173,8 +169,8 @@ export function SettingsClient({
           )}
           {activeTab === "workspace" && <WorkspaceSettings workspace={workspace} role={role} />}
           {activeTab === "audit" && workspace && <AuditLogViewer workspaceId={workspace.id} />}
-        </motion.div>
-      </AnimatePresence>
+        </div>
+      </div>
     </div>
   );
 }

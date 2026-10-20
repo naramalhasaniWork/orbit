@@ -38,8 +38,8 @@ interface MemberListProps {
 }
 
 const ROLE_CONFIG = {
-  owner: { label: "Owner", icon: Crown, color: "text-amber-400" },
-  admin: { label: "Admin", icon: Shield, color: "text-orbit-accent" },
+  owner: { label: "Owner", icon: Crown, color: "text-tm-warn" },
+  admin: { label: "Admin", icon: Shield, color: "text-foreground" },
   member: { label: "Member", icon: Shield, color: "text-muted-foreground" },
   viewer: { label: "Viewer", icon: Eye, color: "text-muted-foreground" },
   billing: { label: "Billing", icon: CreditCard, color: "text-muted-foreground" },
@@ -165,7 +165,7 @@ export function MemberList({
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
                           onClick={() => onTransfer(member.userId)}
-                          className="cursor-pointer text-amber-400"
+                          className="cursor-pointer text-tm-warn"
                         >
                           <Crown className="h-3.5 w-3.5 mr-2" />
                           Transfer Ownership
@@ -176,7 +176,7 @@ export function MemberList({
                     <DropdownMenuSeparator />
                     <DropdownMenuItem
                       onClick={() => handleRemove(member.id)}
-                      className="cursor-pointer text-red-400"
+                      className="cursor-pointer text-tm-fail"
                     >
                       <UserMinus className="h-3.5 w-3.5 mr-2" />
                       Remove Member

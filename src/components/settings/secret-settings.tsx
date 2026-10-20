@@ -166,7 +166,7 @@ export function SecretSettings({ projectId, secrets: initial, environments }: Se
               <select
                 value={newEnvId}
                 onChange={(e) => setNewEnvId(e.target.value)}
-                className="w-full h-9 rounded-md border border-transparent bg-muted/40 px-3 text-sm focus:border-orbit-accent/30 focus:outline-none"
+                className="w-full h-9 rounded-md border border-transparent bg-muted/40 px-3 text-sm focus-visible:border-tm-t3 focus:outline-none"
               >
                 <option value="">All environments (global)</option>
                 {environments.map((env) => (
@@ -182,7 +182,7 @@ export function SecretSettings({ projectId, secrets: initial, environments }: Se
             For role-specific auth, prefix with the role: <code className="text-foreground/70">ADMIN_EMAIL</code>, <code className="text-foreground/70">ADMIN_PASSWORD</code>, <code className="text-foreground/70">USER_EMAIL</code>, etc.
           </p>
           <div className="flex gap-2">
-            <Button size="sm" onClick={handleAdd} disabled={adding || !newKey || !newValue} className="bg-orbit-accent hover:bg-orbit-accent/90 text-white">
+            <Button size="sm" onClick={handleAdd} disabled={adding || !newKey || !newValue} className="bg-primary hover:bg-primary/85 text-primary-foreground">
               {adding ? "Saving..." : "Encrypt & Save"}
             </Button>
             <Button size="sm" variant="ghost" onClick={() => setShowAdd(false)} disabled={adding}>
@@ -254,7 +254,7 @@ export function SecretSettings({ projectId, secrets: initial, environments }: Se
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-mono font-medium text-foreground">{secret.key}</span>
                     {secret.environmentId ? (
-                      <Badge variant="outline" className="text-[10px] text-orbit-accent">
+                      <Badge variant="outline" className="text-[10px] text-foreground">
                         {getEnvLabel(secret.environmentId)}
                       </Badge>
                     ) : (

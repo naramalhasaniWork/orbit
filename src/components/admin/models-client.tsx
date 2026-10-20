@@ -208,11 +208,11 @@ export function ModelsClient({ initialModels, initialTotal, initialProviders }: 
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-foreground">Model Registry</h2>
+          <h2 className="text-lg font-medium text-foreground">Model Registry</h2>
           <p className="text-sm text-muted-foreground">Manage available AI models, access policies, and tier restrictions.</p>
         </div>
         <Button onClick={handleSync} disabled={syncing} size="sm">
-          <RefreshCw className={`h-3.5 w-3.5 mr-1.5 ${syncing ? "animate-spin" : ""}`} />
+          <RefreshCw className={`h-3.5 w-3.5 mr-1.5`} />
           {syncing ? "Syncing..." : "Sync from OpenRouter"}
         </Button>
       </div>

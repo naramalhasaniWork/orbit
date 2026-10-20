@@ -1,7 +1,8 @@
 "use client";
 
+import { Pending } from "@/components/telemetry/pending";
 import { useState } from "react";
-import { Eye, EyeOff, ChevronRight, Globe, Key, SkipForward, Loader2, AlertCircle } from "lucide-react";
+import { Eye, EyeOff, ChevronRight, Globe, Key, SkipForward, AlertCircle } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
@@ -90,7 +91,7 @@ export function ConfigureEnv({ projectId, onContinue, onSkip, onBack }: Configur
   return (
     <div className="flex flex-col items-center w-full max-w-md mx-auto">
       <div className="text-center mb-8">
-        <h2 className="text-xl font-semibold text-foreground mb-2">
+        <h2 className="text-xl font-medium text-foreground mb-2">
           Configure environment
         </h2>
         <p className="text-sm text-muted-foreground">
@@ -138,7 +139,7 @@ export function ConfigureEnv({ projectId, onContinue, onSkip, onBack }: Configur
                 className={cn(
                   "flex-1 px-3 py-2 rounded-md text-xs font-medium border transition-colors",
                   authMethod === method
-                    ? "border-orbit-accent bg-orbit-accent/10 text-orbit-accent"
+                    ? "border-tm-line-strong bg-foreground/[0.06] text-foreground"
                     : "border-transparent bg-muted/30 text-muted-foreground hover:bg-muted/40"
                 )}
               >
@@ -222,14 +223,14 @@ export function ConfigureEnv({ projectId, onContinue, onSkip, onBack }: Configur
           Skip for now
         </Button>
         <Button
-          className="bg-orbit-accent hover:bg-orbit-accent/90 text-white gap-2"
+          className="bg-primary hover:bg-primary/85 text-primary-foreground gap-2"
           size="lg"
           disabled={!isValid || saving}
           onClick={handleSave}
         >
           {saving ? (
             <>
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <Pending />
               Saving...
             </>
           ) : (

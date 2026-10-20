@@ -57,8 +57,8 @@ const SEVERITY_CONFIG: Record<
     order: 3,
   },
   info: {
-    color: "text-slate-400",
-    bg: "bg-slate-400/10 border-slate-400/20",
+    color: "text-tm-t3",
+    bg: "bg-tm-t3/10 border-tm-t3/20",
     icon: Info,
     order: 4,
   },

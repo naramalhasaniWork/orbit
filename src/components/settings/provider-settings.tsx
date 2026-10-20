@@ -1,7 +1,8 @@
 "use client";
 
+import { Pending } from "@/components/telemetry/pending";
 import { useState, useEffect, useCallback } from "react";
-import { Eye, EyeOff, Check, X, Loader2, Zap } from "lucide-react";
+import { Eye, EyeOff, Check, X, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -266,7 +267,7 @@ export function ProviderSettings({ workspaceId }: ProviderSettingsProps) {
                 type="button"
                 onClick={() => handleSave(provider.id)}
                 disabled={card.saving || (!data?.hasKey && !card.apiKey)}
-                className="bg-orbit-accent hover:bg-orbit-accent/90 text-white"
+                className="bg-primary hover:bg-primary/85 text-primary-foreground"
               >
                 {card.saving ? "Saving..." : "Save"}
               </Button>
@@ -278,7 +279,7 @@ export function ProviderSettings({ workspaceId }: ProviderSettingsProps) {
                 disabled={card.testing || !data?.hasKey}
               >
                 {card.testing ? (
-                  <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Testing...</>
+                  <><Pending /> Testing...</>
                 ) : (
                   <><Zap className="h-3.5 w-3.5" /> Test Connection</>
                 )}

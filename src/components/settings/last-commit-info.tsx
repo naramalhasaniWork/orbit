@@ -13,7 +13,7 @@ export function LastCommitInfo({ info, sha }: LastCommitInfoProps) {
       <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
         <CircleDot className={cn(
           "h-3 w-3",
-          (info.commitsBehind ?? 0) > 0 ? "text-yellow-400" : "text-emerald-400"
+          (info.commitsBehind ?? 0) > 0 ? "text-tm-warn" : "text-tm-pass"
         )} />
         {(info.commitsBehind ?? 0) > 0
           ? `${info.commitsBehind} new commit${info.commitsBehind === 1 ? "" : "s"} since last sync`

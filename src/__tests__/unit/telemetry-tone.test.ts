@@ -94,3 +94,13 @@ describe("theme", () => {
     expect(classes.has("dark")).toBe(false);
   });
 });
+
+describe("runWord", () => {
+  it("never says Completed next to a ✕", async () => {
+    const { runWord } = await import("@/lib/status-tone");
+    expect(runWord("completed", { failed: 2 })).toBe("Failed");
+    expect(runWord("completed", { flaky: 1 })).toBe("Flaky");
+    expect(runWord("completed")).toBe("Passed");
+    expect(runWord("executing")).toBe("Executing");
+  });
+});

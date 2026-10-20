@@ -28,21 +28,22 @@ interface GraphLink3D {
   id: string;
 }
 
+// Telemetry tokens as hex (WebGL can't read CSS variables). Type is a neutral ramp; status carries colour.
 const TYPE_HEX: Record<string, number> = {
-  route: 0x6366f1,
-  component: 0x0ea5e9,
-  endpoint: 0x10b981,
-  model: 0xa855f7,
-  auth_strategy: 0xff6000,
-  middleware: 0xf59e0b,
-  utility: 0x6b7280,
+  route: 0x4a5059,
+  component: 0x6b717b,
+  endpoint: 0x4a5059,
+  model: 0x343a42,
+  auth_strategy: 0x6b717b,
+  middleware: 0x7d848f,
+  utility: 0xa4aab4,
 };
 
 const STATUS_HEX: Record<string, number> = {
-  pass: 0x22c55e,
-  fail: 0xef4444,
-  flaky: 0xf59e0b,
-  untested: 0x2d3748,
+  pass: 0x18794e,
+  fail: 0xa3122f,
+  flaky: 0x5e6b7a,
+  untested: 0xc9c9c3,
 };
 
 function resolveNodeColor(node: MapNode): number {
@@ -164,7 +165,7 @@ export function SystemMap3D({ nodes, edges }: SystemMap3DProps) {
 
       // Change status ring
       if (n.changeStatus === "added" || n.changeStatus === "modified") {
-        const ringColor = n.changeStatus === "added" ? 0x3b82f6 : 0xa855f7;
+        const ringColor = n.changeStatus === "added" ? 0x3a5f8f : 0x4a5059;
         const ringGeo = new THREE.TorusGeometry(radius * 1.5, 0.4, 8, 32);
         const ringMat = new THREE.MeshBasicMaterial({
           color: ringColor,
@@ -231,22 +232,25 @@ export function SystemMap3D({ nodes, edges }: SystemMap3DProps) {
     graphRef.current?.zoomToFit(400, 80);
   }, []);
 
+  // WebGL can't read CSS variables: take the canvas palette from the theme painted at load.
+  const [dark] = useState(() => typeof document !== "undefined" && document.documentElement.classList.contains("dark"));
+
   const linkColor = useCallback(
     (link: any) => {
       const src = typeof link.source === "object" ? link.source.id : link.source;
       const tgt = typeof link.target === "object" ? link.target.id : link.target;
       if (selectedNodeId && (src === selectedNodeId || tgt === selectedNodeId)) {
-        return "rgba(255, 96, 0, 0.85)";
+        return "rgba(255, 91, 20, 0.85)";
       }
-      return "rgba(255, 255, 255, 0.08)";
+      return dark ? "rgba(236, 238, 241, 0.10)" : "rgba(17, 19, 22, 0.14)";
     },
-    [selectedNodeId]
+    [selectedNodeId, dark]
   );
 
   const nodeLabel = useCallback((node: any) => {
     const n = node as GraphNode3D;
-    return `<div style="background:#141726;color:#e8ecf2;padding:6px 10px;border-radius:6px;font-size:11px;border:1px solid rgba(255,255,255,0.08);pointer-events:none"><strong>${n.name}</strong><br/><span style="opacity:0.6">${n.type}${n.filePath ? ` · ${n.filePath}` : ""}</span></div>`;
-  }, []);
+    return `<div style="background:${dark ? "#171A1E" : "#FFFFFF"};color:${dark ? "#ECEEF1" : "#111316"};padding:6px 10px;border-radius:6px;font-size:11px;border:1px solid ${dark ? "#23272D" : "#E3E3DF"};pointer-events:none"><strong>${n.name}</strong><br/><span style="opacity:0.6">${n.type}${n.filePath ? ` · ${n.filePath}` : ""}</span></div>`;
+  }, [dark]);
 
   return (
     <div className="flex h-full w-full">
@@ -275,7 +279,7 @@ export function SystemMap3D({ nodes, edges }: SystemMap3DProps) {
             graphData={graphData}
             width={dimensions.width}
             height={dimensions.height}
-            backgroundColor="#0d0f1a"
+            backgroundColor={dark ? "#08090A" : "#EFEFEC"}
             nodeThreeObject={nodeThreeObject}
             nodeThreeObjectExtend={false}
             nodeLabel={nodeLabel}
@@ -283,7 +287,7 @@ export function SystemMap3D({ nodes, edges }: SystemMap3DProps) {
             linkWidth={0.6}
             linkDirectionalArrowLength={5}
             linkDirectionalArrowRelPos={1}
-            linkDirectionalArrowColor={() => "rgba(255,255,255,0.25)"}
+            linkDirectionalArrowColor={() => (dark ? "rgba(236,238,241,0.3)" : "rgba(17,19,22,0.3)")}
             linkDirectionalParticles={2}
             linkDirectionalParticleWidth={1.2}
             linkDirectionalParticleColor={linkColor}

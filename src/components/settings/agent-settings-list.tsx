@@ -1,7 +1,7 @@
 "use client";
 
+import { Pending } from "@/components/telemetry/pending";
 import { useState, useEffect, useCallback } from "react";
-import { RefreshCw } from "lucide-react";
 import { AgentSettingsCard } from "./agent-settings-card";
 import type { AgentConfigData } from "./agent-settings-card";
 
@@ -52,7 +52,7 @@ export function AgentSettingsList({ workspaceId }: AgentSettingsListProps) {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-16">
-        <RefreshCw className="h-5 w-5 text-muted-foreground animate-spin" />
+        <Pending />
       </div>
     );
   }

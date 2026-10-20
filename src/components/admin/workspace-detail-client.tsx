@@ -66,20 +66,21 @@ interface WorkspaceDetailClientProps {
   };
 }
 
+// Word in its status colour on a hairline; no filled pills.
 const statusColors: Record<string, string> = {
-  completed: "bg-emerald-500/15 text-emerald-400 border-emerald-500/20",
-  failed: "bg-red-500/15 text-red-400 border-red-500/20",
-  executing: "bg-blue-500/15 text-blue-400 border-blue-500/20",
-  queued: "bg-amber-500/15 text-amber-400 border-amber-500/20",
-  active: "bg-emerald-500/15 text-emerald-400 border-emerald-500/20",
-  paused: "bg-amber-500/15 text-amber-400 border-amber-500/20",
-  archived: "bg-gray-500/15 text-gray-400 border-gray-500/20",
+  completed: "border-border bg-transparent text-tm-pass",
+  failed: "border-border bg-transparent text-tm-fail",
+  executing: "border-border bg-transparent text-tm-live-text",
+  queued: "border-border bg-transparent text-tm-t3",
+  active: "border-border bg-transparent text-tm-pass",
+  paused: "border-border bg-transparent text-tm-t3",
+  archived: "border-border bg-transparent text-tm-t3",
 };
 
 const healthColors: Record<string, string> = {
-  healthy: "text-emerald-400",
-  degraded: "text-amber-400",
-  failing: "text-red-400",
+  healthy: "text-tm-pass",
+  degraded: "text-tm-flaky",
+  failing: "text-tm-fail",
 };
 
 export function WorkspaceDetailClient({
@@ -100,7 +101,7 @@ export function WorkspaceDetailClient({
           >
             <ArrowLeft className="h-3 w-3" /> Back to workspaces
           </Link>
-          <h1 className="text-xl font-semibold">{workspace.name}</h1>
+          <h1 className="text-xl font-medium">{workspace.name}</h1>
           <div className="flex items-center gap-2">
             <span className="text-sm text-muted-foreground">
               {workspace.slug}
@@ -181,7 +182,7 @@ export function WorkspaceDetailClient({
                       className={cn(
                         "text-[10px] border capitalize",
                         m.user.platformRole === "super_admin"
-                          ? "bg-red-500/15 text-red-400 border-red-500/20"
+                          ? "bg-tm-fail/15 text-tm-fail border-tm-fail/20"
                           : "bg-muted/50 text-muted-foreground border-border"
                       )}
                     >
@@ -327,12 +328,12 @@ export function WorkspaceDetailClient({
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2 text-xs">
                       {r.passed > 0 && (
-                        <span className="text-emerald-400">
+                        <span className="text-tm-pass">
                           {r.passed} passed
                         </span>
                       )}
                       {r.failed > 0 && (
-                        <span className="text-red-400">
+                        <span className="text-tm-fail">
                           {r.failed} failed
                         </span>
                       )}

@@ -31,7 +31,7 @@ export function ModelUsageStats({ models }: ModelUsageStatsProps) {
   return (
     <div className="rounded-xl surface-1 border border-border p-5 space-y-4">
       <div className="flex items-center gap-2">
-        <TrendingUp className="h-4 w-4 text-orbit-accent" />
+        <TrendingUp className="h-4 w-4 text-foreground" />
         <h3 className="text-sm font-medium text-foreground">
           Top Models by Usage (Last 30 Days)
         </h3>

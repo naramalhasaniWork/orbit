@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Route, Component, Server, Database, ChevronRight, Loader2, AlertCircle } from "lucide-react";
+import { Route, Component, Server, Database, ChevronRight, AlertCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -14,17 +14,17 @@ const TYPE_CONFIG: Record<
   string,
   { label: string; icon: typeof Route; color: string }
 > = {
-  route: { label: "Routes", icon: Route, color: "text-orbit-accent" },
+  route: { label: "Routes", icon: Route, color: "text-foreground" },
   component: { label: "Components", icon: Component, color: "text-orbit-pass" },
   endpoint: { label: "API Endpoints", icon: Server, color: "text-orbit-flaky" },
-  model: { label: "Data Models", icon: Database, color: "text-purple-400" },
+  model: { label: "Data Models", icon: Database, color: "text-tm-t2" },
 };
 
 const STAT_KEYS = [
-  { key: "routes" as const, label: "Routes", color: "text-orbit-accent" },
+  { key: "routes" as const, label: "Routes", color: "text-foreground" },
   { key: "components" as const, label: "Components", color: "text-orbit-pass" },
   { key: "endpoints" as const, label: "Endpoints", color: "text-orbit-flaky" },
-  { key: "models" as const, label: "Models", color: "text-purple-400" },
+  { key: "models" as const, label: "Models", color: "text-tm-t2" },
 ];
 
 interface MapPreviewProps {
@@ -114,7 +114,7 @@ export function MapPreview({ projectId, onContinue, onBack }: MapPreviewProps) {
   return (
     <div className="flex flex-col items-center w-full max-w-2xl mx-auto">
       <div className="text-center mb-6">
-        <h2 className="text-xl font-semibold text-foreground mb-2">
+        <h2 className="text-xl font-medium text-foreground mb-2">
           System Map ready
         </h2>
         <p className="text-sm text-muted-foreground">
@@ -128,7 +128,7 @@ export function MapPreview({ projectId, onContinue, onBack }: MapPreviewProps) {
             key={stat.key}
             className="flex flex-col items-center rounded-lg surface-1 px-3 py-3"
           >
-            <span className={cn("text-2xl font-bold tabular-nums", stat.color)}>
+            <span className={cn("text-2xl font-medium tabular-nums", stat.color)}>
               {data.summary[stat.key]}
             </span>
             <span className="text-xs text-muted-foreground">{stat.label}</span>
@@ -148,7 +148,7 @@ export function MapPreview({ projectId, onContinue, onBack }: MapPreviewProps) {
               <div key={type}>
                 <div className="flex items-center gap-2 mb-2">
                   <Icon className={cn("h-4 w-4", config.color)} />
-                  <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  <span className=" tm-label text-muted-foreground">
                     {config.label}
                   </span>
                   <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
@@ -184,7 +184,7 @@ export function MapPreview({ projectId, onContinue, onBack }: MapPreviewProps) {
           Back
         </Button>
         <Button
-          className="bg-orbit-accent hover:bg-orbit-accent/90 text-white gap-2"
+          className="bg-primary hover:bg-primary/85 text-primary-foreground gap-2"
           size="lg"
           onClick={onContinue}
         >

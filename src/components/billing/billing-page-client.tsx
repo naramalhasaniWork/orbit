@@ -43,7 +43,7 @@ export function BillingPageClient({ workspaceId, currentTier }: BillingPageClien
       <div>
         <button
           onClick={() => setShowPricing(!showPricing)}
-          className="text-sm font-medium text-orbit-accent hover:text-orbit-accent/80 transition-colors"
+          className="text-sm font-medium text-foreground hover:text-foreground transition-colors"
         >
           {showPricing ? "Hide plans" : "Compare plans & upgrade"}
         </button>
@@ -60,7 +60,7 @@ export function BillingPageClient({ workspaceId, currentTier }: BillingPageClien
 
       {/* Plan limits and credit activity */}
       <div>
-        <h3 className="text-sm font-semibold text-foreground mb-4">
+        <h3 className="text-sm font-medium text-foreground mb-4">
           Plan Usage
         </h3>
         <UsageDashboard workspaceId={workspaceId} />
@@ -68,7 +68,7 @@ export function BillingPageClient({ workspaceId, currentTier }: BillingPageClien
 
       {/* Cost analytics dashboard with credit purchase */}
       <div>
-        <h3 className="text-sm font-semibold text-foreground mb-4">
+        <h3 className="text-sm font-medium text-foreground mb-4">
           AI Cost Analytics
         </h3>
         <CostDashboard workspaceId={workspaceId} />
@@ -76,7 +76,7 @@ export function BillingPageClient({ workspaceId, currentTier }: BillingPageClien
 
       {/* Invoice history */}
       <div>
-        <h3 className="text-sm font-semibold text-foreground mb-4">
+        <h3 className="text-sm font-medium text-foreground mb-4">
           Invoice History
         </h3>
         <InvoiceHistory workspaceId={workspaceId} />

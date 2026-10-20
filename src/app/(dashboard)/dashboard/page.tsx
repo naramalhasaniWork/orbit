@@ -42,7 +42,8 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
 
   let recentRuns: Awaited<ReturnType<typeof prisma.testRun.findMany>> = [];
   let stats = {
-    passRate: 0,
+    passRate: null as number | null,
+    latestRunNumber: null as number | null,
     flakyCount: 0,
     coverage: 0,
     lastDuration: 0,

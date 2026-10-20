@@ -28,7 +28,7 @@ export function ShortcutsOverlay({ open, onOpenChange }: ShortcutsOverlayProps) 
         <div className="space-y-4">
           {SHORTCUT_GROUPS.map((group) => (
             <section key={group}>
-              <h3 className="text-[10px] uppercase tracking-wider font-medium text-muted-foreground mb-1.5">
+              <h3 className=" tm-label text-muted-foreground mb-1.5">
                 {group}
               </h3>
               <ul className="divide-y divide-border/60">

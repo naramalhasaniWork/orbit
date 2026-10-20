@@ -27,10 +27,10 @@ interface TestingNotesProps {
 }
 
 const CATEGORIES = [
-  { id: "context" as const, label: "Context", icon: BookOpen, color: "text-blue-400" },
-  { id: "instruction" as const, label: "Instruction", icon: StickyNote, color: "text-orange-400" },
-  { id: "known-issue" as const, label: "Known Issue", icon: AlertTriangle, color: "text-yellow-400" },
-  { id: "credential-hint" as const, label: "Credential Hint", icon: Key, color: "text-purple-400" },
+  { id: "context" as const, label: "Context", icon: BookOpen, color: "text-tm-info" },
+  { id: "instruction" as const, label: "Instruction", icon: StickyNote, color: "text-tm-warn" },
+  { id: "known-issue" as const, label: "Known Issue", icon: AlertTriangle, color: "text-tm-warn" },
+  { id: "credential-hint" as const, label: "Credential Hint", icon: Key, color: "text-tm-t2" },
 ] as const;
 
 export function TestingNotes({ projectId }: TestingNotesProps) {
@@ -115,7 +115,7 @@ export function TestingNotes({ projectId }: TestingNotesProps) {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-sm font-semibold text-foreground">Testing Notes</h2>
+          <h2 className="text-sm font-medium text-foreground">Testing Notes</h2>
           <p className="text-[11px] text-muted-foreground mt-0.5">
             Add context that Orbit uses when planning and executing tests.
             Active notes are injected into agent prompts dynamically.
@@ -133,7 +133,7 @@ export function TestingNotes({ projectId }: TestingNotesProps) {
       </div>
 
       {activeCount > 0 && (
-        <div className="flex items-center gap-1.5 text-[11px] text-emerald-400">
+        <div className="flex items-center gap-1.5 text-[11px] text-tm-pass">
           <CircleDot className="h-3 w-3" />
           {activeCount} active note{activeCount !== 1 ? "s" : ""} feeding into agents
         </div>
@@ -237,19 +237,19 @@ function NoteRow({
         className={cn(
           "mt-0.5 h-4 w-4 rounded border flex items-center justify-center shrink-0 transition-colors",
           note.active
-            ? "border-emerald-500 bg-emerald-500/20"
+            ? "border-tm-pass bg-tm-pass/20"
             : "border-border bg-transparent"
         )}
       >
         {note.active && (
-          <div className="h-1.5 w-1.5 rounded-full bg-emerald-400" />
+          <div className="h-1.5 w-1.5 rounded-full bg-tm-pass" />
         )}
       </button>
 
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5 mb-0.5">
           <Icon className={cn("h-3 w-3 shrink-0", cat.color)} />
-          <span className="text-[10px] text-muted-foreground uppercase tracking-wider">
+          <span className=" text-muted-foreground tm-label">
             {cat.label}
           </span>
         </div>
@@ -264,7 +264,7 @@ function NoteRow({
       <button
         type="button"
         onClick={() => onDelete(note.id)}
-        className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-red-400 transition-all mt-0.5"
+        className="opacity-0 group-hover:opacity-100 text-muted-foreground hover:text-tm-fail transition-all mt-0.5"
       >
         <Trash2 className="h-3.5 w-3.5" />
       </button>

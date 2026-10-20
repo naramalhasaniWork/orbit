@@ -39,24 +39,27 @@ export function ChatInput({ onSend, disabled }: ChatInputProps) {
 
   return (
     <div className="border-t border-border p-3">
-      <div className="flex items-end gap-2 surface-1 rounded-lg border border-border px-3 py-2">
+      <div className="flex items-end gap-2 rounded-md border border-input bg-card px-3 py-2 focus-within:ring-2 focus-within:ring-ring">
         <textarea
           ref={textareaRef}
           value={value}
           onChange={(e) => setValue(e.target.value)}
           onKeyDown={handleKeyDown}
           onInput={handleInput}
-          placeholder="Ask Orbit anything..."
+          placeholder="Ask about this project, or tell it to run tests"
+          aria-label="Message the agent"
           disabled={disabled}
           rows={1}
-          className="flex-1 resize-none bg-transparent text-sm text-foreground placeholder:text-muted-foreground focus:outline-none disabled:opacity-50 max-h-[120px]"
+          className="max-h-[120px] flex-1 resize-none bg-transparent text-base text-foreground placeholder:text-tm-t3 focus:outline-none disabled:opacity-50 md:text-[13px]"
         />
         <button
+          type="button"
           onClick={handleSubmit}
           disabled={disabled || !value.trim()}
-          className="shrink-0 p-1.5 rounded-md text-muted-foreground hover:text-orbit-accent hover:bg-orbit-accent/10 transition-colors disabled:opacity-30 disabled:hover:text-muted-foreground disabled:hover:bg-transparent"
+          aria-label="Send"
+          className="flex size-8 shrink-0 items-center justify-center rounded-md bg-primary text-primary-foreground transition-opacity hover:opacity-85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-30"
         >
-          <Send className="h-4 w-4" />
+          <Send aria-hidden="true" className="size-4" />
         </button>
       </div>
     </div>

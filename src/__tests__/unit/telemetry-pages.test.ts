@@ -10,14 +10,15 @@ describe("homeHeadline", () => {
     expect(homeHeadline([{ status: "completed", failed: 1, flaky: 0 }])).toBe("One test failed in the latest run.");
     expect(homeHeadline([{ status: "completed", failed: 0, flaky: 1 }])).toBe("The latest run passed, with one flaky test.");
     expect(homeHeadline([{ status: "failed", failed: 0, flaky: 0 }])).toBe("The latest run failed before its tests finished.");
-    expect(homeHeadline([{ status: "completed", failed: 0, flaky: 0 }])).toBe("Everything passed on the latest run.");
+    expect(homeHeadline([{ status: "completed", passed: 3, failed: 0, flaky: 0 }])).toBe("Everything passed on the latest run.");
+    expect(homeHeadline([{ status: "completed", failed: 0, flaky: 0 }])).toBe("The latest run finished without running any tests.");
   });
 
   it("skips queued runs to find the latest finished one", () => {
     expect(
       homeHeadline([
         { status: "queued", failed: 0, flaky: 0 },
-        { status: "completed", failed: 3, flaky: 0 },
+        { status: "completed", passed: 1, failed: 3, flaky: 0 },
       ])
     ).toBe("3 tests failed in the latest run.");
   });

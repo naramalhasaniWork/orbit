@@ -1,7 +1,8 @@
 "use client";
 
+import { Pending } from "@/components/telemetry/pending";
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { ChevronRight, AlertTriangle, ArrowUp, Minus, ArrowDown, Loader2, AlertCircle } from "lucide-react";
+import { ChevronRight, AlertTriangle, ArrowUp, Minus, ArrowDown, AlertCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -19,7 +20,7 @@ const PRIORITY_CONFIG: Record<
 > = {
   critical: { icon: AlertTriangle, color: "text-orbit-fail", bg: "bg-orbit-fail/10" },
   high: { icon: ArrowUp, color: "text-orbit-flaky", bg: "bg-orbit-flaky/10" },
-  medium: { icon: Minus, color: "text-orbit-accent", bg: "bg-orbit-accent/10" },
+  medium: { icon: Minus, color: "text-foreground", bg: "bg-foreground/[0.06]" },
   low: { icon: ArrowDown, color: "text-muted-foreground", bg: "bg-muted/50" },
 };
 
@@ -137,11 +138,11 @@ export function PlanPreview({ projectId, onContinue, onBack }: PlanPreviewProps)
     return (
       <div className="flex flex-col items-center w-full max-w-2xl mx-auto">
         <div className="text-center mb-6">
-          <h2 className="text-xl font-semibold text-foreground mb-2">
+          <h2 className="text-xl font-medium text-foreground mb-2">
             {generating ? "Generating test plan..." : "Loading test plan..."}
           </h2>
           <p className="text-sm text-muted-foreground flex items-center justify-center gap-2">
-            <Loader2 className="h-4 w-4 animate-spin" />
+            <Pending />
             {generating
               ? generation.job?.message ?? "Orbit is analyzing your codebase and creating test cases"
               : "Loading existing plan"}
@@ -174,7 +175,7 @@ export function PlanPreview({ projectId, onContinue, onBack }: PlanPreviewProps)
   return (
     <div className="flex flex-col items-center w-full max-w-2xl mx-auto">
       <div className="text-center mb-6">
-        <h2 className="text-xl font-semibold text-foreground mb-2">
+        <h2 className="text-xl font-medium text-foreground mb-2">
           Test plan generated
         </h2>
         <p className="text-sm text-muted-foreground">
@@ -205,7 +206,7 @@ export function PlanPreview({ projectId, onContinue, onBack }: PlanPreviewProps)
           {journeys.map(([journey, items]) => (
             <div key={journey}>
               <div className="flex items-center gap-2 mb-2">
-                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                <span className=" tm-label text-muted-foreground">
                   {journey}
                 </span>
                 <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
@@ -252,7 +253,7 @@ export function PlanPreview({ projectId, onContinue, onBack }: PlanPreviewProps)
           Back
         </Button>
         <Button
-          className="bg-orbit-accent hover:bg-orbit-accent/90 text-white gap-2"
+          className="bg-primary hover:bg-primary/85 text-primary-foreground gap-2"
           size="lg"
           disabled={enabledCount === 0 || saving}
           onClick={async () => {
@@ -269,7 +270,7 @@ export function PlanPreview({ projectId, onContinue, onBack }: PlanPreviewProps)
         >
           {saving ? (
             <>
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <Pending />
               Saving...
             </>
           ) : (

@@ -131,7 +131,7 @@ export function ApiKeySettings({ workspaceId }: ApiKeySettingsProps) {
       <InlineError message={actionError} />
 
       {newKeyValue && (
-        <div className="rounded-xl border border-orbit-accent/30 bg-orbit-accent/5 p-4 space-y-3">
+        <div className="rounded-xl border border-tm-line-strong bg-foreground/[0.06] p-4 space-y-3">
           <p className="text-sm font-medium text-foreground">
             API key created -- copy it now, it won&apos;t be shown again.
           </p>
@@ -165,7 +165,7 @@ export function ApiKeySettings({ workspaceId }: ApiKeySettingsProps) {
               size="sm"
               onClick={handleCreate}
               disabled={creating || !newKeyName.trim()}
-              className="bg-orbit-accent hover:bg-orbit-accent/90 text-white"
+              className="bg-primary hover:bg-primary/85 text-primary-foreground"
             >
               {creating ? "Creating..." : "Generate Key"}
             </Button>
@@ -178,7 +178,7 @@ export function ApiKeySettings({ workspaceId }: ApiKeySettingsProps) {
 
       <div className="space-y-2">
         {loading ? (
-          <div className="rounded-xl surface-1 p-8 text-center animate-pulse">
+          <div className="rounded-xl surface-1 p-8 text-center">
             <div className="h-4 w-32 bg-muted/50 rounded mx-auto" />
           </div>
         ) : keys.length === 0 ? (
@@ -216,7 +216,7 @@ export function ApiKeySettings({ workspaceId }: ApiKeySettingsProps) {
               <Button
                 size="sm"
                 variant="ghost"
-                className="text-muted-foreground hover:text-red-400"
+                className="text-muted-foreground hover:text-tm-fail"
                 onClick={() => handleRevoke(key.id)}
               >
                 <Trash2 className="h-3.5 w-3.5" />

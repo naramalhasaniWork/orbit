@@ -132,7 +132,7 @@ export function PreviewProviderCard({ info, initial }: { info: PreviewProviderIn
               onConfirm={disconnect}
             />
           </div>
-          {error && <p role="alert" className="text-xs text-red-400 text-pretty">{error}</p>}
+          {error && <p role="alert" className="text-xs text-tm-fail text-pretty">{error}</p>}
         </div>
       )}
     </div>

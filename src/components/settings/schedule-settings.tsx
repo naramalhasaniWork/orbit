@@ -159,7 +159,7 @@ export function ScheduleSettings({ projectId }: ScheduleSettingsProps) {
               <select
                 value={newSchedule.mode}
                 onChange={(e) => setNewSchedule({ ...newSchedule, mode: e.target.value })}
-                className="w-full h-9 rounded-md border border-transparent bg-foreground/[0.04] px-3 text-sm focus:border-orbit-accent/30 focus:outline-none"
+                className="w-full h-9 rounded-md border border-transparent bg-foreground/[0.04] px-3 text-sm focus-visible:border-tm-t3 focus:outline-none"
               >
                 <option value="smoke">Smoke Test</option>
                 <option value="full">Full Suite</option>
@@ -183,7 +183,7 @@ export function ScheduleSettings({ projectId }: ScheduleSettingsProps) {
                 className={cn(
                   "text-[11px] px-2 py-1 rounded-md transition-colors",
                   newSchedule.cronExpression === preset.value
-                    ? "bg-orbit-accent/15 text-orbit-accent"
+                    ? "bg-foreground/[0.06] text-foreground"
                     : "bg-foreground/[0.04] text-muted-foreground hover:text-foreground"
                 )}
               >
@@ -197,7 +197,7 @@ export function ScheduleSettings({ projectId }: ScheduleSettingsProps) {
               size="sm"
               onClick={handleCreate}
               disabled={creating || !newSchedule.name}
-              className="bg-orbit-accent hover:bg-orbit-accent/90 text-white"
+              className="bg-primary hover:bg-primary/85 text-primary-foreground"
             >
               {creating ? "Creating..." : "Create"}
             </Button>
@@ -210,7 +210,7 @@ export function ScheduleSettings({ projectId }: ScheduleSettingsProps) {
 
       <div className="space-y-2">
         {loading ? (
-          <div className="rounded-xl surface-1 p-8 text-center animate-pulse">
+          <div className="rounded-xl surface-1 p-8 text-center">
             <div className="h-4 w-32 bg-foreground/[0.06] rounded mx-auto" />
           </div>
         ) : schedules.length === 0 ? (
@@ -254,7 +254,7 @@ export function ScheduleSettings({ projectId }: ScheduleSettingsProps) {
               <Button
                 size="sm"
                 variant="ghost"
-                className="text-muted-foreground hover:text-red-400"
+                className="text-muted-foreground hover:text-tm-fail"
                 onClick={() => handleDelete(schedule.id)}
               >
                 <Trash2 className="h-3.5 w-3.5" />

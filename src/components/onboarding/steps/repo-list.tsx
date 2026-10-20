@@ -6,14 +6,14 @@ import { cn } from "@/lib/utils";
 import type { RepoItem } from "../onboarding-types";
 
 const LANGUAGE_COLORS: Record<string, string> = {
-  TypeScript: "bg-blue-400",
-  JavaScript: "bg-yellow-300",
-  Go: "bg-cyan-400",
-  Python: "bg-yellow-400",
-  Rust: "bg-orange-400",
-  Ruby: "bg-red-400",
-  Java: "bg-amber-600",
-  Unknown: "bg-gray-400",
+  TypeScript: "bg-tm-info",
+  JavaScript: "bg-tm-warn",
+  Go: "bg-tm-info",
+  Python: "bg-tm-warn",
+  Rust: "bg-tm-warn",
+  Ruby: "bg-tm-fail",
+  Java: "bg-tm-warn",
+  Unknown: "bg-tm-t3",
 };
 
 function formatUpdatedAt(dateStr: string): string {
@@ -42,7 +42,7 @@ export function RepoList({ repos, selectedId, onSelect }: RepoListProps) {
           className={cn(
             "w-full flex items-center gap-3 px-3 py-3 rounded-md text-left transition-colors",
             "hover:bg-muted/30",
-            selectedId === repo.id && "bg-orbit-accent/10"
+            selectedId === repo.id && "bg-foreground/[0.06]"
           )}
         >
           <div className="flex-1 min-w-0">
@@ -54,14 +54,14 @@ export function RepoList({ repos, selectedId, onSelect }: RepoListProps) {
                 <Globe className="h-3 w-3 text-muted-foreground shrink-0" />
               )}
               {repo.source === "installation" && (
-                <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 border-orbit-accent/30 text-orbit-accent shrink-0">
+                <Badge variant="outline" className="text-[10px] px-1.5 py-0 h-4 border-tm-line-strong text-foreground shrink-0">
                   App
                 </Badge>
               )}
             </div>
             <div className="flex items-center gap-3 text-xs text-muted-foreground">
               <span className="flex items-center gap-1">
-                <span className={cn("h-2 w-2 rounded-full", LANGUAGE_COLORS[repo.language] ?? "bg-gray-400")} />
+                <span className={cn("h-2 w-2 rounded-full", LANGUAGE_COLORS[repo.language] ?? "bg-tm-t3")} />
                 {repo.language}
               </span>
               <span className="flex items-center gap-1">
@@ -72,7 +72,7 @@ export function RepoList({ repos, selectedId, onSelect }: RepoListProps) {
             </div>
           </div>
           {selectedId === repo.id && (
-            <Badge variant="outline" className="text-orbit-accent border-orbit-accent/40 shrink-0">
+            <Badge variant="outline" className="text-foreground border-tm-line-strong shrink-0">
               Selected
             </Badge>
           )}

@@ -1,9 +1,10 @@
 "use client";
 
+import { Pending } from "@/components/telemetry/pending";
 import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
-import { Orbit, CheckCircle, XCircle, Clock, Loader2, Copy, Check, AlertTriangle } from "lucide-react";
+import { Orbit, CheckCircle, XCircle, Clock, Copy, Check, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { isInviteEmailMismatch } from "@/lib/invitations";
 import { setWorkspaceCookie } from "@/lib/workspace-cookie";
@@ -104,7 +105,7 @@ export default function AcceptInvitationPage() {
   if (loading || authStatus === "loading") {
     return (
       <div className="min-h-dvh flex items-center justify-center surface-0">
-        <Loader2 className="h-6 w-6 text-orbit-accent animate-spin" />
+        <Pending />
       </div>
     );
   }
@@ -114,8 +115,8 @@ export default function AcceptInvitationPage() {
       <div className="w-full max-w-md space-y-6">
         {/* Logo */}
         <div className="flex justify-center">
-          <div className="h-12 w-12 rounded-xl bg-orbit-accent/15 flex items-center justify-center">
-            <Orbit className="h-6 w-6 text-orbit-accent" />
+          <div className="h-12 w-12 rounded-xl bg-foreground/[0.06] flex items-center justify-center">
+            <Orbit className="h-6 w-6 text-foreground" />
           </div>
         </div>
 
@@ -123,8 +124,8 @@ export default function AcceptInvitationPage() {
         <div className="rounded-xl border border-border bg-foreground/[0.02] p-6 space-y-4">
           {error && !invitation && (
             <div className="text-center space-y-3">
-              <XCircle className="h-10 w-10 text-red-400 mx-auto" />
-              <p className="text-sm text-red-400">{error}</p>
+              <XCircle className="h-10 w-10 text-tm-fail mx-auto" />
+              <p className="text-sm text-tm-fail">{error}</p>
               <Button variant="ghost" onClick={() => router.push("/login")}>
                 Go to Login
               </Button>
@@ -134,7 +135,7 @@ export default function AcceptInvitationPage() {
           {invitation && !success && (
             <>
               <div className="text-center space-y-2">
-                <h2 className="text-lg font-semibold text-foreground">
+                <h2 className="text-lg font-medium text-foreground">
                   Join {invitation.workspaceName}
                 </h2>
                 <p className="text-sm text-muted-foreground">
@@ -149,9 +150,9 @@ export default function AcceptInvitationPage() {
               </div>
 
               {invitation.expired ? (
-                <div className="flex items-center gap-2 p-3 rounded-lg bg-red-400/10 border border-red-400/20">
-                  <Clock className="h-4 w-4 text-red-400 shrink-0" />
-                  <span className="text-sm text-red-400">
+                <div className="flex items-center gap-2 p-3 rounded-lg bg-tm-fail/10 border border-tm-fail/20">
+                  <Clock className="h-4 w-4 text-tm-fail shrink-0" />
+                  <span className="text-sm text-tm-fail">
                     This invitation has expired.
                   </span>
                 </div>
@@ -164,13 +165,13 @@ export default function AcceptInvitationPage() {
                   </div>
 
                   {error && (
-                    <p className="text-xs text-red-400 text-center">{error}</p>
+                    <p className="text-xs text-tm-fail text-center">{error}</p>
                   )}
 
                   {session && emailMismatch ? (
                     <div className="space-y-3">
-                      <div className="flex gap-2 p-3 rounded-lg bg-amber-400/10 border border-amber-400/20">
-                        <AlertTriangle className="h-4 w-4 text-amber-400 shrink-0 mt-0.5" />
+                      <div className="flex gap-2 p-3 rounded-lg bg-tm-warn/10 border border-tm-warn/20">
+                        <AlertTriangle className="h-4 w-4 text-tm-warn shrink-0 mt-0.5" />
                         <p className="text-sm text-foreground">
                           This invitation was sent to <strong>{invitation.email}</strong>, but you&apos;re
                           signed in as <strong>{signedInEmail}</strong>.
@@ -202,11 +203,11 @@ export default function AcceptInvitationPage() {
                     </Button>
                   ) : (
                     <Button
-                      className="w-full bg-orbit-accent hover:bg-orbit-accent/90"
+                      className="w-full"
                       onClick={handleAccept}
                       disabled={accepting}
                     >
-                      {accepting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                      
                       Accept Invitation
                     </Button>
                   )}
@@ -217,7 +218,7 @@ export default function AcceptInvitationPage() {
 
           {success && (
             <div className="text-center space-y-3">
-              <CheckCircle className="h-10 w-10 text-green-400 mx-auto" />
+              <CheckCircle className="h-10 w-10 text-tm-pass mx-auto" />
               <p className="text-sm text-foreground">
                 You&apos;ve joined the workspace.
               </p>

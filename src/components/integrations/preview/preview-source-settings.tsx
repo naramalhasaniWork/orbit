@@ -184,7 +184,7 @@ export function PreviewSourceSettings({ projectId, onOpenIntegrations }: { proje
 
           <div className="flex flex-wrap items-center gap-2">
             <Button size="sm" onClick={save} disabled={!!busy || !!saveBlocked} aria-busy={busy === "save"}
-              className="bg-orbit-accent hover:bg-orbit-accent/90 text-white">
+              className="bg-primary hover:bg-primary/85 text-primary-foreground">
               {busy === "save" ? "Saving…" : "Save preview source"}
             </Button>
             {view.binding?.connection.provider === "railway" && (
@@ -201,7 +201,7 @@ export function PreviewSourceSettings({ projectId, onOpenIntegrations }: { proje
           </div>
         </div>
       )}
-      {message && <p role={message.ok ? "status" : "alert"} className={message.ok ? "text-xs text-orbit-pass" : "text-xs text-red-400"}>{message.text}</p>}
+      {message && <p role={message.ok ? "status" : "alert"} className={message.ok ? "text-xs text-orbit-pass" : "text-xs text-tm-fail"}>{message.text}</p>}
 
       {view.binding && (
         <div className="space-y-2 pt-2">

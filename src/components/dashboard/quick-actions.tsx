@@ -13,7 +13,6 @@ import {
 import { ShortcutKeys } from "@/components/shortcuts/shortcut-keys";
 import { useShortcutAction } from "@/components/shortcuts/shortcut-provider";
 import type { ShortcutId } from "@/lib/shortcuts/registry";
-import { Input } from "@/components/ui/input";
 import {
   Play,
   Search,
@@ -260,14 +259,16 @@ export function QuickActions({
             Search for a page or action. Use the arrow keys to move and Enter to select.
           </DialogDescription>
           {/* Search input */}
-          <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
+          <div className="flex items-center gap-2 border-b border-border py-3 pl-4 pr-12">
             <Search className="h-4 w-4 text-muted-foreground shrink-0" />
-            <Input
+            {/* The dialog frame is the field; the input itself stays bare. */}
+            <input
               ref={inputRef}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Type a command or search..."
-              className="border-0 bg-transparent shadow-none focus-visible:ring-0 focus-visible:border-transparent px-0 h-auto text-sm"
+              placeholder="Type a command or search"
+              aria-label="Search commands"
+              className="h-6 min-w-0 flex-1 bg-transparent text-base text-foreground outline-none placeholder:text-tm-t3 md:text-[14px]"
               autoFocus
             />
           </div>
@@ -283,7 +284,7 @@ export function QuickActions({
             {Object.entries(grouped).map(([category, items]) => (
               <div key={category}>
                 <div className="px-4 py-1.5">
-                  <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-medium">
+                  <span className=" text-muted-foreground tm-label">
                     {categoryLabels[category] ?? category}
                   </span>
                 </div>
@@ -299,7 +300,7 @@ export function QuickActions({
                       className={cn(
                         "flex items-center gap-3 w-full px-4 py-2.5 text-left transition-colors",
                         isSelected
-                          ? "bg-orbit-accent/[0.08]"
+                          ? "bg-foreground/[0.06]"
                           : "hover:bg-foreground/[0.04]"
                       )}
                     >
@@ -307,7 +308,7 @@ export function QuickActions({
                         className={cn(
                           "flex items-center justify-center h-7 w-7 rounded-md shrink-0",
                           isSelected
-                            ? "bg-orbit-accent/10 text-orbit-accent"
+                            ? "bg-foreground/[0.06] text-foreground"
                             : "bg-foreground/[0.06] text-muted-foreground"
                         )}
                       >

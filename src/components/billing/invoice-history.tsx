@@ -20,11 +20,11 @@ interface InvoiceHistoryProps {
 }
 
 const STATUS_LABELS: Record<string, { label: string; className: string }> = {
-  paid: { label: "Paid", className: "text-green-400 bg-green-400/10" },
-  open: { label: "Open", className: "text-amber-400 bg-amber-400/10" },
+  paid: { label: "Paid", className: "text-tm-pass bg-tm-pass/10" },
+  open: { label: "Open", className: "text-tm-warn bg-tm-warn/10" },
   draft: { label: "Draft", className: "text-muted-foreground bg-muted/40" },
   void: { label: "Void", className: "text-muted-foreground bg-muted/40" },
-  uncollectible: { label: "Failed", className: "text-red-400 bg-red-400/10" },
+  uncollectible: { label: "Failed", className: "text-tm-fail bg-tm-fail/10" },
 };
 
 export function InvoiceHistory({ workspaceId }: InvoiceHistoryProps) {
@@ -50,7 +50,7 @@ export function InvoiceHistory({ workspaceId }: InvoiceHistoryProps) {
     return (
       <div className="space-y-2">
         {[1, 2, 3].map((i) => (
-          <div key={i} className="h-14 rounded-lg bg-muted/30 animate-pulse" />
+          <div key={i} className="h-14 rounded-lg bg-muted/30" />
         ))}
       </div>
     );

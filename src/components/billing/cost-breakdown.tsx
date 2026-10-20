@@ -40,20 +40,20 @@ const AGENT_LABELS: Record<string, string> = {
 };
 
 const AGENT_COLORS: Record<string, string> = {
-  analyst: "bg-blue-400",
-  planner: "bg-violet-400",
-  executor: "bg-amber-400",
-  reporter: "bg-emerald-400",
-  auditor: "bg-rose-400",
+  analyst: "bg-tm-info",
+  planner: "bg-tm-t2",
+  executor: "bg-tm-warn",
+  reporter: "bg-tm-pass",
+  auditor: "bg-tm-fail",
 };
 
 const MODEL_COLORS = [
-  "bg-blue-400",
-  "bg-violet-400",
-  "bg-amber-400",
-  "bg-emerald-400",
-  "bg-rose-400",
-  "bg-cyan-400",
+  "bg-tm-info",
+  "bg-tm-t2",
+  "bg-tm-warn",
+  "bg-tm-pass",
+  "bg-tm-fail",
+  "bg-tm-info",
 ];
 
 export function AgentTable({ agents }: { agents: AgentBreakdown[] }) {
@@ -173,7 +173,7 @@ export function DailySparkline({ daily }: { daily: DailySpend[] }) {
           return (
             <div
               key={day.date}
-              className="flex-1 bg-orbit-accent/30 hover:bg-orbit-accent/50 rounded-t transition-colors cursor-default"
+              className="flex-1 bg-foreground/[0.06] hover:bg-accent rounded-t transition-colors cursor-default"
               style={{ height: `${Math.max(height, 2)}%` }}
               title={`${day.date}: $${day.cost.toFixed(4)}`}
             />

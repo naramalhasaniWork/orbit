@@ -59,7 +59,7 @@ export function PreviewConnectForm({ info, busy, error, submitLabel, onSubmit, o
           size="sm"
           disabled={busy || missing.length > 0}
           aria-busy={busy}
-          className="bg-orbit-accent hover:bg-orbit-accent/90 text-white"
+          className="bg-primary hover:bg-primary/85 text-primary-foreground"
         >
           {busy ? "Checking…" : submitLabel}
         </Button>
@@ -71,7 +71,7 @@ export function PreviewConnectForm({ info, busy, error, submitLabel, onSubmit, o
         )}
       </div>
       {error && (
-        <p id={errorId} role="alert" className="text-xs text-red-400 text-pretty">{error}</p>
+        <p id={errorId} role="alert" className="text-xs text-tm-fail text-pretty">{error}</p>
       )}
     </form>
   );

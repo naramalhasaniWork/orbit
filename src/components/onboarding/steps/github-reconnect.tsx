@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { signIn } from "next-auth/react";
-import { GitBranch, Loader2 } from "lucide-react";
+import { GitBranch } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 /** Shown when the user's GitHub token is missing or expired. Replaces the empty list. */
@@ -24,14 +24,14 @@ export function GitHubReconnect() {
       </div>
       <Button
         size="sm"
-        className="bg-orbit-accent hover:bg-orbit-accent/90 text-white gap-2"
+        className="bg-primary hover:bg-primary/85 text-primary-foreground gap-2"
         disabled={redirecting}
         onClick={() => {
           setRedirecting(true);
           signIn("github", { callbackUrl: window.location.href });
         }}
       >
-        {redirecting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <GitBranch className="h-3.5 w-3.5" />}
+        <GitBranch className="h-3.5 w-3.5" />
         Reconnect GitHub
       </Button>
     </div>

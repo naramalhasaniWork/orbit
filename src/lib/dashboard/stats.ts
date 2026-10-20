@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/db";
 import { subDays } from "date-fns";
+import { FINISHED_RUN_STATUSES } from "@/lib/status-tone";
+import { passRateOf } from "@/lib/dashboard/home-copy";
 
 interface TrendData {
   passRate: number;
@@ -16,7 +18,10 @@ interface SparklineData {
 }
 
 interface DashboardStats {
-  passRate: number;
+  /** Pass rate of the latest finished run; null when it executed nothing. */
+  passRate: number | null;
+  /** That run's number, so the page can say which run the numbers describe. */
+  latestRunNumber: number | null;
   flakyCount: number;
   coverage: number;
   lastDuration: number;
@@ -41,32 +46,29 @@ export async function computeDashboardStats(projectId: string): Promise<Dashboar
   const sevenDaysAgo = subDays(now, 7);
   const fourteenDaysAgo = subDays(now, 14);
 
-  // Get completed runs from the last 14 days for sparklines + trends
+  // Finished runs (completed or failed) of the last 14 days, by start time: the same set and order
+  // as the home ground track, Needs you and the headline, so every number describes the same runs.
   const recentCompletedRuns = await prisma.testRun.findMany({
     where: {
       projectId,
-      status: "completed",
-      completedAt: { gte: fourteenDaysAgo },
+      status: { in: [...FINISHED_RUN_STATUSES] },
+      createdAt: { gte: fourteenDaysAgo },
     },
-    orderBy: { completedAt: "asc" },
+    orderBy: { createdAt: "asc" },
     select: {
+      sequenceNumber: true,
+      createdAt: true,
       passed: true,
       failed: true,
       flaky: true,
       totalTests: true,
       durationMs: true,
-      completedAt: true,
     },
   });
 
   // Current stats from most recent run
   const latestRun = recentCompletedRuns[recentCompletedRuns.length - 1];
-  const latestExecuted = latestRun
-    ? latestRun.passed + latestRun.failed + latestRun.flaky
-    : 0;
-  const passRate = latestExecuted > 0
-    ? Math.round((latestRun.passed / latestExecuted) * 100)
-    : 0;
+  const passRate = passRateOf(latestRun);
   const lastDuration = latestRun?.durationMs ?? 0;
 
   const flakyCount = await prisma.flakyTest.count({
@@ -98,16 +100,17 @@ export async function computeDashboardStats(projectId: string): Promise<Dashboar
 
   // Compute trends (this week vs last week)
   const thisWeekRuns = recentCompletedRuns.filter(
-    (r) => r.completedAt && r.completedAt >= sevenDaysAgo
+    (r) => r.createdAt >= sevenDaysAgo
   );
   const lastWeekRuns = recentCompletedRuns.filter(
-    (r) => r.completedAt && r.completedAt < sevenDaysAgo
+    (r) => r.createdAt < sevenDaysAgo
   );
 
   const trends = computeTrends(thisWeekRuns, lastWeekRuns);
 
   return {
     passRate,
+    latestRunNumber: latestRun?.sequenceNumber ?? null,
     flakyCount,
     coverage,
     lastDuration,

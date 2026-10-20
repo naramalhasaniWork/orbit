@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ChevronDown, ChevronRight, ShieldAlert, Pencil } from "lucide-react";
+import { ChevronDown, ChevronRight, Pencil } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
 import { StatusDot } from "@/components/shared/status-dot";
@@ -72,8 +72,8 @@ export function TestCaseCard({ testCase, projectId, selected = false, onToggleSe
   return (
     <div
       className={cn(
-        "rounded-lg bg-muted/20 transition-colors",
-        selected && "ring-1 ring-tm-line-strong bg-foreground/[0.06]",
+        "border-b border-border transition-colors last:border-b-0",
+        selected && "bg-accent",
         !enabled && "opacity-50"
       )}
     >
@@ -84,7 +84,9 @@ export function TestCaseCard({ testCase, projectId, selected = false, onToggleSe
         <button
           type="button"
           onClick={(e) => { e.stopPropagation(); setIsExpanded(!isExpanded); }}
-          className="shrink-0 text-muted-foreground hover:text-foreground"
+          aria-expanded={isExpanded}
+          aria-label={`${isExpanded ? "Collapse" : "Expand"} ${testCase.name}`}
+          className="shrink-0 rounded-sm text-tm-t3 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           {isExpanded ? (
             <ChevronDown className="h-3.5 w-3.5" />
@@ -105,7 +107,7 @@ export function TestCaseCard({ testCase, projectId, selected = false, onToggleSe
               {testCase.name}
             </span>
             {testCase.isCritical && (
-              <ShieldAlert className="h-3.5 w-3.5 text-orbit-fail shrink-0" />
+              <span className="tm-label hidden shrink-0 rounded-sm border border-tm-line-strong px-1 text-tm-t2 sm:inline">Critical</span>
             )}
           </div>
           {testCase.rationale && (
@@ -115,17 +117,17 @@ export function TestCaseCard({ testCase, projectId, selected = false, onToggleSe
           )}
         </div>
 
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex shrink-0 items-center gap-3">
           <Badge
             className={cn(
-              "text-[10px] px-1.5 py-0 font-medium border",
+              "hidden border px-1.5 py-0 sm:inline-flex",
               typeConfig?.className ?? "bg-muted/50 text-muted-foreground border-border/50"
             )}
           >
             {typeConfig?.label ?? testCase.type}
           </Badge>
 
-          <span className={cn("text-xs font-medium tabular-nums", priority.className)}>
+          <span className={cn("tm-num text-[11px]", priority.className)}>
             {testCase.priorityScore}
           </span>
 
@@ -133,7 +135,8 @@ export function TestCaseCard({ testCase, projectId, selected = false, onToggleSe
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); setIsEditing(true); }}
-              className="text-muted-foreground/50 hover:text-foreground transition-colors"
+              aria-label={`Edit ${testCase.name}`}
+              className="rounded-sm text-tm-t3 transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             >
               <Pencil className="h-3 w-3" />
             </button>
@@ -142,6 +145,7 @@ export function TestCaseCard({ testCase, projectId, selected = false, onToggleSe
           <Switch
             checked={enabled}
             onCheckedChange={handleToggleEnabled}
+            aria-label={`${enabled ? "Disable" : "Enable"} ${testCase.name}`}
             className="scale-75"
           />
         </div>

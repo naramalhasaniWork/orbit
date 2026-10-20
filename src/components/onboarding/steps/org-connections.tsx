@@ -28,13 +28,13 @@ export function OrgConnections({ orgs, onConnect }: OrgConnectionsProps) {
   return (
     <div className="w-full mb-4">
       <div className="flex items-center justify-between mb-2">
-        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+        <span className=" text-muted-foreground tm-label">
           Organizations
         </span>
         <button
           type="button"
           onClick={onConnect}
-          className="text-xs text-orbit-accent hover:text-orbit-accent/80 flex items-center gap-1 transition-colors"
+          className="text-xs text-foreground hover:text-foreground flex items-center gap-1 transition-colors"
         >
           <Plus className="h-3 w-3" />
           Connect organization
@@ -45,7 +45,7 @@ export function OrgConnections({ orgs, onConnect }: OrgConnectionsProps) {
         {installed.map((org) => (
           <span
             key={org.id}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 text-xs text-emerald-400"
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-tm-pass/10 text-xs text-tm-pass"
           >
             {org.avatarUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -79,7 +79,7 @@ export function OrgConnections({ orgs, onConnect }: OrgConnectionsProps) {
           <button
             type="button"
             onClick={onConnect}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-dashed border-muted-foreground/30 text-xs text-muted-foreground hover:text-foreground hover:border-orbit-accent/40 transition-colors"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-dashed border-muted-foreground/30 text-xs text-muted-foreground hover:text-foreground hover:border-tm-line-strong transition-colors"
           >
             <Building2 className="h-3.5 w-3.5" />
             Connect an organization

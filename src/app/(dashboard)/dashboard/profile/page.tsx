@@ -1,4 +1,5 @@
 "use client";
+import { Pending } from "@/components/telemetry/pending";
 
 import Image from "next/image";
 import { useSession, signOut } from "next-auth/react";
@@ -28,7 +29,7 @@ function roleBadgeStyle(role: string): string {
     owner: "bg-foreground/[0.06] text-foreground border-tm-line-strong",
     admin: "bg-tm-info/15 text-tm-info border-tm-info/20",
     member: "bg-tm-pass/15 text-tm-pass border-tm-pass/20",
-    viewer: "bg-gray-500/15 text-gray-400 border-gray-500/20",
+    viewer: "bg-tm-t3/15 text-tm-t3 border-tm-t3/20",
     billing: "bg-tm-warn/15 text-tm-warn border-tm-warn/20",
   };
   return styles[role] ?? styles.member;
@@ -40,7 +41,7 @@ export default function ProfilePage() {
   if (status === "loading") {
     return (
       <div className="flex items-center justify-center h-full">
-        <div className="h-6 w-6 border-2 border-tm-line-strong border-t-transparent rounded-full animate-spin" />
+        <Pending label="Loading profile" showLabel />
       </div>
     );
   }
@@ -66,7 +67,7 @@ export default function ProfilePage() {
       </div>
 
       {/* Avatar & Identity */}
-      <div className="surface-2 rounded-xl border border-border p-6">
+      <div className="surface-1 rounded-xl border border-border p-6">
         <div className="flex items-start gap-5">
           <div className="shrink-0">
             {session.user?.image ? (
@@ -110,7 +111,7 @@ export default function ProfilePage() {
       </div>
 
       {/* Account Details */}
-      <div className="surface-2 rounded-xl border border-border p-6 space-y-4">
+      <div className="surface-1 rounded-xl border border-border p-6 space-y-4">
         <h3 className="text-sm font-medium text-foreground">Account Details</h3>
 
         <div className="space-y-3">
@@ -141,7 +142,7 @@ export default function ProfilePage() {
       </div>
 
       {/* Workspace Info */}
-      <div className="surface-2 rounded-xl border border-border p-6 space-y-4">
+      <div className="surface-1 rounded-xl border border-border p-6 space-y-4">
         <h3 className="text-sm font-medium text-foreground">Current Workspace</h3>
 
         <div className="space-y-3">
@@ -169,7 +170,7 @@ export default function ProfilePage() {
       </div>
 
       {/* Theme Preference (placeholder) */}
-      <div className="surface-2 rounded-xl border border-border p-6 space-y-3">
+      <div className="surface-1 rounded-xl border border-border p-6 space-y-3">
         <h3 className="text-sm font-medium text-foreground">Preferences</h3>
         <div className="flex items-center justify-between">
           <div>

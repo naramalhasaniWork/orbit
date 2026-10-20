@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { tween } from "@/lib/motion";
 import { ChevronRight } from "lucide-react";
 import { TestCaseCard } from "@/components/plans/test-case-card";
 import { type TestCaseData } from "@/components/plans/plan-types";
@@ -35,8 +36,10 @@ export function JourneyGroup({ journey, testCases, projectId, selection }: Journ
   return (
     <div>
       <button
+        type="button"
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 py-2 text-left group w-full"
+        aria-expanded={isOpen}
+        className="group flex h-9 w-full items-center gap-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <ChevronRight
           className={cn(
@@ -47,26 +50,16 @@ export function JourneyGroup({ journey, testCases, projectId, selection }: Journ
         <span className=" text-foreground tm-label">
           {journey}
         </span>
-        <span className="text-xs text-muted-foreground">
-          ({testCases.length})
-        </span>
+        <span className="tm-num text-[10.5px] text-tm-t3">{testCases.length}</span>
 
         <div className="flex-1" />
 
-        <div className="flex items-center gap-2 text-[10px] tabular-nums">
-          {summary.pass > 0 && (
-            <span className="text-orbit-pass">{summary.pass}P</span>
-          )}
-          {summary.fail > 0 && (
-            <span className="text-orbit-fail">{summary.fail}F</span>
-          )}
-          {summary.flaky > 0 && (
-            <span className="text-orbit-flaky">{summary.flaky}Fl</span>
-          )}
-          {summary.untested > 0 && (
-            <span className="text-muted-foreground">{summary.untested}U</span>
-          )}
-        </div>
+        <span className="tm-num flex items-center gap-2.5 text-[10.5px]">
+          {summary.pass > 0 && <span className="text-tm-pass"><span aria-hidden="true">✓</span>{summary.pass}<span className="sr-only"> passing</span></span>}
+          {summary.fail > 0 && <span className="text-tm-fail"><span aria-hidden="true">✕</span>{summary.fail}<span className="sr-only"> failing</span></span>}
+          {summary.flaky > 0 && <span className="text-tm-flaky"><span aria-hidden="true">◐</span>{summary.flaky}<span className="sr-only"> flaky</span></span>}
+          {summary.untested > 0 && <span className="text-tm-t3"><span aria-hidden="true">○</span>{summary.untested}<span className="sr-only"> untested</span></span>}
+        </span>
       </button>
 
       <AnimatePresence initial={false}>
@@ -75,10 +68,10 @@ export function JourneyGroup({ journey, testCases, projectId, selection }: Journ
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: "auto", opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2, ease: "easeInOut" }}
+            transition={tween.open}
             className="overflow-hidden"
           >
-            <div className="ml-5 mt-1 space-y-2 pb-1">
+            <div className="mb-2 ml-5 overflow-hidden rounded-lg border border-border bg-card">
               {testCases.map((tc) => (
                 <TestCaseCard
                   key={tc.id}

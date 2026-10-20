@@ -1,10 +1,10 @@
 "use client";
 
+import { Pending } from "@/components/telemetry/pending";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import { useSearchParams, usePathname } from "next/navigation";
 import {
-  Search, ChevronRight, Loader2,
-  AlertCircle, GitBranch, CheckCircle2,
+  Search, ChevronRight, AlertCircle, GitBranch, CheckCircle2,
 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -20,8 +20,8 @@ type RepoProvider = "github" | "gitlab" | "bitbucket";
 
 const PROVIDER_CONFIG: Record<RepoProvider, { label: string; color: string }> = {
   github: { label: "GitHub", color: "bg-muted/60" },
-  gitlab: { label: "GitLab", color: "bg-orange-500/10" },
-  bitbucket: { label: "Bitbucket", color: "bg-blue-500/10" },
+  gitlab: { label: "GitLab", color: "bg-tm-warn/10" },
+  bitbucket: { label: "Bitbucket", color: "bg-tm-info/10" },
 };
 
 interface ConnectRepoProps {
@@ -175,7 +175,7 @@ export function ConnectRepo({ onSelect }: ConnectRepoProps) {
   return (
     <div className="flex flex-col items-center w-full max-w-xl mx-auto">
       <div className="text-center mb-8">
-        <h2 className="text-xl font-semibold text-foreground mb-2">
+        <h2 className="text-xl font-medium text-foreground mb-2">
           Connect a repository
         </h2>
         <p className="text-sm text-muted-foreground">
@@ -185,7 +185,7 @@ export function ConnectRepo({ onSelect }: ConnectRepoProps) {
 
       {/* Success banner after org install */}
       {justConnectedOrg && (
-        <div className="w-full mb-4 flex items-center gap-2 text-sm text-emerald-400 bg-emerald-500/10 rounded-md px-3 py-2">
+        <div className="w-full mb-4 flex items-center gap-2 text-sm text-tm-pass bg-tm-pass/10 rounded-md px-3 py-2">
           <CheckCircle2 className="h-4 w-4 shrink-0" />
           Connected <strong>{justConnectedOrg}</strong> — their repos are now available below.
         </div>
@@ -203,7 +203,7 @@ export function ConnectRepo({ onSelect }: ConnectRepoProps) {
               className={cn(
                 "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors",
                 provider === p
-                  ? "bg-orbit-accent/20 text-orbit-accent"
+                  ? "bg-foreground/[0.06] text-foreground"
                   : "bg-muted/30 text-muted-foreground hover:text-foreground",
                 !isSupported && "opacity-40 cursor-not-allowed hover:text-muted-foreground"
               )}
@@ -211,7 +211,7 @@ export function ConnectRepo({ onSelect }: ConnectRepoProps) {
               <GitBranch className="h-3.5 w-3.5" />
               {PROVIDER_CONFIG[p].label}
               {!isSupported && (
-                <span className="text-[10px] uppercase tracking-wider">Soon</span>
+                <span className=" tm-label">Soon</span>
               )}
             </button>
           );
@@ -262,7 +262,7 @@ export function ConnectRepo({ onSelect }: ConnectRepoProps) {
             <div className="p-1">
               {loading && allRepos.length === 0 ? (
                 <div className="flex items-center justify-center h-32 gap-2 text-sm text-muted-foreground">
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Pending />
                   Loading repositories...
                 </div>
               ) : filtered.length === 0 ? (
@@ -274,7 +274,7 @@ export function ConnectRepo({ onSelect }: ConnectRepoProps) {
                     <button
                       type="button"
                       onClick={handleConnectOrg}
-                      className="text-orbit-accent hover:underline text-xs"
+                      className="text-foreground hover:underline text-xs"
                     >
                       Connect an organization to see more repos
                     </button>
@@ -289,14 +289,14 @@ export function ConnectRepo({ onSelect }: ConnectRepoProps) {
       )}
 
       <Button
-        className="mt-6 bg-orbit-accent hover:bg-orbit-accent/90 text-white gap-2"
+        className="mt-6 bg-primary hover:bg-primary/85 text-primary-foreground gap-2"
         size="lg"
         disabled={!selected || creating}
         onClick={handleContinue}
       >
         {creating ? (
           <>
-            <Loader2 className="h-4 w-4 animate-spin" />
+            <Pending />
             Creating project...
           </>
         ) : (

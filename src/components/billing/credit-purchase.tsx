@@ -1,7 +1,8 @@
 "use client";
 
+import { Pending } from "@/components/telemetry/pending";
 import { useState, useEffect, useCallback } from "react";
-import { X, Coins, Loader2, Sparkles, Check } from "lucide-react";
+import { X, Coins, Sparkles, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface CreditPackage {
@@ -72,10 +73,10 @@ export function CreditPurchaseDialog({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-modal flex items-center justify-center">
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/60"
         onClick={onClose}
       />
 
@@ -84,11 +85,11 @@ export function CreditPurchaseDialog({
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <div className="flex items-center gap-3">
-            <div className="h-8 w-8 rounded-lg bg-orbit-accent/15 flex items-center justify-center">
-              <Coins className="h-4 w-4 text-orbit-accent" />
+            <div className="h-8 w-8 rounded-lg bg-foreground/[0.06] flex items-center justify-center">
+              <Coins className="h-4 w-4 text-foreground" />
             </div>
             <div>
-              <h2 className="text-sm font-semibold text-foreground">
+              <h2 className="text-sm font-medium text-foreground">
                 Buy Credits
               </h2>
               <p className="text-xs text-muted-foreground">
@@ -111,7 +112,7 @@ export function CreditPurchaseDialog({
               {[1, 2, 3, 4].map((i) => (
                 <div
                   key={i}
-                  className="h-40 rounded-xl bg-foreground/[0.02] animate-pulse"
+                  className="h-40 rounded-xl bg-foreground/[0.02]"
                 />
               ))}
             </div>
@@ -160,13 +161,13 @@ function PackageCard({
       className={cn(
         "relative rounded-xl border p-4 flex flex-col transition-colors",
         pkg.popular
-          ? "border-orbit-accent/40 bg-orbit-accent/[0.03]"
+          ? "border-tm-line-strong bg-foreground/[0.06]"
           : "border-border bg-foreground/[0.02] hover:border-border"
       )}
     >
       {pkg.popular && (
         <div className="absolute -top-2.5 left-1/2 -translate-x-1/2">
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-orbit-accent text-[10px] font-semibold text-white">
+          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-primary text-[10px] font-medium text-primary-foreground">
             <Sparkles className="h-3 w-3" />
             Popular
           </span>
@@ -174,9 +175,9 @@ function PackageCard({
       )}
 
       <div className="mb-3">
-        <h3 className="text-sm font-semibold text-foreground">{pkg.name}</h3>
+        <h3 className="text-sm font-medium text-foreground">{pkg.name}</h3>
         <div className="flex items-baseline gap-1 mt-1">
-          <span className="text-xl font-bold text-foreground">
+          <span className="text-xl font-medium text-foreground">
             ${(pkg.price / 100).toFixed(2)}
           </span>
         </div>
@@ -187,11 +188,11 @@ function PackageCard({
 
       <div className="flex-1 mb-3">
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-          <Check className="h-3 w-3 text-orbit-accent" />
+          <Check className="h-3 w-3 text-foreground" />
           {pkg.credits.toLocaleString()} credits added instantly
         </div>
         <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-1">
-          <Check className="h-3 w-3 text-orbit-accent" />
+          <Check className="h-3 w-3 text-foreground" />
           Credits never expire
         </div>
       </div>
@@ -202,13 +203,13 @@ function PackageCard({
         className={cn(
           "flex items-center justify-center gap-2 w-full py-2 rounded-lg text-sm font-medium transition-colors",
           pkg.popular
-            ? "bg-orbit-accent text-white hover:bg-orbit-accent/90"
+            ? "bg-primary text-primary-foreground hover:bg-primary/85"
             : "bg-foreground/10 text-foreground hover:bg-foreground/15",
           disabled && "opacity-50 cursor-not-allowed"
         )}
       >
         {purchasing ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
+          <Pending />
         ) : (
           "Buy Now"
         )}
