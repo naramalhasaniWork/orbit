@@ -21,7 +21,8 @@ export function isAllowedWebhookUrl(raw: string): boolean {
   }
   if (url.protocol !== "https:") return false;
 
-  const host = url.hostname.toLowerCase();
+  // "localhost." and "127.0.0.1." resolve like their dotless forms
+  const host = url.hostname.toLowerCase().replace(/\.+$/, "");
   if (host === "localhost" || host.endsWith(".localhost")) return false;
   if (host.endsWith(".local") || host.endsWith(".internal")) return false;
   if (host.startsWith("[")) return false; // IPv6 literals

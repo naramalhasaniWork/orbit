@@ -6,7 +6,12 @@ import {
   apiError,
   handleApiError,
 } from "@/lib/utils/api";
-import { signPayload } from "@/services/reporting/integrations/outbound-webhooks";
+import { requirePermission } from "@/lib/auth/rbac";
+import { isAllowedWebhookUrl } from "@/lib/integrations/webhook-url";
+import {
+  signPayload,
+  truncateResponse,
+} from "@/services/reporting/integrations/outbound-webhooks";
 import {
   readStoredWebhooks,
   resolveWebhookSecret,
@@ -23,6 +28,7 @@ export async function POST(
   try {
     const { workspaceId } = await requireWorkspace();
     const { projectId, deliveryId } = await params;
+    await requirePermission(workspaceId, "projects.update");
 
     const project = await prisma.project.findFirst({
       where: { id: projectId, workspaceId },
@@ -43,7 +49,17 @@ export async function POST(
 
     // Find the webhook endpoint secret from project settings
     const endpoint = readStoredWebhooks(project.settings).find((w) => w.url === delivery.url);
-    const secret = (endpoint && resolveWebhookSecret(endpoint)) ?? "";
+    const secret = endpoint ? resolveWebhookSecret(endpoint) : null;
+    if (!endpoint || !secret) {
+      return apiError(
+        "This endpoint no longer exists or its secret cannot be resolved",
+        "ENDPOINT_UNAVAILABLE",
+        409
+      );
+    }
+    if (!isAllowedWebhookUrl(delivery.url)) {
+      return apiError("Endpoint URL is not allowed", "ENDPOINT_UNAVAILABLE", 409);
+    }
 
     const body = JSON.stringify(delivery.payload);
     const signature = signPayload(body, secret);
@@ -57,6 +73,7 @@ export async function POST(
         "X-Orbit-Delivery-Attempt": String(delivery.attempts + 1),
       },
       body,
+      redirect: "manual",
       signal: AbortSignal.timeout(10000),
     });
 
@@ -66,7 +83,9 @@ export async function POST(
         statusCode: response.status,
         attempts: delivery.attempts + 1,
         deliveredAt: response.ok ? new Date() : null,
-        response: response.ok ? null : await response.text().catch(() => null),
+        response: response.ok
+          ? null
+          : truncateResponse(await response.text().catch(() => "")) || null,
       },
     });
 

@@ -1,3 +1,4 @@
+import { redactSettingsOf } from "@/lib/integrations/redact";
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
@@ -27,7 +28,7 @@ export async function GET(request: NextRequest) {
       where,
     });
 
-    return apiSuccess(projectList);
+    return apiSuccess(projectList.map(redactSettingsOf));
   } catch (error) {
     return handleApiError(error);
   }
@@ -93,7 +94,7 @@ export async function POST(request: NextRequest) {
       },
     });
 
-    return apiSuccess(project, 201);
+    return apiSuccess(redactSettingsOf(project), 201);
   } catch (error) {
     return handleApiError(error);
   }
