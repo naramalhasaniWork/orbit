@@ -21,7 +21,7 @@ export const ACCESS_SECRET_PREFIX = "CF_ACCESS";
 export const ACCESS_REJECTED_MESSAGE =
   "Cloudflare Access blocked the test browser. Check the CF_ACCESS_CLIENT_ID / CF_ACCESS_CLIENT_SECRET project secrets, and that the Access application has a Service Auth policy that includes this service token.";
 
-type AccessHeaders = Record<"CF-Access-Client-Id" | "CF-Access-Client-Secret", string>;
+export type AccessHeaders = Record<"CF-Access-Client-Id" | "CF-Access-Client-Secret", string>;
 
 /**
  * Only environments in "cloudflare_access" mode receive the Access secrets; everywhere else
