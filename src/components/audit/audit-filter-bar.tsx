@@ -25,7 +25,7 @@ export function AuditFilterBar({ filters, members, onFilterChange }: AuditFilter
         value={filters.action}
         onChange={(e) => update("action", e.target.value)}
         className={cn(
-          "h-8 rounded-md border border-white/[0.08] bg-white/[0.03] px-2 text-xs text-foreground",
+          "h-8 rounded-md border border-border bg-foreground/[0.03] px-2 text-xs text-foreground",
           "focus:outline-none focus:ring-1 focus:ring-orbit-accent/50",
           filters.action && "border-orbit-accent/30"
         )}
@@ -41,7 +41,7 @@ export function AuditFilterBar({ filters, members, onFilterChange }: AuditFilter
         value={filters.userId}
         onChange={(e) => update("userId", e.target.value)}
         className={cn(
-          "h-8 rounded-md border border-white/[0.08] bg-white/[0.03] px-2 text-xs text-foreground",
+          "h-8 rounded-md border border-border bg-foreground/[0.03] px-2 text-xs text-foreground",
           "focus:outline-none focus:ring-1 focus:ring-orbit-accent/50",
           filters.userId && "border-orbit-accent/30"
         )}
@@ -59,7 +59,7 @@ export function AuditFilterBar({ filters, members, onFilterChange }: AuditFilter
         value={filters.resourceType}
         onChange={(e) => update("resourceType", e.target.value)}
         className={cn(
-          "h-8 rounded-md border border-white/[0.08] bg-white/[0.03] px-2 text-xs text-foreground",
+          "h-8 rounded-md border border-border bg-foreground/[0.03] px-2 text-xs text-foreground",
           "focus:outline-none focus:ring-1 focus:ring-orbit-accent/50",
           filters.resourceType && "border-orbit-accent/30"
         )}
@@ -77,7 +77,7 @@ export function AuditFilterBar({ filters, members, onFilterChange }: AuditFilter
         onChange={(e) => update("from", e.target.value)}
         placeholder="From"
         className={cn(
-          "h-8 rounded-md border border-white/[0.08] bg-white/[0.03] px-2 text-xs text-foreground",
+          "h-8 rounded-md border border-border bg-foreground/[0.03] px-2 text-xs text-foreground",
           "focus:outline-none focus:ring-1 focus:ring-orbit-accent/50",
           filters.from && "border-orbit-accent/30"
         )}
@@ -90,7 +90,7 @@ export function AuditFilterBar({ filters, members, onFilterChange }: AuditFilter
         onChange={(e) => update("to", e.target.value)}
         placeholder="To"
         className={cn(
-          "h-8 rounded-md border border-white/[0.08] bg-white/[0.03] px-2 text-xs text-foreground",
+          "h-8 rounded-md border border-border bg-foreground/[0.03] px-2 text-xs text-foreground",
           "focus:outline-none focus:ring-1 focus:ring-orbit-accent/50",
           filters.to && "border-orbit-accent/30"
         )}
@@ -105,7 +105,7 @@ export function AuditFilterBar({ filters, members, onFilterChange }: AuditFilter
           onChange={(e) => update("search", e.target.value)}
           placeholder="Search metadata..."
           className={cn(
-            "h-8 w-44 rounded-md border border-white/[0.08] bg-white/[0.03] pl-7 pr-2 text-xs text-foreground",
+            "h-8 w-44 rounded-md border border-border bg-foreground/[0.03] pl-7 pr-2 text-xs text-foreground",
             "focus:outline-none focus:ring-1 focus:ring-orbit-accent/50 placeholder:text-muted-foreground",
             filters.search && "border-orbit-accent/30"
           )}
@@ -118,7 +118,7 @@ export function AuditFilterBar({ filters, members, onFilterChange }: AuditFilter
           onClick={() =>
             onFilterChange({ action: "", userId: "", resourceType: "", from: "", to: "", search: "" })
           }
-          className="flex items-center gap-1 h-8 px-2 rounded-md text-xs text-muted-foreground hover:text-foreground hover:bg-white/[0.04] transition-colors"
+          className="flex items-center gap-1 h-8 px-2 rounded-md text-xs text-muted-foreground hover:text-foreground hover:bg-foreground/[0.04] transition-colors"
         >
           <X className="h-3 w-3" />
           Clear

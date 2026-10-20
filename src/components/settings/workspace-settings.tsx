@@ -95,13 +95,13 @@ export function WorkspaceSettings({ workspace, role = null }: WorkspaceSettingsP
               id="ws-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="bg-white/[0.04]"
+              className="bg-foreground/[0.04]"
             />
           </div>
 
           <div className="space-y-2">
             <Label className="text-xs text-muted-foreground">Workspace ID</Label>
-            <div className="text-sm text-foreground font-mono bg-white/[0.04] rounded-md px-3 py-2 border border-transparent">
+            <div className="text-sm text-foreground font-mono bg-foreground/[0.04] rounded-md px-3 py-2 border border-transparent">
               {workspace.id}
             </div>
           </div>
@@ -112,7 +112,7 @@ export function WorkspaceSettings({ workspace, role = null }: WorkspaceSettingsP
               id="ws-slug"
               value={slug}
               onChange={(e) => setSlug(e.target.value.toLowerCase())}
-              className="bg-white/[0.04] font-mono"
+              className="bg-foreground/[0.04] font-mono"
             />
           </div>
         </div>
@@ -148,7 +148,7 @@ export function WorkspaceSettings({ workspace, role = null }: WorkspaceSettingsP
           onChange={(e) => setCustomPrompt(e.target.value)}
           placeholder="e.g., This is a construction SaaS. Test the bid creation flow thoroughly. Always test with the admin user first."
           rows={5}
-          className="w-full rounded-md bg-white/[0.04] border border-transparent px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-orbit-accent resize-y"
+          className="w-full rounded-md bg-foreground/[0.04] border border-transparent px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-orbit-accent resize-y"
         />
         {promptError && (
           <div className="text-xs text-orbit-fail">{promptError}</div>

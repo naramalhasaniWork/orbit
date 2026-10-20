@@ -120,7 +120,7 @@ export function RunScreenshotsTab({ runId, projectId }: RunScreenshotsTabProps) 
             key={shot.id}
             type="button"
             onClick={() => setLightboxIndex(index)}
-            className="group relative rounded-lg overflow-hidden border border-white/[0.06] hover:border-orbit-accent/40 transition-colors bg-white/[0.02]"
+            className="group relative rounded-lg overflow-hidden border border-border hover:border-orbit-accent/40 transition-colors bg-foreground/[0.02]"
           >
             <div className="aspect-video relative">
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -196,7 +196,7 @@ function Lightbox({
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-md hover:bg-white/[0.1] transition-colors text-muted-foreground hover:text-foreground"
+            className="p-1.5 rounded-md hover:bg-foreground/[0.1] transition-colors text-muted-foreground hover:text-foreground"
           >
             <X className="h-4 w-4" />
           </button>

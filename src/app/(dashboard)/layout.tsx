@@ -1,17 +1,18 @@
 import { Suspense } from "react";
+import { cookies } from "next/headers";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { Sidebar } from "@/components/layout/sidebar";
 import { DashboardHeader } from "@/components/layout/dashboard-header";
-import { ContentTransition } from "@/components/layout/content-transition";
+import { RouteTransition } from "@/components/layout/route-transition";
 import { ChatPanelWrapper } from "@/components/chat/chat-panel-wrapper";
 import { GlobalActivityBar } from "@/components/dashboard/global-activity-bar";
 import { getActiveOperations } from "@/lib/dashboard/active-operations";
 import { SWRProvider } from "@/components/layout/swr-provider";
 import { MaintenanceScreen, SystemBanner } from "@/components/layout/system-notices";
 import { getSystemConfig } from "@/lib/system-config";
-import { isSelfHosted } from "@/lib/self-host";
+import { SIDEBAR_COOKIE, parseSidebarExpanded } from "@/lib/sidebar-pref";
 import { WorkspaceRecovery } from "@/components/layout/workspace-recovery";
 import { DashboardProviders } from "@/components/layout/dashboard-providers";
 
@@ -95,26 +96,27 @@ export default async function DashboardLayout({
     }));
   }
 
+  const sidebarExpanded = parseSidebarExpanded(cookies().get(SIDEBAR_COOKIE)?.value);
+
+  // Frame: canvas with an 8px gutter; the workspace is one 10px-radius surface with a hairline.
   return (
     <SWRProvider fallback={{ "/api/projects": projects }}>
       <DashboardProviders>
-        <div className="flex h-screen surface-0 overflow-hidden">
-          <Sidebar hideBilling={isSelfHosted()} />
-          <div className="flex flex-col flex-1 min-w-0">
+        <div className="flex h-dvh overflow-hidden bg-background md:gap-2 md:p-2 md:pl-0">
+          <Suspense>
+            <Sidebar initialExpanded={sidebarExpanded} />
+          </Suspense>
+          <div className="flex min-w-0 flex-1 flex-col overflow-hidden bg-card md:rounded-xl md:border md:border-border">
             <Suspense>
               <DashboardHeader projects={projects} />
             </Suspense>
-            <SystemBanner
-              announcement={systemConfig.announcement}
-              maintenanceActiveForAdmin={systemConfig.maintenanceMode}
-            />
             <GlobalActivityBar initialOperations={initialOperations} />
-            <main className="flex-1 overflow-auto px-4 py-4 md:px-6 md:py-5 lg:px-8 xl:px-10 border-t border-white/[0.04]">
-              <div className="max-w-[1440px] mx-auto">
+            <main className="flex-1 overflow-auto px-4 py-4 md:px-6 md:py-5 lg:px-8">
+              <div className="mx-auto max-w-[1440px]">
                 <Suspense>
-                  <ContentTransition>
+                  <RouteTransition>
                     {children}
-                  </ContentTransition>
+                  </RouteTransition>
                 </Suspense>
               </div>
             </main>

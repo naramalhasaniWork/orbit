@@ -58,7 +58,7 @@ export function MarkdownRenderer({ content, className }: MarkdownRendererProps) 
           const isInline = !codeClass;
           if (isInline) {
             return (
-              <code className="text-xs font-mono bg-white/[0.06] text-orbit-accent px-1.5 py-0.5 rounded">
+              <code className="text-xs font-mono bg-foreground/[0.06] text-orbit-accent px-1.5 py-0.5 rounded">
                 {children}
               </code>
             );
@@ -66,7 +66,7 @@ export function MarkdownRenderer({ content, className }: MarkdownRendererProps) 
           return (
             <code
               className={cn(
-                "block text-xs font-mono bg-white/[0.04] border border-white/[0.06] rounded-lg p-3 mb-2 overflow-x-auto",
+                "block text-xs font-mono bg-foreground/[0.04] border border-border rounded-lg p-3 mb-2 overflow-x-auto",
                 codeClass
               )}
               {...props}
@@ -86,7 +86,7 @@ export function MarkdownRenderer({ content, className }: MarkdownRendererProps) 
           </div>
         ),
         thead: ({ children }) => (
-          <thead className="border-b border-white/[0.08]">{children}</thead>
+          <thead className="border-b border-border">{children}</thead>
         ),
         th: ({ children }) => (
           <th className="text-left px-3 py-1.5 text-muted-foreground font-medium text-[11px] uppercase tracking-wider">
@@ -94,7 +94,7 @@ export function MarkdownRenderer({ content, className }: MarkdownRendererProps) 
           </th>
         ),
         td: ({ children }) => (
-          <td className="px-3 py-1.5 text-foreground border-b border-white/[0.04]">
+          <td className="px-3 py-1.5 text-foreground border-b border-border">
             {children}
           </td>
         ),
@@ -113,7 +113,7 @@ export function MarkdownRenderer({ content, className }: MarkdownRendererProps) 
             {children}
           </blockquote>
         ),
-        hr: () => <hr className="border-white/[0.06] my-3" />,
+        hr: () => <hr className="border-border my-3" />,
       }}
     >
       {content}

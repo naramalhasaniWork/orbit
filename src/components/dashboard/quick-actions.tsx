@@ -237,14 +237,14 @@ export function QuickActions({
         aria-label="Search and commands"
         className={cn(
           "flex items-center justify-center gap-2 h-8 min-w-8 px-2 sm:px-3 sm:py-1.5 rounded-lg",
-          "border border-border bg-white/[0.03]",
-          "text-sm text-muted-foreground hover:text-foreground hover:bg-white/[0.06]",
+          "border border-border bg-foreground/[0.03]",
+          "text-sm text-muted-foreground hover:text-foreground hover:bg-foreground/[0.06]",
           "transition-all duration-200"
         )}
       >
         <Search className="h-3.5 w-3.5" />
         <span className="hidden sm:inline text-xs">Search...</span>
-        <kbd className="hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-white/[0.08] text-[10px] font-mono text-muted-foreground">
+        <kbd className="hidden sm:inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded bg-foreground/[0.08] text-[10px] font-mono text-muted-foreground">
           <Command className="h-2.5 w-2.5" />K
         </kbd>
       </button>
@@ -300,7 +300,7 @@ export function QuickActions({
                         "flex items-center gap-3 w-full px-4 py-2.5 text-left transition-colors",
                         isSelected
                           ? "bg-orbit-accent/[0.08]"
-                          : "hover:bg-white/[0.04]"
+                          : "hover:bg-foreground/[0.04]"
                       )}
                     >
                       <div
@@ -308,7 +308,7 @@ export function QuickActions({
                           "flex items-center justify-center h-7 w-7 rounded-md shrink-0",
                           isSelected
                             ? "bg-orbit-accent/10 text-orbit-accent"
-                            : "bg-white/[0.06] text-muted-foreground"
+                            : "bg-foreground/[0.06] text-muted-foreground"
                         )}
                       >
                         <action.icon className="h-3.5 w-3.5" />
@@ -335,15 +335,15 @@ export function QuickActions({
           {/* Footer */}
           <div className="flex items-center gap-4 px-4 py-2 border-t border-border text-[10px] text-muted-foreground">
             <span className="flex items-center gap-1">
-              <kbd className="px-1 rounded bg-white/[0.06] font-mono">&#8593;&#8595;</kbd>
+              <kbd className="px-1 rounded bg-foreground/[0.06] font-mono">&#8593;&#8595;</kbd>
               navigate
             </span>
             <span className="flex items-center gap-1">
-              <kbd className="px-1 rounded bg-white/[0.06] font-mono">&#9166;</kbd>
+              <kbd className="px-1 rounded bg-foreground/[0.06] font-mono">&#9166;</kbd>
               select
             </span>
             <span className="flex items-center gap-1">
-              <kbd className="px-1 rounded bg-white/[0.06] font-mono">esc</kbd>
+              <kbd className="px-1 rounded bg-foreground/[0.06] font-mono">esc</kbd>
               close
             </span>
           </div>

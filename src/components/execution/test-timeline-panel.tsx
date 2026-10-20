@@ -10,7 +10,7 @@ import {
   SkipForward,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { springs, progressSpring } from "@/lib/motion";
+import { tween } from "@/lib/motion";
 import type { TestItem } from "@/hooks/use-run-events";
 
 interface TestTimelinePanelProps {
@@ -35,11 +35,11 @@ export function TestTimelinePanel({
     <div
       className={cn(
         "flex flex-col bg-[hsl(var(--orbit-bg-deeper,222_47%_6%))]",
-        "border-l border-white/[0.06] overflow-hidden",
+        "border-l border-border overflow-hidden",
         className
       )}
     >
-      <div className="px-3 py-2 border-b border-white/[0.04] shrink-0 flex items-center justify-between">
+      <div className="px-3 py-2 border-b border-border shrink-0 flex items-center justify-between">
         <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
           Test Timeline
         </span>
@@ -51,12 +51,12 @@ export function TestTimelinePanel({
 
       {/* Progress micro-bar */}
       {totalTests > 0 && (
-        <div className="h-0.5 bg-white/[0.04] shrink-0 overflow-hidden">
+        <div className="h-0.5 bg-foreground/[0.04] shrink-0 overflow-hidden">
           <motion.div
             className="h-full bg-orbit-accent shadow-[2px_0_6px_hsl(var(--orbit-accent)/0.5)]"
             initial={{ width: 0 }}
             animate={{ width: `${(completed / totalTests) * 100}%` }}
-            transition={progressSpring}
+            transition={tween.layout}
           />
         </div>
       )}
@@ -90,7 +90,7 @@ function TestEntry({ test, index }: { test: TestItem; index: number }) {
     <motion.div
       initial={{ opacity: 0, x: -12 }}
       animate={{ opacity: 1, x: 0 }}
-      transition={springs.smooth}
+      transition={tween.open}
       className={cn(
         "flex items-center gap-2 px-2 py-1.5 rounded-md transition-colors group",
         isRunning && "bg-orbit-accent/[0.06]",
@@ -160,7 +160,7 @@ function VerdictIcon({ status }: { status: TestItem["status"] }) {
     case "skipped":
       return <SkipForward className={cn(s, "text-muted-foreground")} />;
     default:
-      return <div className={cn(s, "rounded-full border border-white/10")} />;
+      return <div className={cn(s, "rounded-full border border-border")} />;
   }
 }
 

@@ -25,7 +25,7 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
         className={cn(
           "fixed bottom-5 right-5 z-50 h-11 w-11 rounded-full flex items-center justify-center shadow-lg transition-all duration-200",
           isOpen
-            ? "bg-white/[0.08] text-foreground hover:bg-white/[0.12]"
+            ? "bg-foreground/[0.08] text-foreground hover:bg-foreground/[0.12]"
             : "bg-orbit-accent text-white hover:bg-orbit-accent/90 shadow-[0_0_20px_hsl(var(--orbit-accent)/0.3)]"
         )}
       >
@@ -40,7 +40,7 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
       <div
         className={cn(
           "fixed bottom-20 right-5 z-40 w-[400px] h-[600px] max-h-[calc(100vh-120px)]",
-          "surface-1 border border-white/[0.08] rounded-xl shadow-2xl",
+          "surface-1 border border-border rounded-xl shadow-2xl",
           "flex flex-col overflow-hidden",
           "transition-all duration-200 origin-bottom-right",
           isOpen
@@ -49,7 +49,7 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
         )}
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.06]">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-border">
           <div className="flex items-center gap-2">
             <div className="h-6 w-6 rounded-full bg-orbit-accent/10 flex items-center justify-center">
               <MessageSquare className="h-3.5 w-3.5 text-orbit-accent" />
@@ -61,7 +61,7 @@ export function ChatPanel({ projectId }: ChatPanelProps) {
           {messages.length > 0 && (
             <button
               onClick={clearHistory}
-              className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-white/[0.06] transition-colors"
+              className="p-1.5 rounded-md text-muted-foreground hover:text-foreground hover:bg-foreground/[0.06] transition-colors"
               title="Clear history"
             >
               <Trash2 className="h-3.5 w-3.5" />

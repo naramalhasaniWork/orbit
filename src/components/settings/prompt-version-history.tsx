@@ -52,7 +52,7 @@ export function PromptVersionHistory({
   }, [showVersions, versions.length, fetchVersions]);
 
   return (
-    <div className="border-t border-white/[0.06] pt-3">
+    <div className="border-t border-border pt-3">
       <button
         type="button"
         onClick={() => setShowVersions(!showVersions)}
@@ -76,7 +76,7 @@ export function PromptVersionHistory({
             versions.map((v) => (
               <div
                 key={v.id}
-                className="flex items-center justify-between px-3 py-2 rounded-lg bg-white/[0.02]"
+                className="flex items-center justify-between px-3 py-2 rounded-lg bg-foreground/[0.02]"
               >
                 <div className="flex items-center gap-2">
                   <Badge variant="outline" className="text-[9px]">v{v.version}</Badge>

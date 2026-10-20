@@ -80,9 +80,9 @@ export function CreditPurchaseDialog({
       />
 
       {/* Dialog */}
-      <div className="relative w-full max-w-2xl mx-4 rounded-2xl border border-white/[0.08] bg-[#0a0a0f] shadow-2xl">
+      <div className="relative w-full max-w-2xl mx-4 rounded-2xl border border-border bg-[#0a0a0f] shadow-2xl">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-white/[0.06]">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
           <div className="flex items-center gap-3">
             <div className="h-8 w-8 rounded-lg bg-orbit-accent/15 flex items-center justify-center">
               <Coins className="h-4 w-4 text-orbit-accent" />
@@ -98,7 +98,7 @@ export function CreditPurchaseDialog({
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg hover:bg-white/5 transition-colors"
+            className="p-1.5 rounded-lg hover:bg-foreground/5 transition-colors"
           >
             <X className="h-4 w-4 text-muted-foreground" />
           </button>
@@ -111,7 +111,7 @@ export function CreditPurchaseDialog({
               {[1, 2, 3, 4].map((i) => (
                 <div
                   key={i}
-                  className="h-40 rounded-xl bg-white/[0.02] animate-pulse"
+                  className="h-40 rounded-xl bg-foreground/[0.02] animate-pulse"
                 />
               ))}
             </div>
@@ -131,7 +131,7 @@ export function CreditPurchaseDialog({
         </div>
 
         {/* Footer */}
-        <div className="px-6 py-3 border-t border-white/[0.06]">
+        <div className="px-6 py-3 border-t border-border">
           <p className="text-[11px] text-muted-foreground text-center">
             Credits are added to your workspace instantly after payment.
             One-time purchase, no recurring charge.
@@ -161,7 +161,7 @@ function PackageCard({
         "relative rounded-xl border p-4 flex flex-col transition-colors",
         pkg.popular
           ? "border-orbit-accent/40 bg-orbit-accent/[0.03]"
-          : "border-white/[0.06] bg-white/[0.02] hover:border-white/[0.12]"
+          : "border-border bg-foreground/[0.02] hover:border-border"
       )}
     >
       {pkg.popular && (
@@ -203,7 +203,7 @@ function PackageCard({
           "flex items-center justify-center gap-2 w-full py-2 rounded-lg text-sm font-medium transition-colors",
           pkg.popular
             ? "bg-orbit-accent text-white hover:bg-orbit-accent/90"
-            : "bg-white/10 text-foreground hover:bg-white/15",
+            : "bg-foreground/10 text-foreground hover:bg-foreground/15",
           disabled && "opacity-50 cursor-not-allowed"
         )}
       >

@@ -6,7 +6,7 @@ const DEFAULT_MAINTENANCE_MESSAGE =
 /** Full-screen stand-in for the dashboard while maintenance mode is on. */
 export function MaintenanceScreen({ message }: { message: string }) {
   return (
-    <div className="flex min-h-screen items-center justify-center surface-0 px-4">
+    <div className="flex min-h-dvh items-center justify-center surface-0 px-4">
       <div className="max-w-md text-center space-y-4">
         <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-xl border border-border surface-1">
           <Wrench className="h-5 w-5 text-orbit-accent" />

@@ -252,7 +252,7 @@ export function DashboardClient({
             <Button
               variant="outline"
               size="sm"
-              className="h-7 px-3 text-xs gap-1.5 border-border hover:bg-white/[0.06]"
+              className="h-7 px-3 text-xs gap-1.5 border-border hover:bg-foreground/[0.06]"
             >
               <Plus className="h-3 w-3" />
               New Project

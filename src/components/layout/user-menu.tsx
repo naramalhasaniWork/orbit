@@ -21,7 +21,7 @@ export function UserMenu() {
       <DropdownMenuTrigger asChild>
         <button
           aria-label="Account menu"
-          className="rounded-full ring-1 ring-white/10 hover:ring-white/20 transition-all focus:outline-none focus:ring-2 focus:ring-orbit-accent/50"
+          className="rounded-full ring-1 ring-border hover:ring-border transition-all focus:outline-none focus:ring-2 focus:ring-orbit-accent/50"
         >
           {session?.user?.image ? (
             <Image
@@ -32,7 +32,7 @@ export function UserMenu() {
               className="rounded-full"
             />
           ) : (
-            <div className="h-[26px] w-[26px] rounded-full bg-white/[0.08] flex items-center justify-center">
+            <div className="h-[26px] w-[26px] rounded-full bg-foreground/[0.08] flex items-center justify-center">
               <span className="text-[10px] font-medium text-muted-foreground">
                 {session?.user?.name?.charAt(0)?.toUpperCase() ?? "U"}
               </span>

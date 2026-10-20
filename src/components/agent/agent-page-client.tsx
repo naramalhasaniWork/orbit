@@ -111,7 +111,7 @@ export function AgentPageClient({
       {/* Main chat area */}
       <div className="flex-1 flex flex-col min-w-0">
         {/* Header */}
-        <div className="shrink-0 flex items-center justify-between px-6 py-3 border-b border-white/[0.04]">
+        <div className="shrink-0 flex items-center justify-between px-6 py-3 border-b border-border">
           <div className="flex items-center gap-3">
             <div className="h-8 w-8 rounded-lg bg-orbit-accent/[0.1] flex items-center justify-center shadow-[0_0_16px_hsl(var(--orbit-accent)/0.12)]">
               <Orbit className="h-4.5 w-4.5 text-orbit-accent" />
@@ -134,7 +134,7 @@ export function AgentPageClient({
             {messages.length > 0 && (
               <button
                 onClick={clearHistory}
-                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs text-muted-foreground hover:text-foreground hover:bg-white/[0.04] transition-colors"
+                className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs text-muted-foreground hover:text-foreground hover:bg-foreground/[0.04] transition-colors"
               >
                 <Trash2 className="h-3 w-3" />
                 Clear
@@ -146,7 +146,7 @@ export function AgentPageClient({
                 "flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs transition-colors",
                 showActivity
                   ? "text-orbit-accent bg-orbit-accent/[0.08]"
-                  : "text-muted-foreground hover:text-foreground hover:bg-white/[0.04]"
+                  : "text-muted-foreground hover:text-foreground hover:bg-foreground/[0.04]"
               )}
             >
               Activity
@@ -177,7 +177,7 @@ export function AgentPageClient({
                 <button
                   key={s}
                   onClick={() => handleSuggestion(s)}
-                  className="text-xs px-3.5 py-2 rounded-full bg-white/[0.03] border border-white/[0.06] text-muted-foreground hover:text-foreground hover:border-white/[0.1] hover:bg-white/[0.05] transition-all"
+                  className="text-xs px-3.5 py-2 rounded-full bg-foreground/[0.03] border border-border text-muted-foreground hover:text-foreground hover:border-border hover:bg-foreground/[0.05] transition-all"
                 >
                   {s}
                 </button>
@@ -191,8 +191,8 @@ export function AgentPageClient({
           <div
             className={cn(
               "flex items-end gap-3 rounded-xl border px-4 py-3 transition-colors",
-              "bg-white/[0.02] border-white/[0.06]",
-              "focus-within:border-orbit-accent/30 focus-within:bg-white/[0.03]"
+              "bg-foreground/[0.02] border-border",
+              "focus-within:border-orbit-accent/30 focus-within:bg-foreground/[0.03]"
             )}
           >
             <textarea
@@ -213,7 +213,7 @@ export function AgentPageClient({
                 "shrink-0 h-8 w-8 rounded-lg flex items-center justify-center transition-all",
                 input.trim() && !isStreaming
                   ? "bg-orbit-accent text-white shadow-[0_0_12px_hsl(var(--orbit-accent)/0.3)] hover:shadow-[0_0_16px_hsl(var(--orbit-accent)/0.4)]"
-                  : "bg-white/[0.04] text-muted-foreground/30"
+                  : "bg-foreground/[0.04] text-muted-foreground/30"
               )}
             >
               <Send className="h-3.5 w-3.5" />
@@ -233,7 +233,7 @@ export function AgentPageClient({
             animate={{ width: 280, opacity: 1 }}
             exit={{ width: 0, opacity: 0 }}
             transition={{ duration: 0.2, ease: "easeInOut" }}
-            className="shrink-0 border-l border-white/[0.04] overflow-hidden"
+            className="shrink-0 border-l border-border overflow-hidden"
           >
             <AgentActivityPanel operations={operations} />
           </motion.div>

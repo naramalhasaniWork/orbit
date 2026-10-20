@@ -194,13 +194,13 @@ export function ProjectSettings({ project }: ProjectSettingsProps) {
               id="project-name"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              className="bg-white/[0.04]"
+              className="bg-foreground/[0.04]"
             />
           </div>
 
           <div className="space-y-2">
             <Label className="text-xs text-muted-foreground">Slug</Label>
-            <div className="text-sm text-foreground font-mono bg-white/[0.04] rounded-md px-3 py-2">
+            <div className="text-sm text-foreground font-mono bg-foreground/[0.04] rounded-md px-3 py-2">
               {project.slug}
             </div>
           </div>
@@ -257,7 +257,7 @@ export function ProjectSettings({ project }: ProjectSettingsProps) {
               disabled={togglingAutoSync}
               className={cn(
                 "relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none",
-                syncInfo.autoSync ? "bg-emerald-500" : "bg-white/10"
+                syncInfo.autoSync ? "bg-emerald-500" : "bg-foreground/10"
               )}
             >
               <span
@@ -311,7 +311,7 @@ export function ProjectSettings({ project }: ProjectSettingsProps) {
           <h3 className="text-sm font-medium text-foreground">Archived Projects</h3>
           <div className="space-y-2">
             {archivedProjects.map((ap) => (
-              <div key={ap.id} className="flex items-center justify-between px-3 py-2 rounded-lg bg-white/[0.02]">
+              <div key={ap.id} className="flex items-center justify-between px-3 py-2 rounded-lg bg-foreground/[0.02]">
                 <div>
                   <span className="text-sm text-foreground">{ap.name}</span>
                   <span className="text-xs text-muted-foreground ml-2 font-mono">{ap.slug}</span>

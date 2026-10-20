@@ -142,7 +142,7 @@ export function ScheduleSettings({ projectId }: ScheduleSettingsProps) {
                 placeholder="Nightly Smoke"
                 value={newSchedule.name}
                 onChange={(e) => setNewSchedule({ ...newSchedule, name: e.target.value })}
-                className="bg-white/[0.04]"
+                className="bg-foreground/[0.04]"
               />
             </div>
             <div className="space-y-1.5">
@@ -151,7 +151,7 @@ export function ScheduleSettings({ projectId }: ScheduleSettingsProps) {
                 placeholder="0 2 * * *"
                 value={newSchedule.cronExpression}
                 onChange={(e) => setNewSchedule({ ...newSchedule, cronExpression: e.target.value })}
-                className="bg-white/[0.04] font-mono text-xs"
+                className="bg-foreground/[0.04] font-mono text-xs"
               />
             </div>
             <div className="space-y-1.5">
@@ -159,7 +159,7 @@ export function ScheduleSettings({ projectId }: ScheduleSettingsProps) {
               <select
                 value={newSchedule.mode}
                 onChange={(e) => setNewSchedule({ ...newSchedule, mode: e.target.value })}
-                className="w-full h-9 rounded-md border border-transparent bg-white/[0.04] px-3 text-sm focus:border-orbit-accent/30 focus:outline-none"
+                className="w-full h-9 rounded-md border border-transparent bg-foreground/[0.04] px-3 text-sm focus:border-orbit-accent/30 focus:outline-none"
               >
                 <option value="smoke">Smoke Test</option>
                 <option value="full">Full Suite</option>
@@ -184,7 +184,7 @@ export function ScheduleSettings({ projectId }: ScheduleSettingsProps) {
                   "text-[11px] px-2 py-1 rounded-md transition-colors",
                   newSchedule.cronExpression === preset.value
                     ? "bg-orbit-accent/15 text-orbit-accent"
-                    : "bg-white/[0.04] text-muted-foreground hover:text-foreground"
+                    : "bg-foreground/[0.04] text-muted-foreground hover:text-foreground"
                 )}
               >
                 {preset.label}
@@ -211,7 +211,7 @@ export function ScheduleSettings({ projectId }: ScheduleSettingsProps) {
       <div className="space-y-2">
         {loading ? (
           <div className="rounded-xl surface-1 p-8 text-center animate-pulse">
-            <div className="h-4 w-32 bg-white/[0.06] rounded mx-auto" />
+            <div className="h-4 w-32 bg-foreground/[0.06] rounded mx-auto" />
           </div>
         ) : schedules.length === 0 ? (
           <div className="rounded-xl surface-1 p-8 text-center">

@@ -39,7 +39,7 @@ export function AuditPaginationControls({
             "flex items-center justify-center h-7 w-7 rounded-md text-xs transition-colors",
             page <= 1
               ? "text-muted-foreground/40 cursor-not-allowed"
-              : "text-muted-foreground hover:text-foreground hover:bg-white/[0.06]"
+              : "text-muted-foreground hover:text-foreground hover:bg-foreground/[0.06]"
           )}
         >
           <ChevronLeft className="h-3.5 w-3.5" />
@@ -57,8 +57,8 @@ export function AuditPaginationControls({
               className={cn(
                 "flex items-center justify-center h-7 min-w-[28px] rounded-md text-xs font-medium transition-colors",
                 p === page
-                  ? "bg-white/[0.08] text-foreground"
-                  : "text-muted-foreground hover:text-foreground hover:bg-white/[0.04]"
+                  ? "bg-foreground/[0.08] text-foreground"
+                  : "text-muted-foreground hover:text-foreground hover:bg-foreground/[0.04]"
               )}
             >
               {p}
@@ -73,7 +73,7 @@ export function AuditPaginationControls({
             "flex items-center justify-center h-7 w-7 rounded-md text-xs transition-colors",
             page >= totalPages
               ? "text-muted-foreground/40 cursor-not-allowed"
-              : "text-muted-foreground hover:text-foreground hover:bg-white/[0.06]"
+              : "text-muted-foreground hover:text-foreground hover:bg-foreground/[0.06]"
           )}
         >
           <ChevronRight className="h-3.5 w-3.5" />

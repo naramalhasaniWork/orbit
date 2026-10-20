@@ -72,7 +72,7 @@ function ReasoningSteps({ steps }: { steps: unknown }) {
 
 function TraceDetails({ trace }: { trace: TraceNodeData }) {
   return (
-    <div className="px-4 pb-4 pt-2 border-t border-white/[0.04] space-y-3">
+    <div className="px-4 pb-4 pt-2 border-t border-border space-y-3">
       {trace.inputSummary && (
         <div>
           <span className="text-[10px] uppercase tracking-wider text-muted-foreground font-medium">
@@ -163,13 +163,13 @@ export function TraceBar({
     <div style={{ paddingLeft: depth * 24 }}>
       <div
         className={cn(
-          "rounded-xl surface-1 border border-white/[0.04] overflow-hidden transition-colors mb-1.5",
+          "rounded-xl surface-1 border border-border overflow-hidden transition-colors mb-1.5",
           trace.status === "failed" && "border-orbit-fail/20"
         )}
       >
         <button
           onClick={() => setExpanded(!expanded)}
-          className="w-full text-left hover:bg-white/[0.03] transition-colors"
+          className="w-full text-left hover:bg-foreground/[0.03] transition-colors"
         >
           {/* Header row */}
           <div className="flex items-center gap-3 px-4 py-2.5">
@@ -223,7 +223,7 @@ export function TraceBar({
 
           {/* Timeline bar */}
           <div className="px-4 pb-2.5">
-            <div className="h-1.5 rounded-full bg-white/[0.04] relative overflow-hidden">
+            <div className="h-1.5 rounded-full bg-foreground/[0.04] relative overflow-hidden">
               <motion.div
                 className={cn(
                   "absolute h-full rounded-full",
