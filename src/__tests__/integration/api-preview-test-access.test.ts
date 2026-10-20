@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
 
-const rbac = vi.hoisted(() => ({ requirePermission: vi.fn() }));
 const db = vi.hoisted(() => ({
   previewBinding: { findFirst: vi.fn() },
   previewDeployment: { findFirst: vi.fn() },
@@ -9,28 +8,17 @@ const db = vi.hoisted(() => ({
 const probeAccess = vi.hoisted(() => vi.fn());
 const loadAccessSecrets = vi.hoisted(() => vi.fn());
 
-vi.mock("@/lib/auth/rbac", () => rbac);
+vi.mock("@/server/http/session", async () => (await import("../helpers/route-auth")).sessionMock());
+vi.mock("@/server/http/auth", async (orig) =>
+  (await import("../helpers/route-auth")).authMock(await orig<Record<string, unknown>>())
+);
 vi.mock("@/lib/db", () => ({ prisma: db }));
 vi.mock("@/services/execution/access-headers", () => ({ probeAccess }));
 vi.mock("@/services/preview/binding-service", () => ({ loadAccessSecrets }));
 vi.mock("@/lib/utils/ssrf", () => ({ assertPublicUrl: vi.fn(async () => undefined), UnsafeUrlError: class extends Error {} }));
-vi.mock("@/lib/utils/api", async () => {
-  const { NextResponse } = await import("next/server");
-  class AuthError extends Error {
-    constructor(m: string, public code: string, public status: number) {
-      super(m);
-    }
-  }
-  return {
-    AuthError,
-    requireWorkspace: vi.fn(async () => ({ workspaceId: "ws-1" })),
-    apiSuccess: (data: unknown) => NextResponse.json({ success: true, data }),
-    apiError: (message: string, code: string, status = 400) => NextResponse.json({ error: { message, code } }, { status }),
-    handleApiError: (e: unknown) => NextResponse.json({}, { status: e instanceof AuthError ? e.status : 500 }),
-  };
-});
 
 import { POST } from "@/app/api/projects/[projectId]/preview-binding/test-access/route";
+import { resetRouteAuth, routeAuth } from "../helpers/route-auth";
 
 const call = (body: unknown) =>
   POST(new NextRequest("http://x/api/projects/p1/preview-binding/test-access", { method: "POST", body: JSON.stringify(body) }), {
@@ -39,7 +27,7 @@ const call = (body: unknown) =>
 
 beforeEach(() => {
   vi.clearAllMocks();
-  rbac.requirePermission.mockResolvedValue({});
+  resetRouteAuth();
   db.previewBinding.findFirst.mockResolvedValue({ id: "b1", allowedHostSuffixes: ["pages.dev"] });
   loadAccessSecrets.mockResolvedValue({ clientId: "stored.access", clientSecret: "stored-secret" });
   probeAccess.mockResolvedValue({ protectedWithoutToken: true, allowedWithToken: true, message: "ok" });
@@ -82,10 +70,7 @@ describe("POST preview-binding/test-access", () => {
   });
 
   it("requires integrations.manage as well as secrets.manage", async () => {
-    const { AuthError } = await import("@/lib/utils/api");
-    rbac.requirePermission.mockImplementation(async (_ws: string, perm: string) => {
-      if (perm === "integrations.manage") throw new AuthError("denied", "FORBIDDEN", 403);
-    });
+    routeAuth.role = "viewer"; // holds neither; only owner and admin hold both
     expect((await call({ url: "https://anything.pages.dev", clientId: "a", clientSecret: "b" })).status).toBe(403);
     expect(probeAccess).not.toHaveBeenCalled();
   });

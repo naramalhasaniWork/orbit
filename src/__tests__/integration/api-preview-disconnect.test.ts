@@ -31,24 +31,20 @@ vi.mock("@/lib/db", () => {
   };
   return { prisma };
 });
-vi.mock("@/lib/auth/rbac", () => ({ requirePermission: vi.fn(async () => ({})) }));
-vi.mock("@/lib/utils/api", async () => {
-  const { NextResponse } = await import("next/server");
-  return {
-    requireWorkspace: vi.fn(async () => ({ workspaceId: "ws-1" })),
-    apiSuccess: (data: unknown) => NextResponse.json({ success: true, data }),
-    apiError: (message: string, code: string, status = 400) => NextResponse.json({ error: { message, code } }, { status }),
-    handleApiError: () => NextResponse.json({}, { status: 500 }),
-  };
-});
+vi.mock("@/server/http/session", async () => (await import("../helpers/route-auth")).sessionMock());
+vi.mock("@/server/http/auth", async (orig) =>
+  (await import("../helpers/route-auth")).authMock(await orig<Record<string, unknown>>())
+);
 
 import { DELETE } from "@/app/api/integrations/[provider]/route";
+import { resetRouteAuth, routeAuth } from "../helpers/route-auth";
 
 const hasToken = (rows: Row[], workspaceId: string, provider: string) =>
   rows.some((r) => r.workspaceId === workspaceId && r.provider === provider && (r.credentials.encryptedToken || r.webhookTokenHash));
 
 describe("DELETE /api/integrations/[provider]", () => {
   beforeEach(() => {
+    resetRouteAuth();
     store.previewConnections.splice(0, Infinity,
       { workspaceId: "ws-1", provider: "railway", credentials: { encryptedToken: "enc", iv: "iv" }, webhookTokenHash: "h" },
       { workspaceId: "ws-2", provider: "railway", credentials: { encryptedToken: "other", iv: "iv" } });

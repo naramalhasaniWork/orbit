@@ -1,7 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
 
-const rbac = vi.hoisted(() => ({ requirePermission: vi.fn() }));
 const db = vi.hoisted(() => ({
   project: { findFirst: vi.fn() },
   previewConnection: { findUnique: vi.fn(), upsert: vi.fn() },
@@ -11,7 +10,10 @@ const db = vi.hoisted(() => ({
 const verify = vi.hoisted(() => vi.fn());
 const listTargets = vi.hoisted(() => vi.fn());
 
-vi.mock("@/lib/auth/rbac", () => rbac);
+vi.mock("@/server/http/session", async () => (await import("../helpers/route-auth")).sessionMock());
+vi.mock("@/server/http/auth", async (orig) =>
+  (await import("../helpers/route-auth")).authMock(await orig<Record<string, unknown>>())
+);
 vi.mock("@/lib/db", () => ({ prisma: db }));
 vi.mock("@/lib/vault", () => ({ encrypt: (v: string) => ({ encrypted: `enc(${v})`, iv: "iv" }), decrypt: (v: string) => v }));
 vi.mock("@/services/preview/registry", () => ({
@@ -20,26 +22,10 @@ vi.mock("@/services/preview/registry", () => ({
     id, verify, listTargets, ...(id === "railway" ? { parseEvent: () => null } : {}),
   }),
 }));
-vi.mock("@/lib/utils/api", async () => {
-  const { NextResponse } = await import("next/server");
-  class AuthError extends Error {
-    constructor(m: string, public code: string, public status: number) {
-      super(m);
-    }
-  }
-  return {
-    AuthError,
-    requireWorkspace: vi.fn(async () => ({ workspaceId: "ws-1" })),
-    apiSuccess: (data: unknown, status = 200) => NextResponse.json({ success: true, data }, { status }),
-    apiError: (message: string, code: string, status = 400) =>
-      NextResponse.json({ success: false, error: { message, code } }, { status }),
-    handleApiError: (e: unknown) =>
-      NextResponse.json({ error: String(e) }, { status: e instanceof AuthError ? e.status : 500 }),
-  };
-});
 
 import { POST as connect } from "@/app/api/integrations/[provider]/route";
 import { PUT as bind } from "@/app/api/projects/[projectId]/preview-binding/route";
+import { resetRouteAuth, routeAuth } from "../helpers/route-auth";
 import { hashWebhookToken } from "@/services/preview/connections";
 
 const json = (url: string, method: string, body: unknown) =>
@@ -54,7 +40,7 @@ const savedRow = (extra: Record<string, unknown> = {}) => ({
 beforeEach(async () => {
   vi.clearAllMocks();
   delete process.env.NEXTAUTH_URL;
-  rbac.requirePermission.mockResolvedValue({ session: { user: { id: "u1" } } });
+  resetRouteAuth();
   db.project.findFirst.mockResolvedValue({ id: "p1" });
   verify.mockResolvedValue(undefined);
 });
@@ -78,8 +64,7 @@ describe("POST /api/integrations/[provider]", () => {
   });
 
   it("requires integrations.manage", async () => {
-    const { AuthError } = await import("@/lib/utils/api");
-    rbac.requirePermission.mockRejectedValue(new AuthError("denied", "FORBIDDEN", 403));
+    routeAuth.role = "viewer";
     const res = await connect(json("https://x/api/integrations/railway", "POST", { token: "railway-token-123" }), provider("railway"));
     expect(res.status).toBe(403);
     expect(verify).not.toHaveBeenCalled();

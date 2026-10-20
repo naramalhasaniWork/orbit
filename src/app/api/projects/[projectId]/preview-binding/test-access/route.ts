@@ -1,16 +1,12 @@
-import { NextRequest } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { requireWorkspace, apiSuccess, apiError } from "@/lib/utils/api";
-import { requirePermission } from "@/lib/auth/rbac";
+import { apiSuccess, apiError } from "@/lib/utils/api";
 import { probeAccess } from "@/services/execution/access-headers";
 import { loadAccessSecrets } from "@/services/preview/binding-service";
-import { previewApiError } from "@/services/preview/http";
+import { mapPreviewError } from "@/services/preview/http";
 import { validatePreviewUrl } from "@/services/preview/url-policy";
-
-interface RouteParams {
-  params: Promise<{ projectId: string }>;
-}
+import { assertPermission } from "@/server/http/auth";
+import { route } from "@/server/http/route";
 
 const TestSchema = z.object({
   url: z.string().trim().url("Enter a preview URL to test"),
@@ -26,13 +22,10 @@ const TestSchema = z.object({
  * host. The project's stored token is therefore only sent to the URL of one of this
  * binding's own ready previews; any other URL needs the caller to type the token in.
  */
-export async function POST(req: NextRequest, { params }: RouteParams) {
-  try {
-    const { workspaceId } = await requireWorkspace();
-    await requirePermission(workspaceId, "integrations.manage");
-    await requirePermission(workspaceId, "secrets.manage");
-    const { projectId } = await params;
-
+export const POST = route(
+  { permission: "integrations.manage", onError: mapPreviewError },
+  async ({ req, params: { projectId }, workspaceId, session }) => {
+    assertPermission(session.role, "secrets.manage");
     const binding = await prisma.previewBinding.findFirst({
       where: { projectId, project: { workspaceId } },
       select: { id: true, allowedHostSuffixes: true },
@@ -61,7 +54,5 @@ export async function POST(req: NextRequest, { params }: RouteParams) {
       "CF-Access-Client-Secret": token.clientSecret,
     });
     return apiSuccess(result);
-  } catch (error) {
-    return previewApiError(error);
   }
-}
+);
