@@ -44,7 +44,7 @@ export function CtaSection() {
               Start Testing Free
             </Link>
             <p className="text-xs text-muted-foreground/50">
-              No credit card required. 100 free test runs/month.
+              No credit card required. 100 free credits/month.
             </p>
           </motion.div>
         </motion.div>

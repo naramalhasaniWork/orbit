@@ -89,8 +89,8 @@ function LoginContent() {
           </Button>
 
           <p className="text-[11px] text-muted-foreground/70 text-center mt-2 leading-relaxed">
-            Orbit needs read access to your repository. We never store your
-            source code -- only the structural index.
+            Orbit requests GitHub&apos;s repo scope so it can read your code
+            and post results to your pull requests.
           </p>
         </motion.div>
       </motion.div>

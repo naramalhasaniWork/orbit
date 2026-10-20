@@ -47,7 +47,7 @@
     {
       "id": "integrations",
       "title": "Fits Your Workflow",
-      "description": "GitHub PR checks that block broken merges. Linear integration that auto-creates bug tickets. Slack notifications for your team. A VS Code extension for inline test results. Orbit works where you already work.",
+      "description": "GitHub PR checks that block broken merges. Linear integration that auto-creates bug tickets. Slack notifications for your team. Orbit works where you already work.",
       "icon": "plug",
       "category": "integrations"
     },
