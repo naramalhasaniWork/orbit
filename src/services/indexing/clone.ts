@@ -5,6 +5,12 @@ import { isIgnoredDir, isIndexableFile } from "@/services/indexing/file-filters"
 import { clonePublicGitHubRepository } from "@/services/indexing/adapters/github-public-clone";
 import { cloneGitLabRepository } from "@/services/indexing/adapters/gitlab-clone";
 import { cloneBitbucketRepository } from "@/services/indexing/adapters/bitbucket-clone";
+import {
+  githubContentsUrl,
+  repoStorageKey,
+  assertSafeRepoPath,
+  isSafeRepoPath,
+} from "@/lib/github/repo-paths";
 
 interface CloneResult {
   localPath: string;
@@ -77,7 +83,7 @@ async function fetchDirectoryContents(
   branch: string,
   token: string
 ): Promise<GitHubContentItem[]> {
-  const url = `https://api.github.com/repos/${owner}/${repo}/contents/${path}?ref=${branch}`;
+  const url = githubContentsUrl(owner, repo, path, branch);
   const response = await fetchWithTimeout(url, {
     headers: {
       Authorization: `Bearer ${token}`,
@@ -114,7 +120,7 @@ async function cloneGitHub(
   branch: string
 ): Promise<CloneResult> {
   const resolvedToken = await getGitHubAccessToken(projectId);
-  const localPath = `repos/${projectId}/${branch}`;
+  const localPath = repoStorageKey(projectId, branch);
 
   // No token anywhere (a repo added by pasting its public URL): read it anonymously.
   if (!resolvedToken) {
@@ -138,7 +144,7 @@ async function cloneGitHub(
         if (isIgnoredDir(item.name)) continue;
         fileTree.push({ path: item.path, type: "dir", size: 0 });
         await crawlDirectory(item.path);
-      } else if (item.type === "file" && isIndexableFile(item.path)) {
+      } else if (item.type === "file" && isIndexableFile(item.path) && isSafeRepoPath(item.path)) {
         fileTree.push({ path: item.path, type: "file", size: item.size });
         totalSize += item.size;
         if (item.download_url) {
@@ -159,7 +165,7 @@ async function cloneGitHub(
     await Promise.all(
       batch.map(async ({ path, url }) => {
         const content = await fetchFileContent(url, token);
-        await storage.upload(`${localPath}/${path}`, Buffer.from(content), "text/plain");
+        await storage.upload(`${localPath}/${assertSafeRepoPath(path)}`, Buffer.from(content), "text/plain");
       })
     );
     if ((i / DOWNLOAD_CONCURRENCY) % 10 === 0) {
@@ -192,7 +198,7 @@ export async function cloneRepository(
 
   const provider = (project?.repoProvider as RepoProvider) ??
     detectProvider(project?.repoUrl ?? "");
-  const localPath = `repos/${projectId}/${branch}`;
+  const localPath = repoStorageKey(projectId, branch);
 
   switch (provider) {
     case "gitlab": {
@@ -269,7 +275,7 @@ export async function fetchFileFromRepo(
   filePath: string
 ): Promise<string> {
   const token = await getGitHubAccessToken(projectId);
-  const url = `https://api.github.com/repos/${owner}/${repo}/contents/${filePath}?ref=${branch}`;
+  const url = githubContentsUrl(owner, repo, filePath, branch);
 
   const response = await fetch(url, {
     headers: {

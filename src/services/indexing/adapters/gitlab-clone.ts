@@ -1,5 +1,6 @@
 import type { FileEntry } from "@/services/indexing/clone";
 import { getStorage } from "@/lib/storage";
+import { assertSafeRepoPath, isSafeRepoPath } from "@/lib/github/repo-paths";
 
 interface GitLabContentItem {
   name: string;
@@ -85,13 +86,13 @@ export async function cloneGitLabRepository(
         if (IGNORED_DIRS.has(item.name)) continue;
         fileTree.push({ path: item.path, type: "dir", size: 0 });
         await crawl(item.path);
-      } else if (item.type === "blob" && isIndexableFile(item.path)) {
+      } else if (item.type === "blob" && isIndexableFile(item.path) && isSafeRepoPath(item.path)) {
         const size = item.size ?? 0;
         fileTree.push({ path: item.path, type: "file", size });
         totalSize += size;
 
         const content = await fetchGitLabFile(projectPath, branch, item.path, token);
-        await storage.upload(`${storagePrefix}/${item.path}`, Buffer.from(content), "text/plain");
+        await storage.upload(`${storagePrefix}/${assertSafeRepoPath(item.path)}`, Buffer.from(content), "text/plain");
       }
     }
   }

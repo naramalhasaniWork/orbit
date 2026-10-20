@@ -9,6 +9,7 @@
 import { prisma } from "@/lib/db";
 import { resolveGitHubToken } from "@/lib/github/token";
 import { getIndexingQueue } from "@/lib/queue/queues";
+import { githubRepoApiUrl, assertSafeRepoPath } from "@/lib/github/repo-paths";
 
 interface CommitPollResult {
   projectId: string;
@@ -45,7 +46,7 @@ async function fetchLatestCommit(
   branch: string,
   token: string
 ): Promise<GitHubCommit | null> {
-  const url = `https://api.github.com/repos/${owner}/${repo}/commits/${branch}`;
+  const url = githubRepoApiUrl(owner, repo, ["commits", assertSafeRepoPath(branch, "branch")]);
 
   const res = await fetch(url, {
     headers: {
@@ -73,7 +74,7 @@ async function countCommitsBetween(
   headSha: string,
   token: string
 ): Promise<number> {
-  const url = `https://api.github.com/repos/${owner}/${repo}/compare/${baseSha}...${headSha}`;
+  const url = githubRepoApiUrl(owner, repo, ["compare", `${baseSha}...${headSha}`]);
 
   const res = await fetch(url, {
     headers: {

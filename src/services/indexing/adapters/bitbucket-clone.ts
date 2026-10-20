@@ -1,5 +1,6 @@
 import type { FileEntry } from "@/services/indexing/clone";
 import { getStorage } from "@/lib/storage";
+import { assertSafeRepoPath, isSafeRepoPath } from "@/lib/github/repo-paths";
 
 interface BitbucketTreeItem {
   path: string;
@@ -99,13 +100,13 @@ export async function cloneBitbucketRepository(
 
     if (item.type === "commit_directory") {
       fileTree.push({ path: item.path, type: "dir", size: 0 });
-    } else if (item.type === "commit_file" && isIndexableFile(item.path)) {
+    } else if (item.type === "commit_file" && isIndexableFile(item.path) && isSafeRepoPath(item.path)) {
       const size = item.size ?? 0;
       fileTree.push({ path: item.path, type: "file", size });
       totalSize += size;
 
       const content = await fetchBitbucketFile(workspace, repo, branch, item.path, token);
-      await storage.upload(`${storagePrefix}/${item.path}`, Buffer.from(content), "text/plain");
+      await storage.upload(`${storagePrefix}/${assertSafeRepoPath(item.path)}`, Buffer.from(content), "text/plain");
     }
   }
 

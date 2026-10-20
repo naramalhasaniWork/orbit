@@ -18,6 +18,7 @@ import { collectAndStoreGitHistory } from "@/services/indexing/git-history";
 import { getStorage } from "@/lib/storage";
 import type { SystemMapStats } from "@/services/indexing/system-map-builder";
 import type { IndexingPhase } from "@/lib/websocket/channels";
+import { assertSafeRepoPath } from "@/lib/github/repo-paths";
 
 interface PipelineResult {
   projectId: string;
@@ -66,7 +67,7 @@ async function loadFileContents(
 
   for (const filePath of filePaths) {
     try {
-      const storageKey = `${localPath}/${filePath}`;
+      const storageKey = `${localPath}/${assertSafeRepoPath(filePath)}`;
       const buffer = await storage.download(storageKey);
       files.push({ path: filePath, content: buffer.toString("utf-8") });
     } catch {
