@@ -17,7 +17,7 @@ import {
 import Link from "next/link";
 import { formatRunTitle } from "@/lib/runs/run-title";
 
-interface Run {
+export interface Run {
   id: string;
   sequenceNumber: number;
   prNumber: number | null;

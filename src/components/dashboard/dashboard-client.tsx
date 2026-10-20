@@ -11,7 +11,7 @@ import {
 } from "@/lib/motion";
 import { StatCard } from "@/components/shared/stat-card";
 import { EmptyState } from "@/components/shared/empty-state";
-import { RunsTimeline } from "@/components/dashboard/runs-timeline";
+import { RunsTimeline, type Run } from "@/components/dashboard/runs-timeline";
 import { ActiveRunBar } from "@/components/dashboard/active-run-bar";
 import { SystemMap } from "@/components/dashboard/system-map";
 import { Button } from "@/components/ui/button";
@@ -28,21 +28,6 @@ interface Project {
   framework: string | null;
   healthStatus: string;
   _count: { testRuns: number; testCases: number };
-}
-
-interface Run {
-  id: string;
-  sequenceNumber: number;
-  prNumber: number | null;
-  status: string;
-  mode: string;
-  trigger: string;
-  totalTests: number;
-  passed: number;
-  failed: number;
-  flaky: number;
-  durationMs: number | null;
-  createdAt: Date;
 }
 
 interface DashboardTrends {
