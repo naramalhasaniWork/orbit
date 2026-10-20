@@ -42,7 +42,7 @@ export function generateVisualRegressionCases(
   }
 
   const cases: TestCase[] = [];
-  for (const node of representatives.values()) {
+  for (const node of Array.from(representatives.values())) {
     const testName = `Visual regression: ${node.name}`;
 
     // Skip if this visual test already exists
