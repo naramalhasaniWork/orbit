@@ -142,7 +142,7 @@ describe("20261025 backfill", () => {
     seedLegacy();
     const report = await runBackfill(prisma);
 
-    expect(report).toEqual({ integrations: 2, promoted: 1, conflicts: ["p1:slack"], projects: 2, notes: 2, webhooks: 2 });
+    expect(report).toEqual({ integrations: 2, promoted: 1, conflicts: ["p1:slack"], projects: 2, notes: 2, endpoints: 2 });
 
     const linear = db.integrations.find((r) => r.workspaceId === "w1" && r.provider === "linear");
     expect(linear).toMatchObject({ status: "connected", externalAccountId: "team-1", displayName: "Eng" });
@@ -180,7 +180,7 @@ describe("20261025 backfill", () => {
 
     const second = await runBackfill(prisma);
 
-    expect(second).toEqual({ integrations: 0, promoted: 0, conflicts: [], projects: 0, notes: 0, webhooks: 0 });
+    expect(second).toEqual({ integrations: 0, promoted: 0, conflicts: [], projects: 0, notes: 0, endpoints: 0 });
     expect(JSON.stringify([db.integrations, db.endpoints, db.notes, db.projects, db.workspaces])).toBe(snapshot);
   });
 

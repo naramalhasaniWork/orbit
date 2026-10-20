@@ -54,6 +54,8 @@ COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 # Worker entry; its externals resolve from the standalone node_modules above
 COPY --from=builder /app/dist/worker.mjs ./worker.mjs
+# Idempotent data backfills, run by start.sh's migrate step when ORBIT_RUN_BACKFILLS=true
+COPY --from=builder /app/dist/backfills ./backfills
 
 # Prisma CLI, schema, migrations and config live in /prisma and are used by scripts/start.sh
 COPY --from=prisma-cli /prisma/node_modules /prisma/node_modules

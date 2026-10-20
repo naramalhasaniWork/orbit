@@ -33,11 +33,11 @@ export interface BackfillReport {
   conflicts: string[];
   projects: number;
   notes: number;
-  webhooks: number;
+  endpoints: number;
 }
 
 export async function runBackfill(db: Db = prisma): Promise<BackfillReport> {
-  const report: BackfillReport = { integrations: 0, promoted: 0, conflicts: [], projects: 0, notes: 0, webhooks: 0 };
+  const report: BackfillReport = { integrations: 0, promoted: 0, conflicts: [], projects: 0, notes: 0, endpoints: 0 };
 
   // Workspaces first, so a workspace's own connection wins over any project override.
   const workspaces = await db.workspace.findMany({ select: { id: true }, orderBy: { createdAt: "asc" } });
@@ -57,7 +57,7 @@ export async function runBackfill(db: Db = prisma): Promise<BackfillReport> {
     const moved = await migrateProjectLegacy(id, db);
     if (moved.migrated) report.projects++;
     report.notes += moved.notes;
-    report.webhooks += moved.webhooks;
+    report.endpoints += moved.webhooks;
   }
 
   return report;
@@ -77,5 +77,9 @@ if (isEntrypoint) {
       logger.error({ err: error }, "backfill 20261025_integrations failed");
       process.exitCode = 1;
     })
-    .finally(() => prisma.$disconnect());
+    // The pg pool would otherwise hold the process open until its idle timeout
+    .finally(async () => {
+      await prisma.$disconnect();
+      process.exit();
+    });
 }

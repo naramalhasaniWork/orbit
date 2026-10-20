@@ -17,6 +17,7 @@
     "db:seed": "prisma db seed",
     "workers": "tsx src/workers/index.ts",
     "build:worker": "tsup",
+    "backfill:20261025": "tsx prisma/backfills/20261025_integrations.ts",
     "test": "vitest run",
     "test:watch": "vitest"
   },

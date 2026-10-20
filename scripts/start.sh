@@ -6,6 +6,8 @@
 # In split mode (web + worker) run migrations once as a release step, not per
 # container: Railway preDeployCommand or `docker compose run --rm web migrate`
 # (see docs/self-hosting/railway.md). ORBIT_SKIP_MIGRATIONS=true skips them for role=all.
+# ORBIT_RUN_BACKFILLS=true also runs the idempotent data backfills (./backfills/*.mjs,
+# in name order) after the migrations; see docs/self-hosting/railway.md.
 set -eu
 
 ROLE="${ORBIT_ROLE:-all}"
@@ -17,6 +19,13 @@ migrate() {
   fi
   echo "[start] Applying database migrations"
   (cd /prisma && node node_modules/prisma/build/index.js migrate deploy)
+  if [ "${ORBIT_RUN_BACKFILLS:-}" = "true" ]; then
+    for backfill in ./backfills/*.mjs; do
+      [ -e "$backfill" ] || continue
+      echo "[start] Running backfill $(basename "$backfill" .mjs)"
+      node "$backfill"
+    done
+  fi
 }
 
 case "$ROLE" in
