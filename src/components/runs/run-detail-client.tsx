@@ -20,6 +20,7 @@ import { cn } from "@/lib/utils";
 import { TestResultCard } from "@/components/runs/test-result-card";
 import { FailurePatternsPanel } from "@/components/runs/failure-patterns-panel";
 import { TraceViewer } from "@/components/runs/trace-viewer";
+import { RunScreenshotsTab } from "@/components/runs/run-screenshots-tab";
 import { RunVisualTab } from "@/components/runs/run-visual-tab";
 import type { VisualDiffData } from "@/components/runs/visual-diff-viewer";
 import { LiveExecutionViewer } from "@/components/execution/live-viewer";
@@ -259,6 +260,7 @@ export function RunDetailClient({ run, projectId, visualResults = [] }: RunDetai
           <TabsTrigger value="results">
             Results{mergedResults.length > 0 ? ` (${mergedResults.length})` : ""}
           </TabsTrigger>
+          <TabsTrigger value="screenshots">Screenshots</TabsTrigger>
           <TabsTrigger value="traces">Traces</TabsTrigger>
           {projectId && visualResults.length > 0 && (
             <TabsTrigger value="visual">Visual ({visualResults.length})</TabsTrigger>
@@ -302,6 +304,14 @@ export function RunDetailClient({ run, projectId, visualResults = [] }: RunDetai
             </div>
             {projectId && liveFailed > 0 && <FailurePatternsPanel projectId={projectId} />}
           </motion.div>
+        </TabsContent>
+
+        <TabsContent value="screenshots" className="mt-4">
+          {projectId ? (
+            <RunScreenshotsTab projectId={projectId} runId={run.id} />
+          ) : (
+            <p className="text-sm text-muted-foreground">Project context required to view screenshots.</p>
+          )}
         </TabsContent>
 
         <TabsContent value="traces" className="mt-4">
