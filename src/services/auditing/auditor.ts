@@ -1,12 +1,20 @@
 import { prisma } from "@/lib/db";
 import { getStorage } from "@/lib/storage";
-import { decryptToken } from "@/lib/vault/token";
+import { resolveGitHubToken } from "@/lib/github/token";
 import { createTrackedCompletion } from "@/lib/ai/tracked-completion";
 import { getModelForTask } from "@/lib/ai/model-router";
 import { buildAuditorPrompt } from "@/agents/prompts/auditor-prompt";
 import { AuditResultOutputSchema } from "@/agents/schemas/audit-result";
 import type { AuditIssue, AuditResultOutput } from "@/agents/schemas/audit-result";
 import type { Prisma } from "@/generated/prisma/client";
+
+/** The audit can't run for a reason the user can fix (shown verbatim, 409). */
+export class AuditUnavailableError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "AuditUnavailableError";
+  }
+}
 
 interface AuditInput {
   projectId: string;
@@ -57,7 +65,7 @@ export async function runCodeAudit(input: AuditInput): Promise<AuditResult> {
   );
 
   if (codeFiles.length === 0) {
-    throw new Error("No code files found to audit. Index the repository first.");
+    throw new AuditUnavailableError("No code files found to audit. Index the repository first.");
   }
 
   const framework = project.framework ?? "unknown";
@@ -184,13 +192,15 @@ async function loadCodeFiles(
 
   if (results.length > 0) return results;
 
-  // Fallback: fetch files from GitHub API
-  const token = await getGitHubTokenForProject(projectId);
-  if (!token) {
-    throw new Error(
-      "No code files found in storage and no GitHub token available. Re-index the repository first."
+  // Fallback: fetch files from GitHub with the same token resolution as
+  // indexing (App installation, then OAuth, then env)
+  const resolved = await resolveGitHubToken(projectId);
+  if (!resolved) {
+    throw new AuditUnavailableError(
+      "The repository files aren't available and Orbit has no GitHub access for this project. Reconnect GitHub and re-index."
     );
   }
+  const token = resolved.token;
 
   for (const filePath of targetPaths) {
     const content = await fetchFromGitHub(repoOwner, repoName, filePath, branch, token);
@@ -231,28 +241,6 @@ async function fetchFromGitHub(
   } catch {
     return null;
   }
-}
-
-/**
- * Retrieve a GitHub access token for the project's workspace owner.
- */
-async function getGitHubTokenForProject(
-  projectId: string
-): Promise<string | null> {
-  const project = await prisma.project.findUnique({
-    where: { id: projectId },
-    select: { workspaceId: true },
-  });
-
-  if (!project) return null;
-
-  const member = await prisma.workspaceMember.findFirst({
-    where: { workspaceId: project.workspaceId },
-    orderBy: { createdAt: "asc" },
-    include: { user: { select: { githubAccessToken: true } } },
-  });
-
-  return decryptToken(member?.user.githubAccessToken);
 }
 
 /**
@@ -300,6 +288,11 @@ function parseAuditOutput(content: string): AuditResultOutput {
       .replace(/\n?```\s*$/, "");
   }
 
-  const raw = JSON.parse(cleaned);
-  return AuditResultOutputSchema.parse(raw);
+  try {
+    return AuditResultOutputSchema.parse(JSON.parse(cleaned));
+  } catch {
+    throw new AuditUnavailableError(
+      "The audit model returned a result Orbit couldn't read. Try again, or audit fewer files."
+    );
+  }
 }
