@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Activity, Users, FolderOpen, Zap, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { tierDisplayName } from "@/lib/auth/tier-limits";
 
 interface UsageData {
   tier: string;
@@ -33,13 +34,6 @@ interface UsageData {
 interface UsageDashboardProps {
   workspaceId: string;
 }
-
-const TIER_LABELS: Record<string, string> = {
-  free: "Free",
-  starter: "Starter",
-  professional: "Professional",
-  enterprise: "Enterprise",
-};
 
 function UsageMeter({
   label,
@@ -138,7 +132,7 @@ export function UsageDashboard({ workspaceId }: UsageDashboardProps) {
           </div>
           <div>
             <p className="text-sm font-medium text-foreground">
-              {TIER_LABELS[data.tier] ?? data.tier} Plan
+              {tierDisplayName(data.tier)} Plan
             </p>
             <p className="text-xs text-muted-foreground">
               {data.current.creditBalance.toLocaleString()} credits remaining

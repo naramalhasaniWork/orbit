@@ -119,3 +119,13 @@ describe("advertised limits match TIER_LIMITS", () => {
     });
   });
 });
+
+describe("tierDisplayName", () => {
+  it("names every tier the same way the pricing page does", async () => {
+    const { tierDisplayName, TIER_DISPLAY_NAMES } = await import("@/lib/auth/tier-limits");
+    expect(tierDisplayName("starter")).toBe("Pro");
+    expect(tierDisplayName("professional")).toBe("Team");
+    expect(tierDisplayName("unknown-tier")).toBe("unknown-tier");
+    for (const [tier, name] of Object.entries(TIER_DISPLAY_NAMES)) expect(tierDisplayName(tier)).toBe(name);
+  });
+});

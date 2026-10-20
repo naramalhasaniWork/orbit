@@ -4,6 +4,7 @@ import { Pending } from "@/components/telemetry/pending";
 import { useEffect, useState, useCallback } from "react";
 import { Zap, Calendar, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { tierDisplayName } from "@/lib/auth/tier-limits";
 
 interface SubscriptionData {
   tier: string;
@@ -23,13 +24,6 @@ interface SubscriptionData {
 interface SubscriptionStatusProps {
   workspaceId: string;
 }
-
-const TIER_LABELS: Record<string, string> = {
-  free: "Free",
-  starter: "Pro",
-  professional: "Team",
-  enterprise: "Enterprise",
-};
 
 const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
   active: { label: "Active", className: "text-tm-pass bg-tm-pass/10" },
@@ -115,7 +109,7 @@ export function SubscriptionStatus({ workspaceId }: SubscriptionStatusProps) {
           <div>
             <div className="flex items-center gap-2">
               <p className="text-sm font-medium text-foreground">
-                {TIER_LABELS[data.tier] ?? data.tier} Plan
+                {tierDisplayName(data.tier)} Plan
               </p>
               {sub && statusConfig && (
                 <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${statusConfig.className}`}>
