@@ -1,23 +1,18 @@
-import { NextRequest } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { requirePermission, assertCanManageRole } from "@/lib/auth/rbac";
+import { assertCanManageRole } from "@/lib/auth/rbac";
 import type { MemberRole } from "@/lib/auth/permissions";
-import { apiSuccess, apiError, handleApiError } from "@/lib/utils/api";
+import { apiSuccess, apiError } from "@/lib/utils/api";
 import { writeAuditLog } from "@/lib/auth/audit";
+import { route } from "@/server/http/route";
 
 // ============================================================
 // GET /api/workspaces/[workspaceId]/members — List workspace members
 // ============================================================
 
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: Promise<{ workspaceId: string }> }
-) {
-  try {
-    const { workspaceId } = await params;
-    await requirePermission(workspaceId, "members.view");
-
+export const GET = route(
+  { workspace: "param", permission: "members.view" },
+  async ({ workspaceId }) => {
     const members = await prisma.workspaceMember.findMany({
       where: { workspaceId, workspace: { deletedAt: null } },
       include: {
@@ -85,10 +80,8 @@ export async function GET(
         lastActiveAt: lastActiveMap.get(m.userId) ?? null,
       }))
     );
-  } catch (error) {
-    return handleApiError(error);
   }
-}
+);
 
 // ============================================================
 // PATCH /api/workspaces/[workspaceId]/members — Update a member's role
@@ -99,14 +92,9 @@ const UpdateMemberSchema = z.object({
   role: z.enum(["admin", "member", "viewer", "billing"]),
 });
 
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: Promise<{ workspaceId: string }> }
-) {
-  try {
-    const { workspaceId } = await params;
-    const ctx = await requirePermission(workspaceId, "members.update_role");
-
+export const PATCH = route(
+  { workspace: "param", permission: "members.update_role" },
+  async ({ req: request, workspaceId, session }) => {
     const body = await request.json();
     const parsed = UpdateMemberSchema.safeParse(body);
     if (!parsed.success) {
@@ -129,9 +117,9 @@ export async function PATCH(
     }
 
     // Actor must outrank the target's current role
-    assertCanManageRole(ctx.role, target.role as MemberRole);
+    assertCanManageRole(session.role, target.role as MemberRole);
     // ...and the new role must stay below the actor's own, or an admin could mint admins
-    assertCanManageRole(ctx.role, role);
+    assertCanManageRole(session.role, role);
 
     await prisma.workspaceMember.update({
       where: { id: memberId },
@@ -140,7 +128,7 @@ export async function PATCH(
 
     await writeAuditLog({
       workspaceId,
-      userId: ctx.session.user.id,
+      userId: session.user.id,
       action: "member.role_changed",
       resourceType: "workspace_member",
       resourceId: memberId,
@@ -148,10 +136,8 @@ export async function PATCH(
     });
 
     return apiSuccess({ memberId, role });
-  } catch (error) {
-    return handleApiError(error);
   }
-}
+);
 
 // ============================================================
 // DELETE /api/workspaces/[workspaceId]/members — Remove a member
@@ -161,14 +147,9 @@ const RemoveMemberSchema = z.object({
   memberId: z.string().uuid(),
 });
 
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: Promise<{ workspaceId: string }> }
-) {
-  try {
-    const { workspaceId } = await params;
-    const ctx = await requirePermission(workspaceId, "members.remove");
-
+export const DELETE = route(
+  { workspace: "param", permission: "members.remove" },
+  async ({ req: request, workspaceId, session }) => {
     const body = await request.json();
     const parsed = RemoveMemberSchema.safeParse(body);
     if (!parsed.success) {
@@ -191,18 +172,18 @@ export async function DELETE(
     }
 
     // Cannot remove yourself (use leave instead)
-    if (target.userId === ctx.session.user.id) {
+    if (target.userId === session.user.id) {
       return apiError("Cannot remove yourself", "FORBIDDEN", 403);
     }
 
     // Actor must outrank target
-    assertCanManageRole(ctx.role, target.role as MemberRole);
+    assertCanManageRole(session.role, target.role as MemberRole);
 
     await prisma.workspaceMember.delete({ where: { id: memberId } });
 
     await writeAuditLog({
       workspaceId,
-      userId: ctx.session.user.id,
+      userId: session.user.id,
       action: "member.removed",
       resourceType: "workspace_member",
       resourceId: memberId,
@@ -210,7 +191,5 @@ export async function DELETE(
     });
 
     return apiSuccess({ removed: memberId });
-  } catch (error) {
-    return handleApiError(error);
   }
-}
+);

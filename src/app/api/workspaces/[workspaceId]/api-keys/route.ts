@@ -1,10 +1,9 @@
-import { NextRequest } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { requirePermission } from "@/lib/auth/rbac";
 import { generateApiKey } from "@/lib/auth/api-key";
 import { writeAuditLog } from "@/lib/auth/audit";
-import { apiSuccess, apiError, handleApiError } from "@/lib/utils/api";
+import { apiSuccess, apiError } from "@/lib/utils/api";
+import { route } from "@/server/http/route";
 
 const API_KEY_SELECT = {
   id: true,
@@ -20,14 +19,9 @@ const MAX_ACTIVE_KEYS = 25;
 // GET /api/workspaces/[workspaceId]/api-keys — List active keys (never hashes)
 // ============================================================
 
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: Promise<{ workspaceId: string }> }
-) {
-  try {
-    const { workspaceId } = await params;
-    await requirePermission(workspaceId, "settings.manage");
-
+export const GET = route(
+  { workspace: "param", permission: "settings.manage" },
+  async ({ workspaceId }) => {
     const keys = await prisma.apiKey.findMany({
       where: { workspaceId, revokedAt: null },
       select: API_KEY_SELECT,
@@ -35,10 +29,8 @@ export async function GET(
     });
 
     return apiSuccess(keys);
-  } catch (error) {
-    return handleApiError(error);
   }
-}
+);
 
 const CreateApiKeySchema = z.object({
   name: z.string().trim().min(1, "Key name is required").max(100),
@@ -48,14 +40,9 @@ const CreateApiKeySchema = z.object({
 // POST /api/workspaces/[workspaceId]/api-keys — Create a key (plaintext returned once)
 // ============================================================
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ workspaceId: string }> }
-) {
-  try {
-    const { workspaceId } = await params;
-    const { session } = await requirePermission(workspaceId, "settings.manage");
-
+export const POST = route(
+  { workspace: "param", permission: "settings.manage" },
+  async ({ req: request, workspaceId, session }) => {
     const parsed = CreateApiKeySchema.safeParse(await request.json());
     if (!parsed.success) {
       const firstError = parsed.error.errors[0]?.message ?? "Validation failed";
@@ -89,7 +76,5 @@ export async function POST(
     });
 
     return apiSuccess({ key, apiKey }, 201);
-  } catch (error) {
-    return handleApiError(error);
   }
-}
+);

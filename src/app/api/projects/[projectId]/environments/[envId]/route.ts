@@ -1,54 +1,32 @@
-import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
-import {
-  requireWorkspace,
-  apiSuccess,
-  apiError,
-  handleApiError,
-} from "@/lib/utils/api";
-import { requirePermission } from "@/lib/auth/rbac";
+import { apiSuccess, apiError } from "@/lib/utils/api";
+import { route } from "@/server/http/route";
 
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: Promise<{ projectId: string; envId: string }> }
-) {
-  try {
-    const { workspaceId } = await requireWorkspace();
-    const { projectId, envId } = await params;
+export const GET = route({}, async ({ params: { projectId, envId }, workspaceId }) => {
+  const project = await prisma.project.findFirst({
+    where: { id: projectId, workspaceId },
+    select: { id: true },
+  });
 
-    const project = await prisma.project.findFirst({
-      where: { id: projectId, workspaceId },
-      select: { id: true },
-    });
-
-    if (!project) {
-      return apiError("Project not found", "NOT_FOUND", 404);
-    }
-
-    const environment = await prisma.environment.findFirst({
-      where: { id: envId, projectId },
-    });
-
-    if (!environment) {
-      return apiError("Environment not found", "NOT_FOUND", 404);
-    }
-
-    return apiSuccess(environment);
-  } catch (error) {
-    return handleApiError(error);
+  if (!project) {
+    return apiError("Project not found", "NOT_FOUND", 404);
   }
-}
+
+  const environment = await prisma.environment.findFirst({
+    where: { id: envId, projectId },
+  });
+
+  if (!environment) {
+    return apiError("Environment not found", "NOT_FOUND", 404);
+  }
+
+  return apiSuccess(environment);
+});
 
 /** Deleting an environment cascades to its secrets, so it needs secrets.manage. */
-export async function DELETE(
-  _request: NextRequest,
-  { params }: { params: Promise<{ projectId: string; envId: string }> }
-) {
-  try {
-    const { workspaceId } = await requireWorkspace();
-    await requirePermission(workspaceId, "secrets.manage");
-    const { projectId, envId } = await params;
-
+export const DELETE = route(
+  { permission: "secrets.manage" },
+  async ({ params: { projectId, envId }, workspaceId }) => {
     const project = await prisma.project.findFirst({
       where: { id: projectId, workspaceId },
       select: { id: true },
@@ -70,7 +48,5 @@ export async function DELETE(
     await prisma.environment.delete({ where: { id: envId } });
 
     return apiSuccess({ deleted: true });
-  } catch (error) {
-    return handleApiError(error);
   }
-}
+);

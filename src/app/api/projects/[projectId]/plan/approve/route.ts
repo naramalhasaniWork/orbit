@@ -1,27 +1,15 @@
-import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
-import {
-  requireWorkspace,
-  apiSuccess,
-  apiError,
-  handleApiError,
-} from "@/lib/utils/api";
-import { requirePermission } from "@/lib/auth/rbac";
+import { apiSuccess, apiError } from "@/lib/utils/api";
+import { route } from "@/server/http/route";
 
 // ============================================================
 // POST /api/projects/[projectId]/plan/approve
 // Approve a test plan for execution (human-in-loop workflow)
 // ============================================================
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ projectId: string }> }
-) {
-  try {
-    const { session, workspaceId } = await requireWorkspace();
-    await requirePermission(workspaceId, "plans.approve");
-    const { projectId } = await params;
-
+export const POST = route(
+  { permission: "plans.approve" },
+  async ({ req: request, params: { projectId }, workspaceId, session }) => {
     const project = await prisma.project.findFirst({
       where: { id: projectId, workspaceId },
       select: { id: true, config: true },
@@ -89,7 +77,5 @@ export async function POST(
       action,
       approval: approvalInfo,
     });
-  } catch (error) {
-    return handleApiError(error);
   }
-}
+);

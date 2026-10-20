@@ -1,23 +1,17 @@
-import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
-import { requirePermission } from "@/lib/auth/rbac";
-import { apiSuccess, apiError, handleApiError } from "@/lib/utils/api";
+import { apiSuccess, apiError } from "@/lib/utils/api";
 import type { Prisma } from "@/generated/prisma/client";
 import { BUILTIN_PLUGINS, BUILTIN_PLUGIN_MAP } from "@/services/plugins/builtins";
+import { route } from "@/server/http/route";
 
 /**
  * GET  /api/workspaces/:workspaceId/plugins — List available and installed plugins
  * POST /api/workspaces/:workspaceId/plugins — Install a plugin
  */
 
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: Promise<{ workspaceId: string }> }
-) {
-  try {
-    const { workspaceId } = await params;
-    await requirePermission(workspaceId, "settings.view");
-
+export const GET = route(
+  { workspace: "param", permission: "settings.view" },
+  async ({ workspaceId }) => {
     const installations = await prisma.pluginInstallation.findMany({
       where: { workspaceId },
       orderBy: { createdAt: "asc" },
@@ -42,19 +36,12 @@ export async function GET(
     });
 
     return apiSuccess({ plugins });
-  } catch (error) {
-    return handleApiError(error);
   }
-}
+);
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ workspaceId: string }> }
-) {
-  try {
-    const { workspaceId } = await params;
-    const { session } = await requirePermission(workspaceId, "settings.manage");
-
+export const POST = route(
+  { workspace: "param", permission: "settings.manage" },
+  async ({ req: request, workspaceId, session }) => {
     const body = await request.json();
     const { pluginName, config } = body as {
       pluginName: string;
@@ -111,7 +98,5 @@ export async function POST(
       },
       201
     );
-  } catch (error) {
-    return handleApiError(error);
   }
-}
+);

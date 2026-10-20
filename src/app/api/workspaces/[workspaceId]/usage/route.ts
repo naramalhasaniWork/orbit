@@ -1,6 +1,4 @@
-import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
-import { requirePermission } from "@/lib/auth/rbac";
 import {
   TIER_LIMITS,
   BUDGET_WARNING_THRESHOLD,
@@ -8,20 +6,16 @@ import {
   monthlyCreditAllowance,
   type WorkspaceTier,
 } from "@/lib/auth/tenant";
-import { apiSuccess, apiError, handleApiError } from "@/lib/utils/api";
+import { apiSuccess, apiError } from "@/lib/utils/api";
+import { route } from "@/server/http/route";
 
 // ============================================================
 // GET /api/workspaces/[workspaceId]/usage — Workspace usage stats
 // ============================================================
 
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: Promise<{ workspaceId: string }> }
-) {
-  try {
-    const { workspaceId } = await params;
-    await requirePermission(workspaceId, "workspace.view");
-
+export const GET = route(
+  { workspace: "param", permission: "workspace.view" },
+  async ({ workspaceId }) => {
     const workspace = await prisma.workspace.findUnique({
       where: { id: workspaceId },
       select: {
@@ -129,7 +123,5 @@ export async function GET(
       dailyUsage,
       recentTransactions,
     });
-  } catch (error) {
-    return handleApiError(error);
   }
-}
+);

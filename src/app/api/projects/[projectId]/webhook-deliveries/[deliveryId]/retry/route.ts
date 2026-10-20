@@ -1,12 +1,5 @@
-import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
-import {
-  requireWorkspace,
-  apiSuccess,
-  apiError,
-  handleApiError,
-} from "@/lib/utils/api";
-import { requirePermission } from "@/lib/auth/rbac";
+import { apiSuccess, apiError } from "@/lib/utils/api";
 import { isAllowedWebhookUrl } from "@/lib/integrations/webhook-url";
 import { safeFetch } from "@/lib/utils/ssrf";
 import {
@@ -17,20 +10,15 @@ import {
   readStoredWebhooks,
   resolveWebhookSecret,
 } from "@/services/reporting/integrations/webhook-store";
+import { route } from "@/server/http/route";
 
 // ============================================================
 // POST /api/projects/[projectId]/webhook-deliveries/[deliveryId]/retry
 // ============================================================
 
-export async function POST(
-  _request: NextRequest,
-  { params }: { params: Promise<{ projectId: string; deliveryId: string }> }
-) {
-  try {
-    const { workspaceId } = await requireWorkspace();
-    const { projectId, deliveryId } = await params;
-    await requirePermission(workspaceId, "integrations.manage");
-
+export const POST = route(
+  { permission: "integrations.manage" },
+  async ({ params: { projectId, deliveryId }, workspaceId }) => {
     const project = await prisma.project.findFirst({
       where: { id: projectId, workspaceId },
       select: { id: true, settings: true },
@@ -94,7 +82,5 @@ export async function POST(
       statusCode: response.status,
       success: response.ok,
     });
-  } catch (error) {
-    return handleApiError(error);
   }
-}
+);

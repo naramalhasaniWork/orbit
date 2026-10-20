@@ -12,7 +12,10 @@ const db = vi.hoisted(() => ({
   project: { findUniqueOrThrow: vi.fn(async () => ({ workspaceId: "ws-1" })) },
 }));
 vi.mock("@/lib/db", () => ({ prisma: db }));
-vi.mock("@/lib/auth/rbac", () => ({ requirePermission: vi.fn(async () => ({})) }));
+vi.mock("@/server/http/session", async () => (await import("../helpers/route-auth")).sessionMock());
+vi.mock("@/server/http/auth", async (orig) =>
+  (await import("../helpers/route-auth")).authMock(await orig<Record<string, unknown>>())
+);
 vi.mock("@/lib/vault", () => ({ decrypt: vi.fn(() => "sk-secret-key"), encrypt: vi.fn() }));
 vi.mock("@/lib/ai/tracked-completion", () => ({
   createTrackedCompletion: vi.fn(async () => ({
@@ -24,12 +27,14 @@ vi.mock("@/lib/ai/tracked-completion", () => ({
 }));
 vi.mock("@/lib/ai/model-router", () => ({ getModelForTask: vi.fn(() => "m") }));
 
+import { resetRouteAuth } from "../helpers/route-auth";
 import { POST as testProvider } from "@/app/api/workspaces/[workspaceId]/providers/[provider]/test/route";
 import { sendFailureAlert } from "@/services/reporting/integrations/slack";
 import { executeApiTestCase } from "@/services/execution/api-test-executor";
 
 beforeEach(() => {
   vi.clearAllMocks();
+  resetRouteAuth();
   transport.pinnedRequest.mockResolvedValue(new Response("ok", { status: 200 }));
 });
 

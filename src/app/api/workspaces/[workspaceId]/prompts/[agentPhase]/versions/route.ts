@@ -1,20 +1,14 @@
-import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
-import { requirePermission } from "@/lib/auth/rbac";
-import { apiSuccess, apiError, handleApiError } from "@/lib/utils/api";
+import { apiSuccess, apiError } from "@/lib/utils/api";
 import type { AgentPhase } from "@/generated/prisma/client";
+import { route } from "@/server/http/route";
 
 const VALID_PHASES: AgentPhase[] = ["analyst", "planner", "executor", "reporter", "auditor"];
 const CONTENT_PREVIEW_LENGTH = 200;
 
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: Promise<{ workspaceId: string; agentPhase: string }> }
-) {
-  try {
-    const { workspaceId, agentPhase } = await params;
-    await requirePermission(workspaceId, "settings.view");
-
+export const GET = route(
+  { workspace: "param", permission: "settings.view" },
+  async ({ params: { agentPhase }, workspaceId }) => {
     if (!VALID_PHASES.includes(agentPhase as AgentPhase)) {
       return apiError(
         "Invalid agentPhase. Must be one of: analyst, planner, executor, reporter, auditor",
@@ -47,7 +41,5 @@ export async function GET(
     }));
 
     return apiSuccess(result);
-  } catch (error) {
-    return handleApiError(error);
   }
-}
+);

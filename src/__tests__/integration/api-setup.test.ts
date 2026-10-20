@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { NextRequest } from "next/server";
+import { resetRouteAuth } from "../helpers/route-auth";
 
 let selfHosted = true;
 let userCount = 0;
@@ -24,9 +25,10 @@ vi.mock("@/lib/integrations/workspace-settings", () => ({
   readWorkspaceSettings: vi.fn(async () => workspaceSettings),
   patchWorkspaceSettings: (...a: unknown[]) => patch(...a),
 }));
-vi.mock("@/lib/auth/rbac", () => ({
-  requirePermission: vi.fn(async () => ({ session: { user: { id: "u1" } } })),
-}));
+vi.mock("@/server/http/session", async () => (await import("../helpers/route-auth")).sessionMock());
+vi.mock("@/server/http/auth", async (orig) =>
+  (await import("../helpers/route-auth")).authMock(await orig<Record<string, unknown>>())
+);
 vi.mock("@/lib/auth/audit", () => ({ auditSettingsChange: vi.fn() }));
 
 const req = (url: string, init?: ConstructorParameters<typeof NextRequest>[1]) =>
@@ -34,6 +36,7 @@ const req = (url: string, init?: ConstructorParameters<typeof NextRequest>[1]) =
 
 beforeEach(() => {
   vi.clearAllMocks();
+  resetRouteAuth();
   vi.unstubAllGlobals();
   selfHosted = true;
   userCount = 0;
