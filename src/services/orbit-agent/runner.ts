@@ -15,6 +15,7 @@ import {
 import { MODELS } from "@/lib/ai";
 import { ORBIT_TOOLS, executeTool, type ToolContext } from "./tools";
 import { buildOrbitAgentPrompt } from "./prompt";
+import { describeEnvironments, listProjectEnvironments } from "./environments";
 import { getProjectContext } from "@/services/orchestrator/context-manager";
 import { getMemorySnapshot } from "@/services/orchestrator/agent-memory";
 
@@ -55,9 +56,10 @@ export async function* runOrbitAgent(
 
   try {
     // 1. Load project context + memory
-    const [context, memory] = await Promise.all([
+    const [context, memory, environments] = await Promise.all([
       getProjectContext(projectId),
       getMemorySnapshot(projectId, 5),
+      listProjectEnvironments(projectId, workspaceId),
     ]);
 
     // 2. Build system prompt
@@ -71,9 +73,7 @@ export async function* runOrbitAgent(
         systemMapStats: context.systemMapStats,
         activePlan: context.activePlan,
         lastRun: context.lastRun,
-        defaultEnvironment: context.defaultEnvironment
-          ? { name: context.defaultEnvironment.name, url: context.defaultEnvironment.url }
-          : null,
+        environments: describeEnvironments(environments),
       },
       memory,
     });
