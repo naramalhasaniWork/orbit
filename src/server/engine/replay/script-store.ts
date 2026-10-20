@@ -26,6 +26,18 @@ export async function findCurrentScript(testCaseId: string, envKey: string): Pro
   return row ? { ...row, actions: row.actions as unknown as ResolvedAction[] } : null;
 }
 
+/** The most recently written live script for a case, in any environment (for export). */
+export async function findLatestLiveScript(
+  testCaseId: string
+): Promise<{ version: number; envKey: string; actions: ResolvedAction[] } | null> {
+  const row = await prisma.testScript.findFirst({
+    where: { testCaseId, status: { in: ["active", "suspect"] } },
+    orderBy: { createdAt: "desc" },
+    select: { version: true, envKey: true, actions: true },
+  });
+  return row ? { ...row, actions: row.actions as unknown as ResolvedAction[] } : null;
+}
+
 interface NewScript {
   projectId: string;
   testCaseId: string;

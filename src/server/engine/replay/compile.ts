@@ -22,6 +22,8 @@ export type CompileOutcome =
 
 type Deriver = typeof deriveAssertions;
 
+const ELEMENT_ACTIONS = new Set(["click", "fill", "select", "hover"]);
+
 export async function compileRecording(
   input: CompileInput, derive: Deriver = deriveAssertions
 ): Promise<CompileOutcome> {
@@ -32,6 +34,9 @@ export async function compileRecording(
   for (let stepIndex = 0; stepIndex < steps.length; stepIndex++) {
     const action = recorded.actions.find((a) => a.stepIndex === stepIndex);
     if (!action) return { compiled: false, reason: `Step ${stepIndex + 1} has no recorded action` };
+    if (ELEMENT_ACTIONS.has(action.action) && !Object.keys(action.locators ?? {}).length) {
+      return { compiled: false, reason: `Step ${stepIndex + 1}: its element could not be captured` };
+    }
     actions.push(structuredClone(action));
   }
 

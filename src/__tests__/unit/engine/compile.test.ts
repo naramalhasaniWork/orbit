@@ -80,6 +80,12 @@ describe("compileRecording", () => {
     expect(derive).not.toHaveBeenCalled();
   });
 
+  it("refuses element steps whose element could not be captured", async () => {
+    const recorded: RecordedRun = { actions: [asserted(0), action(1, { locators: undefined })], snapshots: [] };
+    expect(await compileRecording({ steps, recorded, billing }, vi.fn()))
+      .toEqual({ compiled: false, reason: "Step 2: its element could not be captured" });
+  });
+
   it("does not need assertions for login steps skipped on a live session", async () => {
     const recorded: RecordedRun = {
       actions: [{ stepIndex: 0, action: "skip_auth", pre: { urlPattern: "/" }, post: { urlPattern: "/" } }, asserted(1)],
