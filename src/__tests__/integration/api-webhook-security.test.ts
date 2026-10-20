@@ -8,8 +8,9 @@ let delivery: Record<string, unknown> | null;
 const deliveryCreate = vi.fn();
 const deliveryUpdate = vi.fn();
 
-vi.mock("@/lib/db", () => ({
-  prisma: {
+vi.mock("@/lib/db", async () => {
+  const { Prisma } = await import("@/generated/prisma/client");
+  return { prisma: {
     project: {
       findFirst: vi.fn(async () => ({ id: "p1", settings: projectSettings })),
       findUnique: vi.fn(async () => ({ id: "p1", settings: projectSettings })),
@@ -26,8 +27,15 @@ vi.mock("@/lib/db", () => ({
     },
     systemMapNode: { count: vi.fn(async () => 0) },
     systemMapEdge: { count: vi.fn(async () => 0) },
-  },
-}));
+    // The atomic settings patch (server/data/json-patch.ts)
+    $executeRaw: vi.fn(async (strings: TemplateStringsArray, ...values: unknown[]) => {
+      const [patch, remove] = Prisma.sql(strings, ...values).values as [string, string[]];
+      projectSettings = { ...projectSettings, ...JSON.parse(patch) };
+      for (const key of remove) delete projectSettings[key];
+      return 1;
+    }),
+  } };
+});
 vi.mock("@/lib/queue/queues", () => ({
   getIndexingQueue: () => ({ getActive: async () => [], getWaiting: async () => [], getFailed: async () => [] }),
 }));

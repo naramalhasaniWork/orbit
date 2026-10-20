@@ -2,7 +2,7 @@ import { createHmac } from "crypto";
 import { prisma } from "@/lib/db";
 import { isAllowedWebhookUrl } from "@/lib/integrations/webhook-url";
 import { safeFetch } from "@/lib/utils/ssrf";
-import { readStoredWebhooks, resolveWebhookSecret } from "./webhook-store";
+import { deliverableEndpoints } from "@/server/data/webhook-endpoint-repo";
 import type { RunSummary, FailureSummary } from "@/agents/schemas/run-summary";
 
 // ============================================================
@@ -29,6 +29,8 @@ interface WebhookPayload {
 }
 
 interface WebhookEndpoint {
+  /** WebhookEndpoint row id; null for a pre-W3 entry still read from settings. */
+  id: string | null;
   url: string;
   secret: string;
   events: WebhookEvent[];
@@ -93,6 +95,7 @@ async function deliverWebhook(
       await prisma.webhookDelivery.create({
         data: {
           projectId: payload.projectId,
+          endpointId: endpoint.id,
           event: payload.event,
           url: endpoint.url,
           payload: payload as unknown as Record<string, string>,
@@ -121,6 +124,7 @@ async function deliverWebhook(
       await prisma.webhookDelivery.create({
         data: {
           projectId: payload.projectId,
+          endpointId: endpoint.id,
           event: payload.event,
           url: endpoint.url,
           payload: payload as unknown as Record<string, string>,
@@ -149,17 +153,10 @@ async function getWebhookEndpoints(
   projectId: string,
   event: WebhookEvent
 ): Promise<WebhookEndpoint[]> {
-  const project = await prisma.project.findUnique({
-    where: { id: projectId },
-    select: { settings: true },
-  });
-
-  if (!project) return [];
-
-  return readStoredWebhooks(project.settings).flatMap((w) => {
-    const secret = resolveWebhookSecret(w);
-    if (w.enabled === false || !secret || !w.events.includes(event)) return [];
-    return [{ url: w.url, secret, events: w.events as WebhookEvent[] }];
+  const endpoints = await deliverableEndpoints(projectId);
+  return endpoints.flatMap(({ id, url, secret, events, isEnabled }) => {
+    if (!isEnabled || !secret || !events.includes(event)) return [];
+    return [{ id, url, secret, events: events as WebhookEvent[] }];
   });
 }
 

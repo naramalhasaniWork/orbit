@@ -4,6 +4,8 @@
  */
 
 import { prisma } from "@/lib/db";
+import { activeProjectNotes } from "@/server/data/project-note-repo";
+import { parseProjectSettings, parseWorkspaceSettings } from "@/server/data/settings-repo";
 import type { UserLayerInput, WorkspacePromptConfig } from "@/agents/prompts/user-layer";
 
 /**
@@ -24,39 +26,23 @@ export async function loadUserLayerForProject(
     return {};
   }
 
-  const settings = (project.workspace?.settings ?? {}) as Record<string, unknown>;
+  const settings = parseWorkspaceSettings(project.workspace?.settings);
 
   const workspaceConfig: WorkspacePromptConfig = {
-    customPrompt: typeof settings.customPrompt === "string"
-      ? settings.customPrompt
-      : undefined,
-    customRules: Array.isArray(settings.customRules)
-      ? (settings.customRules as string[])
-      : undefined,
-    technologyContext: typeof settings.technologyContext === "string"
-      ? settings.technologyContext
-      : undefined,
-    criticalPaths: Array.isArray(settings.criticalPaths)
-      ? (settings.criticalPaths as string[])
-      : undefined,
-    excludePaths: Array.isArray(settings.excludePaths)
-      ? (settings.excludePaths as string[])
-      : undefined,
+    customPrompt: settings.customPrompt,
+    customRules: settings.customRules,
+    technologyContext: settings.technologyContext,
+    criticalPaths: settings.criticalPaths,
+    excludePaths: settings.excludePaths,
   };
 
   // Extract project-level overrides from project settings
-  const projectSettings = (project.settings ?? {}) as Record<string, unknown>;
-  if (Array.isArray(projectSettings.criticalPaths)) {
-    workspaceConfig.criticalPaths = [
-      ...(workspaceConfig.criticalPaths ?? []),
-      ...(projectSettings.criticalPaths as string[]),
-    ];
+  const projectSettings = parseProjectSettings(project.settings);
+  if (projectSettings.criticalPaths) {
+    workspaceConfig.criticalPaths = [...(workspaceConfig.criticalPaths ?? []), ...projectSettings.criticalPaths];
   }
-  if (Array.isArray(projectSettings.excludePaths)) {
-    workspaceConfig.excludePaths = [
-      ...(workspaceConfig.excludePaths ?? []),
-      ...(projectSettings.excludePaths as string[]),
-    ];
+  if (projectSettings.excludePaths) {
+    workspaceConfig.excludePaths = [...(workspaceConfig.excludePaths ?? []), ...projectSettings.excludePaths];
   }
 
   return { workspaceConfig };
@@ -89,15 +75,5 @@ export interface TestingNote {
 export async function loadTestingNotes(
   projectId: string
 ): Promise<TestingNote[]> {
-  const project = await prisma.project.findUnique({
-    where: { id: projectId },
-    select: { settings: true },
-  });
-
-  if (!project) return [];
-
-  const settings = (project.settings ?? {}) as Record<string, unknown>;
-  const notes = (settings.testingNotes ?? []) as TestingNote[];
-
-  return notes.filter((n) => n.active);
+  return activeProjectNotes(projectId);
 }

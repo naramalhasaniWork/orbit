@@ -1,6 +1,5 @@
-import { prisma } from "@/lib/db";
 import { isSelfHosted } from "@/lib/self-host";
-import { openSecret } from "@/lib/integrations/secret-field";
+import { resolveProjectIntegration } from "@/server/data/integration-repo";
 import type { BugReport, RunSummary } from "@/agents/schemas/run-summary";
 
 interface LinearIssueResult {
@@ -76,39 +75,20 @@ const SEVERITY_TO_PRIORITY: Record<string, number> = {
   info: 4,
 };
 
-/** Linear credentials as the Settings integration stores them (project, then workspace, then env). */
+/**
+ * Linear credentials for a project: the workspace's IntegrationConfig (with the
+ * legacy per-project and workspace.settings keys as a dual-read fallback), then env.
+ */
 export async function getLinearConfig(
   projectId: string
 ): Promise<{ apiKey: string; teamId: string } | null> {
-  const project = await prisma.project.findUnique({
-    where: { id: projectId },
-    select: {
-      settings: true,
-      workspace: { select: { settings: true } },
-    },
-  });
+  const linear = await resolveProjectIntegration(projectId, "linear");
+  if (!linear) return null;
 
-  if (!project) return null;
-
-  const projectSettings = project.settings as Record<string, unknown>;
-  const workspaceSettings = project.workspace.settings as Record<
-    string,
-    unknown
-  >;
-
-  const apiKey =
-    openSecret(projectSettings?.linearApiKey) ??
-    openSecret(workspaceSettings?.linearApiKey) ??
-    // The operator's own key is only a fallback on single-tenant installs;
-    // on hosted Orbit it would let any workspace file issues into it.
-    (isSelfHosted() ? process.env.LINEAR_API_KEY : undefined) ??
-    null;
-
-  const teamId =
-    (projectSettings?.linearTeamId as string) ??
-    (workspaceSettings?.linearTeamId as string) ??
-    (isSelfHosted() ? process.env.LINEAR_TEAM_ID : undefined) ??
-    null;
+  // The operator's own key is only a fallback on single-tenant installs;
+  // on hosted Orbit it would let any workspace file issues into it.
+  const apiKey = linear.secret ?? (isSelfHosted() ? process.env.LINEAR_API_KEY : undefined) ?? null;
+  const teamId = linear.externalAccountId ?? (isSelfHosted() ? process.env.LINEAR_TEAM_ID : undefined) ?? null;
 
   if (!apiKey || !teamId) return null;
   return { apiKey, teamId };

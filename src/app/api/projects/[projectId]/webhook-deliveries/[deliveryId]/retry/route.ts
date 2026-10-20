@@ -6,10 +6,7 @@ import {
   signPayload,
   truncateResponse,
 } from "@/services/reporting/integrations/outbound-webhooks";
-import {
-  readStoredWebhooks,
-  resolveWebhookSecret,
-} from "@/services/reporting/integrations/webhook-store";
+import { deliverableEndpoints } from "@/server/data/webhook-endpoint-repo";
 import { route } from "@/server/http/route";
 
 // ============================================================
@@ -21,7 +18,7 @@ export const POST = route(
   async ({ params: { projectId, deliveryId }, workspaceId }) => {
     const project = await prisma.project.findFirst({
       where: { id: projectId, workspaceId },
-      select: { id: true, settings: true },
+      select: { id: true },
     });
 
     if (!project) {
@@ -36,9 +33,12 @@ export const POST = route(
       return apiError("Delivery not found", "NOT_FOUND", 404);
     }
 
-    // Find the webhook endpoint secret from project settings
-    const endpoint = readStoredWebhooks(project.settings).find((w) => w.url === delivery.url);
-    const secret = endpoint ? resolveWebhookSecret(endpoint) : null;
+    // The delivery's endpoint; deliveries from before W3 have no endpointId and match by URL
+    const endpoints = await deliverableEndpoints(projectId);
+    const endpoint =
+      endpoints.find((e) => delivery.endpointId !== null && e.id === delivery.endpointId) ??
+      endpoints.find((e) => e.url === delivery.url);
+    const secret = endpoint?.secret ?? null;
     if (!endpoint || !secret) {
       return apiError(
         "This endpoint no longer exists or its secret cannot be resolved",

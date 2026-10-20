@@ -155,6 +155,12 @@ enum IntegrationProvider {
   railway
 }
 
+enum IntegrationStatus {
+  connected
+  disconnected
+  error
+}
+
 enum WebhookEventStatus {
   received
   processing
@@ -219,7 +225,7 @@ model Workspace {
   previewConnections   PreviewConnection[]
   pluginInstallations  PluginInstallation[]
   domainKnowledgeFiles DomainKnowledgeFile[]
-  webhookSubscriptions WebhookSubscription[]
+  webhookEndpoints     WebhookEndpoint[]
   invitations          WorkspaceInvitation[]
   usageRecords         WorkspaceUsage[]
   subscriptions        Subscription[]
@@ -420,6 +426,8 @@ model Project {
   conversations      Conversation[]
   previewBinding     PreviewBinding?
   previewDeployments PreviewDeployment[]
+  webhookEndpoints   WebhookEndpoint[]
+  notes              ProjectNote[]
 
   @@unique([workspaceId, slug], name: "project_slug_workspace")
   @@index([workspaceId])
@@ -819,6 +827,7 @@ model ApiKey {
 model WebhookDelivery {
   id          String    @id @default(uuid()) @db.Uuid
   projectId   String    @map("project_id") @db.Uuid
+  endpointId  String?   @map("endpoint_id") @db.Uuid
   event       String
   url         String
   payload     Json
@@ -828,10 +837,12 @@ model WebhookDelivery {
   deliveredAt DateTime? @map("delivered_at")
   createdAt   DateTime  @default(now()) @map("created_at")
 
-  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project  Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  endpoint WebhookEndpoint? @relation(fields: [endpointId], references: [id], onDelete: SetNull)
 
   @@index([projectId])
   @@index([projectId, event])
+  @@index([endpointId])
   @@map("webhook_deliveries")
 }
 
@@ -1053,19 +1064,34 @@ model StripeWebhookEvent {
 // INTEGRATION CONFIGS — per-workspace integration settings
 // ============================================================
 
+/// Read and written only through src/server/data/integration-repo.ts.
 model IntegrationConfig {
-  id          String              @id @default(uuid()) @db.Uuid
-  workspaceId String              @map("workspace_id") @db.Uuid
-  provider    IntegrationProvider
-  isEnabled   Boolean             @default(true) @map("is_enabled")
-  config      Json                @default("{}")
-  credentials Json                @default("{}")
-  createdAt   DateTime            @default(now()) @map("created_at")
-  updatedAt   DateTime            @default(now()) @updatedAt @map("updated_at")
+  id                String              @id @default(uuid()) @db.Uuid
+  workspaceId       String              @map("workspace_id") @db.Uuid
+  provider          IntegrationProvider
+  isEnabled         Boolean             @default(true) @map("is_enabled")
+  status            IntegrationStatus   @default(connected)
+  /// The provider-side account the credentials act for (e.g. the Linear team id).
+  externalAccountId String?             @map("external_account_id")
+  displayName       String?             @map("display_name")
+  /// A SealedSecret ({encrypted, iv}). Never select it outside integration-repo.
+  credentialsSealed Json?               @map("credentials_sealed")
+  /// Provider settings (domain/config/integrations), including lastError/lastErrorAt.
+  settings          Json                @default("{}")
+  /// sha256 of the inbound token: the Linear webhook URL token, or a pending Slack link code.
+  inboundTokenHash  String?             @map("inbound_token_hash")
+  /// Deprecated: superseded by settings/credentialsSealed; dropped a release after the 20261025 backfill.
+  config            Json                @default("{}")
+  /// Deprecated: see `config`.
+  credentials       Json                @default("{}")
+  createdAt         DateTime            @default(now()) @map("created_at")
+  updatedAt         DateTime            @default(now()) @updatedAt @map("updated_at")
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@unique([workspaceId, provider], name: "integration_config_unique")
+  @@index([provider, externalAccountId])
+  @@index([inboundTokenHash])
   @@map("integration_configs")
 }
 
@@ -1347,24 +1373,49 @@ model KnowledgeChunk {
 }
 
 // ============================================================
-// WEBHOOK SUBSCRIPTIONS — user-configured outbound webhooks
+// WEBHOOK ENDPOINTS — user-configured outbound webhooks
 // ============================================================
 
-model WebhookSubscription {
-  id          String   @id @default(uuid()) @db.Uuid
-  workspaceId String   @map("workspace_id") @db.Uuid
-  url         String
-  events      Json     @default("[]")
-  secret      String?
-  isEnabled   Boolean  @default(true) @map("is_enabled")
-  description String?
-  createdAt   DateTime @default(now()) @map("created_at")
-  updatedAt   DateTime @default(now()) @updatedAt @map("updated_at")
+/// An outbound webhook target. projectId null means workspace-wide (not dispatched yet).
+model WebhookEndpoint {
+  id           String   @id @default(uuid()) @db.Uuid
+  workspaceId  String   @map("workspace_id") @db.Uuid
+  projectId    String?  @map("project_id") @db.Uuid
+  url          String
+  events       String[] @default([])
+  /// A SealedSecret ({encrypted, iv}) used to sign deliveries.
+  secretSealed Json?    @map("secret_sealed")
+  isEnabled    Boolean  @default(true) @map("is_enabled")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @default(now()) @updatedAt @map("updated_at")
 
-  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspace  Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  project    Project?          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  deliveries WebhookDelivery[]
 
   @@index([workspaceId])
-  @@map("webhook_subscriptions")
+  @@index([projectId])
+  @@map("webhook_endpoints")
+}
+
+// ============================================================
+// PROJECT NOTES — user-supplied context for planner/executor prompts
+// ============================================================
+
+model ProjectNote {
+  id        String   @id @default(uuid()) @db.Uuid
+  projectId String   @map("project_id") @db.Uuid
+  content   String
+  /// "context" | "instruction" | "known-issue" | "credential-hint"
+  category  String   @default("context")
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @default(now()) @updatedAt @map("updated_at")
+
+  project Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  @@index([projectId])
+  @@map("project_notes")
 }
 
 // ============================================================

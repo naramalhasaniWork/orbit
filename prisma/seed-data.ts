@@ -263,19 +263,18 @@ export const DOMAIN_KNOWLEDGE_FILES: DomainKnowledgeFileDef[] = [
 ];
 
 // ============================================================
-// WEBHOOK SUBSCRIPTIONS
+// WEBHOOK ENDPOINTS (workspace-wide, no signing secret: never dispatched)
 // ============================================================
 
-export interface WebhookSubscriptionDef {
+export interface WebhookEndpointDef {
   url: string;
   events: string[];
   isEnabled: boolean;
-  description: string;
 }
 
-export const WEBHOOK_SUBSCRIPTIONS: WebhookSubscriptionDef[] = [
-  { url: "https://hooks.slack.com/services/T00000/B00000/XXXX", events: ["run.completed", "run.failed", "bug.discovered"], isEnabled: true, description: "Slack notification channel" },
-  { url: "https://api.acme-internal.com/webhooks/orbit", events: ["run.completed", "test.failed", "plan.updated"], isEnabled: true, description: "Internal monitoring dashboard" },
+export const WEBHOOK_ENDPOINTS: WebhookEndpointDef[] = [
+  { url: "https://hooks.slack.com/services/T00000/B00000/XXXX", events: ["run.completed", "run.failed", "bug.discovered"], isEnabled: true },
+  { url: "https://api.acme-internal.com/webhooks/orbit", events: ["run.completed", "test.failed", "plan.updated"], isEnabled: true },
 ];
 
 // ============================================================

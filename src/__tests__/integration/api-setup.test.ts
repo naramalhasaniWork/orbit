@@ -21,7 +21,7 @@ vi.mock("@/lib/self-host", async (orig) => ({
   isSelfHosted: () => selfHosted,
 }));
 let workspaceSettings: Record<string, unknown> | null = {};
-vi.mock("@/lib/integrations/workspace-settings", () => ({
+vi.mock("@/server/data/settings-repo", () => ({
   readWorkspaceSettings: vi.fn(async () => workspaceSettings),
   patchWorkspaceSettings: (...a: unknown[]) => patch(...a),
 }));

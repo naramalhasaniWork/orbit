@@ -5,9 +5,9 @@
 
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { apiSuccess, apiError } from "@/lib/utils/api";
+import { apiError } from "@/lib/utils/api";
 import { WEBHOOK_EVENTS } from "@/services/reporting/integrations/outbound-webhooks";
-import { updateProjectWebhooks } from "@/services/reporting/integrations/webhook-store";
+import { deleteProjectEndpoint, updateProjectEndpoint } from "@/server/data/webhook-endpoint-repo";
 import { route } from "@/server/http/route";
 
 const eventNames = Object.keys(WEBHOOK_EVENTS) as [string, ...string[]];
@@ -19,7 +19,7 @@ const patchSchema = z
   })
   .refine((v) => v.isEnabled !== undefined || v.events !== undefined, "Nothing to update");
 
-type RouteContext = { params: Promise<{ projectId: string; webhookId: string }> };
+const params = z.object({ projectId: z.string(), webhookId: z.string().uuid() });
 
 function findProject(projectId: string, workspaceId: string) {
   return prisma.project.findFirst({
@@ -29,46 +29,27 @@ function findProject(projectId: string, workspaceId: string) {
 }
 
 export const PATCH = route(
-  { permission: "integrations.manage" },
-  async ({ req: request, params: { projectId, webhookId }, workspaceId }) => {
+  { permission: "integrations.manage", params, body: patchSchema },
+  async ({ body, params: { projectId, webhookId }, workspaceId }) => {
     const project = await findProject(projectId, workspaceId);
     if (!project) return apiError("Project not found", "NOT_FOUND", 404);
 
-    const { isEnabled, events } = patchSchema.parse(await request.json());
+    const updated = await updateProjectEndpoint(projectId, webhookId, body);
+    if (!updated) return apiError("Webhook not found", "NOT_FOUND", 404);
 
-    let found = false;
-    await updateProjectWebhooks(projectId, (all) =>
-      all.map((w) => {
-        if (w.id !== webhookId) return w;
-        found = true;
-        return {
-          ...w,
-          ...(isEnabled !== undefined ? { enabled: isEnabled } : {}),
-          ...(events ? { events } : {}),
-        };
-      })
-    );
-    if (!found) return apiError("Webhook not found", "NOT_FOUND", 404);
-
-    return apiSuccess({ updated: true });
+    return { updated: true };
   }
 );
 
 export const DELETE = route(
-  { permission: "integrations.manage" },
+  { permission: "integrations.manage", params },
   async ({ params: { projectId, webhookId }, workspaceId }) => {
     const project = await findProject(projectId, workspaceId);
     if (!project) return apiError("Project not found", "NOT_FOUND", 404);
 
-    let found = false;
-    await updateProjectWebhooks(projectId, (all) =>
-      all.filter((w) => {
-        if (w.id === webhookId) found = true;
-        return w.id !== webhookId;
-      })
-    );
-    if (!found) return apiError("Webhook not found", "NOT_FOUND", 404);
+    const deleted = await deleteProjectEndpoint(projectId, webhookId);
+    if (!deleted) return apiError("Webhook not found", "NOT_FOUND", 404);
 
-    return apiSuccess({ deleted: true });
+    return { deleted: true };
   }
 );

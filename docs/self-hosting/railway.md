@@ -104,3 +104,35 @@ done
 ```
 
 Then deploy as usual; the drift migration only adds what is missing.
+
+### Data backfills (release step)
+
+Some releases move existing data as well as schema. Each move ships as an idempotent script in
+`prisma/backfills/` (bundled into the image as `./backfills/*.mjs`). Run them once per release, after
+`migrate deploy` and before the new version takes traffic:
+
+- `ORBIT_ROLE=all` or `ORBIT_ROLE=migrate`: set `ORBIT_RUN_BACKFILLS=true` and `scripts/start.sh` runs every
+  backfill, in name order, after the migrations. A failing backfill stops the start.
+- Railway split mode: use `["sh", "-c", "ORBIT_ROLE=migrate ORBIT_RUN_BACKFILLS=true ./start.sh"]` as the
+  pre-deploy command instead of the bare `migrate deploy` above (it runs both).
+- Compose: `docker compose run --rm -e ORBIT_ROLE=migrate -e ORBIT_RUN_BACKFILLS=true web`.
+- From a checkout: `pnpm backfill:20261025` with `DATABASE_URL` and `ENCRYPTION_KEY` set.
+
+Backfills are safe to rerun: they insert with `ON CONFLICT DO NOTHING`, never overwrite rows the app
+wrote since, and leave the old data in place. They need the same `ENCRYPTION_KEY` as the app, since
+plaintext secrets are sealed on the way in.
+
+**20261025_integrations** moves integration config out of the settings JSON:
+
+| From | To |
+|------|----|
+| `workspace.settings` `linearApiKey` / `linearTeamId` / `linear` | `IntegrationConfig` (provider `linear`) |
+| `workspace.settings` `slackWebhookUrl` / `slack` | `IntegrationConfig` (provider `slack`) |
+| `project.settings` Linear/Slack overrides | the workspace's `IntegrationConfig`, only if it has none |
+| `project.settings.webhooks` | `WebhookEndpoint` (same ids, secrets sealed) |
+| `project.settings.testingNotes` | `ProjectNote` (same ids) |
+
+Until it has run, readers fall back to the old keys and log `config read fell back to legacy settings`
+(field `legacyRead`). Once that line stops appearing, the old keys can be stripped in a later release.
+The completion line lists `conflicts`: project overrides left in `project.settings` because the
+workspace already had its own connection. Review those before the old keys go.

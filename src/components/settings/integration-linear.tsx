@@ -7,12 +7,16 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Eye, EyeOff, ExternalLink } from "lucide-react";
+import { LinearInbound } from "@/components/settings/linear-inbound";
 
-interface LinearConfig {
+export interface LinearConfig {
   connected: boolean;
   teamId?: string;
   teamName?: string;
   autoCreateIssues?: boolean;
+  hasInboundUrl?: boolean;
+  inboundProjectId?: string | null;
+  projects?: Array<{ id: string; name: string }>;
 }
 
 interface LinearCardProps {
@@ -131,6 +135,14 @@ export function LinearCard({ workspaceId, config, onUpdate }: LinearCardProps) {
               onCheckedChange={handleToggleAutoCreate}
             />
           </div>
+
+          <LinearInbound
+            workspaceId={workspaceId}
+            hasInboundUrl={config?.hasInboundUrl ?? false}
+            inboundProjectId={config?.inboundProjectId ?? null}
+            projects={config?.projects ?? []}
+            onChange={onUpdate}
+          />
 
           <div className="pt-2">
             <Button size="sm" variant="outline" onClick={handleDisconnect}>

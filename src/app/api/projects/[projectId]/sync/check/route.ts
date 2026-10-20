@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { parseProjectSettings } from "@/server/data/settings-repo";
 import { apiSuccess, apiError } from "@/lib/utils/api";
 import { pollProjectCommits } from "@/services/github/commit-poller";
 import { route } from "@/server/http/route";
@@ -26,14 +27,14 @@ export const GET = route({}, async ({ params: { projectId }, workspaceId }) => {
     where: { id: projectId },
     select: { settings: true },
   });
-  const settings = (updated?.settings ?? {}) as Record<string, unknown>;
+  const settings = parseProjectSettings(updated?.settings);
 
   return apiSuccess({
     status: result.status,
-    commitsBehind: (settings.commitsBehind as number) ?? 0,
-    lastCommitSha: (settings.lastCommitSha as string) ?? null,
-    lastCommitMessage: (settings.lastCommitMessage as string) ?? null,
-    lastCommitAt: (settings.lastCommitAt as string) ?? null,
+    commitsBehind: settings.commitsBehind ?? 0,
+    lastCommitSha: settings.lastCommitSha ?? null,
+    lastCommitMessage: settings.lastCommitMessage ?? null,
+    lastCommitAt: settings.lastCommitAt ?? null,
     error: result.error ?? null,
   });
 });

@@ -286,8 +286,9 @@ To trigger test runs on push/PR events:
 ### Linear Integration (Optional)
 
 1. Get an API key from **Linear > Settings > API > Personal API keys**
-2. Set `LINEAR_API_KEY` and `LINEAR_TEAM_ID` in `.env.local`
+2. Connect it in **Settings > Integrations > Linear** (or, self-hosted only, set `LINEAR_API_KEY` and `LINEAR_TEAM_ID`)
 3. Orbit will create Linear issues for test failures
+4. For issue events to start runs, generate the per-connection webhook URL there (see [docs/integrations/linear.md](./integrations/linear.md))
 
 ### Slack Integration (Optional)
 
@@ -296,6 +297,7 @@ To trigger test runs on push/PR events:
 3. Install to your workspace
 4. Set `SLACK_BOT_TOKEN` and `SLACK_SIGNING_SECRET`
 5. Or use an incoming webhook: set `SLACK_WEBHOOK_URL`
+6. Link each Slack workspace with `/orbit link <code>` before using commands (see [docs/integrations/slack.md](./integrations/slack.md))
 
 ---
 

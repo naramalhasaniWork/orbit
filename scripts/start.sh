@@ -3,9 +3,12 @@
 #   all     (default) web server + in-process workers; applies migrations first
 #   web     web server only; no workers, no migrations
 #   worker  BullMQ workers only (dist/worker.mjs); no HTTP, no migrations
+#   migrate apply migrations (and backfills, see below), then exit
 # In split mode (web + worker) run migrations once as a release step, not per
 # container: Railway preDeployCommand or `docker compose run --rm web migrate`
 # (see docs/self-hosting/railway.md). ORBIT_SKIP_MIGRATIONS=true skips them for role=all.
+# ORBIT_RUN_BACKFILLS=true also runs the idempotent data backfills (./backfills/*.mjs,
+# in name order) after the migrations; see docs/self-hosting/railway.md.
 set -eu
 
 ROLE="${ORBIT_ROLE:-all}"
@@ -17,6 +20,13 @@ migrate() {
   fi
   echo "[start] Applying database migrations"
   (cd /prisma && node node_modules/prisma/build/index.js migrate deploy)
+  if [ "${ORBIT_RUN_BACKFILLS:-}" = "true" ]; then
+    for backfill in ./backfills/*.mjs; do
+      [ -e "$backfill" ] || continue
+      echo "[start] Running backfill $(basename "$backfill" .mjs)"
+      node "$backfill"
+    done
+  fi
 }
 
 case "$ROLE" in
@@ -37,7 +47,7 @@ case "$ROLE" in
     migrate
     ;;
   *)
-    echo "[start] Unknown ORBIT_ROLE '$ROLE' (expected all, web, worker)" >&2
+    echo "[start] Unknown ORBIT_ROLE '$ROLE' (expected all, web, worker, migrate)" >&2
     exit 1
     ;;
 esac

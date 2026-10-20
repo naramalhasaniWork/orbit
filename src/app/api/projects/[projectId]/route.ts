@@ -1,6 +1,7 @@
 import { prisma } from "@/lib/db";
 import { getIndexingQueue } from "@/lib/queue/queues";
-import { mergeUserSettings, redactSettingsOf } from "@/lib/integrations/redact";
+import { redactSettingsOf, userSettingsPatch } from "@/lib/integrations/redact";
+import { patchProjectSettings } from "@/server/data/settings-repo";
 import { apiSuccess, apiError } from "@/lib/utils/api";
 import { route } from "@/server/http/route";
 
@@ -76,7 +77,7 @@ export const PATCH = route(
   async ({ req: request, params: { projectId }, workspaceId }) => {
     const project = await prisma.project.findFirst({
       where: { id: projectId, workspaceId },
-      select: { id: true, settings: true },
+      select: { id: true },
     });
 
     if (!project) {
@@ -95,14 +96,16 @@ export const PATCH = route(
     if (body.onboardingCompleted !== undefined) {
       data.onboardingCompleted = body.onboardingCompleted;
     }
-    if (body.settings !== undefined) {
-      data.settings = mergeUserSettings(project.settings, body.settings);
-    }
     if (body.status !== undefined) {
       data.status = body.status;
       if (body.status === "active") {
         data.deletedAt = null;
       }
+    }
+
+    // Merged atomically: keys the client did not send (and server-written ones) survive
+    if (body.settings !== undefined) {
+      await patchProjectSettings(projectId, userSettingsPatch(body.settings));
     }
 
     const updated = await prisma.project.update({

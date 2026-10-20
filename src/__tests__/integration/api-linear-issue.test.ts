@@ -63,7 +63,11 @@ describe("operator credential fallbacks are single-tenant only", () => {
     vi.resetModules();
     vi.doUnmock("@/services/reporting/integrations/linear");
     vi.doMock("@/lib/db", () => ({
-      prisma: { project: { findUnique: vi.fn(async () => ({ settings: {}, workspace: { settings: {} } })) } },
+      prisma: {
+        project: { findUnique: vi.fn(async () => ({ workspaceId: "w1", settings: {} })) },
+        workspace: { findUnique: vi.fn(async () => ({ settings: {} })) },
+        integrationConfig: { findUnique: vi.fn(async () => null) },
+      },
     }));
     vi.stubEnv("LINEAR_API_KEY", "operator-key");
     vi.stubEnv("LINEAR_TEAM_ID", "operator-team");

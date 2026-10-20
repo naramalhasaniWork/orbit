@@ -2,7 +2,7 @@
 
 import { auditSettingsChange } from "@/lib/auth/audit";
 import { apiSuccess, apiError } from "@/lib/utils/api";
-import { patchWorkspaceSettings } from "@/lib/integrations/workspace-settings";
+import { patchWorkspaceSettings } from "@/server/data/settings-repo";
 import { FINISH_SETUP_SETTING } from "@/lib/setup/finish-setup";
 import { route } from "@/server/http/route";
 

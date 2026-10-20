@@ -1,5 +1,5 @@
 import { prisma } from "@/lib/db";
-import { openSecret } from "@/lib/integrations/secret-field";
+import { resolveProjectIntegration } from "@/server/data/integration-repo";
 import { analyzeFailures, getHistoricalData } from "@/services/reporting/failure-analyzer";
 import {
   generateReport as generateRunReport,
@@ -124,17 +124,10 @@ async function triggerIntegrations(
     slack: { notification: false, alerts: 0 },
   };
 
-  const project = await prisma.project.findUniqueOrThrow({
-    where: { id: run.projectId },
-    select: { settings: true, workspace: { select: { settings: true } } },
-  });
-
-  const settings = project.settings as Record<string, unknown>;
-  const workspaceSettings = (project.workspace.settings ?? {}) as Record<string, unknown>;
-  const linearPrefs = workspaceSettings.linear as { autoCreateIssues?: boolean } | undefined;
-  const slackPrefs = workspaceSettings.slack as
-    | { notifications?: { runCompleted?: boolean; testFailed?: boolean } }
-    | undefined;
+  const [linear, slack] = await Promise.all([
+    resolveProjectIntegration(run.projectId, "linear"),
+    resolveProjectIntegration(run.projectId, "slack"),
+  ]);
 
   // GitHub integrations
   if (run.prNumber) {
@@ -152,8 +145,8 @@ async function triggerIntegrations(
     (f) => f.severity === "critical" || f.severity === "high"
   );
 
-  // Workspace-level "Auto-create issues" toggle; unset keeps the existing behaviour.
-  const issuesEnabled = linearPrefs?.autoCreateIssues !== false;
+  // Workspace-level "Auto-create issues" toggle; unset keeps the existing behaviour (on).
+  const issuesEnabled = linear?.settings.autoCreateIssues ?? true;
 
   for (const failure of issuesEnabled ? criticalFailures : []) {
     const failedResult = await prisma.testResult.findFirst({
@@ -195,12 +188,10 @@ async function triggerIntegrations(
     }
   }
 
-  // Slack: send run notification via webhook
-  // Sealed by the Settings route; legacy plaintext values still open
-  const slackWebhookUrl =
-    openSecret(settings?.slackWebhookUrl) ?? openSecret(workspaceSettings.slackWebhookUrl);
-  if (slackWebhookUrl) {
-    if (slackPrefs?.notifications?.runCompleted !== false) {
+  // Slack: send run notification via the workspace's incoming webhook
+  const slackWebhookUrl = slack?.secret ?? null;
+  if (slack && slackWebhookUrl) {
+    if (slack.settings.notifications.runCompleted) {
       const notifResult = await sendRunNotification(
         slackWebhookUrl,
         report.summary
@@ -210,7 +201,7 @@ async function triggerIntegrations(
 
     // Send individual alerts for critical failures
     const alertFailures =
-      slackPrefs?.notifications?.testFailed === false ? [] : criticalFailures;
+      slack.settings.notifications.testFailed ? criticalFailures : [];
     for (const failure of alertFailures) {
       const alertResult = await sendFailureAlert(slackWebhookUrl, failure, run.projectId);
       if (alertResult.success) {

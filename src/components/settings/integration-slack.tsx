@@ -7,15 +7,18 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Eye, EyeOff, ExternalLink, Hash } from "lucide-react";
+import { SlackCommandsLink } from "@/components/settings/slack-commands-link";
 
 interface SlackNotifications {
   runCompleted: boolean;
   testFailed: boolean;
 }
 
-interface SlackConfig {
+export interface SlackConfig {
   connected: boolean;
   notifications?: SlackNotifications;
+  teamId?: string | null;
+  pendingTeamId?: string | null;
 }
 
 interface SlackCardProps {
@@ -69,7 +72,7 @@ export function SlackCard({ workspaceId, config, onUpdate }: SlackCardProps) {
     setError(null);
     try {
       await send("DELETE");
-      onUpdate({ connected: false, notifications: undefined });
+      onUpdate({ connected: false, notifications: undefined, teamId: null, pendingTeamId: null });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to disconnect Slack");
     }
@@ -127,6 +130,13 @@ export function SlackCard({ workspaceId, config, onUpdate }: SlackCardProps) {
               </div>
             ))}
           </div>
+
+          <SlackCommandsLink
+            workspaceId={workspaceId}
+            teamId={config?.teamId ?? null}
+            pendingTeamId={config?.pendingTeamId ?? null}
+            onChange={onUpdate}
+          />
 
           <div className="pt-2">
             <Button size="sm" variant="outline" onClick={handleDisconnect}>

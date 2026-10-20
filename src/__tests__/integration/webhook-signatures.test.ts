@@ -7,7 +7,6 @@ vi.mock("@/services/orchestrator/run-launcher", () => ({
   launchSummary: vi.fn(),
 }));
 vi.mock("@/services/integrations/slack-commands", () => ({
-  findWorkspaceBySlackTeam: vi.fn(),
   handleStatus: vi.fn(),
   handleRun: vi.fn(),
   handleResults: vi.fn(),
@@ -24,12 +23,6 @@ interface WebhookCase {
 const nowSeconds = String(Math.floor(Date.now() / 1000));
 
 const CASES: WebhookCase[] = [
-  {
-    name: "linear",
-    envVar: "LINEAR_WEBHOOK_SECRET",
-    route: () => import("@/app/api/webhooks/linear/route"),
-    signatureHeaders: { "linear-signature": "bad" },
-  },
   {
     name: "slack commands",
     envVar: "SLACK_SIGNING_SECRET",

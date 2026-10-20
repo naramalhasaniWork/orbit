@@ -1,29 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createHmac, timingSafeEqual } from "crypto";
 import { prisma } from "@/lib/db";
 import { launchPipelineRun } from "@/services/orchestrator/run-launcher";
+import { slackWorkspace, verifiedSlackBody } from "@/services/integrations/slack-inbound";
 
-function verifySlackSignature(
-  body: string,
-  timestamp: string | null,
-  signature: string | null,
-  signingSecret: string
-): boolean {
-  if (!timestamp || !signature) return false;
-
-  const now = Math.floor(Date.now() / 1000);
-  if (Math.abs(now - Number(timestamp)) > 300) return false;
-
-  const baseString = `v0:${timestamp}:${body}`;
-  const expected =
-    "v0=" + createHmac("sha256", signingSecret).update(baseString).digest("hex");
-
-  try {
-    return timingSafeEqual(Buffer.from(expected), Buffer.from(signature));
-  } catch {
-    return false;
-  }
-}
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const isUuid = (value: string | undefined): value is string => !!value && UUID.test(value);
 
 interface SlackAction {
   action_id: string;
@@ -55,14 +36,18 @@ async function sendSlackResponse(
   });
 }
 
+// Every action's ids come from the button value, so each lookup is scoped to the workspace
+// the signed team id is bound to: a value naming another workspace's run reads as not found.
+
 async function handleRerunAction(
+  workspaceId: string,
   action: SlackAction,
   payload: SlackInteractionPayload
 ): Promise<void> {
   const runId = action.value;
 
-  const originalRun = await prisma.testRun.findUnique({
-    where: { id: runId },
+  const originalRun = !isUuid(runId) ? null : await prisma.testRun.findFirst({
+    where: { id: runId, project: { workspaceId } },
     select: {
       projectId: true,
       mode: true,
@@ -105,12 +90,20 @@ async function handleRerunAction(
 }
 
 async function handleMarkFlakyAction(
+  workspaceId: string,
   action: SlackAction,
   payload: SlackInteractionPayload
 ): Promise<void> {
   const [testCaseId, projectId] = action.value.split("|");
+  const testCase =
+    isUuid(testCaseId) && isUuid(projectId)
+      ? await prisma.testCase.findFirst({
+          where: { id: testCaseId, projectId, project: { workspaceId } },
+          select: { id: true },
+        })
+      : null;
 
-  if (!testCaseId || !projectId) {
+  if (!testCase) {
     await sendSlackResponse(payload.response_url, {
       response_type: "ephemeral",
       replace_original: false,
@@ -146,12 +139,13 @@ async function handleMarkFlakyAction(
 }
 
 async function handleCreateIssueAction(
+  workspaceId: string,
   action: SlackAction,
   payload: SlackInteractionPayload
 ): Promise<void> {
   const [testResultId, projectId] = action.value.split("|");
 
-  if (!testResultId || !projectId) {
+  if (!isUuid(testResultId) || !isUuid(projectId)) {
     await sendSlackResponse(payload.response_url, {
       response_type: "ephemeral",
       replace_original: false,
@@ -160,8 +154,8 @@ async function handleCreateIssueAction(
     return;
   }
 
-  const result = await prisma.testResult.findUnique({
-    where: { id: testResultId },
+  const result = await prisma.testResult.findFirst({
+    where: { id: testResultId, testRun: { projectId, project: { workspaceId } } },
     include: { testCase: { select: { name: true } } },
   });
 
@@ -208,22 +202,9 @@ async function handleCreateIssueAction(
 }
 
 export async function POST(req: NextRequest) {
-  const signingSecret = process.env.SLACK_SIGNING_SECRET;
-
-  const body = await req.text();
-  const timestamp = req.headers.get("x-slack-request-timestamp");
-  const signature = req.headers.get("x-slack-signature");
-
-  // Fail closed: never accept an unverifiable request
-  if (!signingSecret) {
-    return NextResponse.json(
-      { error: "SLACK_SIGNING_SECRET is not configured; request rejected" },
-      { status: 503 }
-    );
-  }
-  if (!verifySlackSignature(body, timestamp, signature, signingSecret)) {
-    return NextResponse.json({ error: "Invalid signature" }, { status: 401 });
-  }
+  const verified = await verifiedSlackBody(req);
+  if (verified instanceof NextResponse) return verified;
+  const body = verified.body;
 
   // Slack sends interaction payloads as form-encoded with a "payload" field
   const params = new URLSearchParams(body);
@@ -243,19 +224,27 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ status: "ignored" });
   }
 
+  const workspace = await slackWorkspace(payload.team?.id ?? "");
+  if ("message" in workspace) {
+    if (payload.response_url) {
+      await sendSlackResponse(payload.response_url, { response_type: "ephemeral", replace_original: false, text: workspace.message });
+    }
+    return NextResponse.json({ status: "unlinked" });
+  }
+
   const action = payload.actions[0];
 
   switch (action.action_id) {
     case "orbit_rerun":
-      await handleRerunAction(action, payload);
+      await handleRerunAction(workspace.workspaceId, action, payload);
       break;
 
     case "orbit_mark_flaky":
-      await handleMarkFlakyAction(action, payload);
+      await handleMarkFlakyAction(workspace.workspaceId, action, payload);
       break;
 
     case "orbit_create_issue":
-      await handleCreateIssueAction(action, payload);
+      await handleCreateIssueAction(workspace.workspaceId, action, payload);
       break;
 
     default:

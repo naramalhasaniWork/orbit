@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { parseProjectSettings } from "@/server/data/settings-repo";
 import { DashboardClient } from "@/components/dashboard/dashboard-client";
 import { FinishSetupCard } from "@/components/dashboard/finish-setup-card";
 import { getFinishSetupSteps } from "@/lib/setup/finish-setup";
@@ -95,14 +96,14 @@ export default async function DashboardPage({ searchParams }: DashboardPageProps
       where: { id: activeProject.id },
       select: { settings: true },
     });
-    const settings = (proj?.settings as Record<string, unknown>) ?? {};
+    const settings = parseProjectSettings(proj?.settings);
     syncInfo = {
-      commitsBehind: (settings.commitsBehind as number | undefined) ?? 0,
-      lastCommitSha: (settings.lastCommitSha as string | undefined) ?? null,
-      lastCommitMessage: (settings.lastCommitMessage as string | undefined) ?? null,
-      lastCommitAt: (settings.lastCommitAt as string | undefined) ?? null,
-      autoSync: (settings.autoSync as boolean | undefined) ?? false,
-      syncDiff: (settings.lastSyncDiff as { added: number; modified: number; removed: number } | undefined) ?? null,
+      commitsBehind: settings.commitsBehind ?? 0,
+      lastCommitSha: settings.lastCommitSha ?? null,
+      lastCommitMessage: settings.lastCommitMessage ?? null,
+      lastCommitAt: settings.lastCommitAt ?? null,
+      autoSync: settings.autoSync ?? false,
+      syncDiff: settings.lastSyncDiff ?? null,
     };
   }
 
