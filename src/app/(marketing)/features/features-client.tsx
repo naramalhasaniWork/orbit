@@ -143,7 +143,7 @@ export function FeaturesPageClient() {
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true, margin: "-50px" }}
                     transition={{ duration: 0.4, delay: fi * 0.08 }}
-                    className="group rounded-xl border border-white/[0.04] bg-card p-6 hover:border-orbit-accent/20 transition-colors"
+                    className="group rounded-xl border border-border bg-card p-6 hover:border-orbit-accent/20 transition-colors"
                   >
                     <div className="flex gap-4">
                       <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-orbit-accent/10 border border-orbit-accent/20">

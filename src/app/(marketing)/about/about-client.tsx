@@ -85,7 +85,7 @@ export function AboutPageClient() {
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true, margin: "-50px" }}
                   transition={{ duration: 0.4, delay: i * 0.08 }}
-                  className="rounded-xl border border-white/[0.04] bg-card p-6"
+                  className="rounded-xl border border-border bg-card p-6"
                 >
                   <div className="flex gap-4">
                     <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-orbit-accent/10 border border-orbit-accent/20">

@@ -2,6 +2,7 @@
 
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
+import { tween } from "@/lib/motion";
 import { Check } from "lucide-react";
 
 interface StepInfo {
@@ -60,7 +61,7 @@ export function StepIndicator({ currentStep }: StepIndicatorProps) {
                   <motion.div
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
-                    transition={{ type: "spring", stiffness: 400, damping: 15 }}
+                    transition={tween.change}
                   >
                     <Check className="h-4 w-4" />
                   </motion.div>

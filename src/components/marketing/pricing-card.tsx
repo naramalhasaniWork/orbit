@@ -37,7 +37,7 @@ export function PricingCard({
       className={`relative rounded-xl border p-6 lg:p-8 flex flex-col ${
         tier.highlight
           ? "border-orbit-accent/40 bg-orbit-accent/[0.04] glow-accent"
-          : "border-white/[0.04] bg-card"
+          : "border-border bg-card"
       }`}
     >
       {tier.badge && (

@@ -2,7 +2,7 @@ import { prisma } from "@/lib/db";
 import { emitRunProgress } from "@/lib/websocket";
 import { isRunCancelled } from "./run-manager";
 import type { TestVerdict } from "@/generated/prisma/enums";
-import type { StorageState } from "@/services/execution/browser-manager";
+import type { RoleSessions } from "@/services/execution/role-sessions";
 
 /**
  * Partitions test cases into independent groups by journey,
@@ -36,11 +36,6 @@ interface ParallelRunResult {
 interface ValidatedEnvironment {
   environmentUrl: string;
   credentials: Record<string, string>;
-}
-
-/** Logged-in session shared by all partitions (first passing login wins). */
-interface SharedSession {
-  storageState?: StorageState;
 }
 
 const VISUAL_JOURNEY = "visual_identity";
@@ -137,7 +132,9 @@ export async function executeParallel(
   );
 
   const counters = { passed: 0, failed: 0, flaky: 0, skipped: 0 };
-  const session: SharedSession = {};
+  // Shared across partitions, one logged-in session per required role
+  const { createRoleSessions } = await import("@/services/execution/role-sessions");
+  const sessions = createRoleSessions();
   let cancelled = false;
 
   // Concurrency-limited execution
@@ -157,7 +154,7 @@ export async function executeParallel(
         return;
       }
 
-      const result = await executePartition(runId, partition, validation, session);
+      const result = await executePartition(runId, partition, validation, sessions);
 
       counters.passed += result.passed;
       counters.failed += result.failed;
@@ -200,7 +197,7 @@ async function executePartition(
   runId: string,
   partition: TestCasePartition,
   validation: ValidatedEnvironment,
-  session: SharedSession
+  sessions: RoleSessions
 ): Promise<{
   passed: number;
   failed: number;
@@ -216,6 +213,9 @@ async function executePartition(
   );
   const { isTestQuarantined } = await import(
     "@/services/execution/flaky-registry"
+  );
+  const { resolveRoleCredentials } = await import(
+    "@/services/execution/role-credentials"
   );
 
   const testCases = await prisma.testCase.findMany({
@@ -250,15 +250,16 @@ async function executePartition(
         steps,
         projectId: tc.projectId,
         isCritical: tc.isCritical,
+        requiredRole: tc.requiredRole ?? undefined,
       };
 
+      // Same per-role credentials and sessions as the sequential runner
       const result = await executeCaseByType(
-        runId, caseForExecution, validation.environmentUrl, validation.credentials,
-        { storageState: session.storageState }
+        runId, caseForExecution, validation.environmentUrl,
+        resolveRoleCredentials(validation.credentials, tc.requiredRole ?? undefined),
+        { storageState: sessions.get(tc.requiredRole) }
       );
-      if (result.storageState && !session.storageState) {
-        session.storageState = result.storageState;
-      }
+      if (result.storageState) sessions.remember(tc.requiredRole, result.storageState);
 
       // Record every executed case so the run report and billing see it
       await saveTestResult(

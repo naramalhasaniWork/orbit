@@ -19,7 +19,7 @@ export default async function AdminLayout({
   if (userRole !== "super_admin") redirect("/dashboard");
 
   return (
-    <div className="flex h-screen surface-0 overflow-hidden">
+    <div className="flex h-dvh surface-0 overflow-hidden">
       <AdminSidebar />
       <div className="flex flex-col flex-1 min-w-0">
         <header className="h-14 flex items-center justify-between px-6 border-b border-border surface-1">

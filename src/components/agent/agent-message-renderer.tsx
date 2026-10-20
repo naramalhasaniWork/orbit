@@ -102,7 +102,7 @@ const UserBubble = memo(function UserBubble({ content }: { content: string }) {
           {content}
         </p>
       </div>
-      <div className="shrink-0 h-8 w-8 rounded-full bg-white/[0.06] flex items-center justify-center mt-0.5">
+      <div className="shrink-0 h-8 w-8 rounded-full bg-foreground/[0.06] flex items-center justify-center mt-0.5">
         <User className="h-4 w-4 text-muted-foreground" />
       </div>
     </motion.div>
@@ -149,7 +149,7 @@ const AssistantBubble = memo(function AssistantBubble({
 
         {/* Text content with markdown rendering */}
         {content && (
-          <div className="rounded-2xl rounded-tl-md px-4 py-3 bg-white/[0.03] border border-white/[0.04]">
+          <div className="rounded-2xl rounded-tl-md px-4 py-3 bg-foreground/[0.03] border border-border">
             <MarkdownRenderer content={content} />
             {isLast && isStreaming && (
               <span className="inline-block w-[6px] h-[14px] bg-orbit-accent/70 ml-0.5 animate-pulse rounded-sm" />

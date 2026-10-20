@@ -10,7 +10,7 @@ import {
   Loader2,
   Cpu,
 } from "lucide-react";
-import { springs } from "@/lib/motion";
+import { tween } from "@/lib/motion";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useScreenshotStream } from "@/hooks/use-screenshot-stream";
@@ -87,7 +87,7 @@ export function LiveExecutionViewer({
   const hasSteps = liveSteps.length > 0;
 
   return (
-    <div className={cn("flex flex-col rounded-xl border border-white/[0.06] overflow-hidden bg-[hsl(var(--orbit-bg-deeper,222_47%_6%))]", className)}>
+    <div className={cn("flex flex-col rounded-xl border border-border overflow-hidden bg-[hsl(var(--orbit-bg-deeper,222_47%_6%))]", className)}>
       <div className="flex flex-1 min-h-0">
         {/* Main viewport */}
         <div className="flex flex-col flex-[7] min-w-0">
@@ -110,7 +110,7 @@ export function LiveExecutionViewer({
                   initial={{ opacity: 0, scale: 0.985 }}
                   animate={{ opacity: 1, scale: 1 }}
                   exit={{ opacity: 0, scale: 1.005 }}
-                  transition={springs.snappy}
+                  transition={tween.change}
                 />
               ) : (
                 <motion.div
@@ -139,7 +139,7 @@ export function LiveExecutionViewer({
                 key={frameCount}
                 initial={{ opacity: 0, scale: 0.9 }}
                 animate={{ opacity: 1, scale: 1 }}
-                transition={springs.snappy}
+                transition={tween.change}
                 className="absolute bottom-2 right-2 text-[10px] tabular-nums text-white/50 bg-black/40 rounded px-1.5 py-0.5 backdrop-blur-sm"
               >
                 {frameCount} frames
@@ -222,7 +222,7 @@ function ViewportHeader({
   const isActive = isStreaming || ["queued", "executing", "indexing", "planning", "reporting"].includes(runStatus);
 
   return (
-    <div className="flex items-center gap-2 px-3 py-2 border-b border-white/[0.04] bg-white/[0.02] shrink-0">
+    <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-foreground/[0.02] shrink-0">
       {isActive && (
         <div className="flex items-center gap-1.5 shrink-0">
           <span className="relative flex h-2 w-2">
@@ -263,7 +263,7 @@ function ControlsBar({
   isStreaming: boolean;
 }) {
   return (
-    <div className="flex items-center gap-2 px-3 py-1.5 border-t border-white/[0.04] bg-white/[0.02] shrink-0">
+    <div className="flex items-center gap-2 px-3 py-1.5 border-t border-border bg-foreground/[0.02] shrink-0">
       <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onPlayPause} disabled={!isStreaming}>
         {isPaused ? <Play className="h-3.5 w-3.5" /> : <Pause className="h-3.5 w-3.5" />}
       </Button>

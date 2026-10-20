@@ -96,7 +96,7 @@ export function PromptPhaseEditor({ phase, data, onSaved }: PhaseEditorProps) {
 
   return (
     <div className="space-y-4 mt-4">
-      <div className="rounded-xl surface-1 border border-white/[0.04] p-5 space-y-4">
+      <div className="rounded-xl surface-1 border border-border p-5 space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <FileText className="h-4 w-4 text-orbit-accent" />
@@ -117,11 +117,11 @@ export function PromptPhaseEditor({ phase, data, onSaved }: PhaseEditorProps) {
 
         {editing ? (
           <div className="space-y-3">
-            <Textarea value={content} onChange={(e) => setContent(e.target.value)} className="min-h-[300px] font-mono text-xs bg-white/[0.02] border-white/[0.06]" />
+            <Textarea value={content} onChange={(e) => setContent(e.target.value)} className="min-h-[300px] font-mono text-xs bg-foreground/[0.02] border-border" />
             <div className="flex items-center gap-3">
               <div className="flex-1">
                 <Label className="text-xs text-muted-foreground">Changelog</Label>
-                <Input value={changelog} onChange={(e) => setChangelog(e.target.value)} placeholder="Describe what changed..." className="mt-1 h-8 text-sm bg-white/[0.02] border-white/[0.06]" />
+                <Input value={changelog} onChange={(e) => setChangelog(e.target.value)} placeholder="Describe what changed..." className="mt-1 h-8 text-sm bg-foreground/[0.02] border-border" />
               </div>
               <div className="flex items-center gap-2 pt-5">
                 <Button variant="ghost" size="sm" onClick={() => setContent(data.defaultContent)} title="Reset to default">
@@ -135,7 +135,7 @@ export function PromptPhaseEditor({ phase, data, onSaved }: PhaseEditorProps) {
             </div>
           </div>
         ) : (
-          <pre className="text-xs text-muted-foreground font-mono whitespace-pre-wrap bg-white/[0.02] rounded-lg p-4 border border-white/[0.04] max-h-[400px] overflow-auto">
+          <pre className="text-xs text-muted-foreground font-mono whitespace-pre-wrap bg-foreground/[0.02] rounded-lg p-4 border border-border max-h-[400px] overflow-auto">
             {content}
           </pre>
         )}
@@ -149,14 +149,14 @@ export function PromptPhaseEditor({ phase, data, onSaved }: PhaseEditorProps) {
       </div>
 
       {showHistory && (
-        <div className="rounded-xl surface-1 border border-white/[0.04] p-5 space-y-3">
+        <div className="rounded-xl surface-1 border border-border p-5 space-y-3">
           <h4 className="text-sm font-medium text-foreground">Version History</h4>
           {data.history.length === 0 ? (
             <p className="text-xs text-muted-foreground">No version history yet.</p>
           ) : (
             <div className="space-y-2">
               {data.history.map((h) => (
-                <div key={h.id} className="flex items-center justify-between py-2 px-3 rounded-lg bg-white/[0.02] border border-white/[0.03]">
+                <div key={h.id} className="flex items-center justify-between py-2 px-3 rounded-lg bg-foreground/[0.02] border border-border">
                   <div className="flex items-center gap-2">
                     <Badge variant={h.isActive ? "accent" : "secondary"} className="text-[10px] h-5">v{h.version}</Badge>
                     {h.isActive && <Badge variant="pass" className="text-[10px] h-5">Active</Badge>}

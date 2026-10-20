@@ -12,10 +12,10 @@ import { isTestQuarantined } from "@/services/execution/flaky-registry";
 import { executeCaseByType } from "@/services/execution/case-dispatcher";
 import { loadTestCases } from "@/services/execution/test-case-loader";
 import { resolveRoleCredentials } from "@/services/execution/role-credentials";
+import { createRoleSessions } from "@/services/execution/role-sessions";
 import { chargeRunCredits } from "@/lib/billing/run-credits";
 import { saveTestResult, recordEnvironmentError } from "@/services/execution/test-result-store";
 import { clearRunToolCallCount } from "@/services/mcp/tool-injector";
-import type { StorageState } from "@/services/execution/browser-manager";
 import { isRunCancelled } from "@/services/orchestrator/run-manager";
 import { executeParallel } from "@/services/orchestrator/parallel-executor";
 import { dispatchRunStarted, dispatchRunCompleted } from "@/services/reporting/integrations/outbound-webhooks";
@@ -108,7 +108,7 @@ async function executeRunInner(options: RunOptions): Promise<void> {
   const counters = { passed: 0, failed: 0, flaky: 0, skipped: 0 };
   let consecutiveBrowserFailures = 0;
   let consecutiveProviderFailures = 0;
-  let authState: StorageState | undefined;
+  const sessions = createRoleSessions();
 
   const UNAUTH_PATTERNS = [
     "unauth", "redirect", "logout", "log out", "session expir",
@@ -154,7 +154,7 @@ async function executeRunInner(options: RunOptions): Promise<void> {
 
     try {
       // Login tests always start fresh so they can test the full login flow
-      const useAuth = !needsFreshBrowser && !isLoginTest && authState ? authState : undefined;
+      const useAuth = !needsFreshBrowser && !isLoginTest ? sessions.get(testCase.requiredRole) : undefined;
       const roleCredentials = resolveRoleCredentials(validation.credentials, testCase.requiredRole);
 
       const result = await executeCaseByType(
@@ -165,10 +165,10 @@ async function executeRunInner(options: RunOptions): Promise<void> {
       // Always update auth state from passing tests (not just first time)
       if (result.storageState) {
         if (needsFreshBrowser) {
-          authState = undefined;
+          sessions.replace(testCase.requiredRole, undefined);
           log("Auth state cleared after unauthenticated flow test");
         } else {
-          authState = result.storageState;
+          sessions.replace(testCase.requiredRole, result.storageState);
           log("Auth state updated from passing test");
         }
       }

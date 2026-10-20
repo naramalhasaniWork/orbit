@@ -208,7 +208,7 @@ function BrandIssuesList({
               <Icon className={cn("h-3.5 w-3.5 mt-0.5 shrink-0", config.color)} />
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 mb-0.5">
-                  <Badge className="text-[9px] px-1 py-0 bg-white/[0.06] text-muted-foreground border-border/30">
+                  <Badge className="text-[9px] px-1 py-0 bg-foreground/[0.06] text-muted-foreground border-border/30">
                     {issue.category}
                   </Badge>
                   {issue.element && (
@@ -365,7 +365,7 @@ export function VisualDiffViewer({
                   className={cn(
                     "text-xs px-2 py-1 rounded-md transition-colors",
                     !severityFilter
-                      ? "bg-white/[0.06] text-foreground"
+                      ? "bg-foreground/[0.06] text-foreground"
                       : "text-muted-foreground hover:text-foreground"
                   )}
                 >
@@ -378,7 +378,7 @@ export function VisualDiffViewer({
                       onClick={() => setSeverityFilter(severityFilter === sev ? null : sev)}
                       className={cn(
                         "text-xs px-2 py-1 rounded-md transition-colors",
-                        severityFilter === sev ? "bg-white/[0.06]" : "hover:bg-white/[0.03]",
+                        severityFilter === sev ? "bg-foreground/[0.06]" : "hover:bg-foreground/[0.03]",
                         SEVERITY_CONFIG[sev].color
                       )}
                     >

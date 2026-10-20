@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { springs } from "@/lib/motion";
+import { tween } from "@/lib/motion";
 
 export function CtaSection() {
   return (
-    <section className="py-32 lg:py-40 border-t border-white/[0.04] relative overflow-hidden">
+    <section className="py-32 lg:py-40 border-t border-border relative overflow-hidden">
       <div className="absolute inset-0 pointer-events-none">
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] h-[300px] bg-primary/[0.04] rounded-full blur-[100px]" />
       </div>
@@ -15,7 +15,7 @@ export function CtaSection() {
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           viewport={{ once: true, margin: "-100px" }}
-          transition={springs.smooth}
+          transition={tween.open}
           className="text-center"
         >
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold tracking-tight">
@@ -25,7 +25,7 @@ export function CtaSection() {
             initial={{ opacity: 0, y: 12 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            transition={{ ...springs.smooth, delay: 0.08 }}
+            transition={{ ...tween.open, delay: 0.08 }}
             className="mt-6 text-lg text-muted-foreground max-w-md mx-auto"
           >
             Get started in under 2 minutes. Connect your repo and let Orbit handle the rest.
@@ -34,7 +34,7 @@ export function CtaSection() {
             initial={{ opacity: 0, y: 12 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            transition={{ ...springs.smooth, delay: 0.16 }}
+            transition={{ ...tween.open, delay: 0.16 }}
             className="mt-10 flex flex-col items-center gap-3"
           >
             <Link

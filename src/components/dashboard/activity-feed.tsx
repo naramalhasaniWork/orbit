@@ -209,7 +209,7 @@ export function ActivityFeed({
                     <div
                       className={cn(
                         "flex items-center justify-center h-6 w-6 rounded-md",
-                        "bg-white/[0.06]"
+                        "bg-foreground/[0.06]"
                       )}
                     >
                       <Icon className={cn("h-3.5 w-3.5", config.color)} />
@@ -231,7 +231,7 @@ export function ActivityFeed({
                         {Object.entries(event.metadata).map(([key, val]) => (
                           <span
                             key={key}
-                            className="text-[10px] px-1.5 py-0.5 rounded bg-white/[0.06] text-muted-foreground"
+                            className="text-[10px] px-1.5 py-0.5 rounded bg-foreground/[0.06] text-muted-foreground"
                           >
                             {key}: {val}
                           </span>

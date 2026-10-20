@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 import { getShortcut, type ShortcutDef, type ShortcutId } from "@/lib/shortcuts/registry";
 
 const KBD_CLASS =
-  "inline-flex min-w-[1.25rem] items-center justify-center px-1.5 py-0.5 rounded bg-white/[0.08] text-[10px] font-mono text-muted-foreground";
+  "inline-flex min-w-[1.25rem] items-center justify-center px-1.5 py-0.5 rounded bg-foreground/[0.08] text-[10px] font-mono text-muted-foreground";
 
 function useIsMac(): boolean {
   const [isMac, setIsMac] = useState(true);

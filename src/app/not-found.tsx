@@ -3,7 +3,7 @@ import { Orbit } from "lucide-react";
 
 export default function NotFound() {
   return (
-    <div className="flex min-h-screen items-center justify-center surface-0">
+    <div className="flex min-h-dvh items-center justify-center surface-0">
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,_var(--tw-gradient-stops))] from-orbit-accent/[0.04] via-transparent to-transparent" />
       <div className="relative text-center">
         <div className="flex items-center justify-center h-12 w-12 rounded-xl bg-orbit-accent/10 mx-auto mb-6">

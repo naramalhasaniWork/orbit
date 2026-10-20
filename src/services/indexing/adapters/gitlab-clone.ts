@@ -1,6 +1,11 @@
 import type { FileEntry } from "@/services/indexing/clone";
 import { getStorage } from "@/lib/storage";
-import { assertSafeRepoPath, isSafeRepoPath } from "@/lib/github/repo-paths";
+import {
+  assertSafeRepoPath,
+  isSafeRepoPath,
+  gitlabTreeUrl,
+  gitlabRawFileUrl,
+} from "@/lib/github/repo-paths";
 
 interface GitLabContentItem {
   name: string;
@@ -32,9 +37,7 @@ async function fetchGitLabTree(
   token: string,
   dirPath: string
 ): Promise<GitLabContentItem[]> {
-  const encoded = encodeURIComponent(projectPath);
-  const encodedPath = encodeURIComponent(dirPath || "/");
-  const url = `https://gitlab.com/api/v4/projects/${encoded}/repository/tree?ref=${branch}&path=${encodedPath}&per_page=100`;
+  const url = gitlabTreeUrl(projectPath, branch, dirPath);
 
   const response = await fetch(url, {
     headers: { "PRIVATE-TOKEN": token },
@@ -53,9 +56,7 @@ async function fetchGitLabFile(
   filePath: string,
   token: string
 ): Promise<string> {
-  const encoded = encodeURIComponent(projectPath);
-  const encodedFile = encodeURIComponent(filePath);
-  const url = `https://gitlab.com/api/v4/projects/${encoded}/repository/files/${encodedFile}/raw?ref=${branch}`;
+  const url = gitlabRawFileUrl(projectPath, filePath, branch);
 
   const response = await fetch(url, {
     headers: { "PRIVATE-TOKEN": token },
