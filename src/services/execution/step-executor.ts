@@ -268,7 +268,7 @@ export async function executeTestSteps(
 
     const result = await executeAction(
       page, projectId, action, maxRetries, evidenceCollector, runId,
-      options.environmentUrl
+      options.environmentUrl, credentials
     );
 
     if (result.wasHealed) {
