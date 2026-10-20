@@ -116,6 +116,9 @@ importers:
       pg:
         specifier: ^8.13.1
         version: 8.18.0
+      pino:
+        specifier: ^9.14.0
+        version: 9.14.0
       playwright:
         specifier: ^1.58.2
         version: 1.58.2
