@@ -1,62 +1,40 @@
-import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
-import {
-  requireWorkspace,
-  apiSuccess,
-  apiError,
-  handleApiError,
-} from "@/lib/utils/api";
+import { apiSuccess, apiError } from "@/lib/utils/api";
 import {
   getProjectMappings,
   approveMapping,
   revokeMapping,
 } from "@/services/execution/selector-memory";
-import { requirePermission } from "@/lib/auth/rbac";
+import { route } from "@/server/http/route";
 
 // ============================================================
 // GET /api/projects/[projectId]/selectors
 // ============================================================
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ projectId: string }> }
-) {
-  try {
-    const { workspaceId } = await requireWorkspace();
-    const { projectId } = await params;
+export const GET = route({}, async ({ req: request, params: { projectId }, workspaceId }) => {
+  const project = await prisma.project.findFirst({
+    where: { id: projectId, workspaceId },
+    select: { id: true },
+  });
 
-    const project = await prisma.project.findFirst({
-      where: { id: projectId, workspaceId },
-      select: { id: true },
-    });
-
-    if (!project) {
-      return apiError("Project not found", "NOT_FOUND", 404);
-    }
-
-    const approvedOnly = request.nextUrl.searchParams.get("approved") === "true";
-    const mappings = await getProjectMappings(projectId, { approvedOnly });
-
-    return apiSuccess({ mappings });
-  } catch (error) {
-    return handleApiError(error);
+  if (!project) {
+    return apiError("Project not found", "NOT_FOUND", 404);
   }
-}
+
+  const approvedOnly = request.nextUrl.searchParams.get("approved") === "true";
+  const mappings = await getProjectMappings(projectId, { approvedOnly });
+
+  return apiSuccess({ mappings });
+});
 
 // ============================================================
 // PATCH /api/projects/[projectId]/selectors
 // Approve or revoke a selector mapping
 // ============================================================
 
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: Promise<{ projectId: string }> }
-) {
-  try {
-    const { workspaceId } = await requireWorkspace();
-    await requirePermission(workspaceId, "plans.update");
-    const { projectId } = await params;
-
+export const PATCH = route(
+  { permission: "plans.update" },
+  async ({ req: request, params: { projectId }, workspaceId }) => {
     const project = await prisma.project.findFirst({
       where: { id: projectId, workspaceId },
       select: { id: true },
@@ -93,7 +71,5 @@ export async function PATCH(
     }
 
     return apiSuccess({ mappingId, action });
-  } catch (error) {
-    return handleApiError(error);
   }
-}
+);

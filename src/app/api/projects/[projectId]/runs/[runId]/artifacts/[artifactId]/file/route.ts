@@ -1,7 +1,7 @@
-import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import { getStorage } from "@/lib/storage";
-import { requireWorkspace, apiError, handleApiError } from "@/lib/utils/api";
+import { apiError } from "@/lib/utils/api";
+import { route } from "@/server/http/route";
 
 export const dynamic = "force-dynamic";
 
@@ -12,73 +12,59 @@ export const dynamic = "force-dynamic";
 // for artifacts — storage keys and file:// paths are never exposed.
 // ============================================================
 
-export async function GET(
-  _request: NextRequest,
-  {
-    params,
-  }: {
-    params: Promise<{ projectId: string; runId: string; artifactId: string }>;
+export const GET = route({}, async ({ params: { projectId, runId, artifactId }, workspaceId }) => {
+  const project = await prisma.project.findFirst({
+    where: { id: projectId, workspaceId },
+    select: { id: true },
+  });
+
+  if (!project) {
+    return apiError("Project not found", "NOT_FOUND", 404);
   }
-) {
+
+  const artifact = await prisma.runArtifact.findFirst({
+    where: { id: artifactId, testRunId: runId, projectId },
+    select: { storageKey: true, contentType: true, fileName: true },
+  });
+
+  if (!artifact) {
+    return apiError("Artifact not found", "NOT_FOUND", 404);
+  }
+
+  let data: Buffer;
   try {
-    const { workspaceId } = await requireWorkspace();
-    const { projectId, runId, artifactId } = await params;
-
-    const project = await prisma.project.findFirst({
-      where: { id: projectId, workspaceId },
-      select: { id: true },
-    });
-
-    if (!project) {
-      return apiError("Project not found", "NOT_FOUND", 404);
-    }
-
-    const artifact = await prisma.runArtifact.findFirst({
-      where: { id: artifactId, testRunId: runId, projectId },
-      select: { storageKey: true, contentType: true, fileName: true },
-    });
-
-    if (!artifact) {
-      return apiError("Artifact not found", "NOT_FOUND", 404);
-    }
-
-    let data: Buffer;
-    try {
-      data = await getStorage().download(artifact.storageKey);
-    } catch {
-      return apiError("Artifact file missing from storage", "GONE", 410);
-    }
-
-    // DOM snapshots contain HTML captured from arbitrary tested apps —
-    // rendering them inline on this origin would be stored XSS. Only
-    // passive media renders inline; everything else downloads.
-    const SAFE_INLINE = new Set([
-      "image/png",
-      "image/jpeg",
-      "image/webp",
-      "video/webm",
-      "video/mp4",
-      "application/json",
-    ]);
-    const contentType = artifact.contentType ?? "application/octet-stream";
-    const inline = SAFE_INLINE.has(contentType);
-    const safeName = (artifact.fileName ?? "artifact").replace(
-      /[^A-Za-z0-9._-]/g,
-      "_"
-    );
-
-    return new Response(new Uint8Array(data), {
-      headers: {
-        "Content-Type": inline ? contentType : "application/octet-stream",
-        "Content-Length": String(data.length),
-        // Artifacts are immutable once written — cache aggressively
-        "Cache-Control": "private, max-age=86400, immutable",
-        "X-Content-Type-Options": "nosniff",
-        "Content-Security-Policy": "sandbox; default-src 'none'",
-        "Content-Disposition": `${inline ? "inline" : "attachment"}; filename="${safeName}"`,
-      },
-    });
-  } catch (error) {
-    return handleApiError(error);
+    data = await getStorage().download(artifact.storageKey);
+  } catch {
+    return apiError("Artifact file missing from storage", "GONE", 410);
   }
-}
+
+  // DOM snapshots contain HTML captured from arbitrary tested apps —
+  // rendering them inline on this origin would be stored XSS. Only
+  // passive media renders inline; everything else downloads.
+  const SAFE_INLINE = new Set([
+    "image/png",
+    "image/jpeg",
+    "image/webp",
+    "video/webm",
+    "video/mp4",
+    "application/json",
+  ]);
+  const contentType = artifact.contentType ?? "application/octet-stream";
+  const inline = SAFE_INLINE.has(contentType);
+  const safeName = (artifact.fileName ?? "artifact").replace(
+    /[^A-Za-z0-9._-]/g,
+    "_"
+  );
+
+  return new Response(new Uint8Array(data), {
+    headers: {
+      "Content-Type": inline ? contentType : "application/octet-stream",
+      "Content-Length": String(data.length),
+      // Artifacts are immutable once written — cache aggressively
+      "Cache-Control": "private, max-age=86400, immutable",
+      "X-Content-Type-Options": "nosniff",
+      "Content-Security-Policy": "sandbox; default-src 'none'",
+      "Content-Disposition": `${inline ? "inline" : "attachment"}; filename="${safeName}"`,
+    },
+  });
+});

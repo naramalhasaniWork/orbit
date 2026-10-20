@@ -1,16 +1,11 @@
 import { decryptToken } from "@/lib/vault/token";
-import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
-import {
-  requireWorkspace,
-  apiSuccess,
-  apiError,
-  handleApiError,
-} from "@/lib/utils/api";
+import { apiSuccess, apiError } from "@/lib/utils/api";
 import {
   isGitHubAppConfigured,
   listInstallationRepos,
 } from "@/lib/github/app";
+import { route } from "@/server/http/route";
 
 export const dynamic = "force-dynamic";
 
@@ -146,49 +141,44 @@ async function fetchInstallationRepos(
   return results;
 }
 
-export async function GET(request: NextRequest) {
-  try {
-    const { session, workspaceId } = await requireWorkspace();
-    const token = await getGitHubToken(session.user.id);
+export const GET = route({}, async ({ req: request, workspaceId, session }) => {
+  const token = await getGitHubToken(session.user.id);
 
-    if (!token) {
-      return apiError(
-        "No GitHub access token found. Please reconnect your GitHub account.",
-        "NO_GITHUB_TOKEN",
-        401
-      );
-    }
-
-    const searchParams = request.nextUrl.searchParams;
-    const page = parseInt(searchParams.get("page") ?? "1", 10);
-    const perPage = Math.min(
-      parseInt(searchParams.get("per_page") ?? "30", 10),
-      100
+  if (!token) {
+    return apiError(
+      "No GitHub access token found. Please reconnect your GitHub account.",
+      "NO_GITHUB_TOKEN",
+      401
     );
-    const query = searchParams.get("q") ?? "";
-
-    const [oauthRepos, installationRepos] = await Promise.all([
-      fetchOAuthRepos(token, query, page, perPage),
-      fetchInstallationRepos(workspaceId, query),
-    ]);
-
-    const seen = new Set<string>();
-    const merged: RepoItem[] = [];
-
-    for (const repo of [...installationRepos, ...oauthRepos]) {
-      if (!seen.has(repo.id)) {
-        seen.add(repo.id);
-        merged.push(repo);
-      }
-    }
-
-    merged.sort(
-      (a, b) =>
-        new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
-    );
-
-    return apiSuccess(merged);
-  } catch (error) {
-    return handleApiError(error);
   }
-}
+
+  const searchParams = request.nextUrl.searchParams;
+  const page = parseInt(searchParams.get("page") ?? "1", 10);
+  const perPage = Math.min(
+    parseInt(searchParams.get("per_page") ?? "30", 10),
+    100
+  );
+  const query = searchParams.get("q") ?? "";
+
+  const [oauthRepos, installationRepos] = await Promise.all([
+    fetchOAuthRepos(token, query, page, perPage),
+    fetchInstallationRepos(workspaceId, query),
+  ]);
+
+  const seen = new Set<string>();
+  const merged: RepoItem[] = [];
+
+  for (const repo of [...installationRepos, ...oauthRepos]) {
+    if (!seen.has(repo.id)) {
+      seen.add(repo.id);
+      merged.push(repo);
+    }
+  }
+
+  merged.sort(
+    (a, b) =>
+      new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+  );
+
+  return apiSuccess(merged);
+});

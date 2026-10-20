@@ -1,6 +1,4 @@
-import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
-import { requirePermission } from "@/lib/auth/rbac";
 import {
   TIER_LIMITS,
   BUDGET_WARNING_THRESHOLD,
@@ -8,20 +6,16 @@ import {
   monthlyCreditAllowance,
   type WorkspaceTier,
 } from "@/lib/auth/tenant";
-import { apiSuccess, apiError, handleApiError } from "@/lib/utils/api";
+import { apiSuccess, apiError } from "@/lib/utils/api";
+import { route } from "@/server/http/route";
 
 // ============================================================
 // GET /api/workspaces/[workspaceId]/token-usage — Token cost breakdown
 // ============================================================
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: Promise<{ workspaceId: string }> }
-) {
-  try {
-    const { workspaceId } = await params;
-    await requirePermission(workspaceId, "billing.view");
-
+export const GET = route(
+  { workspace: "param", permission: "billing.view" },
+  async ({ req: request, workspaceId }) => {
     const workspace = await prisma.workspace.findUnique({
       where: { id: workspaceId },
       select: {
@@ -193,10 +187,8 @@ export async function GET(
       dailyTrend,
       allowedModels: [...TIER_LIMITS[tier].allowedModels],
     });
-  } catch (error) {
-    return handleApiError(error);
   }
-}
+);
 
 function getMonthStart(): Date {
   const d = new Date();

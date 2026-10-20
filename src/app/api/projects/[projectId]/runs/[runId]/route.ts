@@ -1,83 +1,67 @@
-import { NextRequest } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import {
-  requireWorkspace,
-  apiSuccess,
-  apiError,
-  handleApiError,
-} from "@/lib/utils/api";
+import { apiSuccess, apiError } from "@/lib/utils/api";
 import { cancelRun } from "@/services/orchestrator/run-manager";
-import { requirePermission } from "@/lib/auth/rbac";
+import { route } from "@/server/http/route";
 
 // ============================================================
 // GET /api/projects/[projectId]/runs/[runId] — Get run details
 // ============================================================
 
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: Promise<{ projectId: string; runId: string }> }
-) {
-  try {
-    const { workspaceId } = await requireWorkspace();
-    const { projectId, runId } = await params;
+export const GET = route({}, async ({ params: { projectId, runId }, workspaceId }) => {
+  // Verify project belongs to workspace
+  const project = await prisma.project.findFirst({
+    where: { id: projectId, workspaceId },
+    select: { id: true },
+  });
 
-    // Verify project belongs to workspace
-    const project = await prisma.project.findFirst({
-      where: { id: projectId, workspaceId },
-      select: { id: true },
-    });
+  if (!project) {
+    return apiError("Project not found", "NOT_FOUND", 404);
+  }
 
-    if (!project) {
-      return apiError("Project not found", "NOT_FOUND", 404);
-    }
-
-    const run = await prisma.testRun.findFirst({
-      where: { id: runId, projectId },
-      include: {
-        results: {
-          include: {
-            testCase: {
-              select: {
-                id: true,
-                name: true,
-                type: true,
-                journey: true,
-                priorityScore: true,
-                isCritical: true,
-              },
+  const run = await prisma.testRun.findFirst({
+    where: { id: runId, projectId },
+    include: {
+      results: {
+        include: {
+          testCase: {
+            select: {
+              id: true,
+              name: true,
+              type: true,
+              journey: true,
+              priorityScore: true,
+              isCritical: true,
             },
           },
-          orderBy: { createdAt: "asc" },
         },
-        environment: {
-          select: {
-            id: true,
-            name: true,
-            type: true,
-            url: true,
-          },
-        },
-        triggeredBy: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            image: true,
-          },
+        orderBy: { createdAt: "asc" },
+      },
+      environment: {
+        select: {
+          id: true,
+          name: true,
+          type: true,
+          url: true,
         },
       },
-    });
+      triggeredBy: {
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          image: true,
+        },
+      },
+    },
+  });
 
-    if (!run) {
-      return apiError("Test run not found", "NOT_FOUND", 404);
-    }
-
-    return apiSuccess(run);
-  } catch (error) {
-    return handleApiError(error);
+  if (!run) {
+    return apiError("Test run not found", "NOT_FOUND", 404);
   }
-}
+
+  return apiSuccess(run);
+});
 
 // ============================================================
 // PATCH /api/projects/[projectId]/runs/[runId] — Update run (cancel)
@@ -87,15 +71,9 @@ const PatchRunSchema = z.object({
   status: z.enum(["cancelled"]),
 });
 
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: Promise<{ projectId: string; runId: string }> }
-) {
-  try {
-    const { workspaceId } = await requireWorkspace();
-    await requirePermission(workspaceId, "runs.cancel");
-    const { projectId, runId } = await params;
-
+export const PATCH = route(
+  { permission: "runs.cancel" },
+  async ({ req: request, params: { projectId, runId }, workspaceId }) => {
     const project = await prisma.project.findFirst({
       where: { id: projectId, workspaceId },
       select: { id: true },
@@ -116,7 +94,5 @@ export async function PATCH(
     }
 
     return apiError("Invalid status", "INVALID_INPUT", 400);
-  } catch (error) {
-    return handleApiError(error);
   }
-}
+);

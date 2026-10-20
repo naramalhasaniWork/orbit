@@ -1,14 +1,8 @@
-import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
-import {
-  requireWorkspace,
-  apiSuccess,
-  apiError,
-  handleApiError,
-} from "@/lib/utils/api";
+import { apiSuccess, apiError } from "@/lib/utils/api";
 import { runVisualTest } from "@/services/visual-qa/visual-test-runner";
-import { requirePermission } from "@/lib/auth/rbac";
 import { getDefaultEnvironment } from "@/services/execution/environment-validator";
+import { route } from "@/server/http/route";
 
 // ============================================================
 // POST /api/projects/[projectId]/visual-tests
@@ -23,15 +17,9 @@ interface VisualTestBody {
   diffThreshold?: number;
 }
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ projectId: string }> }
-) {
-  try {
-    const { workspaceId } = await requireWorkspace();
-    await requirePermission(workspaceId, "runs.create");
-    const { projectId } = await params;
-
+export const POST = route(
+  { permission: "runs.create" },
+  async ({ req: request, params: { projectId }, workspaceId }) => {
     const project = await prisma.project.findFirst({
       where: { id: projectId, workspaceId },
       select: { id: true },
@@ -110,7 +98,5 @@ export async function POST(
     }
 
     return apiSuccess({ result, runId }, 201);
-  } catch (error) {
-    return handleApiError(error);
   }
-}
+);

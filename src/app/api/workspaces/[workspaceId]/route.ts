@@ -3,12 +3,11 @@
  * DELETE /api/workspaces/:workspaceId — Soft-delete (owner only, typed-name confirmation)
  */
 
-import { NextRequest } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { requirePermission } from "@/lib/auth/rbac";
 import { writeAuditLog } from "@/lib/auth/audit";
-import { apiSuccess, apiError, handleApiError } from "@/lib/utils/api";
+import { apiSuccess, apiError } from "@/lib/utils/api";
+import { route } from "@/server/http/route";
 
 type RouteContext = { params: Promise<{ workspaceId: string }> };
 
@@ -35,11 +34,9 @@ function isUniqueViolation(error: unknown): boolean {
   );
 }
 
-export async function PATCH(request: NextRequest, { params }: RouteContext) {
-  try {
-    const { workspaceId } = await params;
-    const ctx = await requirePermission(workspaceId, "workspace.update");
-
+export const PATCH = route(
+  { workspace: "param", permission: "workspace.update" },
+  async ({ req: request, workspaceId, session }) => {
     const parsed = UpdateSchema.safeParse(await request.json());
     if (!parsed.success) {
       return apiError(parsed.error.errors[0]?.message ?? "Validation failed", "VALIDATION_ERROR", 400);
@@ -72,7 +69,7 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
 
     await writeAuditLog({
       workspaceId,
-      userId: ctx.session.user.id,
+      userId: session.user.id,
       action: "workspace.settings_updated",
       resourceType: "workspace",
       resourceId: workspaceId,
@@ -80,16 +77,13 @@ export async function PATCH(request: NextRequest, { params }: RouteContext) {
     });
 
     return apiSuccess(updated);
-  } catch (error) {
-    return handleApiError(error);
   }
-}
+);
 
-export async function DELETE(request: NextRequest, { params }: RouteContext) {
-  try {
-    const { workspaceId } = await params;
-    const ctx = await requirePermission(workspaceId, "workspace.delete");
-    if (ctx.role !== "owner") {
+export const DELETE = route(
+  { workspace: "param", permission: "workspace.delete" },
+  async ({ req: request, workspaceId, session }) => {
+    if (session.role !== "owner") {
       return apiError("Only the workspace owner can delete it", "FORBIDDEN", 403);
     }
 
@@ -124,7 +118,7 @@ export async function DELETE(request: NextRequest, { params }: RouteContext) {
 
     await writeAuditLog({
       workspaceId,
-      userId: ctx.session.user.id,
+      userId: session.user.id,
       action: "workspace.deleted",
       resourceType: "workspace",
       resourceId: workspaceId,
@@ -132,7 +126,5 @@ export async function DELETE(request: NextRequest, { params }: RouteContext) {
     });
 
     return apiSuccess({ deleted: true });
-  } catch (error) {
-    return handleApiError(error);
   }
-}
+);

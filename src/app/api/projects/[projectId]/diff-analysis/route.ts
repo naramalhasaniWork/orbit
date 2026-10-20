@@ -1,13 +1,7 @@
-import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
-import {
-  requireWorkspace,
-  apiSuccess,
-  apiError,
-  handleApiError,
-} from "@/lib/utils/api";
+import { apiSuccess, apiError } from "@/lib/utils/api";
 import { analyzeDiff } from "@/services/planning/diff-analyzer";
-import { requirePermission } from "@/lib/auth/rbac";
+import { route } from "@/server/http/route";
 
 // ============================================================
 // POST /api/projects/[projectId]/diff-analysis — Analyze PR diff
@@ -22,15 +16,9 @@ interface DiffAnalysisBody {
   }>;
 }
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ projectId: string }> }
-) {
-  try {
-    const { workspaceId } = await requireWorkspace();
-    await requirePermission(workspaceId, "runs.create");
-    const { projectId } = await params;
-
+export const POST = route(
+  { permission: "runs.create" },
+  async ({ req: request, params: { projectId }, workspaceId }) => {
     const project = await prisma.project.findFirst({
       where: { id: projectId, workspaceId },
       select: { id: true },
@@ -68,7 +56,5 @@ export async function POST(
     const analysis = await analyzeDiff(projectId, diffFiles);
 
     return apiSuccess(analysis);
-  } catch (error) {
-    return handleApiError(error);
   }
-}
+);

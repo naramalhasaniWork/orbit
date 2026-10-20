@@ -21,7 +21,6 @@ vi.mock("@/lib/db", () => ({
 vi.mock("@/lib/utils/api", async () => {
   const { NextResponse } = await import("next/server");
   return {
-    requireWorkspace: vi.fn(),
     apiSuccess: (data: unknown, status = 200) =>
       NextResponse.json({ success: true, data }, { status }),
     apiError: (message: string, code: string, status = 400) =>
@@ -45,9 +44,10 @@ vi.mock("@/lib/utils/api", async () => {
   };
 });
 
-vi.mock("@/lib/auth/rbac", () => ({
-  requirePermission: vi.fn().mockResolvedValue({}),
-}));
+vi.mock("@/server/http/session", async () => (await import("../helpers/route-auth")).sessionMock());
+vi.mock("@/server/http/auth", async (orig) =>
+  (await import("../helpers/route-auth")).authMock(await orig<Record<string, unknown>>())
+);
 
 vi.mock("@/lib/auth/tenant", () => ({
   canConsume: vi.fn().mockResolvedValue({ allowed: true }),
@@ -75,10 +75,10 @@ vi.mock("@/lib/websocket", () => ({
 }));
 
 import { prisma } from "@/lib/db";
-import { requireWorkspace } from "@/lib/utils/api";
 import { getDefaultEnvironment } from "@/services/execution/environment-validator";
 import { canConsume } from "@/lib/auth/tenant";
 import { NextRequest } from "next/server";
+import { resetRouteAuth } from "../helpers/route-auth";
 
 const mockPrisma = prisma as unknown as {
   project: { findFirst: ReturnType<typeof vi.fn> };
@@ -95,16 +95,12 @@ const mockPrisma = prisma as unknown as {
   testCase: { findMany: ReturnType<typeof vi.fn>; count: ReturnType<typeof vi.fn> };
   workspace: { findUnique: ReturnType<typeof vi.fn> };
 };
-const mockRequireWorkspace = requireWorkspace as ReturnType<typeof vi.fn>;
 const mockGetDefaultEnv = getDefaultEnvironment as ReturnType<typeof vi.fn>;
 
 describe("api-runs", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mockRequireWorkspace.mockResolvedValue({
-      session: { user: { id: "user-1" }, workspaceId: "ws-1" },
-      workspaceId: "ws-1",
-    });
+    resetRouteAuth();
     // Default workspace and count mocks
     mockPrisma.workspace.findUnique.mockResolvedValue({ tier: "free" });
     mockPrisma.testRun.count.mockResolvedValue(0);

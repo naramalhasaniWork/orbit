@@ -1,61 +1,45 @@
-import { NextRequest } from "next/server";
 import { prisma } from "@/lib/db";
 import type { RunMode } from "@/generated/prisma/client";
-import {
-  requireWorkspace,
-  apiSuccess,
-  apiError,
-  handleApiError,
-} from "@/lib/utils/api";
+import { apiSuccess, apiError } from "@/lib/utils/api";
 import {
   isValidCronExpression,
   getNextCronDate,
 } from "@/services/scheduler/cron-parser";
-import { requirePermission } from "@/lib/auth/rbac";
+import { route } from "@/server/http/route";
 
 // ============================================================
 // GET /api/projects/[projectId]/schedules
 // ============================================================
 
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: Promise<{ projectId: string }> }
-) {
-  try {
-    const { workspaceId } = await requireWorkspace();
-    const { projectId } = await params;
+export const GET = route({}, async ({ params: { projectId }, workspaceId }) => {
+  const project = await prisma.project.findFirst({
+    where: { id: projectId, workspaceId },
+    select: { id: true },
+  });
 
-    const project = await prisma.project.findFirst({
-      where: { id: projectId, workspaceId },
-      select: { id: true },
-    });
-
-    if (!project) {
-      return apiError("Project not found", "NOT_FOUND", 404);
-    }
-
-    const schedules = await prisma.scheduledRun.findMany({
-      where: { projectId },
-      orderBy: { createdAt: "asc" },
-    });
-
-    return apiSuccess(
-      schedules.map((s) => ({
-        id: s.id,
-        name: s.name,
-        cronExpression: s.cronExpression,
-        mode: s.mode,
-        environmentId: s.environmentId,
-        isEnabled: s.isEnabled,
-        lastRunAt: s.lastRunAt?.toISOString() ?? null,
-        nextRunAt: s.nextRunAt?.toISOString() ?? null,
-        createdAt: s.createdAt.toISOString(),
-      }))
-    );
-  } catch (error) {
-    return handleApiError(error);
+  if (!project) {
+    return apiError("Project not found", "NOT_FOUND", 404);
   }
-}
+
+  const schedules = await prisma.scheduledRun.findMany({
+    where: { projectId },
+    orderBy: { createdAt: "asc" },
+  });
+
+  return apiSuccess(
+    schedules.map((s) => ({
+      id: s.id,
+      name: s.name,
+      cronExpression: s.cronExpression,
+      mode: s.mode,
+      environmentId: s.environmentId,
+      isEnabled: s.isEnabled,
+      lastRunAt: s.lastRunAt?.toISOString() ?? null,
+      nextRunAt: s.nextRunAt?.toISOString() ?? null,
+      createdAt: s.createdAt.toISOString(),
+    }))
+  );
+});
 
 // ============================================================
 // POST /api/projects/[projectId]/schedules
@@ -74,15 +58,9 @@ const VALID_MODES = new Map<string, RunMode>([
   ["regression", "regression"],
 ]);
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: Promise<{ projectId: string }> }
-) {
-  try {
-    const { workspaceId } = await requireWorkspace();
-    await requirePermission(workspaceId, "runs.create");
-    const { projectId } = await params;
-
+export const POST = route(
+  { permission: "runs.create" },
+  async ({ req: request, params: { projectId }, workspaceId }) => {
     const project = await prisma.project.findFirst({
       where: { id: projectId, workspaceId },
       select: { id: true },
@@ -138,10 +116,8 @@ export async function POST(
       },
       201
     );
-  } catch (error) {
-    return handleApiError(error);
   }
-}
+);
 
 // ============================================================
 // PATCH /api/projects/[projectId]/schedules — toggle enabled
@@ -152,15 +128,9 @@ interface PatchScheduleBody {
   isEnabled?: boolean;
 }
 
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: Promise<{ projectId: string }> }
-) {
-  try {
-    const { workspaceId } = await requireWorkspace();
-    await requirePermission(workspaceId, "runs.create");
-    const { projectId } = await params;
-
+export const PATCH = route(
+  { permission: "runs.create" },
+  async ({ req: request, params: { projectId }, workspaceId }) => {
     const project = await prisma.project.findFirst({
       where: { id: projectId, workspaceId },
       select: { id: true },
@@ -206,24 +176,16 @@ export async function PATCH(
       isEnabled: updated.isEnabled,
       nextRunAt: updated.nextRunAt?.toISOString() ?? null,
     });
-  } catch (error) {
-    return handleApiError(error);
   }
-}
+);
 
 // ============================================================
 // DELETE /api/projects/[projectId]/schedules
 // ============================================================
 
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: Promise<{ projectId: string }> }
-) {
-  try {
-    const { workspaceId } = await requireWorkspace();
-    await requirePermission(workspaceId, "runs.create");
-    const { projectId } = await params;
-
+export const DELETE = route(
+  { permission: "runs.create" },
+  async ({ req: request, params: { projectId }, workspaceId }) => {
     const project = await prisma.project.findFirst({
       where: { id: projectId, workspaceId },
       select: { id: true },
@@ -253,7 +215,5 @@ export async function DELETE(
     });
 
     return apiSuccess({ deleted: true });
-  } catch (error) {
-    return handleApiError(error);
   }
-}
+);
