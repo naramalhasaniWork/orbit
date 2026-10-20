@@ -7,7 +7,7 @@ vi.mock("@/lib/db", () => ({
     webhookDelivery: { create: vi.fn() },
     testRun: { create: vi.fn(), delete: vi.fn() },
     previewBinding: { findUnique: vi.fn() },
-    previewDeployment: { findUnique: vi.fn(), create: vi.fn(), update: vi.fn() },
+    previewDeployment: { findUnique: vi.fn(), findMany: vi.fn(async () => []), create: vi.fn(), update: vi.fn() },
   },
 }));
 

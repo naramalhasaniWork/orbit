@@ -52,6 +52,8 @@ export async function startPreviewForPullRequest(
   });
   if (existing) return { id: existing.id, status: existing.status as PreviewStatus };
 
+  await endPendingPreviews(projectId, { bindingId: binding.id, prNumber: pr.number, NOT: { commitSha } },
+    "A newer commit on this PR is being tested instead", "Superseded");
   const fork = pr.isFork;
   const row = await prisma.previewDeployment.create({
     data: {
@@ -79,11 +81,30 @@ export async function startPreviewForPullRequest(
   return { id: row.id, status: row.status as PreviewStatus };
 }
 
-export async function closePreviewsForPullRequest(projectId: string, prNumber: number): Promise<void> {
-  await prisma.previewDeployment.updateMany({
-    where: { projectId, prNumber, status: PREVIEW_STATUS.pending },
-    data: { status: PREVIEW_STATUS.gone, error: "Pull request closed" },
+/** End pending previews (a newer push, or the PR closed) with a neutral check instead of leaving it hanging. */
+async function endPendingPreviews(
+  projectId: string,
+  where: Prisma.PreviewDeploymentWhereInput,
+  reason: string,
+  title: string
+): Promise<void> {
+  const rows = await prisma.previewDeployment.findMany({
+    where: { ...where, projectId, status: PREVIEW_STATUS.pending },
+    select: { id: true, commitSha: true, checkRunId: true },
   });
+  for (const row of rows) {
+    const moved = await prisma.previewDeployment.updateMany({
+      where: { id: row.id, status: PREVIEW_STATUS.pending },
+      data: { status: PREVIEW_STATUS.gone, error: reason },
+    });
+    if (moved.count > 0 && row.checkRunId) {
+      await setCheck(projectId, row.commitSha, row.checkRunId, { status: "completed", conclusion: "neutral", title, summary: reason });
+    }
+  }
+}
+
+export async function closePreviewsForPullRequest(projectId: string, prNumber: number): Promise<void> {
+  await endPendingPreviews(projectId, { prNumber }, "Pull request closed", "PR closed");
   await archivePreviewEnvironments(projectId, prNumber);
 }
 

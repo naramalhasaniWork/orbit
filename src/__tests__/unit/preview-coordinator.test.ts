@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 
 const db = vi.hoisted(() => ({
-  previewDeployment: { findUnique: vi.fn(), updateMany: vi.fn(), update: vi.fn() },
+  previewDeployment: { findUnique: vi.fn(), findMany: vi.fn(), updateMany: vi.fn(), update: vi.fn() },
   environment: { findFirst: vi.fn(), create: vi.fn(), update: vi.fn(), updateMany: vi.fn() },
 }));
 vi.mock("@/lib/db", () => ({ prisma: db }));
@@ -17,7 +17,7 @@ vi.mock("@/services/preview/registry", () => ({ getPreviewProvider: () => ({ id:
 vi.mock("@/services/preview/connections", () => ({ connectionAccess: () => ({ token: "t", config: {} }) }));
 vi.mock("@/lib/utils/ssrf", () => ({ assertPublicUrl: vi.fn().mockResolvedValue(undefined), UnsafeUrlError: Error }));
 
-import { advancePreviewDeployment } from "@/services/preview/coordinator";
+import { advancePreviewDeployment, closePreviewsForPullRequest } from "@/services/preview/coordinator";
 
 function row(overrides: Record<string, unknown> = {}) {
   return {
@@ -90,5 +90,23 @@ describe("advancePreviewDeployment", () => {
     db.previewDeployment.findUnique.mockResolvedValue(row({ status: "ready" }));
     expect(await advancePreviewDeployment("pd1")).toBe("ready");
     expect(resolve).not.toHaveBeenCalled();
+  });
+});
+
+describe("closePreviewsForPullRequest", () => {
+  it("ends pending previews with a neutral check and archives the PR's environment", async () => {
+    db.previewDeployment.findMany.mockResolvedValue([{ id: "pd1", commitSha: "abc", checkRunId: "check-1" }]);
+    db.previewDeployment.updateMany.mockResolvedValue({ count: 1 });
+
+    await closePreviewsForPullRequest("p1", 42);
+
+    expect(db.previewDeployment.updateMany).toHaveBeenCalledWith({
+      where: { id: "pd1", status: "pending" },
+      data: { status: "gone", error: "Pull request closed" },
+    });
+    expect(upsertCheckRun).toHaveBeenCalledWith("p1", expect.objectContaining({ checkRunId: "check-1", conclusion: "neutral" }));
+    expect(db.environment.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+      where: expect.objectContaining({ projectId: "p1", source: "preview", sourceId: { endsWith: ":42" } }),
+    }));
   });
 });
