@@ -7,6 +7,10 @@ import {
   handleApiError,
 } from "@/lib/utils/api";
 import { signPayload } from "@/services/reporting/integrations/outbound-webhooks";
+import {
+  readStoredWebhooks,
+  resolveWebhookSecret,
+} from "@/services/reporting/integrations/webhook-store";
 
 // ============================================================
 // POST /api/projects/[projectId]/webhook-deliveries/[deliveryId]/retry
@@ -38,14 +42,8 @@ export async function POST(
     }
 
     // Find the webhook endpoint secret from project settings
-    const settings = project.settings as Record<string, unknown>;
-    const webhooks = settings?.webhooks as Array<{
-      url: string;
-      secret: string;
-    }> | undefined;
-
-    const endpoint = webhooks?.find((w) => w.url === delivery.url);
-    const secret = endpoint?.secret ?? "";
+    const endpoint = readStoredWebhooks(project.settings).find((w) => w.url === delivery.url);
+    const secret = (endpoint && resolveWebhookSecret(endpoint)) ?? "";
 
     const body = JSON.stringify(delivery.payload);
     const signature = signPayload(body, secret);
@@ -58,6 +56,7 @@ export async function POST(
         "X-Orbit-Event": delivery.event,
         "X-Orbit-Delivery-Attempt": String(delivery.attempts + 1),
       },
+      body,
       signal: AbortSignal.timeout(10000),
     });
 

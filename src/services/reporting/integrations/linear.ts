@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/db";
+import { openSecret } from "@/lib/integrations/secret-field";
 import type { BugReport, RunSummary } from "@/agents/schemas/run-summary";
 
 interface LinearIssueResult {
@@ -94,8 +95,8 @@ async function getLinearConfig(
   >;
 
   const apiKey =
-    (projectSettings?.linearApiKey as string) ??
-    (workspaceSettings?.linearApiKey as string) ??
+    openSecret(projectSettings?.linearApiKey) ??
+    openSecret(workspaceSettings?.linearApiKey) ??
     process.env.LINEAR_API_KEY ??
     null;
 
@@ -111,6 +112,7 @@ async function getLinearConfig(
 
 interface LinearGraphQLResponse {
   data?: {
+    teams?: { nodes: Array<{ id: string; name: string }> };
     issueCreate?: {
       success: boolean;
       issue?: { id: string; url: string; identifier: string };
@@ -143,6 +145,23 @@ async function linearGraphQL(
   }
 
   return response.json() as Promise<LinearGraphQLResponse>;
+}
+
+/**
+ * Validate an API key against Linear and resolve the team issues will be filed in.
+ * Uses `teamId` when given, otherwise the first team the key can see.
+ */
+export async function lookupLinearTeam(
+  apiKey: string,
+  teamId?: string
+): Promise<{ teamId: string; teamName: string } | null> {
+  const result = await linearGraphQL(apiKey, "query Teams { teams { nodes { id name } } }", {});
+  if (result.errors?.length) {
+    throw new Error(result.errors[0].message);
+  }
+  const teams = result.data?.teams?.nodes ?? [];
+  const team = teamId ? teams.find((t) => t.id === teamId) : teams[0];
+  return team ? { teamId: team.id, teamName: team.name } : null;
 }
 
 export async function createBugIssue(

@@ -7,6 +7,12 @@ import {
   handleApiError,
 } from "@/lib/utils/api";
 
+/** Never return credentials stored by the integration routes. */
+function redactSettings(settings: unknown): Record<string, unknown> {
+  const { linearApiKey: _key, slackWebhookUrl: _url, ...safe } = (settings ?? {}) as Record<string, unknown>;
+  return safe;
+}
+
 export async function GET(
   _request: NextRequest,
   { params }: { params: Promise<{ workspaceId: string }> }
@@ -24,7 +30,7 @@ export async function GET(
       return apiError("Workspace not found", "NOT_FOUND", 404);
     }
 
-    return apiSuccess(workspace.settings);
+    return apiSuccess(redactSettings(workspace.settings));
   } catch (error) {
     return handleApiError(error);
   }
@@ -65,7 +71,7 @@ export async function PATCH(
       data: { settings: updatedSettings },
     });
 
-    return apiSuccess(updatedSettings);
+    return apiSuccess(redactSettings(updatedSettings));
   } catch (error) {
     return handleApiError(error);
   }

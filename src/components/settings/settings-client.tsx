@@ -23,13 +23,9 @@ interface IntegrationConfig {
   linear?: { connected: boolean; teamId?: string; teamName?: string; autoCreateIssues?: boolean };
   slack?: {
     connected: boolean;
-    teamName?: string;
-    defaultChannel?: string;
     notifications?: {
       runCompleted: boolean;
       testFailed: boolean;
-      bugDiscovered: boolean;
-      planUpdated: boolean;
     };
   };
   railway?: {
