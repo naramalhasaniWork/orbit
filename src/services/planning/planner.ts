@@ -3,8 +3,7 @@ import { reconstructJourneys } from "@/services/planning/journey-reconstructor";
 import { generateTestCases } from "@/services/planning/test-case-generator";
 import { prioritizeTestCases, filterByMode } from "@/services/planning/prioritizer";
 import { getActivePlan, getNextVersion, storePlan } from "@/services/planning/plan-cache";
-import { findSimilarNodes } from "@/lib/db/vector";
-import { createEmbedding } from "@/lib/ai";
+import { search } from "@/server/ai/search";
 import type { CoverageReport } from "@/services/planning/coverage-analyzer";
 import type { Journey } from "@/services/planning/journey-reconstructor";
 import type { TestCase } from "@/agents/schemas/test-plan";
@@ -60,8 +59,7 @@ export async function generatePlan(input: PlannerInput): Promise<PlannerResult> 
   if (focusAreas && focusAreas.length > 0) {
     try {
       const focusText = focusAreas.join(" ");
-      const embedding = await createEmbedding(focusText);
-      const similar = await findSimilarNodes(projectId, embedding, 20);
+      const similar = await search.semantic(projectId, focusText, 20);
       semanticContext = similar.map((n) => ({
         name: n.name,
         type: n.type,

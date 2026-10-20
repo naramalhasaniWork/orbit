@@ -1,6 +1,5 @@
 import { prisma } from "@/lib/db";
-import { findSimilarNodes } from "@/lib/db/vector";
-import { createEmbedding } from "@/lib/ai";
+import { search } from "@/server/ai/search";
 import type { SystemMapNode as PrismaNode, SystemMapEdge as PrismaEdge } from "@/generated/prisma/client";
 import type { OperationsMap } from "@/agents/schemas/operations-map";
 import {
@@ -76,8 +75,7 @@ async function classifyNodeSemantic(
 ): Promise<string | null> {
   try {
     const text = `${node.name} ${node.filePath}`;
-    const embedding = await createEmbedding(text);
-    const similar = await findSimilarNodes(projectId, embedding, 5);
+    const similar = await search.semantic(projectId, text, 5);
 
     for (const match of similar) {
       if (match.similarity < SEMANTIC_CLASSIFICATION_THRESHOLD) continue;

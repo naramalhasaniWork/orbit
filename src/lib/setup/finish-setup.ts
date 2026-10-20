@@ -47,7 +47,7 @@ export async function getFinishSetupSteps(
     {
       id: "model-key",
       title: "Connect a model key (optional)",
-      description: "Orbit uses ANTHROPIC_API_KEY from the environment. Add a key here only to use per-workspace keys.",
+      description: "Orbit uses the AI provider keys from the environment. Add a key here only to use per-workspace keys.",
       done: providers > 0,
       href: "/dashboard/settings/providers",
     },

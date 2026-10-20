@@ -1,8 +1,8 @@
 import { prisma } from "@/lib/db";
 import type { RunTrigger, RunMode } from "@/generated/prisma/client";
 import { selectRunMode } from "./mode-selector";
-import { TokenBudget } from "./token-budget";
-import type { AgentPhase } from "./token-budget";
+import { TokenBudget, runWithBudget } from "@/server/ai/run-budget";
+import type { AgentPhase } from "@/server/ai/types";
 import { getProjectContext } from "./context-manager";
 import {
   createRun,
@@ -145,12 +145,24 @@ async function runPipeline(
   selection: ModeSelection,
   resumeTestPlanId?: string | null
 ): Promise<PipelineResult> {
-  const { mode, reason, skipIndexing, skipPlanning } = selection;
   const tokenBudget = new TokenBudget(
     input.maxTokenBudget
       ? { maxInputTokens: input.maxTokenBudget }
       : undefined
   );
+  // Every AI gateway call made by the phases below is recorded against this budget.
+  return runWithBudget(tokenBudget, () => runPhases(runId, input, context, selection, tokenBudget, resumeTestPlanId));
+}
+
+async function runPhases(
+  runId: string,
+  input: PipelineInput,
+  context: ProjectContext,
+  selection: ModeSelection,
+  tokenBudget: TokenBudget,
+  resumeTestPlanId?: string | null
+): Promise<PipelineResult> {
+  const { mode, reason, skipIndexing, skipPlanning } = selection;
 
   try {
     // Credits may have run out while the run was queued
@@ -179,7 +191,7 @@ async function runPipeline(
       if (mode === "full") {
         await checkCancellation(runId);
         operationsMap = await runOperationsAnalysisPhase(
-          runId, input.projectId, tokenBudget
+          runId, input.projectId
         );
       }
 
@@ -188,7 +200,7 @@ async function runPipeline(
 
       if (!skipPlanning || !testPlanId) {
         testPlanId = await runPlanningPhase(
-          runId, input.projectId, mode, testPlanId, tokenBudget, operationsMap
+          runId, input.projectId, mode, testPlanId, operationsMap
         );
       }
     }

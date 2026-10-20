@@ -24,9 +24,30 @@ describe("validateEnv", () => {
   it("lists every missing required variable at once", () => {
     const { errors } = validateEnv({});
     expect(errors).toHaveLength(11);
-    for (const name of Object.keys(VALID)) {
+    for (const name of Object.keys(VALID).filter((n) => n !== "ANTHROPIC_API_KEY")) {
       expect(errors.some((e) => e.startsWith(`${name} is missing`))).toBe(true);
     }
+    expect(errors.some((e) => e.startsWith("No AI chat provider configured"))).toBe(true);
+  });
+
+  it("accepts any chat provider, not only Anthropic", () => {
+    const { ANTHROPIC_API_KEY: _omit, ...rest } = VALID;
+    expect(validateEnv({ ...rest, OPENAI_API_KEY: "sk-x" }).errors).toEqual([]);
+    expect(validateEnv({ ...rest, OPENROUTER_API_KEY: "sk-or" }).errors).toEqual([]);
+    expect(validateEnv({ ...rest, ORBIT_OPENAI_COMPATIBLE_BASE_URL: "http://ollama:11434/v1" }).errors).toEqual([]);
+  });
+
+  it("allows a BYOK-only deployment with a warning", () => {
+    const { ANTHROPIC_API_KEY: _omit, ...rest } = VALID;
+    const { errors, warnings } = validateEnv({ ...rest, ORBIT_AI_KEYS: "byok" });
+    expect(errors).toEqual([]);
+    expect(warnings.some((w) => w.includes("ORBIT_AI_KEYS=byok"))).toBe(true);
+  });
+
+  it("checks the embeddings choice", () => {
+    expect(validateEnv({ ...VALID, ORBIT_EMBEDDINGS: "none" }).errors).toEqual([]);
+    expect(validateEnv({ ...VALID, ORBIT_EMBEDDINGS: "voyage" }).errors).toContain("ORBIT_EMBEDDINGS=voyage requires VOYAGE_API_KEY");
+    expect(validateEnv({ ...VALID, ORBIT_EMBEDDINGS: "cohere" }).errors[0]).toContain("not supported");
   });
 
   it("treats blank values as missing", () => {
@@ -112,7 +133,7 @@ describe("assertEnv", () => {
     } catch (err) {
       const message = (err as Error).message;
       expect(message).toContain("REDIS_URL is missing");
-      expect(message).toContain("ANTHROPIC_API_KEY is missing");
+      expect(message).toContain("No AI chat provider configured");
     }
   });
 

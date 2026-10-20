@@ -9,7 +9,10 @@ vi.mock("@/services/mcp/tool-injector", () => ({
   formatToolsForPrompt: vi.fn(),
   executeToolCall: vi.fn(),
 }));
-vi.mock("@/services/execution/executor-decision", () => ({ getNextAction: vi.fn() }));
+vi.mock("@/services/execution/executor-decision", () => ({
+  getNextAction: vi.fn(),
+  createAgentModelState: vi.fn().mockResolvedValue({ primary: "m", escalation: null, escalated: false, divergences: 0 }),
+}));
 vi.mock("@/services/execution/browser-manager", () => ({
   getPageState: vi.fn().mockResolvedValue({
     url: "https://staging.example.com", title: "App", visibleText: "", interactiveElements: [],

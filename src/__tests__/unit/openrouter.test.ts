@@ -9,11 +9,9 @@ vi.mock("@/lib/db", () => ({
   },
 }));
 
-import {
-  createOpenRouterCompletion,
-  discoverOpenRouterModels,
-  streamOpenRouterCompletion,
-} from "@/lib/ai/providers/openrouter";
+import { discoverOpenRouterModels } from "@/server/ai/openrouter-registry";
+import { openrouterProvider } from "@/server/ai/providers/openai-compatible";
+import { ProviderError } from "@/server/ai/errors";
 
 const MOCK_API_KEY = "sk-or-test-key-12345";
 
@@ -41,7 +39,7 @@ describe("openrouter provider", () => {
     delete process.env.OPENROUTER_API_KEY;
   });
 
-  describe("createOpenRouterCompletion", () => {
+  describe("openrouterProvider.complete", () => {
     it("returns a completion on success", async () => {
       globalThis.fetch = vi.fn().mockResolvedValue(
         mockFetchResponse({
@@ -51,9 +49,9 @@ describe("openrouter provider", () => {
         })
       );
 
-      const result = await createOpenRouterCompletion({
+      const result = await openrouterProvider.complete({
         model: "test-model",
-        systemPrompt: "You are a bot.",
+        system: "You are a bot.",
         messages: [{ role: "user", content: "Hi" }],
         apiKey: MOCK_API_KEY,
       });
@@ -73,9 +71,9 @@ describe("openrouter provider", () => {
         })
       );
 
-      await createOpenRouterCompletion({
+      await openrouterProvider.complete({
         model: "m",
-        systemPrompt: "s",
+        system: "s",
         messages: [],
         apiKey: MOCK_API_KEY,
       });
@@ -95,9 +93,9 @@ describe("openrouter provider", () => {
         })
       );
 
-      await createOpenRouterCompletion({
+      await openrouterProvider.complete({
         model: "m",
-        systemPrompt: "s",
+        system: "s",
         messages: [],
       });
 
@@ -109,67 +107,40 @@ describe("openrouter provider", () => {
       delete process.env.OPENROUTER_API_KEY;
 
       await expect(
-        createOpenRouterCompletion({
+        openrouterProvider.complete({
           model: "m",
-          systemPrompt: "s",
+          system: "s",
           messages: [],
         })
-      ).rejects.toThrow("OpenRouter API key not provided");
+      ).rejects.toThrow("No openrouter API key");
     });
 
-    it("retries on 429 rate limit and succeeds", async () => {
-      const rateLimitResponse = mockFetchResponse({ error: "rate limited" }, 429);
-      const successResponse = mockFetchResponse({
-        choices: [{ message: { content: "ok" }, finish_reason: "stop" }],
-        usage: { prompt_tokens: 1, completion_tokens: 1 },
+    // Retries belong to the gateway; the provider classifies the failure.
+    it("reports 429 as retryable with the server's retry-after", async () => {
+      globalThis.fetch = vi.fn().mockResolvedValue({
+        ...mockFetchResponse({ error: "rate limited" }, 429),
+        headers: new Headers({ "retry-after": "2" }),
       });
 
-      globalThis.fetch = vi
-        .fn()
-        .mockResolvedValueOnce(rateLimitResponse)
-        .mockResolvedValueOnce(successResponse);
-
-      const result = await createOpenRouterCompletion({
-        model: "m",
-        systemPrompt: "s",
-        messages: [],
-        apiKey: MOCK_API_KEY,
-      });
-
-      expect(result.content).toBe("ok");
-      expect(globalThis.fetch).toHaveBeenCalledTimes(2);
+      const err = await openrouterProvider
+        .complete({ model: "m", system: "s", messages: [], apiKey: MOCK_API_KEY })
+        .catch((e: unknown) => e);
+      expect(err).toBeInstanceOf(ProviderError);
+      expect((err as ProviderError).retryable).toBe(true);
+      expect((err as ProviderError).retryAfterMs).toBe(2000);
+      expect(globalThis.fetch).toHaveBeenCalledTimes(1);
     });
 
-    it("throws after max retries on persistent 429", async () => {
-      const rateLimitResponse = mockFetchResponse({ error: "rate limited" }, 429);
-
-      globalThis.fetch = vi
-        .fn()
-        .mockResolvedValue(rateLimitResponse);
-
-      await expect(
-        createOpenRouterCompletion({
-          model: "m",
-          systemPrompt: "s",
-          messages: [],
-          apiKey: MOCK_API_KEY,
-        })
-      ).rejects.toThrow("rate limit exceeded after 3 attempts");
-    });
-
-    it("throws immediately on non-429 errors", async () => {
+    it("reports 400 as not retryable", async () => {
       globalThis.fetch = vi.fn().mockResolvedValue(
         mockFetchResponse({ error: "bad request" }, 400)
       );
 
-      await expect(
-        createOpenRouterCompletion({
-          model: "m",
-          systemPrompt: "s",
-          messages: [],
-          apiKey: MOCK_API_KEY,
-        })
-      ).rejects.toThrow("OpenRouter API error (400)");
+      const err = await openrouterProvider
+        .complete({ model: "m", system: "s", messages: [], apiKey: MOCK_API_KEY })
+        .catch((e: unknown) => e);
+      expect((err as ProviderError).message).toContain("openrouter API error (400)");
+      expect((err as ProviderError).retryable).toBe(false);
     });
 
     it("throws when no choices returned", async () => {
@@ -178,9 +149,9 @@ describe("openrouter provider", () => {
       );
 
       await expect(
-        createOpenRouterCompletion({
+        openrouterProvider.complete({
           model: "m",
-          systemPrompt: "s",
+          system: "s",
           messages: [],
           apiKey: MOCK_API_KEY,
         })
@@ -194,9 +165,9 @@ describe("openrouter provider", () => {
         })
       );
 
-      const result = await createOpenRouterCompletion({
+      const result = await openrouterProvider.complete({
         model: "m",
-        systemPrompt: "s",
+        system: "s",
         messages: [],
         apiKey: MOCK_API_KEY,
       });
@@ -287,7 +258,7 @@ describe("openrouter provider", () => {
     });
   });
 
-  describe("streamOpenRouterCompletion", () => {
+  describe("openrouterProvider.stream", () => {
     it("yields streamed content chunks", async () => {
       const chunks = [
         'data: {"choices":[{"delta":{"content":"Hello"}}]}\n\n',
@@ -320,9 +291,9 @@ describe("openrouter provider", () => {
         body: mockBody,
       });
 
-      const gen = streamOpenRouterCompletion({
+      const gen = openrouterProvider.stream({
         model: "m",
-        systemPrompt: "s",
+        system: "s",
         messages: [],
         apiKey: MOCK_API_KEY,
       });
@@ -351,14 +322,14 @@ describe("openrouter provider", () => {
         body: null,
       });
 
-      const gen = streamOpenRouterCompletion({
+      const gen = openrouterProvider.stream({
         model: "m",
-        systemPrompt: "s",
+        system: "s",
         messages: [],
         apiKey: MOCK_API_KEY,
       });
 
-      await expect(gen.next()).rejects.toThrow("OpenRouter streaming error (500)");
+      await expect(gen.next()).rejects.toThrow("openrouter API error (500)");
     });
 
     it("throws when response body is null", async () => {
@@ -368,9 +339,9 @@ describe("openrouter provider", () => {
         body: null,
       });
 
-      const gen = streamOpenRouterCompletion({
+      const gen = openrouterProvider.stream({
         model: "m",
-        systemPrompt: "s",
+        system: "s",
         messages: [],
         apiKey: MOCK_API_KEY,
       });

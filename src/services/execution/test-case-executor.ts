@@ -12,6 +12,7 @@ import { detectAuthState } from "@/services/execution/auth-detector";
 import { loadTestingNotes } from "@/agents/prompts/context-loader";
 import { runAllInvariants, collectPageState } from "@/services/execution/invariant-checker";
 import type { InvariantResult } from "@/services/execution/invariant-checker";
+import { isBudgetExceeded } from "@/server/ai/errors";
 import { isProviderError } from "@/services/execution/error-classifier";
 import {
   ACCESS_REJECTED_MESSAGE, installAccessHeaders, isAccessRejection, splitAccessCredentials,
@@ -248,6 +249,8 @@ export async function executeTestCase(
       invariants,
     };
   } catch (err) {
+    // Out of AI budget: every later case would fail the same way, so stop the run.
+    if (isBudgetExceeded(err)) throw err;
     const errorMsg = err instanceof Error ? err.message : "Unknown execution error";
     log(`EXECUTION ERROR: ${errorMsg}`);
 

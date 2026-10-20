@@ -3,6 +3,8 @@ import { connect } from "net";
 import { prisma } from "@/lib/db";
 import { getRedis } from "@/lib/redis";
 import type { Env } from "@/lib/self-host";
+import { configuredEnvProviders } from "@/server/ai/providers";
+import { isByokOnly } from "@/server/ai/env";
 
 export type CheckGroup = "Infrastructure" | "Secrets" | "GitHub App" | "AI";
 
@@ -89,10 +91,6 @@ function privateKeyParses(env: Env): boolean {
   }
 }
 
-function missingVar(name: string, where = "the web service"): string {
-  return `Set ${name} in Railway > ${where} > Variables, then redeploy.`;
-}
-
 function sameOrigin(a: string | undefined, b: string): boolean {
   if (!a) return false;
   try {
@@ -139,7 +137,13 @@ export function envChecks(env: Env, origin: string): SetupCheck[] {
     check("github-app-slug", "GitHub App", "GitHub App slug", set(env, "GITHUB_APP_SLUG"), "Set GITHUB_APP_SLUG on the web service to the last part of github.com/apps/<slug>."),
     check("github-private-key", "GitHub App", "GitHub App private key", privateKeyParses(env), "Generate a private key on the GitHub App page and paste the whole .pem into GITHUB_APP_PRIVATE_KEY on the web service (newlines may be written as \\n)."),
     check("github-webhook-secret", "GitHub App", "GitHub App webhook secret", set(env, "GITHUB_WEBHOOK_SECRET"), "Set the same webhook secret in the GitHub App and in GITHUB_WEBHOOK_SECRET on the web service."),
-    check("ai-key", "AI", "AI provider key", set(env, "ANTHROPIC_API_KEY"), missingVar("ANTHROPIC_API_KEY")),
+    check(
+      "ai-key",
+      "AI",
+      "AI provider key",
+      configuredEnvProviders(env).length > 0 || isByokOnly(env),
+      "Set ANTHROPIC_API_KEY (or OPENAI_API_KEY, OPENROUTER_API_KEY, ORBIT_OPENAI_COMPATIBLE_BASE_URL) on the web service and worker, or ORBIT_AI_KEYS=byok to use per-workspace keys only."
+    ),
   ];
 }
 
