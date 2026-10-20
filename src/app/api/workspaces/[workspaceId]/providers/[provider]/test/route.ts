@@ -3,6 +3,11 @@ import { prisma } from "@/lib/db";
 import { requirePermission } from "@/lib/auth/rbac";
 import { apiSuccess, apiError, handleApiError } from "@/lib/utils/api";
 import { decrypt } from "@/lib/vault";
+import { safeFetch, UnsafeUrlError } from "@/lib/utils/ssrf";
+
+// baseUrl is user-supplied and these requests carry the API key, so they go through the SSRF
+// guard and never follow redirects.
+const noRedirects = { followRedirects: false } as const;
 
 function decryptApiKey(apiKeyEncrypted: string): string {
   const [iv, encrypted] = apiKeyEncrypted.split(":");
@@ -11,7 +16,7 @@ function decryptApiKey(apiKeyEncrypted: string): string {
 
 async function testAnthropic(apiKey: string, baseUrl?: string): Promise<{ success: boolean; message: string }> {
   const url = `${baseUrl || "https://api.anthropic.com"}/v1/messages`;
-  const res = await fetch(url, {
+  const res = await safeFetch(url, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -23,7 +28,7 @@ async function testAnthropic(apiKey: string, baseUrl?: string): Promise<{ succes
       max_tokens: 10,
       messages: [{ role: "user", content: "Say hello" }],
     }),
-  });
+  }, noRedirects);
 
   if (res.ok) {
     return { success: true, message: "Anthropic API key is valid" };
@@ -36,7 +41,7 @@ async function testAnthropic(apiKey: string, baseUrl?: string): Promise<{ succes
 
 async function testOpenAI(apiKey: string, baseUrl?: string): Promise<{ success: boolean; message: string }> {
   const url = `${baseUrl || "https://api.openai.com"}/v1/chat/completions`;
-  const res = await fetch(url, {
+  const res = await safeFetch(url, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -47,7 +52,7 @@ async function testOpenAI(apiKey: string, baseUrl?: string): Promise<{ success: 
       max_tokens: 10,
       messages: [{ role: "user", content: "Say hello" }],
     }),
-  });
+  }, noRedirects);
 
   if (res.ok) {
     return { success: true, message: "OpenAI API key is valid" };
@@ -60,9 +65,9 @@ async function testOpenAI(apiKey: string, baseUrl?: string): Promise<{ success: 
 
 async function testOpenRouter(apiKey: string, baseUrl?: string): Promise<{ success: boolean; message: string }> {
   const url = `${baseUrl || "https://openrouter.ai"}/api/v1/models`;
-  const res = await fetch(url, {
+  const res = await safeFetch(url, {
     headers: { Authorization: `Bearer ${apiKey}` },
-  });
+  }, noRedirects);
 
   if (res.ok) {
     return { success: true, message: "OpenRouter API key is valid" };
@@ -80,9 +85,9 @@ async function testCustom(apiKey: string, baseUrl?: string): Promise<{ success: 
 
   // Try the OpenAI-compatible /v1/models endpoint
   const url = `${baseUrl}/v1/models`;
-  const res = await fetch(url, {
+  const res = await safeFetch(url, {
     headers: { Authorization: `Bearer ${apiKey}` },
-  });
+  }, noRedirects);
 
   if (res.ok) {
     return { success: true, message: "Custom provider API key is valid" };
@@ -126,7 +131,15 @@ export async function POST(
       return apiError(`No test available for provider: ${provider}`, "VALIDATION_ERROR", 400);
     }
 
-    const result = await tester(apiKey, config.baseUrl ?? undefined);
+    let result: { success: boolean; message: string };
+    try {
+      result = await tester(apiKey, config.baseUrl ?? undefined);
+    } catch (err) {
+      if (err instanceof UnsafeUrlError) {
+        return apiError(`Base URL is not allowed: ${err.message}`, "VALIDATION_ERROR", 400);
+      }
+      throw err;
+    }
     const latencyMs = Date.now() - startTime;
 
     return apiSuccess({
