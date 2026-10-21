@@ -346,6 +346,14 @@
   }
 }
 
+/* Dashboard tour: dims the page around the element being explained, with a hairline ring. */
+.tm-spotlight {
+  box-shadow: 0 0 0 100vmax hsl(var(--tm-t1) / 0.3), 0 0 0 1px hsl(var(--tm-t1));
+}
+.dark .tm-spotlight {
+  box-shadow: 0 0 0 100vmax rgb(0 0 0 / 0.6), 0 0 0 1px hsl(var(--tm-t1));
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

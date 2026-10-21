@@ -232,6 +232,7 @@ export function QuickActions({
     <>
       {/* Trigger button */}
       <button
+        data-tour="command-palette"
         onClick={() => setOpen(true)}
         aria-label="Search and commands"
         className={cn(

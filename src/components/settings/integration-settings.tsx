@@ -56,17 +56,19 @@ export function IntegrationSettings({ workspaceId, integrations: initial, previe
         onUpdate={(cfg) => updateIntegration("github", cfg)}
       />
 
-      <LinearCard
-        workspaceId={workspaceId}
-        config={integrations.linear}
-        onUpdate={(cfg) => updateIntegration("linear", cfg)}
-      />
+      <div data-tour="integrations" className="space-y-4">
+        <LinearCard
+          workspaceId={workspaceId}
+          config={integrations.linear}
+          onUpdate={(cfg) => updateIntegration("linear", cfg)}
+        />
 
-      <SlackCard
-        workspaceId={workspaceId}
-        config={integrations.slack}
-        onUpdate={(cfg) => updateIntegration("slack", cfg)}
-      />
+        <SlackCard
+          workspaceId={workspaceId}
+          config={integrations.slack}
+          onUpdate={(cfg) => updateIntegration("slack", cfg)}
+        />
+      </div>
 
       <h2 className="pt-4 tm-label text-muted-foreground">Preview deployments</h2>
       <p className="text-xs text-muted-foreground text-pretty -mt-2">

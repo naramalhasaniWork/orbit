@@ -113,42 +113,70 @@ export function RunningView({
   );
 }
 
-/** Says how the run went: the O closes on a pass and stops on a square when anything failed. */
+/**
+ * The hand-off: the O closes (or stops on a square), the counts roll to their final values, the
+ * ground track keeps every test's tick, and the tour starts on this very run.
+ */
 export function CompleteView({
+  tests,
   total,
   passCount,
   failCount,
   projectId,
+  runId,
 }: {
+  tests: TestProgress[];
   total: number;
   passCount: number;
   failCount: number;
-  projectId?: string;
+  projectId: string;
+  runId: string;
 }) {
   const router = useRouter();
-  const passRate = total > 0 ? Math.round((passCount / total) * 100) : null;
+  const ticks = tests.map((t) => ({ tone: TONE[t.status] }));
+  const runHref = `/dashboard/runs/${runId}?project=${projectId}`;
 
   return (
-    <>
+    <div className="flex w-full flex-col items-center">
       <div className="mb-6 flex flex-col items-center gap-3 text-center">
-        <ClosingO size={48} state={failCount > 0 ? "failed" : "passed"} />
-        <h2 className="text-[22px] font-medium tracking-display">
-          {failCount > 0 ? `First run finished, ${failCount} failed` : "First run passed"}
+        <ClosingO size={56} state={failCount > 0 ? "failed" : "passed"} />
+        <h2 className="text-balance text-[22px] font-medium tracking-display" aria-live="polite">
+          {failCount > 0 ? `First run done: ${failCount} to look at` : "First run passed"}
         </h2>
         <p className="tm-label flex gap-3 text-tm-t2">
-          <span className="text-tm-pass"><span aria-hidden="true">✓</span> {passCount} passed</span>
-          {failCount > 0 && <span className="text-tm-fail"><span aria-hidden="true">✕</span> {failCount} failed</span>}
-          {passRate !== null && <span>· {passRate}% of {total}</span>}
+          <span className="text-tm-pass">
+            <span aria-hidden="true">✓ </span>
+            <RollingNumber value={passCount} /> passed
+          </span>
+          {failCount > 0 && (
+            <span className="text-tm-fail">
+              <span aria-hidden="true">✕ </span>
+              <RollingNumber value={failCount} /> failed
+            </span>
+          )}
+          <span>of {total}</span>
         </p>
       </div>
-      <Button
-        size="lg"
-        onClick={() => router.push(projectId ? `/dashboard?project=${projectId}` : "/dashboard")}
-      >
-        {failCount > 0 ? "See what broke" : "Go to home"}
-        <ArrowRight aria-hidden="true" />
-      </Button>
-    </>
+      {ticks.length > 0 && (
+        <div className="mb-6 w-full">
+          <GroundTrack ticks={ticks} slots={ticks.length} noun="tests" />
+        </div>
+      )}
+      <p className="mb-5 max-w-sm text-pretty text-center text-[13px] text-tm-t2">
+        {failCount > 0
+          ? "Orbit has written up what broke. A short tour starts on this run."
+          : "A short tour starts on this run, then shows where Orbit goes next."}
+      </p>
+      <div className="flex flex-wrap items-center justify-center gap-3">
+        <Button variant="ghost" onClick={() => router.push(`/dashboard?project=${projectId}`)}>
+          Skip to dashboard
+        </Button>
+        <Button size="lg" autoFocus onClick={() => router.push(`${runHref}&tour=start`)}>
+          {failCount > 0 ? "See what broke" : "Show me around"}
+          <ArrowRight aria-hidden="true" />
+        </Button>
+      </div>
+    </div>
   );
 }
 

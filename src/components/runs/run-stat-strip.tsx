@@ -26,7 +26,7 @@ export function RunStatStrip({ passed, failed, flaky, total, ticks, live }: RunS
   const executed = passed + failed + flaky;
   const passRate = executed > 0 ? Math.round((passed / executed) * 100) : null;
   return (
-    <div className="overflow-hidden rounded-lg border border-border bg-card">
+    <div data-tour="run-stats" className="overflow-hidden rounded-lg border border-border bg-card">
       <div className="grid grid-cols-2 sm:grid-cols-4">
         <Cell label="Pass rate">
           {passRate === null ? "–" : <RollingNumber value={passRate} />}

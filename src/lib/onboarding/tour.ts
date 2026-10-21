@@ -138,8 +138,7 @@ export function currentStop(state: TourState): TourStop | null {
   return state.status === "active" ? state.stops[state.index] ?? null : null;
 }
 
-/** `?tour=start` follows the first run (shown once); `?tour=replay` always shows it. */
+/** `?tour=start` shows the tour once: after the first run, or after "Replay tour" marked it due again. */
 export function shouldStartTour(param: string | null, completedAt: string | null): boolean {
-  if (param === "replay") return true;
   return param === "start" && completedAt === null;
 }

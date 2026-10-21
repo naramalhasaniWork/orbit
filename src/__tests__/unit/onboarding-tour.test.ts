@@ -108,11 +108,8 @@ describe("shouldStartTour", () => {
     expect(shouldStartTour("start", "2026-10-20T00:00:00.000Z")).toBe(false);
   });
 
-  it("always shows a replay", () => {
-    expect(shouldStartTour("replay", "2026-10-20T00:00:00.000Z")).toBe(true);
-  });
-
   it("never starts without the param", () => {
     expect(shouldStartTour(null, null)).toBe(false);
+    expect(shouldStartTour("replay", null)).toBe(false);
   });
 });
