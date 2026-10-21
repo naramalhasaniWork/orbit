@@ -16,12 +16,16 @@ vi.mock("@/lib/db", () => ({
       findUnique: vi.fn(async ({ where }: { where: { slug?: string } }) =>
         where.slug === "taken" ? { id: "other" } : null
       ),
-      update: vi.fn(async ({ data }: { data: Record<string, unknown> }) => ({
+      // the unique index is what rejects a slug another workspace holds
+      update: vi.fn(async ({ data }: { data: Record<string, unknown> }) => {
+        if (data.slug === "taken") throw Object.assign(new Error("dup"), { code: "P2002" });
+        return {
         id: "w1",
         name: "Acme",
         slug: "acme",
         ...data,
-      })),
+        };
+      }),
       create: (...a: unknown[]) => wsCreate(...a),
     },
     workspaceMember: {
@@ -53,6 +57,7 @@ beforeEach(() => {
 
 describe("PATCH /api/workspaces/[id]", () => {
   it("renames, audits, and rejects taken or malformed slugs", async () => {
+    const { prisma } = await import("@/lib/db");
     const { PATCH } = await import("@/app/api/workspaces/[workspaceId]/route");
     const ok = await PATCH(req("PATCH", { name: "New Name", slug: "new-name" }), params);
     expect(ok.status).toBe(200);
@@ -62,6 +67,10 @@ describe("PATCH /api/workspaces/[id]", () => {
     expect(audit).toHaveBeenCalledWith(expect.objectContaining({ action: "workspace.settings_updated" }));
 
     expect((await PATCH(req("PATCH", { slug: "taken" }), params)).status).toBe(409);
+    // the workspace scope binds the row to the caller's own workspace
+    expect(vi.mocked(prisma.workspace.update)).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { id: "w1", AND: [{ id: "w1" }] } })
+    );
     expect((await PATCH(req("PATCH", { slug: "Bad Slug!" }), params)).status).toBe(400);
     expect((await PATCH(req("PATCH", {}), params)).status).toBe(400);
   });

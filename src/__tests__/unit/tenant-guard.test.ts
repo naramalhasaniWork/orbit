@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, it, expect, vi } from "vitest";
 import { GLOBAL_MODELS, TENANCY, findTenantViolation } from "@/server/data/tenancy";
+import { RELATIONS } from "@/server/data/relations";
 import { TenantGuardError, enforceTenantFilter, guardMode, withTenantGuard } from "@/server/data/tenant-guard";
 import type { Db } from "@/server/data/db";
 
@@ -69,6 +70,23 @@ describe("tenancy table", () => {
   it("classifies every model as tenant-owned or global, never both", () => {
     for (const { name } of models) {
       expect(Boolean(TENANCY[name]) !== GLOBAL_MODELS.has(name), `${name} must be in exactly one of TENANCY / GLOBAL_MODELS`).toBe(true);
+    }
+  });
+
+  it("keeps RELATIONS in step with the schema, so nested writes are checked on every relation", () => {
+    const names = new Set(models.map((m) => m.name));
+    const fromSchema: Record<string, Record<string, string>> = {};
+    for (const { name, body } of models) {
+      for (const [, field, type] of Array.from(body.matchAll(/^\s+(\w+)\s+(\w+)(?:\[\]|\?)?(?:\s|$)/gm))) {
+        if (names.has(type)) (fromSchema[name] ??= {})[field] = type;
+      }
+    }
+    expect(RELATIONS).toEqual(fromSchema);
+  });
+
+  it("names a tenant parent for every child model", () => {
+    for (const [name, owner] of Object.entries(TENANCY)) {
+      if (owner.parent) expect(TENANCY[owner.parent.model], name).toBeDefined();
     }
   });
 

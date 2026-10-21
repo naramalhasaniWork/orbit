@@ -80,9 +80,13 @@ export async function seedTenant(db: PrismaClient, label: string): Promise<Tenan
   };
 }
 
-/** Workspace delete cascades to everything seedTenant made except the user. */
+/**
+ * Workspace delete cascades to everything seedTenant made except the user. Results go first:
+ * test_results.test_case_id has no ON DELETE CASCADE, so they would block the cascade.
+ */
 export async function dropTenant(db: PrismaClient, fixture: TenantFixture | undefined): Promise<void> {
   if (!fixture) return;
+  await db.testResult.deleteMany({ where: { testRun: { projectId: fixture.projectId } } });
   await db.workspace.delete({ where: { id: fixture.workspaceId } });
   await db.user.delete({ where: { id: fixture.userId } });
 }

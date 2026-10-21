@@ -48,11 +48,6 @@ export const PATCH = route(
     });
     if (!current) return apiError("Workspace not found", "NOT_FOUND", 404);
 
-    if (slug && slug !== current.slug) {
-      const taken = await db.workspace.findUnique({ where: { slug }, select: { id: true } });
-      if (taken) return apiError("That slug is already taken", "SLUG_TAKEN", 409);
-    }
-
     let updated;
     try {
       updated = await db.workspace.update({
@@ -61,7 +56,7 @@ export const PATCH = route(
         select: { id: true, name: true, slug: true },
       });
     } catch (error) {
-      // Lost a race with another workspace claiming the slug
+      // Another workspace holds the slug (the scope sees only this workspace, so the unique index decides)
       if (isUniqueViolation(error)) return apiError("That slug is already taken", "SLUG_TAKEN", 409);
       throw error;
     }

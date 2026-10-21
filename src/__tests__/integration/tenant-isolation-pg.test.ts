@@ -176,6 +176,42 @@ describe.skipIf(!realDbUrl)("tenant isolation of id-param routes (real Postgres)
     expect((await res.json()).data).toEqual([]);
   });
 
+  describe("scope write rules", () => {
+    const scopeOf = async (t: TenantFixture) => (await import("@/server/data/scope")).forWorkspace(t.workspaceId);
+
+    it("an update cannot move B's row into A, nor connect A's rows to B", async () => {
+      const before = await snapshotOfA();
+      const projectB = await (await scopeOf(b)).project(b.projectId);
+      await expect(projectB.testRun.update({ where: { id: b.runId }, data: { projectId: a.projectId } }))
+        .rejects.toMatchObject({ name: "ScopeError" });
+      await expect(projectB.environment.update({
+        where: { id: b.environmentId }, data: { secrets: { connect: [{ id: a.secretId }] } },
+      })).rejects.toMatchObject({ name: "ScopeError" });
+      expect(await db.secret.findUnique({ where: { id: a.secretId }, select: { environmentId: true } }))
+        .toEqual({ environmentId: a.environmentId });
+      expect(await db.testRun.findUnique({ where: { id: b.runId }, select: { projectId: true } })).toEqual({ projectId: b.projectId });
+      expect(await snapshotOfA()).toEqual(before);
+    });
+
+    it("a result can only be created under a run the scope owns", async () => {
+      const projectB = await (await scopeOf(b)).project(b.projectId);
+      await expect(projectB.testResult.create({ data: { testRunId: a.runId, testCaseId: b.testCaseId, verdict: "pass" } }))
+        .rejects.toMatchObject({ name: "ScopeError" });
+      expect(await db.testResult.count({ where: { testRunId: a.runId } })).toBe(0);
+      const own = await projectB.testResult.create({ data: { testRunId: b.runId, testCaseId: b.testCaseId, verdict: "pass" } });
+      expect(own.testRunId).toBe(b.runId);
+    });
+
+    it("the workspace row is bound to the scope, and other global tables are out of reach", async () => {
+      const wsB = await scopeOf(b);
+      expect(await wsB.workspace.findUnique({ where: { id: a.workspaceId } })).toBeNull();
+      await expect(wsB.workspace.update({ where: { id: a.workspaceId }, data: { name: "pwned" } }))
+        .rejects.toMatchObject({ code: "P2025" });
+      expect((await db.workspace.findUnique({ where: { id: a.workspaceId }, select: { name: true } }))?.name).not.toBe("pwned");
+      expect(() => wsB.user).toThrow(/not reachable/);
+    });
+  });
+
   it("the same routes still answer for the owner", async () => {
     Object.assign(caller, { userId: a.userId, workspaceId: a.workspaceId });
     try {

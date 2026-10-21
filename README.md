@@ -124,7 +124,11 @@ HNSW and full-text expression indexes are invisible to Prisma, so it leaves them
 
 API routes read and write through `ctx.db`, the caller's workspace scope from
 `src/server/data/scope.ts`: every query gets its tenant filter added, and `await ctx.db.project(id)`
-is the only way to a project's rows (404 for another workspace's project). Workers and the engine
+is the only way to a project's rows (404 for another workspace's project). Writes cannot move a row
+to another tenant or connect another tenant's rows (nested `connect`/`set`/`upsert` are refused),
+child rows (results, messages) are created only under a parent the scope can see, and global
+tables other than the caller's own workspace row and read-only platform tables are not on `ctx.db`.
+Workers and the engine
 use `forSystem()`. `.eslintrc.json` bans `@/lib/db` and `@/generated/prisma` in `src/app/api` and
 `src/components`; files not yet migrated sit in an allowlist override there, which only shrinks.
 The `tenantGuard` extension throws on an unscoped tenant query in dev and tests and logs in

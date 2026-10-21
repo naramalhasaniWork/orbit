@@ -13,8 +13,16 @@ export interface Ownership {
   inWorkspace: (workspaceId: string) => Where;
   /** Filter added inside a project scope. */
   inProject: (projectId: string, workspaceId: string) => Where;
-  /** Scalar a create gets per scope; absent means creating needs a parent check the scope cannot do. */
+  /** Scalar a create gets per scope; absent means the row cannot be created at that level. */
   create: { workspace?: "workspaceId"; project?: "workspaceId" | "projectId" };
+  /** Owning parent row, checked through the scope before a create (a result's run, a trace's run). */
+  parent?: Parent;
+}
+
+export interface Parent {
+  key: string;
+  relation: string;
+  model: string;
 }
 
 /** Rows that carry workspaceId. */
@@ -35,16 +43,18 @@ function projectOwned(viaRun = false): Ownership {
       viaRun ? { testRun: { project: { workspaceId } } } : { project: { workspaceId } },
     inProject: (projectId) => ({ projectId }),
     create: { project: "projectId" },
+    ...(viaRun ? { parent: { key: "runId", relation: "testRun", model: "TestRun" } } : {}),
   };
 }
 
-/** Rows owned through a project-owned parent (a result through its run). Created by the engine only. */
-function childOf(relation: string, foreignKey: string): Ownership {
+/** Rows owned through a project-owned parent (a result through its run); creates check the parent. */
+function childOf(relation: string, foreignKey: string, model: string): Ownership {
   return {
     keys: [foreignKey, relation],
     inWorkspace: (workspaceId) => ({ [relation]: { project: { workspaceId } } }),
     inProject: (projectId) => ({ [relation]: { projectId } }),
     create: {},
+    parent: { key: foreignKey, relation, model },
   };
 }
 
@@ -102,9 +112,9 @@ export const TENANCY: Readonly<Record<string, Ownership>> = {
   Conversation: projectOwned(),
   AgentExecutionTrace: projectOwned(true),
 
-  TestResult: childOf("testRun", "testRunId"),
-  TestCaseVersion: childOf("testCase", "testCaseId"),
-  Message: childOf("conversation", "conversationId"),
+  TestResult: childOf("testRun", "testRunId", "TestRun"),
+  TestCaseVersion: childOf("testCase", "testCaseId", "TestCase"),
+  Message: childOf("conversation", "conversationId", "Conversation"),
 };
 
 /** Tables with no tenant: the tenant roots, auth, billing events and platform config. */

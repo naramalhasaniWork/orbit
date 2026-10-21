@@ -1,7 +1,11 @@
 import { NotFoundError } from "@/server/domain/errors";
 import { defaultDb, withTransaction, type Db } from "./db";
 import { withTenantGuard } from "./tenant-guard";
-import { TENANCY, isCreateOp, isWhereOp, modelOf, type Ownership } from "./tenancy";
+import { ScopeError, scopeArgs, type Binding } from "./scope-writes";
+import { GLOBAL_MODELS, TENANCY, modelOf, type Ownership } from "./tenancy";
+
+const KNOWN_MODELS = new Set([...Object.keys(TENANCY), ...Array.from(GLOBAL_MODELS)]);
+const delegateOf = (model: string) => model.charAt(0).toLowerCase() + model.slice(1);
 
 /**
  * Tenant-scoped data access. A scope is a Prisma client whose every query gets its owner
@@ -32,98 +36,81 @@ export interface WorkspaceScope extends Omit<Db, "project"> {
   tx<T>(fn: (ws: WorkspaceScope) => Promise<T>): Promise<T>;
 }
 
-export class ScopeError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "ScopeError";
-  }
+export { ScopeError } from "./scope-writes";
+
+/** The workspace row itself: readable and updatable by its own scope only, never created or deleted. */
+const OWN_WORKSPACE: Ownership = {
+  keys: ["id"],
+  inWorkspace: (workspaceId) => ({ id: workspaceId }),
+  inProject: (_projectId, workspaceId) => ({ id: workspaceId }),
+  create: {},
+};
+const WORKSPACE_DENIED = new Set(["create", "createMany", "createManyAndReturn", "upsert", "delete", "deleteMany"]);
+
+/** Platform tables a tenant may read but never write. Anything else global needs a repo. */
+const GLOBAL_READ_ONLY = new Set(["ModelRegistry", "GlobalModelPolicy", "EmbeddingConfig"]);
+const READ_OPS = new Set([
+  "findUnique", "findUniqueOrThrow", "findFirst", "findFirstOrThrow", "findMany", "count", "aggregate", "groupBy",
+]);
+
+/** Raw SQL stays available to repos (it must filter by itself); no other $-member is exposed. */
+const PASSTHROUGH = new Set(["$queryRaw", "$executeRaw"]);
+
+type Call = (args?: unknown) => unknown;
+type Counter = Record<string, { count(args: unknown): Promise<number> }>;
+
+function refuse(message: string): Call {
+  return () => Promise.reject(new ScopeError(message));
 }
 
-type Row = Record<string, unknown>;
-type Level = "workspace" | "project";
-
-interface Binding {
-  level: Level;
-  filter: (owner: Ownership) => Row;
-  ownerValue: { workspaceId: string; projectId?: string };
-}
-
-const isRecord = (v: unknown): v is Row => typeof v === "object" && v !== null && !Array.isArray(v);
-const toArray = (v: unknown): unknown[] => (v === undefined ? [] : Array.isArray(v) ? v : [v]);
-
-function withFilter(where: unknown, filter: Row): Row {
-  const base = isRecord(where) ? where : {};
-  return { ...base, AND: [...toArray(base.AND), filter] };
-}
-
-/** The owner a created row must get, checked against what the caller already set. */
-function withOwner(model: string, owner: Ownership, binding: Binding, data: unknown): Row {
-  const key = owner.create[binding.level];
-  if (!key) throw new ScopeError(`${model} rows cannot be created from a ${binding.level} scope`);
-  const value = binding.ownerValue[key];
-  const row = isRecord(data) ? data : {};
-  const relation = key === "workspaceId" ? "workspace" : "project";
-
-  if (relation in row) {
-    const connect = isRecord(row[relation]) ? (row[relation] as Row).connect : undefined;
-    if (!isRecord(connect) || connect.id !== value) throw new ScopeError(`${model}.${relation} must connect to this scope`);
-    return row;
-  }
-  if (row[key] !== undefined && row[key] !== value) throw new ScopeError(`${model}.${key} belongs to another tenant`);
-  return { ...row, [key]: value };
-}
-
-function assertOwnerKept(model: string, owner: Ownership, binding: Binding, data: unknown): void {
-  if (!isRecord(data)) return;
-  for (const key of ["workspaceId", "projectId"] as const) {
-    const value = binding.ownerValue[key];
-    if (data[key] !== undefined && value !== undefined && data[key] !== value && owner.keys.includes(key)) {
-      throw new ScopeError(`${model}.${key} cannot move to another tenant`);
-    }
-  }
-}
-
-function scopeArgs(model: string, owner: Ownership, binding: Binding, op: string, args: unknown): unknown {
-  const a: Row = isRecord(args) ? { ...args } : {};
-  const filter = binding.filter(owner);
-
-  if (isWhereOp(op)) {
-    a.where = withFilter(a.where, filter);
-    if (op.startsWith("update")) assertOwnerKept(model, owner, binding, a.data);
-  } else if (op === "upsert") {
-    a.where = withFilter(a.where, filter);
-    a.create = withOwner(model, owner, binding, a.create);
-    assertOwnerKept(model, owner, binding, a.update);
-  } else if (isCreateOp(op)) {
-    a.data = Array.isArray(a.data)
-      ? a.data.map((row) => withOwner(model, owner, binding, row))
-      : withOwner(model, owner, binding, a.data);
-  }
-  return a;
-}
-
-function scopedDelegate(model: string, owner: Ownership, binding: Binding, delegate: object): object {
+function scopedDelegate(model: string, owner: Ownership, binding: Binding, delegate: object, client: Db): object {
   return new Proxy(delegate, {
     get(target, op) {
       const fn: unknown = Reflect.get(target, op);
       if (typeof op !== "string" || typeof fn !== "function") return fn;
+      if (model === "Workspace" && WORKSPACE_DENIED.has(op)) return refuse(`Workspace.${op} is not allowed from a tenant scope`);
       return (args?: unknown) => {
-        let scoped: unknown;
+        let scoped: ReturnType<typeof scopeArgs>;
         try {
           scoped = scopeArgs(model, owner, binding, op, args);
         } catch (error) {
           return Promise.reject(error);
         }
-        return (fn as (a: unknown) => unknown).call(target, scoped);
+        const run = () => (fn as Call).call(target, scoped.args);
+        const parent = scoped.parent;
+        if (!parent) return run();
+        // The parent row (a result's run, a message's conversation) must be visible to this scope
+        return (client as unknown as Counter)[delegateOf(parent.model)]
+          .count({ where: { id: { in: parent.ids } } })
+          .then((found) => {
+            if (found !== parent.ids.length) throw new ScopeError(`${model}: its ${parent.model} is not in this scope`);
+            return run();
+          });
       };
     },
   });
 }
 
+function readOnlyDelegate(model: string, delegate: object): object {
+  return new Proxy(delegate, {
+    get(target, op) {
+      const fn: unknown = Reflect.get(target, op);
+      if (typeof op !== "string" || typeof fn !== "function") return fn;
+      return READ_OPS.has(op) ? (fn as Call).bind(target) : refuse(`${model} is read-only from a tenant scope`);
+    },
+  });
+}
+
+/**
+ * Exposes tenant models (filtered), the scope's own workspace row, and read-only platform
+ * tables. Other global models throw, so a route cannot reach users, sessions or billing events
+ * through ctx.db by accident.
+ */
 function scopedClient(base: Db, binding: Binding): Db {
-  return new Proxy(base, {
+  const client: Db = new Proxy(base, {
     get(target, prop) {
       const value: unknown = Reflect.get(target, prop);
+      if (typeof prop !== "string") return value;
       if (prop === "$transaction" && typeof value === "function") {
         // Interactive transactions stay scoped; the array form only carries already-scoped queries.
         return (arg: unknown, options?: unknown) =>
@@ -131,12 +118,21 @@ function scopedClient(base: Db, binding: Binding): Db {
             ? (value as (f: unknown, o?: unknown) => unknown).call(target, (tx: Db) => arg(scopedClient(tx, binding)), options)
             : (value as (a: unknown, o?: unknown) => unknown).call(target, arg, options);
       }
-      if (typeof prop !== "string" || prop.startsWith("$") || typeof value !== "object" || value === null) return value;
+      if (prop.startsWith("$")) return PASSTHROUGH.has(prop) && typeof value === "function" ? value.bind(target) : undefined;
+
       const model = modelOf(prop);
-      const owner = TENANCY[model];
-      return owner ? scopedDelegate(model, owner, binding, value) : value;
+      if (typeof value !== "object" || value === null) {
+        if (KNOWN_MODELS.has(model)) throw new ScopeError(`${model} is not on this client`);
+        return value;
+      }
+      const owner = model === "Workspace" ? OWN_WORKSPACE : TENANCY[model];
+      if (owner) return scopedDelegate(model, owner, binding, value, client);
+      if (GLOBAL_READ_ONLY.has(model)) return readOnlyDelegate(model, value);
+      if (KNOWN_MODELS.has(model)) throw new ScopeError(`${model} is not reachable from a tenant scope; use a repo`);
+      return value;
     },
   });
+  return client;
 }
 
 /** The scoped client plus the scope's own members (id, tx, ...), which win over model names. */
