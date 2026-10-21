@@ -10,7 +10,26 @@ const storage = vi.hoisted(() => ({
   download: vi.fn(async () => Buffer.from("webp-bytes")),
   remove: vi.fn(async () => undefined),
 }));
+const counts = vi.hoisted(() => new Map<string, number>());
 vi.mock("@/lib/db", () => ({ prisma: db }));
+vi.mock("@/lib/redis", () => ({
+  getRedis: () => ({
+    multi: () => {
+      let key = "";
+      const chain = {
+        incr: (k: string) => {
+          key = k;
+          counts.set(k, (counts.get(k) ?? 0) + 1);
+          return chain;
+        },
+        ttl: () => chain,
+        exec: async () => [[null, counts.get(key)], [null, 3600]],
+      };
+      return chain;
+    },
+    expire: vi.fn(),
+  }),
+}));
 vi.mock("@/lib/storage", () => ({ getStorage: () => storage }));
 vi.mock("@/server/http/session", async () => (await import("../helpers/route-auth")).sessionMock());
 vi.mock("@/server/http/auth", async (orig) =>
@@ -30,6 +49,7 @@ let row: { id: string; image: string | null; avatarKey: string | null };
 
 beforeEach(() => {
   vi.clearAllMocks();
+  counts.clear();
   resetRouteAuth();
   routeAuth.userId = ME;
   row = { id: ME, image: "https://avatars.githubusercontent.com/u/1", avatarKey: null };
@@ -44,10 +64,35 @@ beforeEach(() => {
 const png = (w = 400, h = 300) =>
   sharp({ create: { width: w, height: h, channels: 3, background: { r: 160, g: 90, b: 60 } } }).png().toBuffer();
 
-function upload(bytes: Uint8Array, type: string, name = "me.png") {
+/** Encodes the multipart body the way a browser would, Content-Length included unless overridden. */
+async function multipart(bytes: Uint8Array, type: string, name = "me.png") {
   const form = new FormData();
   form.append("file", new File([Uint8Array.from(bytes)], name, { type }));
-  return POST(new NextRequest("http://localhost/api/user/avatar", { method: "POST", body: form }));
+  const encoded = new Request("http://localhost", { method: "POST", body: form });
+  return { body: new Uint8Array(await encoded.arrayBuffer()), contentType: encoded.headers.get("content-type")! };
+}
+
+function post(body: BodyInit, headers: Record<string, string>) {
+  return POST(
+    new NextRequest("http://localhost/api/user/avatar", { method: "POST", body, headers, duplex: "half" } as ConstructorParameters<
+      typeof NextRequest
+    >[1])
+  );
+}
+
+async function upload(bytes: Uint8Array, type: string, name = "me.png") {
+  const { body, contentType } = await multipart(bytes, type, name);
+  return post(Uint8Array.from(body), { "content-type": contentType, "content-length": String(body.byteLength) });
+}
+
+/** A body that streams `size` bytes whatever the headers claim. */
+function stream(size: number) {
+  return new ReadableStream<Uint8Array>({
+    start(c) {
+      for (let sent = 0; sent < size; sent += 64 * 1024) c.enqueue(new Uint8Array(Math.min(64 * 1024, size - sent)));
+      c.close();
+    },
+  });
 }
 
 const get = (userId: string, headers: Record<string, string> = {}) =>
@@ -85,6 +130,38 @@ describe("POST /api/user/avatar", () => {
     const res = await upload(big, "image/png");
     expect(res.status).toBe(413);
     expect(storage.upload).not.toHaveBeenCalled();
+  });
+
+  it("413s without a Content-Length, before reading the body", async () => {
+    const { body, contentType } = await multipart(await png(), "image/png");
+    const res = await post(stream(body.byteLength), { "content-type": contentType });
+    expect(res.status).toBe(413);
+    expect((await res.json()).error.code).toBe("PAYLOAD_TOO_LARGE");
+    expect(storage.upload).not.toHaveBeenCalled();
+  });
+
+  it("413s on a malformed Content-Length", async () => {
+    const { body, contentType } = await multipart(await png(), "image/png");
+    const res = await post(Uint8Array.from(body), { "content-type": contentType, "content-length": "1e3" });
+    expect(res.status).toBe(413);
+  });
+
+  it("413s when the body runs past a Content-Length that lied", async () => {
+    const res = await post(stream(8 * 1024 * 1024), { "content-type": "multipart/form-data; boundary=x", "content-length": "1000" });
+    expect(res.status).toBe(413);
+    expect(storage.upload).not.toHaveBeenCalled();
+  });
+
+  it("429s the 11th upload in an hour, per user", async () => {
+    const image = await png(64, 64);
+    for (let i = 0; i < 10; i++) expect((await upload(image, "image/png")).status).toBe(200);
+    const limited = await upload(image, "image/png");
+    expect(limited.status).toBe(429);
+    expect(limited.headers.get("Retry-After")).toBeTruthy();
+
+    routeAuth.userId = OTHER;
+    row = { id: OTHER, image: null, avatarKey: null };
+    expect((await upload(image, "image/png")).status).toBe(200);
   });
 
   it("rejects bytes that are not the image they claim to be", async () => {

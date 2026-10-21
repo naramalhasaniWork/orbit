@@ -9,6 +9,7 @@ import {
   type AvatarRejection,
 } from "@/server/avatar/avatar-image";
 import { getAvatarSource, setAvatarKey } from "@/server/data/user-avatar-repo";
+import { readCappedBody } from "@/server/http/read-capped-body";
 import { route } from "@/server/http/route";
 
 export const dynamic = "force-dynamic";
@@ -31,10 +32,13 @@ async function discard(key: string | null) {
 // PNG/JPEG/WebP ≤ 2 MB, checked by magic bytes, stored as 256×256 WebP.
 // ============================================================
 
-export const POST = route({}, async ({ req, session }) => {
-  if (Number(req.headers.get("content-length") ?? 0) > MAX_REQUEST_BYTES) return reject("TOO_LARGE");
+// Each upload runs sharp; ten an hour is plenty for a person and caps the CPU one account can spend.
+const UPLOAD_LIMIT = { scope: "avatar-upload", limit: 10, windowSec: 3600, per: "user" } as const;
 
-  const form = await req.formData().catch(() => null);
+export const POST = route({ rateLimit: UPLOAD_LIMIT }, async ({ req, session }) => {
+  const raw = await readCappedBody(req, MAX_REQUEST_BYTES);
+  const multipart = new Response(raw, { headers: { "content-type": req.headers.get("content-type") ?? "" } });
+  const form = await multipart.formData().catch(() => null);
   const file = form?.get("file");
   if (!(file instanceof File)) return apiError("Choose an image to upload.", "VALIDATION_ERROR", 400);
   if (file.size > MAX_AVATAR_BYTES) return reject("TOO_LARGE");

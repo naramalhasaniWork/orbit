@@ -112,8 +112,9 @@ async function execute<S extends RouteSpec>(
   if (store && identity.workspaceId) store.workspaceId = identity.workspaceId;
 
   if (spec.rateLimit) {
-    const { scope, limit, windowSec } = spec.rateLimit;
-    const result = await consumeRateLimit(`${scope}:${identity.workspaceId ?? getClientIp(req.headers)}`, limit, windowSec);
+    const { scope, limit, windowSec, per } = spec.rateLimit;
+    const subject = per === "user" && identity.userId ? `user:${identity.userId}` : identity.workspaceId ?? getClientIp(req.headers);
+    const result = await consumeRateLimit(`${scope}:${subject}`, limit, windowSec);
     if (!result.allowed) return tooManyRequests(result, "Rate limit exceeded. Try again shortly.");
   }
 
