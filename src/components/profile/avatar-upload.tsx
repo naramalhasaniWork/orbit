@@ -88,7 +88,7 @@ export function AvatarUpload() {
           )}
         </div>
         <p id={statusId} aria-live="polite" className={error ? "text-[12px] text-tm-fail" : "tm-label text-tm-t3"}>
-          {error ?? (hasUpload ? "Your upload · removing it shows your GitHub photo" : "PNG, JPEG or WebP · up to 2 MB")}
+          {error ?? (hasUpload ? "Your upload · remove it to fall back to GitHub or initials" : "PNG, JPEG or WebP · up to 2 MB")}
         </p>
         <input
           ref={inputRef}
