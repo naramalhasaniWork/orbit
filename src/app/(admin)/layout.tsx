@@ -1,8 +1,13 @@
+import type { Metadata } from "next";
 import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { AdminSidebar } from "@/components/admin/admin-sidebar";
 import { AdminSignOut } from "@/components/admin/admin-sign-out";
+
+// Private: never indexed, whatever robots.txt says.
+export const metadata: Metadata = { robots: { index: false, follow: false } };
+
 
 export const dynamic = "force-dynamic";
 

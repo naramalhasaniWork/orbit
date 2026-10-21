@@ -3,9 +3,10 @@ import { ProsePage, ProseRow } from "@/components/marketing/prose-page";
 import features from "@/app/(marketing)/content/features.json";
 
 export const metadata: Metadata = {
-  title: "Features",
+  title: "Features · Orbit",
   description: features.subheadline,
   alternates: { canonical: "/features" },
+  twitter: { title: "Features · Orbit", description: features.subheadline },
   openGraph: { url: "/features", title: "Features · Orbit", description: features.subheadline },
 };
 

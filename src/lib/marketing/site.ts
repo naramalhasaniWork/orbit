@@ -28,3 +28,6 @@ export const PLACEHOLDER = {
 export function pageTitle(page?: string): string {
   return page ? `${page} · ${SITE.name}` : `${SITE.name}: ${SITE.headline}`;
 }
+
+/** Public pages that exist and have content; docs, blog and changelog join when they do. */
+export const PUBLIC_PATHS = ["/", "/features", "/pricing", "/about", "/security", "/privacy", "/terms"] as const;

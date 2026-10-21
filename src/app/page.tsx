@@ -6,6 +6,16 @@ import { MarketingFooter } from "@/components/marketing/marketing-footer";
 import { LandingPage } from "@/components/marketing/landing-page";
 import { isSelfHosted } from "@/lib/self-host";
 import { isSetupOpen } from "@/lib/setup/access";
+import type { Metadata } from "next";
+import { SITE, pageTitle } from "@/lib/marketing/site";
+import { softwareApplicationJsonLd } from "@/lib/marketing/json-ld";
+
+export const metadata: Metadata = {
+  title: pageTitle(),
+  description: SITE.description,
+  alternates: { canonical: "/" },
+  openGraph: { url: "/", title: pageTitle(), description: SITE.description },
+};
 
 export default async function Home() {
   const session = await getServerSession(authOptions);
@@ -24,6 +34,11 @@ export default async function Home() {
       <main className="flex-1">
         <LandingPage />
       </main>
+      <script
+        type="application/ld+json"
+        // Static, server-built object; JSON.stringify escapes it. "<" is escaped so it can't close the tag.
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareApplicationJsonLd()).replace(/</g, "\\u003c") }}
+      />
       <MarketingFooter />
     </div>
   );

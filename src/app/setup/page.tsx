@@ -9,7 +9,7 @@ import { githubAppSettings } from "@/lib/setup/github-app";
 import { SetupChecklist } from "@/components/setup/setup-checklist";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Set up Orbit" };
+export const metadata = { title: "Set up · Orbit", robots: { index: false, follow: false } };
 
 export default async function SetupPage() {
   const session = await getServerSession(authOptions);

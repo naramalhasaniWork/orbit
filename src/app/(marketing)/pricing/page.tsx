@@ -5,9 +5,10 @@ import { PricingBand } from "@/components/marketing/pricing-band";
 const description = "Self-hosting is free. Hosted Orbit is priced per seat, with monthly credits that roll over for one month.";
 
 export const metadata: Metadata = {
-  title: "Pricing",
+  title: "Pricing · Orbit",
   description,
   alternates: { canonical: "/pricing" },
+  twitter: { title: "Pricing · Orbit", description },
   openGraph: { url: "/pricing", title: "Pricing · Orbit", description },
 };
 
