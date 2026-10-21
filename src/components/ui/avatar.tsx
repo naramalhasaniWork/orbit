@@ -15,6 +15,15 @@ const SIZES = {
 
 export type AvatarSize = keyof typeof SIZES;
 
+/**
+ * Only GitHub photos go through the optimizer (next.config remotePatterns). Our own
+ * /api/users/… route needs the viewer's cookies, which the optimizer would not send,
+ * and any other host (GitLab, Gravatar) would throw for an unlisted hostname.
+ */
+function isOptimizable(src: string): boolean {
+  return src.startsWith("https://avatars.githubusercontent.com/");
+}
+
 interface FrameProps {
   seed: string;
   initials: string;
@@ -54,8 +63,7 @@ function AvatarFrame({ seed, initials, image, size, label, className }: FramePro
           alt={label}
           width={spec.px}
           height={spec.px}
-          // Our own route needs the viewer's cookies, which the image optimizer would not send.
-          unoptimized={image.startsWith("/")}
+          unoptimized={!isOptimizable(image)}
           onError={() => setFailedSrc(image)}
           className="size-full object-cover"
         />
