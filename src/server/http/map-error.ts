@@ -16,12 +16,24 @@ function prismaCode(error: unknown): string | undefined {
   return typeof code === "string" ? code : undefined;
 }
 
+/** Next signals dynamic rendering, redirect() and notFound() by throwing; those must reach Next untouched. */
+function isNextControlFlow(error: unknown): boolean {
+  if (!(error instanceof Error)) return false;
+  const { digest } = error as Error & { digest?: unknown };
+  return (
+    typeof digest === "string" &&
+    (digest === "DYNAMIC_SERVER_USAGE" || digest === "NEXT_NOT_FOUND" || digest.startsWith("NEXT_REDIRECT"))
+  );
+}
+
 /**
  * Turn anything a handler throws into the `{success: false, error}` response.
  * Unknown errors are logged with the request id and answered with only that id:
  * their message never reaches the client.
  */
 export function mapError(error: unknown, requestId: string, log: Logger): NextResponse {
+  if (isNextControlFlow(error)) throw error;
+
   if (error instanceof ZodError) {
     const issues = error.issues.map((i) => ({ path: i.path.join("."), message: i.message, code: i.code }));
     return apiError(issues[0]?.message ?? "Validation failed", "VALIDATION_ERROR", 400, { details: issues });

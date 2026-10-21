@@ -308,6 +308,15 @@ describe("error mapping", () => {
     spy.mockRestore();
   });
 
+  it("Next's control-flow errors are rethrown, not logged as 500s", async () => {
+    const spy = vi.spyOn(logger, "error").mockImplementation(() => undefined);
+    for (const digest of ["DYNAMIC_SERVER_USAGE", "NEXT_REDIRECT;replace;/x;307;", "NEXT_NOT_FOUND"]) {
+      await expect(throwing(Object.assign(new Error("next"), { digest }))).rejects.toMatchObject({ digest });
+    }
+    expect(spy).not.toHaveBeenCalled();
+    spy.mockRestore();
+  });
+
   it("every response carries X-Request-Id, and a sane inbound id is kept", async () => {
     const res = await route({}, () => "ok")(req("GET", { headers: { "x-request-id": "abc-12345678" } }), NO_SEGMENT);
     expect(res.headers.get("X-Request-Id")).toBe("abc-12345678");
