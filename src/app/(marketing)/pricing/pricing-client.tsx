@@ -71,7 +71,7 @@ export function PricingPageClient() {
               Need more credits?
             </h2>
             <p className="text-muted-foreground mb-10">
-              Purchase top-up packs anytime.
+              Purchase top-up packs anytime. Purchased credits never expire.
             </p>
           </motion.div>
 
