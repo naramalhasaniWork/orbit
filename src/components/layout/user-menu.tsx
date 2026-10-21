@@ -2,8 +2,11 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useRef } from "react";
 import { useSession, signOut } from "next-auth/react";
-import { User, Settings, Shield, LogOut } from "lucide-react";
+import { User, Settings, Shield, LogOut, Bug } from "lucide-react";
+import { useBugReport } from "@/components/bug-report/bug-report-provider";
+import { ShortcutKeys } from "@/components/shortcuts/shortcut-keys";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -15,11 +18,14 @@ import {
 
 export function UserMenu() {
   const { data: session } = useSession();
+  const { openBugReport } = useBugReport();
+  const trigger = useRef<HTMLButtonElement>(null);
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button
+          ref={trigger}
           aria-label="Account menu"
           className="rounded-full ring-1 ring-border hover:ring-border transition-all focus:outline-none focus:ring-2 focus-visible:ring-ring"
         >
@@ -63,6 +69,11 @@ export function UserMenu() {
             <Settings className="h-4 w-4" />
             Workspace Settings
           </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem className="cursor-pointer gap-2" onSelect={() => openBugReport(trigger.current)}>
+          <Bug className="h-4 w-4" />
+          Report a bug
+          <ShortcutKeys id="bug" className="ml-auto" />
         </DropdownMenuItem>
         {session?.userRole === "super_admin" && (
           <>

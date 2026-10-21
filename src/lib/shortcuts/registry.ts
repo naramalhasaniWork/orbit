@@ -6,6 +6,7 @@ export type ShortcutId =
   | "palette"
   | "help"
   | "sidebar"
+  | "bug"
   | "run"
   | "latest"
   | "map"
@@ -31,6 +32,7 @@ export const SHORTCUTS: readonly ShortcutDef[] = [
   { id: "palette", keys: ["k"], mod: true, label: "Open command palette", group: "General" },
   { id: "help", keys: ["?"], label: "Show keyboard shortcuts", group: "General" },
   { id: "sidebar", keys: ["["], label: "Expand or collapse the sidebar", group: "General" },
+  { id: "bug", keys: ["b"], label: "Report a bug", group: "General" },
   { id: "run", keys: ["r"], label: "Trigger test run", group: "Actions" },
   { id: "latest", keys: ["l"], label: "View latest results", group: "Actions" },
   { id: "map", keys: ["m"], label: "Open System Map", group: "Actions" },
