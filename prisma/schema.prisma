@@ -685,7 +685,7 @@ model TestResult {
   createdAt          DateTime    @default(now()) @map("created_at")
 
   testRun      TestRun       @relation(fields: [testRunId], references: [id], onDelete: Cascade)
-  testCase     TestCase      @relation(fields: [testCaseId], references: [id])
+  testCase     TestCase      @relation(fields: [testCaseId], references: [id], onDelete: Cascade)
   runArtifacts RunArtifact[]
 
   @@unique([testRunId, testCaseId])
