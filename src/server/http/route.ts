@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { requireApiKey } from "@/lib/auth/api-key";
-import { consumeRateLimit, getClientIp, tooManyRequests } from "@/lib/auth/rate-limit";
+import { consumeRateLimit, getClientIp, retryPhrase, tooManyRequests } from "@/lib/auth/rate-limit";
 import { apiSuccess } from "@/lib/utils/api";
 import type { OrbitSession } from "@/lib/utils/types";
 import type { MemberRole } from "@/lib/auth/permissions";
@@ -115,7 +115,7 @@ async function execute<S extends RouteSpec>(
     const { scope, limit, windowSec, per } = spec.rateLimit;
     const subject = per === "user" && identity.userId ? `user:${identity.userId}` : identity.workspaceId ?? getClientIp(req.headers);
     const result = await consumeRateLimit(`${scope}:${subject}`, limit, windowSec);
-    if (!result.allowed) return tooManyRequests(result, "Rate limit exceeded. Try again shortly.");
+    if (!result.allowed) return tooManyRequests(result, `Rate limit exceeded. ${retryPhrase(result.retryAfterSec)}`);
   }
 
   const params = spec.params ? spec.params.parse(rawParams) : rawParams;
