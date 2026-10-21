@@ -1,13 +1,14 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import type Stripe from "stripe";
+import { createFakeCreditDb } from "../helpers/fake-credit-db";
 
 vi.mock("@/lib/stripe/client", () => ({ stripe: {} }));
 vi.mock("@/lib/stripe/credits", () => ({ fulfillCreditPurchase: vi.fn() }));
 vi.mock("@/lib/db", () => ({
   prisma: {
-    workspace: { findFirst: vi.fn(), update: vi.fn() },
+    workspace: { findFirst: vi.fn() },
     invoice: { upsert: vi.fn() },
-    creditTransaction: { findFirst: vi.fn(), create: vi.fn() },
+    $transaction: vi.fn(),
   },
 }));
 vi.mock("@/lib/stripe/prices", async (importOriginal) => {
@@ -23,25 +24,29 @@ import { handleInvoicePaid } from "@/app/api/webhooks/stripe/handlers";
 import { TIER_LIMITS } from "@/lib/auth/tier-limits";
 
 const db = prisma as unknown as {
-  workspace: { findFirst: ReturnType<typeof vi.fn>; update: ReturnType<typeof vi.fn> };
-  creditTransaction: { findFirst: ReturnType<typeof vi.fn>; create: ReturnType<typeof vi.fn> };
+  workspace: { findFirst: ReturnType<typeof vi.fn> };
+  $transaction: ReturnType<typeof vi.fn>;
 };
+
+const PER_SEAT = TIER_LIMITS.starter.monthlyCredits;
+const PERIOD_END = 1_762_600_000;
 
 interface LineSpec { price: string; quantity: number; proration?: boolean }
 
-function invoice(lines: LineSpec[]): Stripe.Invoice {
+function invoice(lines: LineSpec[], id = "in_1"): Stripe.Invoice {
   return {
-    id: "in_1",
+    id,
     customer: "cus_1",
     amount_paid: 7900,
     currency: "usd",
     status: "paid",
     invoice_pdf: null,
     period_start: 1_760_000_000,
-    period_end: 1_762_600_000,
+    period_end: 1_760_000_000,
     lines: {
       data: lines.map((l) => ({
         quantity: l.quantity,
+        period: { start: 1_760_000_000, end: PERIOD_END },
         pricing: { type: "price_details", price_details: { price: l.price, product: "prod_1" } },
         parent: {
           type: "subscription_item_details",
@@ -52,58 +57,69 @@ function invoice(lines: LineSpec[]): Stripe.Invoice {
   } as unknown as Stripe.Invoice;
 }
 
+function useFake(...args: Parameters<typeof createFakeCreditDb>) {
+  const fake = createFakeCreditDb(...args);
+  db.$transaction.mockImplementation(fake.$transaction);
+  return fake;
+}
+
 describe("handleInvoicePaid credit grant", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    // Workspace not yet synced: still on free defaults
-    db.workspace.findFirst.mockResolvedValue({
-      id: "ws-1", tier: "free", monthlyCredits: 100, creditBalance: 100,
-    });
-    db.creditTransaction.findFirst.mockResolvedValue(null);
+    db.workspace.findFirst.mockResolvedValue({ id: "ws-1" });
   });
 
   it("grants from the invoice's price and seat quantity even before the subscription sync", async () => {
+    // Workspace not yet synced: still on the free starting balance
+    const fake = useFake({ current: 100, granted: 100 });
+
     await handleInvoicePaid(invoice([{ price: "price_pro", quantity: 3 }]));
 
-    const expected = TIER_LIMITS.starter.monthlyCredits * 3;
-    expect(db.workspace.update).toHaveBeenCalledWith({
-      where: { id: "ws-1" },
-      data: { creditBalance: { increment: expected } },
+    const grant = PER_SEAT * 3;
+    expect(fake.workspace).toMatchObject({
+      creditsCurrent: grant, creditsRollover: 100, creditsGranted: grant, creditBalance: grant + 100,
+      rolloverExpiresAt: new Date(PERIOD_END * 1000),
     });
-    expect(db.creditTransaction.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({
-        type: "monthly_grant",
-        amount: expected,
-        balance: 100 + expected,
-        metadata: { stripeInvoiceId: "in_1", tier: "starter", seats: 3 },
-      }),
+    expect(fake.rows.at(-1)).toMatchObject({
+      type: "monthly_grant",
+      amount: grant,
+      balance: grant + 100,
+      description: expect.stringContaining("Pro plan, 3 seats"),
+      metadata: { stripeInvoiceId: "in_1", tier: "starter", seats: 3, rolledOver: 100 },
     });
   });
 
   it("ignores proration lines", async () => {
+    const fake = useFake({ current: 0, granted: 0 });
+
     await handleInvoicePaid(invoice([
       { price: "price_pro", quantity: 9, proration: true },
       { price: "price_pro", quantity: 2 },
     ]));
 
-    expect(db.workspace.update).toHaveBeenCalledWith({
-      where: { id: "ws-1" },
-      data: { creditBalance: { increment: TIER_LIMITS.starter.monthlyCredits * 2 } },
-    });
+    expect(fake.workspace.creditsCurrent).toBe(PER_SEAT * 2);
   });
 
   it("grants nothing for invoices without a known subscription price", async () => {
+    const fake = useFake({ current: 100 });
+
     await handleInvoicePaid(invoice([{ price: "price_unknown", quantity: 1 }]));
 
-    expect(db.creditTransaction.create).not.toHaveBeenCalled();
-    expect(db.workspace.update).not.toHaveBeenCalled();
+    expect(fake.rows).toHaveLength(0);
+    expect(fake.workspace.creditBalance).toBe(100);
   });
 
-  it("grants at most once per invoice when Stripe redelivers", async () => {
-    db.creditTransaction.findFirst.mockResolvedValue({ id: "ct-1" });
+  it("grants and rolls over at most once per invoice when Stripe redelivers concurrently", async () => {
+    const fake = useFake({ current: 400, rollover: 50, granted: PER_SEAT });
+    const paid = invoice([{ price: "price_pro", quantity: 1 }], "in_2");
 
-    await handleInvoicePaid(invoice([{ price: "price_pro", quantity: 1 }]));
+    await Promise.all([handleInvoicePaid(paid), handleInvoicePaid(paid)]);
+    await handleInvoicePaid(paid);
 
-    expect(db.workspace.update).not.toHaveBeenCalled();
+    expect(fake.rows.filter((r) => r.type === "monthly_grant")).toHaveLength(1);
+    expect(fake.rows.filter((r) => r.type === "expiry")).toHaveLength(1);
+    expect(fake.workspace).toMatchObject({
+      creditsCurrent: PER_SEAT, creditsRollover: 400, creditBalance: PER_SEAT + 400,
+    });
   });
 });

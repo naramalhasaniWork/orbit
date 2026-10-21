@@ -2,6 +2,7 @@ import { stripe } from "./client";
 import { getOrCreateStripeCustomer } from "./checkout";
 import { prisma } from "@/lib/db";
 import { CREDIT_PACKAGES, type CreditPackage } from "./credit-packages";
+import { lockCredits, addPurchasedCredits } from "@/lib/billing/credit-buckets";
 
 export function getCreditPackages(): CreditPackage[] {
   return CREDIT_PACKAGES;
@@ -88,7 +89,8 @@ export async function createCreditCheckout(
 
 /**
  * Fulfill a credit purchase after checkout.session.completed webhook.
- * Adds credits to workspace balance and records the transaction.
+ * Adds the pack to the purchased bucket (never expires), at most once per
+ * checkout session even when Stripe delivers the event concurrently.
  */
 export async function fulfillCreditPurchase(
   workspaceId: string,
@@ -96,32 +98,19 @@ export async function fulfillCreditPurchase(
   amountPaid: number,
   stripeSessionId: string
 ): Promise<void> {
-  const workspace = await prisma.workspace.findUniqueOrThrow({
-    where: { id: workspaceId },
-    select: { creditBalance: true },
+  await prisma.$transaction(async (tx) => {
+    const locked = await lockCredits(tx, workspaceId);
+    const fulfilled = await tx.creditTransaction.findFirst({
+      where: { workspaceId, type: "purchase", metadata: { path: ["stripeSessionId"], equals: stripeSessionId } },
+      select: { id: true },
+    });
+    if (fulfilled) return;
+
+    await addPurchasedCredits(tx, workspaceId, locked, credits, {
+      description: `Purchased ${credits} credits`,
+      metadata: { stripeSessionId, amountPaid },
+    });
   });
-
-  const newBalance = workspace.creditBalance + credits;
-
-  await prisma.$transaction([
-    prisma.creditTransaction.create({
-      data: {
-        workspaceId,
-        type: "purchase",
-        amount: credits,
-        balance: newBalance,
-        description: `Purchased ${credits} credits`,
-        metadata: {
-          stripeSessionId,
-          amountPaid,
-        },
-      },
-    }),
-    prisma.workspace.update({
-      where: { id: workspaceId },
-      data: { creditBalance: { increment: credits } },
-    }),
-  ]);
 }
 
 export type { CreditPackage };

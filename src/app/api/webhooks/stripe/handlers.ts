@@ -2,7 +2,8 @@ import { stripe } from "@/lib/stripe/client";
 import { prisma } from "@/lib/db";
 import { syncSubscriptionToWorkspace, downgradeToFree } from "@/lib/stripe/subscriptions";
 import { getMonthlyCreditGrant, getTierFromPriceId } from "@/lib/stripe/prices";
-import type { WorkspaceTier } from "@/lib/auth/tier-limits";
+import { tierDisplayName, type WorkspaceTier } from "@/lib/auth/tier-limits";
+import { lockCredits, grantMonthlyCredits } from "@/lib/billing/credit-buckets";
 import { fulfillCreditPurchase } from "@/lib/stripe/credits";
 import type Stripe from "stripe";
 
@@ -102,6 +103,7 @@ export async function handleInvoicePaid(invoice: Stripe.Invoice) {
 
   const workspace = await prisma.workspace.findFirst({
     where: { stripeCustomerId: customerId },
+    select: { id: true },
   });
 
   if (!workspace) return;
@@ -132,47 +134,43 @@ export async function handleInvoicePaid(invoice: Stripe.Invoice) {
   const grant = getMonthlyCreditGrant(plan.tier, plan.seats);
   if (!grant || grant <= 0) return; // unlimited tier
 
-  // Stripe retries webhooks: grant at most once per invoice
-  const alreadyGranted = await prisma.creditTransaction.findFirst({
-    where: {
-      workspaceId: workspace.id,
-      type: "monthly_grant",
-      metadata: { path: ["stripeInvoiceId"], equals: invoice.id },
-    },
-    select: { id: true },
-  });
-  if (alreadyGranted) return;
+  await prisma.$transaction(async (tx) => {
+    // Lock before the idempotency check so concurrent redeliveries serialize
+    const locked = await lockCredits(tx, workspace.id);
+    // Stripe retries webhooks: grant at most once per invoice
+    const alreadyGranted = await tx.creditTransaction.findFirst({
+      where: {
+        workspaceId: workspace.id,
+        type: "monthly_grant",
+        metadata: { path: ["stripeInvoiceId"], equals: invoice.id },
+      },
+      select: { id: true },
+    });
+    if (alreadyGranted) return;
 
-  const seatsLabel = plan.seats > 1 ? `, ${plan.seats} seats` : "";
-  await prisma.creditTransaction.create({
-    data: {
-      workspaceId: workspace.id,
-      type: "monthly_grant",
-      amount: grant,
-      balance: workspace.creditBalance + grant,
-      description: `Monthly credit grant (${plan.tier} plan${seatsLabel})`,
+    const seatsLabel = plan.seats > 1 ? `, ${plan.seats} seats` : "";
+    // Rolled-over credits expire when the next period's grant arrives
+    await grantMonthlyCredits(tx, workspace.id, locked, grant, plan.periodEnd, {
+      description: `Monthly credit grant (${tierDisplayName(plan.tier)} plan${seatsLabel})`,
       metadata: { stripeInvoiceId: invoice.id, tier: plan.tier, seats: plan.seats },
-    },
-  });
-
-  await prisma.workspace.update({
-    where: { id: workspace.id },
-    data: { creditBalance: { increment: grant } },
+    });
   });
 }
 
 /**
- * Tier and seat count an invoice billed: the first non-proration
+ * Tier, seat count and period end an invoice billed: the first non-proration
  * subscription line whose price maps to a tier.
  */
-function getInvoicedPlan(invoice: Stripe.Invoice): { tier: WorkspaceTier; seats: number } | null {
+function getInvoicedPlan(
+  invoice: Stripe.Invoice
+): { tier: WorkspaceTier; seats: number; periodEnd: Date } | null {
   for (const line of invoice.lines?.data ?? []) {
     const item = line.parent?.subscription_item_details;
     if (!item || item.proration) continue;
     const price = line.pricing?.price_details?.price;
     const priceId = typeof price === "string" ? price : price?.id;
     const tier = priceId ? getTierFromPriceId(priceId) : null;
-    if (tier) return { tier, seats: line.quantity ?? 1 };
+    if (tier) return { tier, seats: line.quantity ?? 1, periodEnd: new Date(line.period.end * 1000) };
   }
   return null;
 }
