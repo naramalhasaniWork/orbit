@@ -1,11 +1,22 @@
-import { FeaturesPageClient } from "./features-client";
+import type { Metadata } from "next";
+import { ProsePage, ProseRow } from "@/components/marketing/prose-page";
+import features from "@/app/(marketing)/content/features.json";
 
-export const metadata = {
-  title: "Features - Orbit",
-  description:
-    "Explore Orbit's AI-native testing features: System Map, self-healing selectors, code-aware planning, live execution, and more.",
+export const metadata: Metadata = {
+  title: "Features",
+  description: features.subheadline,
+  alternates: { canonical: "/features" },
+  openGraph: { url: "/features", title: "Features · Orbit", description: features.subheadline },
 };
 
 export default function FeaturesPage() {
-  return <FeaturesPageClient />;
+  return (
+    <ProsePage eyebrow="Features" title={features.headline} lead={features.subheadline}>
+      {features.features.map((f) => (
+        <ProseRow key={f.id} label={f.label} title={f.title}>
+          <p id={f.id}>{f.description}</p>
+        </ProseRow>
+      ))}
+    </ProsePage>
+  );
 }

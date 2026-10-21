@@ -1,11 +1,27 @@
-import { AboutPageClient } from "./about-client";
+import type { Metadata } from "next";
+import { ProsePage, ProseRow } from "@/components/marketing/prose-page";
+import about from "@/app/(marketing)/content/about.json";
 
-export const metadata = {
-  title: "About - Orbit",
-  description:
-    "Orbit was born from a simple frustration: AI helps you write code 10x faster, but testing hasn't kept up. We're fixing that.",
+export const metadata: Metadata = {
+  title: "About",
+  description: about.subheadline,
+  alternates: { canonical: "/about" },
+  openGraph: { url: "/about", title: "About · Orbit", description: about.subheadline },
 };
 
 export default function AboutPage() {
-  return <AboutPageClient />;
+  return (
+    <ProsePage eyebrow="About" title={about.headline} lead={about.subheadline}>
+      <ProseRow label="The problem" title="Which parts of the app did this PR touch, and do they still work?">
+        {about.story.paragraphs.map((p) => (
+          <p key={p.slice(0, 24)}>{p}</p>
+        ))}
+      </ProseRow>
+      {about.values.map((v) => (
+        <ProseRow key={v.title} label="Principle" title={v.title}>
+          <p>{v.description}</p>
+        </ProseRow>
+      ))}
+    </ProsePage>
+  );
 }

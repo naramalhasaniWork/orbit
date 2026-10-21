@@ -1,11 +1,21 @@
+import type { Metadata } from "next";
 import { PricingPageClient } from "./pricing-client";
-import { tierCreditsLabel } from "@/lib/auth/tier-limits";
+import { PricingBand } from "@/components/marketing/pricing-band";
 
-export const metadata = {
-  title: "Pricing - Orbit",
-  description: `Simple, predictable pricing. Start free with ${tierCreditsLabel("free")}. Scale to Pro or Enterprise as your team grows.`,
+const description = "Self-hosting is free. Hosted Orbit is priced per seat, with monthly credits that roll over for one month.";
+
+export const metadata: Metadata = {
+  title: "Pricing",
+  description,
+  alternates: { canonical: "/pricing" },
+  openGraph: { url: "/pricing", title: "Pricing · Orbit", description },
 };
 
 export default function PricingPage() {
-  return <PricingPageClient />;
+  return (
+    <>
+      <PricingBand headingLevel="h1" />
+      <PricingPageClient />
+    </>
+  );
 }
