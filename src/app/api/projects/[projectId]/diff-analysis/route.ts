@@ -1,4 +1,3 @@
-import { prisma } from "@/lib/db";
 import { apiSuccess, apiError } from "@/lib/utils/api";
 import { analyzeDiff } from "@/services/planning/diff-analyzer";
 import { route } from "@/server/http/route";
@@ -18,15 +17,8 @@ interface DiffAnalysisBody {
 
 export const POST = route(
   { permission: "runs.create" },
-  async ({ req: request, params: { projectId }, workspaceId }) => {
-    const project = await prisma.project.findFirst({
-      where: { id: projectId, workspaceId },
-      select: { id: true },
-    });
-
-    if (!project) {
-      return apiError("Project not found", "NOT_FOUND", 404);
-    }
+  async ({ req: request, params: { projectId }, workspaceId, db }) => {
+    const project = await db.project(projectId);
 
     const body = (await request.json()) as DiffAnalysisBody;
 

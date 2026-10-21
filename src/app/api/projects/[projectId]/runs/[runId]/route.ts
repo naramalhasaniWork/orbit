@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { prisma } from "@/lib/db";
 import { apiSuccess, apiError } from "@/lib/utils/api";
 import { cancelRun } from "@/services/orchestrator/run-manager";
 import { route } from "@/server/http/route";
@@ -8,19 +7,11 @@ import { route } from "@/server/http/route";
 // GET /api/projects/[projectId]/runs/[runId] — Get run details
 // ============================================================
 
-export const GET = route({}, async ({ params: { projectId, runId }, workspaceId }) => {
-  // Verify project belongs to workspace
-  const project = await prisma.project.findFirst({
-    where: { id: projectId, workspaceId },
-    select: { id: true },
-  });
+export const GET = route({}, async ({ params: { projectId, runId }, db }) => {
+  const project = await db.project(projectId);
 
-  if (!project) {
-    return apiError("Project not found", "NOT_FOUND", 404);
-  }
-
-  const run = await prisma.testRun.findFirst({
-    where: { id: runId, projectId },
+  const run = await project.testRun.findUnique({
+    where: { id: runId },
     include: {
       results: {
         include: {
@@ -73,14 +64,12 @@ const PatchRunSchema = z.object({
 
 export const PATCH = route(
   { permission: "runs.cancel" },
-  async ({ req: request, params: { projectId, runId }, workspaceId }) => {
-    const project = await prisma.project.findFirst({
-      where: { id: projectId, workspaceId },
-      select: { id: true },
-    });
-
-    if (!project) {
-      return apiError("Project not found", "NOT_FOUND", 404);
+  async ({ req: request, params: { projectId, runId }, db }) => {
+    const project = await db.project(projectId);
+    // cancelRun works by run id alone, so the run must be this project's first
+    const run = await project.testRun.findUnique({ where: { id: runId }, select: { id: true } });
+    if (!run) {
+      return apiError("Test run not found", "NOT_FOUND", 404);
     }
 
     const body = PatchRunSchema.parse(await request.json());

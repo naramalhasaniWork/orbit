@@ -8,7 +8,7 @@ vi.mock("@/lib/db", async () => ({
 
 import { prisma } from "@/lib/db";
 import { fakeOf } from "../helpers/fake-config-db";
-import { openSecret, sealSecret } from "@/lib/integrations/secret-field";
+import { openSecret, sealSecret } from "@/server/data/sealing";
 import { LegacyNoteSchema, parseIntegrationSettings, parseLegacyList } from "@/server/domain/config";
 import { parseProjectSettings, parseWorkspaceSettings, patchProjectSettings } from "@/server/data/settings-repo";
 import { getIntegration, resolveProjectIntegration } from "@/server/data/integration-repo";

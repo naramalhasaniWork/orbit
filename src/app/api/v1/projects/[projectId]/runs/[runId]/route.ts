@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
-import { requireApiKey, verifyProjectAccess } from "@/lib/auth/api-key";
+import { requireApiKey } from "@/lib/auth/api-key";
+import { forWorkspace } from "@/server/data/scope";
 
 // ============================================================
 // GET /api/v1/projects/[projectId]/runs/[runId] — Get run details
@@ -15,15 +15,16 @@ export async function GET(
 
   const { projectId, runId } = await params;
 
-  if (!(await verifyProjectAccess(auth.workspaceId, projectId))) {
+  const project = await forWorkspace(auth.workspaceId).findProject(projectId);
+  if (!project) {
     return NextResponse.json(
       { error: "Project not found" },
       { status: 404 }
     );
   }
 
-  const run = await prisma.testRun.findFirst({
-    where: { id: runId, projectId },
+  const run = await project.testRun.findUnique({
+    where: { id: runId },
     include: {
       results: {
         select: {

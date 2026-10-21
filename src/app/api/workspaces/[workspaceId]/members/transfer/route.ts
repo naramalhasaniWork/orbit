@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { prisma } from "@/lib/db";
 import { apiSuccess, apiError } from "@/lib/utils/api";
 import { writeAuditLog } from "@/lib/auth/audit";
 import { route } from "@/server/http/route";
@@ -14,7 +13,7 @@ const TransferSchema = z.object({
 
 export const POST = route(
   { workspace: "param", permission: "workspace.transfer" },
-  async ({ req: request, workspaceId, session }) => {
+  async ({ req: request, workspaceId, session, db }) => {
     const body = await request.json();
     const parsed = TransferSchema.safeParse(body);
     if (!parsed.success) {
@@ -28,7 +27,7 @@ export const POST = route(
     }
 
     // Verify target is a member
-    const targetMember = await prisma.workspaceMember.findUnique({
+    const targetMember = await db.workspaceMember.findUnique({
       where: {
         workspace_member_unique: {
           workspaceId,
@@ -42,8 +41,8 @@ export const POST = route(
     }
 
     // Transfer in a transaction: demote current owner to admin, promote target to owner
-    await prisma.$transaction([
-      prisma.workspaceMember.update({
+    await db.tx(async (tx) => {
+      await tx.workspaceMember.update({
         where: {
           workspace_member_unique: {
             workspaceId,
@@ -51,12 +50,12 @@ export const POST = route(
           },
         },
         data: { role: "admin" },
-      }),
-      prisma.workspaceMember.update({
+      });
+      await tx.workspaceMember.update({
         where: { id: targetMember.id },
         data: { role: "owner" },
-      }),
-    ]);
+      });
+    });
 
     await writeAuditLog({
       workspaceId,

@@ -13,9 +13,10 @@ const Params = z.object({ projectId: z.string().uuid(), testCaseId: z.string().u
 
 export const GET = route(
   { permission: "plans.view", params: Params },
-  async ({ params: { projectId, testCaseId }, workspaceId, db }) => {
-    const testCase = await db.testCase.findFirst({
-      where: { id: testCaseId, projectId, project: { workspaceId } },
+  async ({ params: { projectId, testCaseId }, db }) => {
+    const project = await db.project(projectId);
+    const testCase = await project.testCase.findUnique({
+      where: { id: testCaseId },
       select: { name: true, steps: true },
     });
     if (!testCase) {
@@ -27,8 +28,8 @@ export const GET = route(
       return apiError("This test case has no compiled script yet", "NOT_FOUND", 404);
     }
 
-    const environment = await db.environment.findFirst({
-      where: { id: script.envKey.split(":")[0], projectId },
+    const environment = await project.environment.findFirst({
+      where: { id: script.envKey.split(":")[0] },
       select: { url: true },
     });
 

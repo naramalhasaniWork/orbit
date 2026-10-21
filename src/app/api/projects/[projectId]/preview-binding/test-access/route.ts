@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { prisma } from "@/lib/db";
 import { apiSuccess, apiError } from "@/lib/utils/api";
 import { probeAccess } from "@/services/execution/access-headers";
 import { loadAccessSecrets } from "@/services/preview/binding-service";
@@ -24,10 +23,10 @@ const TestSchema = z.object({
  */
 export const POST = route(
   { permission: "integrations.manage", onError: mapPreviewError },
-  async ({ req, params: { projectId }, workspaceId, session }) => {
+  async ({ req, params: { projectId }, session, db }) => {
     assertPermission(session.role, "secrets.manage");
-    const binding = await prisma.previewBinding.findFirst({
-      where: { projectId, project: { workspaceId } },
+    const project = await db.project(projectId);
+    const binding = await project.previewBinding.findFirst({
       select: { id: true, allowedHostSuffixes: true },
     });
     if (!binding) return apiError("Choose a preview source first", "NOT_FOUND", 404);
@@ -40,7 +39,7 @@ export const POST = route(
       ? { clientId: input.clientId, clientSecret: input.clientSecret }
       : null;
     if (!typed) {
-      const ownPreview = await prisma.previewDeployment.findFirst({
+      const ownPreview = await project.previewDeployment.findFirst({
         where: { bindingId: binding.id, status: "ready", url: checked.url },
         select: { id: true },
       });

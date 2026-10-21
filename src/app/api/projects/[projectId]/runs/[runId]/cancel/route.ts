@@ -1,4 +1,3 @@
-import { prisma } from "@/lib/db";
 import { apiSuccess, apiError } from "@/lib/utils/api";
 import { emitRunProgress } from "@/lib/websocket";
 import { route } from "@/server/http/route";
@@ -12,18 +11,11 @@ const CANCELLABLE_STATUSES = new Set([
 
 export const POST = route(
   { permission: "runs.cancel" },
-  async ({ params: { projectId, runId }, workspaceId }) => {
-    const project = await prisma.project.findFirst({
-      where: { id: projectId, workspaceId },
-      select: { id: true },
-    });
+  async ({ params: { projectId, runId }, db }) => {
+    const project = await db.project(projectId);
 
-    if (!project) {
-      return apiError("Project not found", "NOT_FOUND", 404);
-    }
-
-    const run = await prisma.testRun.findFirst({
-      where: { id: runId, projectId },
+    const run = await project.testRun.findUnique({
+      where: { id: runId },
       select: { id: true, status: true, totalTests: true, passed: true, failed: true, flaky: true },
     });
 
@@ -39,7 +31,7 @@ export const POST = route(
       );
     }
 
-    const updated = await prisma.testRun.update({
+    const updated = await project.testRun.update({
       where: { id: runId },
       data: {
         status: "cancelled",

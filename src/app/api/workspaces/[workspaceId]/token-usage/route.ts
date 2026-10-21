@@ -1,4 +1,3 @@
-import { prisma } from "@/lib/db";
 import {
   TIER_LIMITS,
   BUDGET_WARNING_THRESHOLD,
@@ -15,8 +14,8 @@ import { route } from "@/server/http/route";
 
 export const GET = route(
   { workspace: "param", permission: "billing.view" },
-  async ({ req: request, workspaceId }) => {
-    const workspace = await prisma.workspace.findUnique({
+  async ({ req: request, workspaceId, db }) => {
+    const workspace = await db.workspace.findUnique({
       where: { id: workspaceId },
       select: {
         tier: true,
@@ -37,7 +36,7 @@ export const GET = route(
     const periodEnd = workspace.billingPeriodEnd ?? getMonthEnd();
 
     // Total cost this billing period
-    const totalUsage = await prisma.tokenUsage.aggregate({
+    const totalUsage = await db.tokenUsage.aggregate({
       where: {
         workspaceId,
         createdAt: { gte: periodStart, lte: periodEnd },
@@ -47,7 +46,7 @@ export const GET = route(
     });
 
     // Breakdown by model
-    const byModel = await prisma.tokenUsage.groupBy({
+    const byModel = await db.tokenUsage.groupBy({
       by: ["model"],
       where: {
         workspaceId,
@@ -59,7 +58,7 @@ export const GET = route(
     });
 
     // Breakdown by agent phase
-    const byAgent = await prisma.tokenUsage.groupBy({
+    const byAgent = await db.tokenUsage.groupBy({
       by: ["agentPhase"],
       where: {
         workspaceId,
@@ -71,7 +70,7 @@ export const GET = route(
     });
 
     // Breakdown by project
-    const byProject = await prisma.tokenUsage.groupBy({
+    const byProject = await db.tokenUsage.groupBy({
       by: ["projectId"],
       where: {
         workspaceId,
@@ -89,7 +88,7 @@ export const GET = route(
       .filter((id): id is string => id !== null);
 
     const projects = projectIds.length > 0
-      ? await prisma.project.findMany({
+      ? await db.project.findMany({
           where: { id: { in: projectIds }, workspaceId },
           select: { id: true, name: true, slug: true },
         })
@@ -98,7 +97,7 @@ export const GET = route(
     const projectMap = new Map(projects.map((p) => [p.id, p]));
 
     // Daily cost trend
-    const dailyUsage = await prisma.tokenUsage.groupBy({
+    const dailyUsage = await db.tokenUsage.groupBy({
       by: ["createdAt"],
       where: {
         workspaceId,
@@ -122,7 +121,7 @@ export const GET = route(
       .map(([date, data]) => ({ date, ...data }));
 
     // Credit consumption this period
-    const creditsUsed = await prisma.creditTransaction.aggregate({
+    const creditsUsed = await db.creditTransaction.aggregate({
       where: {
         workspaceId,
         type: "consumption",

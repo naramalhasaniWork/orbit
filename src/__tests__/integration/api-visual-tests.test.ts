@@ -50,7 +50,7 @@ describe("POST /api/projects/[projectId]/visual-tests", () => {
     expect(res.status).toBe(201);
     expect(canConsume).toHaveBeenCalledWith("ws-1", "run", expect.anything());
     expect(db.testRun.create).toHaveBeenCalledTimes(1);
-    expect(db.testRun.update).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "run-1" } }));
+    expect(db.testRun.update).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "run-1", AND: [{ projectId: "p1" }] } }));
   });
 
   it("refuses with the allowance reason and runs nothing when the limit is reached", async () => {
@@ -66,7 +66,7 @@ describe("POST /api/projects/[projectId]/visual-tests", () => {
     db.testRun.findFirst.mockResolvedValue({ id: "run-9" });
     expect((await call({ routePath: "/pricing", runId: "run-9" })).status).toBe(201);
     expect(canConsume).not.toHaveBeenCalled();
-    expect(db.testRun.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "run-9", projectId: "p1" } }));
+    expect(db.testRun.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { id: "run-9", projectId: "p1", AND: [{ projectId: "p1" }] } }));
   });
 
   it("404s a runId from another project", async () => {

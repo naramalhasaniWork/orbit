@@ -3,7 +3,6 @@
  * Rotates the token (invalidating the old link), extends the expiry and re-sends the email.
  */
 
-import { prisma } from "@/lib/db";
 import { assertCanManageRole } from "@/lib/auth/rbac";
 import { canConsume } from "@/lib/auth/tenant";
 import { writeAuditLog } from "@/lib/auth/audit";
@@ -14,8 +13,8 @@ import { route } from "@/server/http/route";
 
 export const POST = route(
   { workspace: "param", permission: "members.invite" },
-  async ({ params: { invitationId }, workspaceId, session }) => {
-    const invitation = await prisma.workspaceInvitation.findFirst({
+  async ({ params: { invitationId }, workspaceId, session, db }) => {
+    const invitation = await db.workspaceInvitation.findFirst({
       where: { id: invitationId, workspaceId, status: { in: ["pending", "expired"] } },
     });
     if (!invitation) {
@@ -34,7 +33,7 @@ export const POST = route(
       }
     }
 
-    const updated = await prisma.workspaceInvitation.update({
+    const updated = await db.workspaceInvitation.update({
       where: { id: invitation.id },
       data: {
         token: newInviteToken(),

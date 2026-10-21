@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { prisma } from "@/lib/db";
 import { generateApiKey } from "@/lib/auth/api-key";
 import { writeAuditLog } from "@/lib/auth/audit";
 import { apiSuccess, apiError } from "@/lib/utils/api";
@@ -21,8 +20,8 @@ const MAX_ACTIVE_KEYS = 25;
 
 export const GET = route(
   { workspace: "param", permission: "settings.manage" },
-  async ({ workspaceId }) => {
-    const keys = await prisma.apiKey.findMany({
+  async ({ workspaceId, db }) => {
+    const keys = await db.apiKey.findMany({
       where: { workspaceId, revokedAt: null },
       select: API_KEY_SELECT,
       orderBy: { createdAt: "desc" },
@@ -42,20 +41,20 @@ const CreateApiKeySchema = z.object({
 
 export const POST = route(
   { workspace: "param", permission: "settings.manage" },
-  async ({ req: request, workspaceId, session }) => {
+  async ({ req: request, workspaceId, session, db }) => {
     const parsed = CreateApiKeySchema.safeParse(await request.json());
     if (!parsed.success) {
       const firstError = parsed.error.errors[0]?.message ?? "Validation failed";
       return apiError(firstError, "VALIDATION_ERROR", 400);
     }
 
-    const activeCount = await prisma.apiKey.count({ where: { workspaceId, revokedAt: null } });
+    const activeCount = await db.apiKey.count({ where: { workspaceId, revokedAt: null } });
     if (activeCount >= MAX_ACTIVE_KEYS) {
       return apiError(`Limit of ${MAX_ACTIVE_KEYS} active API keys reached`, "LIMIT_REACHED", 400);
     }
 
     const { key, prefix, keyHash } = generateApiKey();
-    const apiKey = await prisma.apiKey.create({
+    const apiKey = await db.apiKey.create({
       data: {
         workspaceId,
         name: parsed.data.name,

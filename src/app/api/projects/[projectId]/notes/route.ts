@@ -4,7 +4,6 @@
  */
 
 import { z } from "zod";
-import { prisma } from "@/lib/db";
 import { apiError, apiSuccess } from "@/lib/utils/api";
 import { NOTE_CATEGORIES } from "@/server/domain/config";
 import {
@@ -29,27 +28,23 @@ const patchSchema = z.object({
 
 const deleteQuery = z.object({ noteId: z.string().uuid("noteId query param is required") });
 
-function findProject(projectId: string, workspaceId: string) {
-  return prisma.project.findFirst({ where: { id: projectId, workspaceId }, select: { id: true } });
-}
-
-export const GET = route({}, async ({ params: { projectId }, workspaceId }) => {
-  if (!(await findProject(projectId, workspaceId))) return apiError("Project not found", "NOT_FOUND", 404);
+export const GET = route({}, async ({ params: { projectId }, workspaceId, db }) => {
+  await db.project(projectId);
   return listProjectNotes(projectId);
 });
 
 export const POST = route(
   { permission: "projects.update", body: createSchema },
-  async ({ body, params: { projectId }, workspaceId }) => {
-    if (!(await findProject(projectId, workspaceId))) return apiError("Project not found", "NOT_FOUND", 404);
+  async ({ body, params: { projectId }, workspaceId, db }) => {
+    await db.project(projectId);
     return apiSuccess(await createProjectNote(projectId, body), 201);
   }
 );
 
 export const PATCH = route(
   { permission: "projects.update", body: patchSchema },
-  async ({ body: { noteId, ...patch }, params: { projectId }, workspaceId }) => {
-    if (!(await findProject(projectId, workspaceId))) return apiError("Project not found", "NOT_FOUND", 404);
+  async ({ body: { noteId, ...patch }, params: { projectId }, workspaceId, db }) => {
+    await db.project(projectId);
     const note = await updateProjectNote(projectId, noteId, patch);
     return note ?? apiError("Note not found", "NOT_FOUND", 404);
   }
@@ -57,8 +52,8 @@ export const PATCH = route(
 
 export const DELETE = route(
   { permission: "projects.update", query: deleteQuery },
-  async ({ query: { noteId }, params: { projectId }, workspaceId }) => {
-    if (!(await findProject(projectId, workspaceId))) return apiError("Project not found", "NOT_FOUND", 404);
+  async ({ query: { noteId }, params: { projectId }, workspaceId, db }) => {
+    await db.project(projectId);
     if (!(await deleteProjectNote(projectId, noteId))) return apiError("Note not found", "NOT_FOUND", 404);
     return { deleted: true };
   }

@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { prisma } from "@/lib/db";
 import { getRedis } from "@/lib/redis";
 import { apiError } from "@/lib/utils/api";
 import { route } from "@/server/http/route";
@@ -22,11 +21,9 @@ export const GET = route(
       frameKey: z.string().regex(FRAME_KEY_PATTERN),
     }),
   },
-  async ({ params: { projectId, runId, frameKey }, workspaceId }) => {
-    const run = await prisma.testRun.findFirst({
-      where: { id: runId, projectId, project: { workspaceId } },
-      select: { id: true },
-    });
+  async ({ params: { projectId, runId, frameKey }, db }) => {
+    const project = await db.findProject(projectId);
+    const run = project && (await project.testRun.findUnique({ where: { id: runId }, select: { id: true } }));
     if (!run) return apiError("Frame not found", "NOT_FOUND", 404);
 
     const jpeg = await getRedis().getBuffer(frameRedisKey(runId, frameKey));

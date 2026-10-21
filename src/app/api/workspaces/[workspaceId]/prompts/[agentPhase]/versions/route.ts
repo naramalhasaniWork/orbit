@@ -1,6 +1,5 @@
-import { prisma } from "@/lib/db";
 import { apiSuccess, apiError } from "@/lib/utils/api";
-import type { AgentPhase } from "@/generated/prisma/client";
+import type { AgentPhase } from "@/server/data/types";
 import { route } from "@/server/http/route";
 
 const VALID_PHASES: AgentPhase[] = ["analyst", "planner", "executor", "reporter", "auditor"];
@@ -8,7 +7,7 @@ const CONTENT_PREVIEW_LENGTH = 200;
 
 export const GET = route(
   { workspace: "param", permission: "settings.view" },
-  async ({ params: { agentPhase }, workspaceId }) => {
+  async ({ params: { agentPhase }, workspaceId, db }) => {
     if (!VALID_PHASES.includes(agentPhase as AgentPhase)) {
       return apiError(
         "Invalid agentPhase. Must be one of: analyst, planner, executor, reporter, auditor",
@@ -17,7 +16,7 @@ export const GET = route(
       );
     }
 
-    const versions = await prisma.promptVersion.findMany({
+    const versions = await db.promptVersion.findMany({
       where: {
         workspaceId,
         agentPhase: agentPhase as AgentPhase,

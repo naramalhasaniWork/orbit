@@ -3,18 +3,17 @@
  * DELETE /api/workspaces/:workspaceId/mcp-connections/:connectionId — Delete connection
  */
 
-import { prisma } from "@/lib/db";
 import { apiSuccess, apiError } from "@/lib/utils/api";
 import { encrypt } from "@/lib/vault";
 import { writeAuditLog } from "@/lib/auth/audit";
 import { disconnectFromPool } from "@/services/mcp/client";
-import type { Prisma } from "@/generated/prisma/client";
+import type { Prisma } from "@/server/data/types";
 import { route } from "@/server/http/route";
 
 export const PUT = route(
   { workspace: "param", permission: "settings.manage" },
-  async ({ req: request, params: { connectionId }, workspaceId, session }) => {
-    const existing = await prisma.mcpConnection.findFirst({
+  async ({ req: request, params: { connectionId }, workspaceId, session, db }) => {
+    const existing = await db.mcpConnection.findFirst({
       where: { id: connectionId, workspaceId },
     });
     if (!existing) {
@@ -62,7 +61,7 @@ export const PUT = route(
       }
     }
 
-    const updated = await prisma.mcpConnection.update({
+    const updated = await db.mcpConnection.update({
       where: { id: connectionId },
       data,
     });
@@ -95,15 +94,15 @@ export const PUT = route(
 
 export const DELETE = route(
   { workspace: "param", permission: "settings.manage" },
-  async ({ params: { connectionId }, workspaceId, session }) => {
-    const existing = await prisma.mcpConnection.findFirst({
+  async ({ params: { connectionId }, workspaceId, session, db }) => {
+    const existing = await db.mcpConnection.findFirst({
       where: { id: connectionId, workspaceId },
     });
     if (!existing) {
       return apiError("Connection not found", "NOT_FOUND", 404);
     }
 
-    await prisma.mcpConnection.delete({ where: { id: connectionId } });
+    await db.mcpConnection.delete({ where: { id: connectionId } });
     disconnectFromPool(connectionId);
 
     await writeAuditLog({

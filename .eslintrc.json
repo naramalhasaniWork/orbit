@@ -5,19 +5,139 @@
       "error",
       {
         "paths": [
-          { "name": "@anthropic-ai/sdk", "message": "Call AI providers through src/server/ai/gateway.ts." },
-          { "name": "openai", "message": "Call AI providers through src/server/ai/gateway.ts." }
+          {"name": "@anthropic-ai/sdk", "message": "Call AI providers through src/server/ai/gateway.ts."},
+          {"name": "openai", "message": "Call AI providers through src/server/ai/gateway.ts."},
+          {
+            "name": "@/server/data/scope",
+            "importNames": ["forSystem"],
+            "message": "forSystem() is for src/server/jobs and src/server/engine; use ctx.db (forWorkspace) elsewhere."
+          }
         ],
         "patterns": [
-          { "group": ["@anthropic-ai/sdk/*", "openai/*"], "message": "Call AI providers through src/server/ai/gateway.ts." }
+          {
+            "group": ["@anthropic-ai/sdk/*", "openai/*"],
+            "message": "Call AI providers through src/server/ai/gateway.ts."
+          }
         ]
       }
     ]
   },
   "overrides": [
     {
-      "files": ["src/server/ai/providers/**"],
-      "rules": { "no-restricted-imports": "off" }
-    }
+      "files": ["src/app/api/**", "src/components/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {"name": "@anthropic-ai/sdk", "message": "Call AI providers through src/server/ai/gateway.ts."},
+              {"name": "openai", "message": "Call AI providers through src/server/ai/gateway.ts."},
+              {
+                "name": "@/server/data/scope",
+                "importNames": ["forSystem"],
+                "message": "forSystem() is for src/server/jobs and src/server/engine; use ctx.db (forWorkspace) elsewhere."
+              },
+              {
+                "name": "@/lib/db",
+                "message": "Use ctx.db (src/server/data/scope.ts) or a src/server/data repo."
+              }
+            ],
+            "patterns": [
+              {
+                "group": ["@anthropic-ai/sdk/*", "openai/*"],
+                "message": "Call AI providers through src/server/ai/gateway.ts."
+              },
+              {
+                "group": ["@/generated/prisma", "@/generated/prisma/*"],
+                "message": "Use ctx.db (src/server/data/scope.ts) or a src/server/data repo; import types from src/server/domain."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": [
+        "src/app/api/admin/analytics/route.ts",
+        "src/app/api/admin/audit-logs/route.ts",
+        "src/app/api/admin/jobs/route.ts",
+        "src/app/api/admin/models/\\[modelId\\]/route.ts",
+        "src/app/api/admin/models/route.ts",
+        "src/app/api/admin/models/sync/route.ts",
+        "src/app/api/admin/prompts/route.ts",
+        "src/app/api/admin/system/route.ts",
+        "src/app/api/admin/users/route.ts",
+        "src/app/api/admin/workspaces/route.ts",
+        "src/app/api/billing/analytics/route.ts",
+        "src/app/api/billing/checkout/route.ts",
+        "src/app/api/billing/credits/route.ts",
+        "src/app/api/billing/invoices/route.ts",
+        "src/app/api/billing/portal/route.ts",
+        "src/app/api/billing/subscription/route.ts",
+        "src/app/api/billing/usage/route.ts",
+        "src/app/api/github/installations/route.ts",
+        "src/app/api/invitations/\\[token\\]/accept/route.ts",
+        "src/app/api/projects/\\[projectId\\]/events/route.ts",
+        "src/app/api/projects/\\[projectId\\]/linear-issue/route.ts",
+        "src/app/api/projects/\\[projectId\\]/plan/progress/route.ts",
+        "src/app/api/projects/\\[projectId\\]/sync/progress/route.ts",
+        "src/app/api/projects/route.ts",
+        "src/app/api/user/orgs/route.ts",
+        "src/app/api/user/profile/route.ts",
+        "src/app/api/user/repos/route.ts",
+        "src/app/api/v1/projects/\\[projectId\\]/plan/route.ts",
+        "src/app/api/v1/projects/\\[projectId\\]/runs/route.ts",
+        "src/app/api/v1/projects/\\[projectId\\]/sync/route.ts",
+        "src/app/api/v1/workspaces/\\[workspaceId\\]/health/route.ts",
+        "src/app/api/webhooks/github/route.ts",
+        "src/app/api/webhooks/slack/interactions/route.ts",
+        "src/app/api/webhooks/stripe/handlers.ts",
+        "src/app/api/webhooks/stripe/route.ts",
+        "src/app/api/workspaces/route.ts"
+      ],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {"name": "@anthropic-ai/sdk", "message": "Call AI providers through src/server/ai/gateway.ts."},
+              {"name": "openai", "message": "Call AI providers through src/server/ai/gateway.ts."},
+              {
+                "name": "@/server/data/scope",
+                "importNames": ["forSystem"],
+                "message": "forSystem() is for src/server/jobs and src/server/engine; use ctx.db (forWorkspace) elsewhere."
+              }
+            ],
+            "patterns": [
+              {
+                "group": ["@anthropic-ai/sdk/*", "openai/*"],
+                "message": "Call AI providers through src/server/ai/gateway.ts."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/server/jobs/**", "src/server/engine/**", "src/server/data/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {"name": "@anthropic-ai/sdk", "message": "Call AI providers through src/server/ai/gateway.ts."},
+              {"name": "openai", "message": "Call AI providers through src/server/ai/gateway.ts."}
+            ],
+            "patterns": [
+              {
+                "group": ["@anthropic-ai/sdk/*", "openai/*"],
+                "message": "Call AI providers through src/server/ai/gateway.ts."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {"files": ["src/server/ai/providers/**"], "rules": {"no-restricted-imports": "off"}}
   ]
 }

@@ -1,11 +1,11 @@
 import { randomUUID } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/db";
 import { requireApiKey } from "@/lib/auth/api-key";
 import { consumeRateLimit, getClientIp, tooManyRequests } from "@/lib/auth/rate-limit";
 import { apiSuccess } from "@/lib/utils/api";
 import type { OrbitSession } from "@/lib/utils/types";
 import type { MemberRole } from "@/lib/auth/permissions";
+import { forWorkspace, type WorkspaceScope } from "@/server/data/scope";
 import { logger, runWithLogContext, getLogContext } from "@/server/observability/logger";
 import { assertPermission, loadMembership } from "./auth";
 import { AuthError, HttpError } from "./errors";
@@ -126,9 +126,17 @@ async function execute<S extends RouteSpec>(
   }
 
   const run = async (): Promise<Response> => {
+    let scope: WorkspaceScope | undefined;
+    const { workspaceId } = identity;
     const ctx = {
-      req, params, query, body, rawBody, requestId, log: logger, db: prisma,
-      workspaceId: identity.workspaceId,
+      req, params, query, body, rawBody, requestId, log: logger,
+      // Built on first use, so handlers that never touch the database never build a scope.
+      get db() {
+        if (!workspaceId) return null;
+        scope ??= forWorkspace({ workspaceId, memberUserId: identity.memberId ? identity.userId ?? undefined : undefined });
+        return scope;
+      },
+      workspaceId,
       session: identity.session,
       auth: identity.via
         ? { userId: identity.userId, role: identity.role, memberId: identity.memberId, via: identity.via }

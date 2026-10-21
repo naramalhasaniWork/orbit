@@ -1,4 +1,3 @@
-import { prisma } from "@/lib/db";
 import { parseProjectSettings } from "@/server/data/settings-repo";
 import { apiSuccess, apiError } from "@/lib/utils/api";
 import { pollProjectCommits } from "@/services/github/commit-poller";
@@ -10,8 +9,8 @@ import { route } from "@/server/http/route";
  * Immediately checks GitHub for new commits and updates project.settings.
  * Returns the current sync status: up-to-date, behind, or error.
  */
-export const GET = route({}, async ({ params: { projectId }, workspaceId }) => {
-  const project = await prisma.project.findFirst({
+export const GET = route({}, async ({ params: { projectId }, workspaceId, db }) => {
+  const project = await db.project.findFirst({
     where: { id: projectId, workspaceId },
     select: { id: true, settings: true },
   });
@@ -23,7 +22,7 @@ export const GET = route({}, async ({ params: { projectId }, workspaceId }) => {
   const result = await pollProjectCommits(projectId);
 
   // Re-fetch settings after poll to return latest values
-  const updated = await prisma.project.findUnique({
+  const updated = await db.project.findUnique({
     where: { id: projectId },
     select: { settings: true },
   });

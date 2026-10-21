@@ -1,10 +1,10 @@
 import { assertPublicUrl, UnsafeUrlError } from "@/lib/utils/ssrf";
 import { NextRequest } from "next/server";
-import { prisma } from "@/lib/db";
 import { requirePermission } from "@/lib/auth/rbac";
 import { apiSuccess, apiError, handleApiError } from "@/lib/utils/api";
 import { encrypt } from "@/lib/vault";
 import { syncModelsToRegistry } from "@/server/ai/openrouter-registry";
+import { forWorkspace } from "@/server/data/scope";
 
 function maskApiKey(encrypted: string | null): string | null {
   if (!encrypted) return null;
@@ -28,8 +28,9 @@ export async function PUT(
   try {
     const { workspaceId, provider } = await params;
     const ctx = await requirePermission(workspaceId, "settings.manage");
+    const db = forWorkspace({ workspaceId, memberUserId: ctx.session.user.id });
 
-    const existing = await prisma.providerConfig.findUnique({
+    const existing = await db.providerConfig.findUnique({
       where: { provider_config_unique: { workspaceId, provider } },
     });
 
@@ -66,7 +67,7 @@ export async function PUT(
 
     // If setting this provider as default, unset other defaults
     if (isDefault === true) {
-      await prisma.providerConfig.updateMany({
+      await db.providerConfig.updateMany({
         where: { workspaceId, isDefault: true, id: { not: existing.id } },
         data: { isDefault: false },
       });
@@ -80,12 +81,12 @@ export async function PUT(
     if (isDefault !== undefined) updateData.isDefault = isDefault;
     if (settings !== undefined) updateData.settings = settings;
 
-    const updated = await prisma.providerConfig.update({
+    const updated = await db.providerConfig.update({
       where: { id: existing.id },
       data: updateData,
     });
 
-    await prisma.auditLog.create({
+    await db.auditLog.create({
       data: {
         workspaceId,
         userId: ctx.session.user.id,
@@ -132,8 +133,9 @@ export async function DELETE(
   try {
     const { workspaceId, provider } = await params;
     const ctx = await requirePermission(workspaceId, "settings.manage");
+    const db = forWorkspace({ workspaceId, memberUserId: ctx.session.user.id });
 
-    const existing = await prisma.providerConfig.findUnique({
+    const existing = await db.providerConfig.findUnique({
       where: { provider_config_unique: { workspaceId, provider } },
     });
 
@@ -141,9 +143,9 @@ export async function DELETE(
       return apiError("Provider config not found", "NOT_FOUND", 404);
     }
 
-    await prisma.providerConfig.delete({ where: { id: existing.id } });
+    await db.providerConfig.delete({ where: { id: existing.id } });
 
-    await prisma.auditLog.create({
+    await db.auditLog.create({
       data: {
         workspaceId,
         userId: ctx.session.user.id,

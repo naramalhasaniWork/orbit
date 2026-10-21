@@ -1,4 +1,3 @@
-import { prisma } from "@/lib/db";
 import { apiSuccess, apiError } from "@/lib/utils/api";
 import {
   getProjectMappings,
@@ -11,15 +10,8 @@ import { route } from "@/server/http/route";
 // GET /api/projects/[projectId]/selectors
 // ============================================================
 
-export const GET = route({}, async ({ req: request, params: { projectId }, workspaceId }) => {
-  const project = await prisma.project.findFirst({
-    where: { id: projectId, workspaceId },
-    select: { id: true },
-  });
-
-  if (!project) {
-    return apiError("Project not found", "NOT_FOUND", 404);
-  }
+export const GET = route({}, async ({ req: request, params: { projectId }, workspaceId, db }) => {
+  const project = await db.project(projectId);
 
   const approvedOnly = request.nextUrl.searchParams.get("approved") === "true";
   const mappings = await getProjectMappings(projectId, { approvedOnly });
@@ -34,15 +26,8 @@ export const GET = route({}, async ({ req: request, params: { projectId }, works
 
 export const PATCH = route(
   { permission: "plans.update" },
-  async ({ req: request, params: { projectId }, workspaceId }) => {
-    const project = await prisma.project.findFirst({
-      where: { id: projectId, workspaceId },
-      select: { id: true },
-    });
-
-    if (!project) {
-      return apiError("Project not found", "NOT_FOUND", 404);
-    }
+  async ({ req: request, params: { projectId }, workspaceId, db }) => {
+    const project = await db.project(projectId);
 
     const body = await request.json();
     const { mappingId, action } = body as {
@@ -54,7 +39,7 @@ export const PATCH = route(
       return apiError("mappingId and action are required", "VALIDATION_ERROR", 400);
     }
 
-    const mapping = await prisma.selectorMapping.findFirst({
+    const mapping = await project.selectorMapping.findFirst({
       where: { id: mappingId, projectId },
     });
 

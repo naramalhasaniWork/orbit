@@ -1,12 +1,11 @@
-import { prisma } from "@/lib/db";
 import { getIndexingQueue } from "@/lib/queue/queues";
 import { redactSettingsOf, userSettingsPatch } from "@/lib/integrations/redact";
 import { patchProjectSettings } from "@/server/data/settings-repo";
 import { apiSuccess, apiError } from "@/lib/utils/api";
 import { route } from "@/server/http/route";
 
-export const GET = route({}, async ({ params: { projectId }, workspaceId }) => {
-  const project = await prisma.project.findFirst({
+export const GET = route({}, async ({ params: { projectId }, workspaceId, db }) => {
+  const project = await db.project.findFirst({
     where: { id: projectId, workspaceId },
   });
 
@@ -16,8 +15,8 @@ export const GET = route({}, async ({ params: { projectId }, workspaceId }) => {
 
   // Enrich with indexing status data
   const [nodeCount, edgeCount, indexingStatus] = await Promise.all([
-    prisma.systemMapNode.count({ where: { projectId } }),
-    prisma.systemMapEdge.count({ where: { projectId } }),
+    db.systemMapNode.count({ where: { projectId } }),
+    db.systemMapEdge.count({ where: { projectId } }),
     getIndexingStatus(projectId, project.lastIndexedAt),
   ]);
 
@@ -74,15 +73,8 @@ interface UpdateProjectBody {
 
 export const PATCH = route(
   { permission: "projects.update" },
-  async ({ req: request, params: { projectId }, workspaceId }) => {
-    const project = await prisma.project.findFirst({
-      where: { id: projectId, workspaceId },
-      select: { id: true },
-    });
-
-    if (!project) {
-      return apiError("Project not found", "NOT_FOUND", 404);
-    }
+  async ({ req: request, params: { projectId }, workspaceId, db }) => {
+    const project = await db.project(projectId);
 
     const body = (await request.json()) as UpdateProjectBody;
     const data: Record<string, unknown> = {};
@@ -108,7 +100,7 @@ export const PATCH = route(
       await patchProjectSettings(projectId, userSettingsPatch(body.settings));
     }
 
-    const updated = await prisma.project.update({
+    const updated = await db.project.update({
       where: { id: projectId },
       data,
     });
@@ -123,17 +115,10 @@ export const PATCH = route(
 
 export const DELETE = route(
   { permission: "projects.delete" },
-  async ({ params: { projectId }, workspaceId }) => {
-    const project = await prisma.project.findFirst({
-      where: { id: projectId, workspaceId },
-      select: { id: true },
-    });
+  async ({ params: { projectId }, workspaceId, db }) => {
+    const project = await db.project(projectId);
 
-    if (!project) {
-      return apiError("Project not found", "NOT_FOUND", 404);
-    }
-
-    await prisma.project.update({
+    await db.project.update({
       where: { id: projectId },
       data: { status: "archived", deletedAt: new Date() },
     });

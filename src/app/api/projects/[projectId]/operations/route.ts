@@ -1,4 +1,3 @@
-import { prisma } from "@/lib/db";
 import { apiSuccess, apiError } from "@/lib/utils/api";
 import { route } from "@/server/http/route";
 
@@ -28,18 +27,11 @@ const EMPTY_MAP: OperationsMapData = {
   dependencies: [],
 };
 
-export const GET = route({}, async ({ params: { projectId }, workspaceId }) => {
-  const project = await prisma.project.findFirst({
-    where: { id: projectId, workspaceId },
-    select: { id: true },
-  });
-
-  if (!project) {
-    return apiError("Project not found", "NOT_FOUND", 404);
-  }
+export const GET = route({}, async ({ params: { projectId }, workspaceId, db }) => {
+  const project = await db.project(projectId);
 
   // Extract operations map from the latest active test plan summary
-  const plan = await prisma.testPlan.findFirst({
+  const plan = await project.testPlan.findFirst({
     where: { projectId, isActive: true, deletedAt: null },
     orderBy: { version: "desc" },
     select: { id: true, summary: true, version: true, createdAt: true },

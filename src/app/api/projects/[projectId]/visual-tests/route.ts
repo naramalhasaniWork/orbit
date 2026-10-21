@@ -1,4 +1,3 @@
-import { prisma } from "@/lib/db";
 import { apiSuccess, apiError } from "@/lib/utils/api";
 import { createRunWithinAllowance } from "@/services/orchestrator/run-launcher";
 import { runVisualTest } from "@/services/visual-qa/visual-test-runner";
@@ -20,15 +19,8 @@ interface VisualTestBody {
 
 export const POST = route(
   { permission: "runs.create" },
-  async ({ req: request, params: { projectId }, workspaceId }) => {
-    const project = await prisma.project.findFirst({
-      where: { id: projectId, workspaceId },
-      select: { id: true },
-    });
-
-    if (!project) {
-      return apiError("Project not found", "NOT_FOUND", 404);
-    }
+  async ({ req: request, params: { projectId }, workspaceId, db }) => {
+    const project = await db.project(projectId);
 
     const body = (await request.json()) as VisualTestBody;
 
@@ -38,7 +30,7 @@ export const POST = route(
 
     // Resolve environment URL
     const environmentId = body.environmentId ?? await getDefaultEnvironment(projectId);
-    const environment = environmentId && await prisma.environment.findFirst({
+    const environment = environmentId && await project.environment.findFirst({
       where: { id: environmentId, projectId },
       select: { id: true, url: true, type: true },
     });
@@ -62,7 +54,7 @@ export const POST = route(
     // Attach to the caller's run (it must be this project's), or create one under the workspace allowance
     let runId = body.runId;
     if (runId) {
-      const existing = await prisma.testRun.findFirst({ where: { id: runId, projectId }, select: { id: true } });
+      const existing = await project.testRun.findFirst({ where: { id: runId, projectId }, select: { id: true } });
       if (!existing) return apiError("Run not found", "NOT_FOUND", 404);
     } else {
       const created = await createRunWithinAllowance(workspaceId, {
@@ -91,7 +83,7 @@ export const POST = route(
 
     // If we created a run, complete it
     if (!body.runId) {
-      await prisma.testRun.update({
+      await project.testRun.update({
         where: { id: runId },
         data: {
           status: "completed",

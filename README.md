@@ -141,7 +141,25 @@ echo "NEXTAUTH_SECRET=$(openssl rand -base64 32)"; echo "ENCRYPTION_KEY=$(openss
 ```
 
 Optional demo data: `pnpm db:seed`. When changing `prisma/schema.prisma`, create a migration
-with `pnpm db:migrate` (never `db push` against a shared database).
+with `pnpm db:migrate` (never `db push` against a shared database). Read the generated SQL before
+committing it: it must never contain `DROP INDEX` for the search indexes that `src/lib/db/vector.ts`
+builds at startup. `system_map_nodes_name_trgm_idx` is declared in the schema for that reason; the
+HNSW and full-text expression indexes are invisible to Prisma, so it leaves them alone.
+
+### Data access
+
+API routes read and write through `ctx.db`, the caller's workspace scope from
+`src/server/data/scope.ts`: every query gets its tenant filter added, and `await ctx.db.project(id)`
+is the only way to a project's rows (404 for another workspace's project). Writes cannot move a row
+to another tenant or connect another tenant's rows (nested `connect`/`set`/`upsert` are refused),
+child rows (results, messages) are created only under a parent the scope can see, and global
+tables other than the caller's own workspace row and read-only platform tables are not on `ctx.db`.
+Workers and the engine
+use `forSystem()`. `.eslintrc.json` bans `@/lib/db` and `@/generated/prisma` in `src/app/api` and
+`src/components`; files not yet migrated sit in an allowlist override there, which only shrinks.
+The `tenantGuard` extension throws on an unscoped tenant query in dev and tests and logs in
+production (`ORBIT_TENANT_GUARD=throw|log|off` overrides). Real-Postgres suites run when
+`ORBIT_TEST_DATABASE_URL` points at a migrated database.
 
 ## Environment Variables
 

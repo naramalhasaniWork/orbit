@@ -1,4 +1,3 @@
-import { prisma } from "@/lib/db";
 import { apiSuccess, apiError } from "@/lib/utils/api";
 import { syncEnvironments } from "@/services/integrations/railway/environment-sync";
 import { connectionAccess } from "@/services/preview/connections";
@@ -9,9 +8,9 @@ import { route } from "@/server/http/route";
 /** POST: import the bound Railway service's long-lived environments as Orbit environments. */
 export const POST = route(
   { permission: "secrets.manage", onError: mapPreviewError },
-  async ({ params: { projectId }, workspaceId }) => {
-    const binding = await prisma.previewBinding.findFirst({
-      where: { projectId, project: { workspaceId } },
+  async ({ params: { projectId }, db }) => {
+    const project = await db.project(projectId);
+    const binding = await project.previewBinding.findFirst({
       include: { connection: true },
     });
     const target = binding && parseRailwayTarget(binding.targetRef);

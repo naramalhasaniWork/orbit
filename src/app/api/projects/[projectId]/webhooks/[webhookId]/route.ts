@@ -4,7 +4,6 @@
  */
 
 import { z } from "zod";
-import { prisma } from "@/lib/db";
 import { apiError } from "@/lib/utils/api";
 import { WEBHOOK_EVENTS } from "@/services/reporting/integrations/outbound-webhooks";
 import { deleteProjectEndpoint, updateProjectEndpoint } from "@/server/data/webhook-endpoint-repo";
@@ -21,20 +20,12 @@ const patchSchema = z
 
 const params = z.object({ projectId: z.string(), webhookId: z.string().uuid() });
 
-function findProject(projectId: string, workspaceId: string) {
-  return prisma.project.findFirst({
-    where: { id: projectId, workspaceId },
-    select: { id: true },
-  });
-}
-
 export const PATCH = route(
   { permission: "integrations.manage", params, body: patchSchema },
-  async ({ body, params: { projectId, webhookId }, workspaceId }) => {
-    const project = await findProject(projectId, workspaceId);
-    if (!project) return apiError("Project not found", "NOT_FOUND", 404);
+  async ({ body, params: { projectId, webhookId }, db }) => {
+    const project = await db.project(projectId);
 
-    const updated = await updateProjectEndpoint(projectId, webhookId, body);
+    const updated = await updateProjectEndpoint(project.id, webhookId, body, project);
     if (!updated) return apiError("Webhook not found", "NOT_FOUND", 404);
 
     return { updated: true };
@@ -43,11 +34,10 @@ export const PATCH = route(
 
 export const DELETE = route(
   { permission: "integrations.manage", params },
-  async ({ params: { projectId, webhookId }, workspaceId }) => {
-    const project = await findProject(projectId, workspaceId);
-    if (!project) return apiError("Project not found", "NOT_FOUND", 404);
+  async ({ params: { projectId, webhookId }, db }) => {
+    const project = await db.project(projectId);
 
-    const deleted = await deleteProjectEndpoint(projectId, webhookId);
+    const deleted = await deleteProjectEndpoint(project.id, webhookId, project);
     if (!deleted) return apiError("Webhook not found", "NOT_FOUND", 404);
 
     return { deleted: true };

@@ -1,5 +1,4 @@
 import { NextRequest } from "next/server";
-import { prisma } from "@/lib/db";
 import {
   requireWorkspace,
   apiSuccess,
@@ -9,25 +8,19 @@ import {
 import { requirePermission } from "@/lib/auth/rbac";
 import { runCodeAudit, AuditUnavailableError } from "@/services/auditing/auditor";
 import { isProjectIndexed, INDEX_REQUIRED_MESSAGE } from "@/services/indexing/index-status";
+import { forWorkspace } from "@/server/data/scope";
 import { route } from "@/server/http/route";
 
 // ============================================================
 // GET /api/projects/[projectId]/audit — List past audits
 // ============================================================
 
-export const GET = route({}, async ({ req: request, params: { projectId }, workspaceId }) => {
-  const project = await prisma.project.findFirst({
-    where: { id: projectId, workspaceId },
-    select: { id: true },
-  });
-
-  if (!project) {
-    return apiError("Project not found", "NOT_FOUND", 404);
-  }
+export const GET = route({}, async ({ req: request, params: { projectId }, workspaceId, db }) => {
+  const project = await db.project(projectId);
 
   const limit = Number(request.nextUrl.searchParams.get("limit")) || 20;
 
-  const audits = await prisma.auditResult.findMany({
+  const audits = await project.auditResult.findMany({
     where: { projectId },
     orderBy: { createdAt: "desc" },
     take: Math.min(limit, 50),
@@ -64,15 +57,9 @@ export async function POST(
     const { projectId } = await params;
 
     await requirePermission(workspaceId, "runs.create");
+    const db = forWorkspace(workspaceId);
 
-    const project = await prisma.project.findFirst({
-      where: { id: projectId, workspaceId },
-      select: { id: true },
-    });
-
-    if (!project) {
-      return apiError("Project not found", "NOT_FOUND", 404);
-    }
+    const project = await db.project(projectId);
 
     if (!(await isProjectIndexed(projectId))) {
       return apiError(INDEX_REQUIRED_MESSAGE, "INDEX_REQUIRED", 409);

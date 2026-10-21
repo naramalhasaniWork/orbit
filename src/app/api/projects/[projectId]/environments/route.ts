@@ -1,6 +1,5 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
-import { prisma } from "@/lib/db";
 import {
   requireWorkspace,
   apiSuccess,
@@ -8,19 +7,13 @@ import {
   handleApiError,
 } from "@/lib/utils/api";
 import { requirePermission } from "@/lib/auth/rbac";
+import { forWorkspace } from "@/server/data/scope";
 import { route } from "@/server/http/route";
 
-export const GET = route({}, async ({ params: { projectId }, workspaceId }) => {
-  const project = await prisma.project.findFirst({
-    where: { id: projectId, workspaceId },
-    select: { id: true },
-  });
+export const GET = route({}, async ({ params: { projectId }, workspaceId, db }) => {
+  const project = await db.project(projectId);
 
-  if (!project) {
-    return apiError("Project not found", "NOT_FOUND", 404);
-  }
-
-  const environments = await prisma.environment.findMany({
+  const environments = await project.environment.findMany({
     where: { projectId },
     orderBy: { createdAt: "asc" },
   });
@@ -50,15 +43,8 @@ const CreateEnvironmentSchema = z.object({
  */
 export const POST = route(
   { permission: "secrets.manage" },
-  async ({ req: request, params: { projectId }, workspaceId }) => {
-    const project = await prisma.project.findFirst({
-      where: { id: projectId, workspaceId },
-      select: { id: true },
-    });
-
-    if (!project) {
-      return apiError("Project not found", "NOT_FOUND", 404);
-    }
+  async ({ req: request, params: { projectId }, workspaceId, db }) => {
+    const project = await db.project(projectId);
 
     const body = await request.json();
     const parsed = CreateEnvironmentSchema.safeParse(body);
@@ -73,13 +59,13 @@ export const POST = route(
 
     // Only one environment may be the default
     if (isDefault) {
-      await prisma.environment.updateMany({
+      await project.environment.updateMany({
         where: { projectId, isDefault: true },
         data: { isDefault: false },
       });
     }
 
-    const environment = await prisma.environment.create({
+    const environment = await project.environment.create({
       data: {
         projectId,
         name: name.trim(),
@@ -114,16 +100,10 @@ export async function PATCH(
   try {
     const { workspaceId } = await requireWorkspace();
     await requirePermission(workspaceId, "projects.update");
+    const db = forWorkspace(workspaceId);
     const { projectId } = await params;
 
-    const project = await prisma.project.findFirst({
-      where: { id: projectId, workspaceId },
-      select: { id: true },
-    });
-
-    if (!project) {
-      return apiError("Project not found", "NOT_FOUND", 404);
-    }
+    const project = await db.project(projectId);
 
     const body = await request.json();
     const { id: envId, ...rest } = body;
@@ -138,7 +118,7 @@ export async function PATCH(
       return apiError("Environment ID is required", "VALIDATION_ERROR", 400);
     }
 
-    const env = await prisma.environment.findFirst({
+    const env = await project.environment.findFirst({
       where: { id: envId, projectId },
     });
 
@@ -152,13 +132,13 @@ export async function PATCH(
 
     // If setting as default, unset other defaults first
     if (parsed.data.isDefault) {
-      await prisma.environment.updateMany({
+      await project.environment.updateMany({
         where: { projectId, isDefault: true },
         data: { isDefault: false },
       });
     }
 
-    const updated = await prisma.environment.update({
+    const updated = await project.environment.update({
       where: { id: envId },
       data: parsed.data,
     });

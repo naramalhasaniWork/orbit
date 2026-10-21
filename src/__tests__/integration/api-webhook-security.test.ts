@@ -22,6 +22,7 @@ vi.mock("@/lib/db", async () => {
     },
     webhookDelivery: {
       findFirst: vi.fn(async () => delivery),
+      findUnique: vi.fn(async () => delivery),
       create: (...a: unknown[]) => deliveryCreate(...a),
       update: (...a: unknown[]) => deliveryUpdate(...a),
     },
@@ -45,7 +46,7 @@ vi.mock("@/server/http/auth", async (orig) =>
 );
 
 import { resetRouteAuth, routeAuth } from "../helpers/route-auth";
-import { sealSecret } from "@/lib/integrations/secret-field";
+import { sealSecret } from "@/server/data/sealing";
 import { isAllowedWebhookUrl } from "@/lib/integrations/webhook-url";
 
 // Delivery goes through the DNS-pinned safeFetch; route it to the stubbed global fetch here.

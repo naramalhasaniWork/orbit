@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
-import { prisma } from "@/lib/db";
 import { getServerSession } from "@/lib/utils/api";
+import { forWorkspace } from "@/server/data/scope";
 import { channels } from "@/lib/redis/pubsub";
 import { createSSEStream } from "@/lib/sse/stream";
 import type { WebSocketEvent } from "@/lib/websocket/channels";
@@ -18,18 +18,15 @@ export async function GET(
 
   const { projectId, runId } = await params;
 
-  const project = await prisma.project.findFirst({
-    where: { id: projectId, workspaceId: session.workspaceId },
-    select: { id: true },
-  });
+  const project = session.workspaceId ? await forWorkspace(session.workspaceId).findProject(projectId) : null;
 
   if (!project) {
     return new Response("Project not found", { status: 404 });
   }
 
   // Check if run already completed — no need for SSE
-  const run = await prisma.testRun.findFirst({
-    where: { id: runId, projectId },
+  const run = await project.testRun.findUnique({
+    where: { id: runId },
     select: { status: true },
   });
 

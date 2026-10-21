@@ -1,4 +1,3 @@
-import { prisma } from "@/lib/db";
 import { apiSuccess, apiError } from "@/lib/utils/api";
 import { route } from "@/server/http/route";
 
@@ -9,15 +8,8 @@ import { route } from "@/server/http/route";
 
 export const POST = route(
   { permission: "plans.update" },
-  async ({ req: request, params: { projectId }, workspaceId }) => {
-    const project = await prisma.project.findFirst({
-      where: { id: projectId, workspaceId },
-      select: { id: true },
-    });
-
-    if (!project) {
-      return apiError("Project not found", "NOT_FOUND", 404);
-    }
+  async ({ req: request, params: { projectId }, workspaceId, db }) => {
+    const project = await db.project(projectId);
 
     const body = await request.json();
     const {
@@ -66,7 +58,7 @@ export const POST = route(
     // Find the target plan
     let targetPlanId = planId;
     if (!targetPlanId) {
-      const activePlan = await prisma.testPlan.findFirst({
+      const activePlan = await project.testPlan.findFirst({
         where: { projectId, isActive: true },
         select: { id: true },
       });
@@ -81,7 +73,7 @@ export const POST = route(
       targetPlanId = activePlan.id;
     }
 
-    const testCase = await prisma.testCase.create({
+    const testCase = await project.testCase.create({
       data: {
         projectId,
         testPlanId: targetPlanId,

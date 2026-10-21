@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { Prisma } from "@/generated/prisma/client";
-import { sealSecret } from "@/lib/integrations/secret-field";
+import { sealSecret } from "@/server/data/sealing";
 import {
   LegacyNoteSchema,
   LegacyWebhookSchema,

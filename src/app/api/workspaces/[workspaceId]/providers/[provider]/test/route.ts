@@ -1,4 +1,3 @@
-import { prisma } from "@/lib/db";
 import { apiSuccess, apiError } from "@/lib/utils/api";
 import { decrypt } from "@/lib/vault";
 import { safeFetch, UnsafeUrlError } from "@/lib/utils/ssrf";
@@ -97,8 +96,8 @@ async function testCustom(apiKey: string, baseUrl?: string): Promise<{ success: 
 
 export const POST = route(
   { workspace: "param", permission: "settings.manage" },
-  async ({ params: { provider }, workspaceId }) => {
-    const config = await prisma.providerConfig.findUnique({
+  async ({ params: { provider }, workspaceId, db }) => {
+    const config = await db.providerConfig.findUnique({
       where: { provider_config_unique: { workspaceId, provider } },
     });
 

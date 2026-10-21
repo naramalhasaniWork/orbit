@@ -1,4 +1,3 @@
-import { prisma } from "@/lib/db";
 import { writeAuditLog } from "@/lib/auth/audit";
 import { apiSuccess, apiError } from "@/lib/utils/api";
 import { route } from "@/server/http/route";
@@ -9,8 +8,8 @@ import { route } from "@/server/http/route";
 
 export const DELETE = route(
   { workspace: "param", permission: "settings.manage" },
-  async ({ params: { keyId }, workspaceId, session }) => {
-    const existing = await prisma.apiKey.findFirst({
+  async ({ params: { keyId }, workspaceId, session, db }) => {
+    const existing = await db.apiKey.findFirst({
       where: { id: keyId, workspaceId, revokedAt: null },
       select: { id: true, name: true, prefix: true },
     });
@@ -19,7 +18,7 @@ export const DELETE = route(
       return apiError("API key not found", "NOT_FOUND", 404);
     }
 
-    await prisma.apiKey.update({
+    await db.apiKey.update({
       where: { id: keyId },
       data: { revokedAt: new Date() },
     });

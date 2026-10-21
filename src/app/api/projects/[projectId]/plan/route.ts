@@ -1,4 +1,3 @@
-import { prisma } from "@/lib/db";
 import { apiSuccess, apiError } from "@/lib/utils/api";
 import { enqueuePlanGeneration } from "@/services/planning/plan-jobs";
 import { isProjectIndexed, INDEX_REQUIRED_MESSAGE } from "@/services/indexing/index-status";
@@ -20,23 +19,8 @@ interface PlanRequestBody {
 
 const VALID_MODES = new Set(["full", "smoke", "regression", "targeted"]);
 
-async function validateProjectAccess(projectId: string, workspaceId: string) {
-  const project = await prisma.project.findFirst({
-    where: { id: projectId, workspaceId },
-    select: { id: true },
-  });
-
-  if (!project) {
-    return null;
-  }
-  return project;
-}
-
-export const GET = route({}, async ({ params: { projectId }, workspaceId }) => {
-  const project = await validateProjectAccess(projectId, workspaceId);
-  if (!project) {
-    return apiError("Project not found", "NOT_FOUND", 404);
-  }
+export const GET = route({}, async ({ params: { projectId }, workspaceId, db }) => {
+  const project = await db.project(projectId);
 
   const { getExistingPlan } = await getPlannerService();
   const cached = await getExistingPlan(projectId);
@@ -80,11 +64,8 @@ export const GET = route({}, async ({ params: { projectId }, workspaceId }) => {
  */
 export const POST = route(
   { permission: "plans.create" },
-  async ({ req: request, params: { projectId }, workspaceId }) => {
-    const project = await validateProjectAccess(projectId, workspaceId);
-    if (!project) {
-      return apiError("Project not found", "NOT_FOUND", 404);
-    }
+  async ({ req: request, params: { projectId }, workspaceId, db }) => {
+    const project = await db.project(projectId);
 
     // Without a system map the planner has nothing to plan from
     if (!(await isProjectIndexed(projectId))) {

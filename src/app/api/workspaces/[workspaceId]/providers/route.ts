@@ -1,11 +1,11 @@
 import { assertPublicUrl, UnsafeUrlError } from "@/lib/utils/ssrf";
 import { NextRequest } from "next/server";
-import { prisma } from "@/lib/db";
 import { requirePermission } from "@/lib/auth/rbac";
 import { apiSuccess, apiError, handleApiError } from "@/lib/utils/api";
 import { encrypt } from "@/lib/vault";
 import { syncModelsToRegistry } from "@/server/ai/openrouter-registry";
-import type { Prisma } from "@/generated/prisma/client";
+import type { Prisma } from "@/server/data/types";
+import { forWorkspace } from "@/server/data/scope";
 
 const VALID_PROVIDERS = ["anthropic", "openai", "openrouter", "custom"] as const;
 type Provider = (typeof VALID_PROVIDERS)[number];
@@ -23,9 +23,10 @@ export async function GET(
 ) {
   try {
     const { workspaceId } = await params;
+    const db = forWorkspace(workspaceId);
     await requirePermission(workspaceId, "settings.view");
 
-    const configs = await prisma.providerConfig.findMany({
+    const configs = await db.providerConfig.findMany({
       where: { workspaceId },
       orderBy: { createdAt: "asc" },
     });
@@ -65,6 +66,7 @@ export async function POST(
   try {
     const { workspaceId } = await params;
     const ctx = await requirePermission(workspaceId, "settings.manage");
+    const db = forWorkspace({ workspaceId, memberUserId: ctx.session.user.id });
 
     const body = (await request.json()) as PostBody;
     const { provider, displayName, apiKey, baseUrl, settings } = body;
@@ -91,7 +93,7 @@ export async function POST(
     }
 
     // Check if provider already exists for this workspace
-    const existing = await prisma.providerConfig.findUnique({
+    const existing = await db.providerConfig.findUnique({
       where: { provider_config_unique: { workspaceId, provider } },
     });
 
@@ -110,7 +112,7 @@ export async function POST(
       apiKeyEncrypted = `${iv}:${encrypted}`;
     }
 
-    const config = await prisma.providerConfig.create({
+    const config = await db.providerConfig.create({
       data: {
         workspaceId,
         provider,
@@ -124,7 +126,7 @@ export async function POST(
     });
 
     // Audit log
-    await prisma.auditLog.create({
+    await db.auditLog.create({
       data: {
         workspaceId,
         userId: ctx.session.user.id,

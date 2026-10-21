@@ -3,16 +3,15 @@
  * The owner must transfer ownership first.
  */
 
-import { prisma } from "@/lib/db";
 import { writeAuditLog } from "@/lib/auth/audit";
 import { apiSuccess, apiError } from "@/lib/utils/api";
 import { route } from "@/server/http/route";
 
 export const POST = route(
   { workspace: "param", permission: "workspace.view" },
-  async ({ workspaceId, session, auth }) => {
+  async ({ workspaceId, session, auth, db }) => {
     if (session.role === "owner") {
-      const owners = await prisma.workspaceMember.count({
+      const owners = await db.workspaceMember.count({
         where: { workspaceId, role: "owner" },
       });
       if (owners <= 1) {
@@ -24,7 +23,7 @@ export const POST = route(
       }
     }
 
-    await prisma.workspaceMember.delete({ where: { id: auth.memberId } });
+    await db.workspaceMember.delete({ where: { id: auth.memberId } });
 
     await writeAuditLog({
       workspaceId,

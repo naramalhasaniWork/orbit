@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { prisma } from "@/lib/db";
 import { assertCanManageRole } from "@/lib/auth/rbac";
 import type { MemberRole } from "@/lib/auth/permissions";
 import { apiSuccess, apiError } from "@/lib/utils/api";
@@ -12,8 +11,8 @@ import { route } from "@/server/http/route";
 
 export const GET = route(
   { workspace: "param", permission: "members.view" },
-  async ({ workspaceId }) => {
-    const members = await prisma.workspaceMember.findMany({
+  async ({ workspaceId, db }) => {
+    const members = await db.workspaceMember.findMany({
       where: { workspaceId, workspace: { deletedAt: null } },
       include: {
         user: {
@@ -36,7 +35,7 @@ export const GET = route(
 
     // Aggregate token usage per member (via triggeredBy on test runs)
     const memberIds = members.map((m) => m.userId);
-    const tokenUsageByMember = await prisma.testRun.groupBy({
+    const tokenUsageByMember = await db.testRun.groupBy({
       by: ["triggeredById"],
       where: {
         project: { workspaceId },
@@ -55,7 +54,7 @@ export const GET = route(
     );
 
     // Get last activity per member (most recent run they triggered)
-    const lastRuns = await prisma.testRun.findMany({
+    const lastRuns = await db.testRun.findMany({
       where: {
         project: { workspaceId },
         triggeredById: { in: memberIds },
@@ -94,7 +93,7 @@ const UpdateMemberSchema = z.object({
 
 export const PATCH = route(
   { workspace: "param", permission: "members.update_role" },
-  async ({ req: request, workspaceId, session }) => {
+  async ({ req: request, workspaceId, session, db }) => {
     const body = await request.json();
     const parsed = UpdateMemberSchema.safeParse(body);
     if (!parsed.success) {
@@ -103,7 +102,7 @@ export const PATCH = route(
 
     const { memberId, role } = parsed.data;
 
-    const target = await prisma.workspaceMember.findFirst({
+    const target = await db.workspaceMember.findFirst({
       where: { id: memberId, workspaceId },
     });
 
@@ -121,7 +120,7 @@ export const PATCH = route(
     // ...and the new role must stay below the actor's own, or an admin could mint admins
     assertCanManageRole(session.role, role);
 
-    await prisma.workspaceMember.update({
+    await db.workspaceMember.update({
       where: { id: memberId },
       data: { role },
     });
@@ -149,7 +148,7 @@ const RemoveMemberSchema = z.object({
 
 export const DELETE = route(
   { workspace: "param", permission: "members.remove" },
-  async ({ req: request, workspaceId, session }) => {
+  async ({ req: request, workspaceId, session, db }) => {
     const body = await request.json();
     const parsed = RemoveMemberSchema.safeParse(body);
     if (!parsed.success) {
@@ -158,7 +157,7 @@ export const DELETE = route(
 
     const { memberId } = parsed.data;
 
-    const target = await prisma.workspaceMember.findFirst({
+    const target = await db.workspaceMember.findFirst({
       where: { id: memberId, workspaceId },
     });
 
@@ -179,7 +178,7 @@ export const DELETE = route(
     // Actor must outrank target
     assertCanManageRole(session.role, target.role as MemberRole);
 
-    await prisma.workspaceMember.delete({ where: { id: memberId } });
+    await db.workspaceMember.delete({ where: { id: memberId } });
 
     await writeAuditLog({
       workspaceId,

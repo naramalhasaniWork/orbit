@@ -3,18 +3,17 @@
  * POST /api/workspaces/:workspaceId/mcp-connections — Add a new MCP connection
  */
 
-import { prisma } from "@/lib/db";
 import { apiSuccess, apiError } from "@/lib/utils/api";
 import { encrypt } from "@/lib/vault";
 import { writeAuditLog } from "@/lib/auth/audit";
 import { testConnection } from "@/services/mcp/client";
-import type { Prisma } from "@/generated/prisma/client";
+import type { Prisma } from "@/server/data/types";
 import { route } from "@/server/http/route";
 
 export const GET = route(
   { workspace: "param", permission: "settings.view" },
-  async ({ workspaceId }) => {
-    const connections = await prisma.mcpConnection.findMany({
+  async ({ workspaceId, db }) => {
+    const connections = await db.mcpConnection.findMany({
       where: { workspaceId },
       orderBy: { createdAt: "asc" },
       select: {
@@ -39,7 +38,7 @@ export const GET = route(
     }));
 
     // Check which connections have API keys set
-    const fullConnections = await prisma.mcpConnection.findMany({
+    const fullConnections = await db.mcpConnection.findMany({
       where: { workspaceId },
       select: { id: true, apiKeyEncrypted: true },
     });
@@ -56,7 +55,7 @@ export const GET = route(
 
 export const POST = route(
   { workspace: "param", permission: "settings.manage" },
-  async ({ req: request, workspaceId, session }) => {
+  async ({ req: request, workspaceId, session, db }) => {
     const body = await request.json();
     const { name, description, serverUrl, transportType, apiKey, headers } =
       body as {
@@ -91,7 +90,7 @@ export const POST = route(
       apiKeyIv = encrypted.iv;
     }
 
-    const connection = await prisma.mcpConnection.create({
+    const connection = await db.mcpConnection.create({
       data: {
         workspaceId,
         name,

@@ -8,7 +8,6 @@
 
 import { randomBytes } from "crypto";
 import { z } from "zod";
-import { prisma } from "@/lib/db";
 import { apiSuccess, apiError } from "@/lib/utils/api";
 import { isAllowedWebhookUrl } from "@/lib/integrations/webhook-url";
 import { WEBHOOK_EVENTS } from "@/services/reporting/integrations/outbound-webhooks";
@@ -25,18 +24,10 @@ const createSchema = z.object({
   events: z.array(z.enum(eventNames)).min(1, "Select at least one event"),
 });
 
-function findProject(projectId: string, workspaceId: string) {
-  return prisma.project.findFirst({
-    where: { id: projectId, workspaceId },
-    select: { id: true },
-  });
-}
-
 export const GET = route(
   { permission: "projects.view" },
-  async ({ params: { projectId }, workspaceId }) => {
-    const project = await findProject(projectId, workspaceId);
-    if (!project) return apiError("Project not found", "NOT_FOUND", 404);
+  async ({ params: { projectId }, workspaceId, db }) => {
+    const project = await db.project(projectId);
 
     return listProjectEndpoints(projectId);
   }
@@ -44,9 +35,8 @@ export const GET = route(
 
 export const POST = route(
   { permission: "integrations.manage", body: createSchema },
-  async ({ body: { url, events }, params: { projectId }, workspaceId }) => {
-    const project = await findProject(projectId, workspaceId);
-    if (!project) return apiError("Project not found", "NOT_FOUND", 404);
+  async ({ body: { url, events }, params: { projectId }, workspaceId, db }) => {
+    const project = await db.project(projectId);
 
     const secret = `whsec_${randomBytes(24).toString("hex")}`;
     const endpoint = await createProjectEndpoint({ workspaceId, projectId, url, events, secret });

@@ -69,7 +69,7 @@ describe("workspace api-keys routes", () => {
     db.apiKey.findMany.mockResolvedValue([]);
     await GET(new NextRequest("http://localhost/x"), ctx);
     const args = db.apiKey.findMany.mock.calls[0][0];
-    expect(args.where).toEqual({ workspaceId: "ws-1", revokedAt: null });
+    expect(args.where).toEqual({ workspaceId: "ws-1", revokedAt: null, AND: [{ workspaceId: "ws-1" }] });
     expect(args.select.keyHash).toBeUndefined();
   });
 
