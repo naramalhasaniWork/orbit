@@ -15,12 +15,12 @@ export const LINKS = {
   selfHosting: `${SITE.repoUrl}/tree/main/docs/self-hosting`,
 } as const;
 
-/** Visible on purpose: not decided yet, never filled with invented values. */
+/** Visible placeholders for what is not decided yet (never filled with invented values), plus the owner. */
 export const PLACEHOLDER = {
   price: "[PRICE]",
   measured: "[MEASURED]",
   stars: "[stars]",
-  owner: "[OWNER]",
+  owner: "Naram Alhasani",
   demoApp: "[PUBLIC DEMO APP]",
 } as const;
 
