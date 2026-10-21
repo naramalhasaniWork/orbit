@@ -1,16 +1,8 @@
-import { prisma } from "@/lib/db";
 import { apiSuccess, apiError } from "@/lib/utils/api";
 import { route } from "@/server/http/route";
 
-export const GET = route({}, async ({ req: request, params: { projectId }, workspaceId }) => {
-  const project = await prisma.project.findFirst({
-    where: { id: projectId, workspaceId },
-    select: { id: true },
-  });
-
-  if (!project) {
-    return apiError("Project not found", "NOT_FOUND", 404);
-  }
+export const GET = route({}, async ({ req: request, params: { projectId }, workspaceId, db }) => {
+  const project = await db.project(projectId);
 
   const searchParams = request.nextUrl.searchParams;
   const days = Math.min(
@@ -21,7 +13,7 @@ export const GET = route({}, async ({ req: request, params: { projectId }, works
   const since = new Date();
   since.setDate(since.getDate() - days);
 
-  const runs = await prisma.testRun.findMany({
+  const runs = await project.testRun.findMany({
     where: {
       projectId,
       status: "completed",

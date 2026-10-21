@@ -1,9 +1,8 @@
-import { prisma } from "@/lib/db";
 import { apiSuccess, apiError } from "@/lib/utils/api";
 import { route } from "@/server/http/route";
 
-export const GET = route({}, async ({ params: { projectId }, workspaceId }) => {
-  const project = await prisma.project.findFirst({
+export const GET = route({}, async ({ params: { projectId }, workspaceId, db }) => {
+  const project = await db.project.findFirst({
     where: { id: projectId, workspaceId },
     select: {
       id: true,
@@ -18,7 +17,7 @@ export const GET = route({}, async ({ params: { projectId }, workspaceId }) => {
   }
 
   // Get the last 10 runs to compute health score
-  const recentRuns = await prisma.testRun.findMany({
+  const recentRuns = await db.testRun.findMany({
     where: { projectId, status: "completed" },
     orderBy: { completedAt: "desc" },
     take: 10,

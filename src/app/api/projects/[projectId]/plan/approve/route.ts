@@ -1,4 +1,3 @@
-import { prisma } from "@/lib/db";
 import { apiSuccess, apiError } from "@/lib/utils/api";
 import { route } from "@/server/http/route";
 
@@ -9,8 +8,8 @@ import { route } from "@/server/http/route";
 
 export const POST = route(
   { permission: "plans.approve" },
-  async ({ req: request, params: { projectId }, workspaceId, session }) => {
-    const project = await prisma.project.findFirst({
+  async ({ req: request, params: { projectId }, workspaceId, session, db }) => {
+    const project = await db.project.findFirst({
       where: { id: projectId, workspaceId },
       select: { id: true, config: true },
     });
@@ -34,7 +33,7 @@ export const POST = route(
       return apiError("action must be 'approve' or 'reject'", "VALIDATION_ERROR", 400);
     }
 
-    const plan = await prisma.testPlan.findFirst({
+    const plan = await db.testPlan.findFirst({
       where: { id: planId, projectId },
       select: { id: true, isActive: true, summary: true },
     });
@@ -52,7 +51,7 @@ export const POST = route(
       notes: notes ?? null,
     };
 
-    await prisma.testPlan.update({
+    await db.testPlan.update({
       where: { id: planId },
       data: {
         summary: { ...currentSummary, approval: approvalInfo },
@@ -61,7 +60,7 @@ export const POST = route(
     });
 
     // Log the approval action
-    await prisma.auditLog.create({
+    await db.auditLog.create({
       data: {
         workspaceId,
         userId: session.user.id,

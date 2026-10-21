@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { prisma } from "@/lib/db";
 import { apiSuccess, apiError } from "@/lib/utils/api";
 import { canConsume } from "@/lib/auth/tenant";
 import { getDefaultEnvironment } from "@/services/execution/environment-validator";
@@ -12,18 +11,10 @@ import { route } from "@/server/http/route";
 // GET /api/projects/[projectId]/runs — List runs for a project
 // ============================================================
 
-export const GET = route({}, async ({ params: { projectId }, workspaceId }) => {
-  // Verify project belongs to workspace
-  const project = await prisma.project.findFirst({
-    where: { id: projectId, workspaceId },
-    select: { id: true },
-  });
+export const GET = route({}, async ({ params: { projectId }, workspaceId, db }) => {
+  const project = await db.project(projectId);
 
-  if (!project) {
-    return apiError("Project not found", "NOT_FOUND", 404);
-  }
-
-  const runs = await prisma.testRun.findMany({
+  const runs = await project.testRun.findMany({
     where: { projectId },
     orderBy: { createdAt: "desc" },
     take: 50,
@@ -69,16 +60,8 @@ const CreateRunBody = z
 
 export const POST = route(
   { permission: "runs.create", body: CreateRunBody, idempotent: true },
-  async ({ body, params: { projectId }, workspaceId, session }) => {
-    // Verify project belongs to workspace
-    const project = await prisma.project.findFirst({
-      where: { id: projectId, workspaceId },
-      select: { id: true },
-    });
-
-    if (!project) {
-      return apiError("Project not found", "NOT_FOUND", 404);
-    }
+  async ({ body, params: { projectId }, workspaceId, session, db }) => {
+    const project = await db.project(projectId);
 
     // Fail fast; the check that counts is the atomic one at insert time.
     const allowance = await canConsume(workspaceId, "run");
@@ -101,7 +84,7 @@ export const POST = route(
     }
 
     // Verify environment exists and is not production
-    const environment = await prisma.environment.findFirst({
+    const environment = await project.environment.findFirst({
       where: { id: environmentId, projectId },
       select: { id: true, type: true, url: true, defaultRunMode: true },
     });
@@ -120,7 +103,7 @@ export const POST = route(
 
     // Find active test plan
     const testPlanId = body.testPlanId ?? (
-      await prisma.testPlan.findFirst({
+      await project.testPlan.findFirst({
         where: { projectId, isActive: true },
         select: { id: true },
         orderBy: { version: "desc" },
@@ -158,11 +141,11 @@ export const POST = route(
     const { run } = created;
 
     // Count test cases for the response
-    const testCaseCount = await prisma.testCase.count({
+    const testCaseCount = await project.testCase.count({
       where: { testPlanId, isEnabled: true },
     });
 
-    await prisma.testRun.update({
+    await project.testRun.update({
       where: { id: run.id },
       data: { totalTests: testCaseCount },
     });

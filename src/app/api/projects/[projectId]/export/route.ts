@@ -1,4 +1,3 @@
-import { prisma } from "@/lib/db";
 import { apiSuccess, apiError } from "@/lib/utils/api";
 import { route } from "@/server/http/route";
 
@@ -6,8 +5,8 @@ import { route } from "@/server/http/route";
 // GET /api/projects/[projectId]/export — Export test plan as JSON
 // ============================================================
 
-export const GET = route({}, async ({ params: { projectId }, workspaceId }) => {
-  const project = await prisma.project.findFirst({
+export const GET = route({}, async ({ params: { projectId }, workspaceId, db }) => {
+  const project = await db.project.findFirst({
     where: { id: projectId, workspaceId },
     select: {
       id: true,
@@ -24,7 +23,7 @@ export const GET = route({}, async ({ params: { projectId }, workspaceId }) => {
   }
 
   // Get active test plan with test cases
-  const testPlan = await prisma.testPlan.findFirst({
+  const testPlan = await db.testPlan.findFirst({
     where: { projectId, isActive: true },
     include: {
       testCases: {

@@ -81,6 +81,67 @@ const CASES: Case[] = [
   { name: "GET v1/projects/[projectId]/runs/[runId]", load: () => import("@/app/api/v1/projects/[projectId]/runs/[runId]/route"), method: "GET", params: (a, p) => ({ projectId: p, runId: a.runId }) },
 ];
 
+/** List and collection routes: workspace A's project id from workspace B is 404 before anything runs. */
+const LIST_ROUTES: Array<[Case["method"], string, unknown]> = [
+  ["GET", "audit", undefined],
+  ["GET", "baselines", undefined],
+  ["GET", "chat/history", undefined],
+  ["GET", "config", undefined],
+  ["GET", "docs", undefined],
+  ["GET", "environments", undefined],
+  ["GET", "export", undefined],
+  ["GET", "failure-patterns", undefined],
+  ["GET", "flaky-tests", undefined],
+  ["GET", "health", undefined],
+  ["GET", "notes", undefined],
+  ["GET", "operations", undefined],
+  ["GET", "plan/job", undefined],
+  ["GET", "plan", undefined],
+  ["GET", "", undefined],
+  ["GET", "runs/compare", undefined],
+  ["GET", "runs", undefined],
+  ["GET", "schedules", undefined],
+  ["GET", "secrets", undefined],
+  ["GET", "selectors", undefined],
+  ["GET", "suggestions", undefined],
+  ["GET", "sync/check", undefined],
+  ["GET", "sync", undefined],
+  ["GET", "system-map", undefined],
+  ["GET", "trends", undefined],
+  ["GET", "webhooks", undefined],
+  ["POST", "environments", { name: "x", url: "https://x.example.com" }],
+  ["PATCH", "environments", { id: "00000000-0000-4000-8000-000000000000", name: "x" }],
+  ["POST", "secrets", { key: "K", value: "v" }],
+  ["POST", "notes", { content: "x", category: "context" }],
+  ["POST", "webhooks", { url: "https://hooks.example.com/x", events: ["run.completed"] }],
+  ["POST", "schedules", { cron: "0 * * * *" }],
+  ["PUT", "config", {}],
+  ["PATCH", "", { name: "pwned" }],
+  ["DELETE", "", undefined],
+  ["POST", "runs", {}],
+  ["POST", "plan", {}],
+  ["POST", "plan/add-test", { name: "x" }],
+  ["POST", "import", {}],
+  ["POST", "chat", { message: "hi" }],
+  ["POST", "sync", {}],
+  ["POST", "visual-tests", { routePath: "/" }],
+  ["POST", "baselines", {}],
+  ["POST", "diff-analysis", {}],
+  ["POST", "audit", {}],
+  ["POST", "suggestions", {}],
+  ["PATCH", "selectors", {}],
+  ["POST", "plan/approve", {}],
+];
+const LIST_CASES: Case[] = LIST_ROUTES.map(([method, path, body]) => ({
+  name: `${method} projects/[projectId]${path ? `/${path}` : ""}`,
+  load: () => import(`${R}${path ? `/${path}` : ""}/route`),
+  method,
+  body,
+  childProbe: false,
+  params: (_a, p) => ({ projectId: p }),
+}));
+CASES.push(...LIST_CASES);
+
 /** Workspace-level id-param routes: B's own workspace in the path, A's row id. */
 const W = "@/app/api/workspaces/[workspaceId]";
 const WS_CASES: Case[] = [
