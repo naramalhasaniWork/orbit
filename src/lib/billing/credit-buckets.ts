@@ -1,4 +1,5 @@
 import type { Prisma } from "@/generated/prisma/client";
+import { lockWorkspace } from "@/lib/auth/tenant";
 
 /**
  * Credit buckets on the workspace row. creditBalance is always their sum, so
@@ -67,7 +68,7 @@ export function applyGrantToBuckets(b: CreditBuckets, previousGrant: number, gra
 
 /** Lock the workspace row for the rest of the transaction and read its buckets. */
 export async function lockCredits(tx: Tx, workspaceId: string): Promise<LockedCredits> {
-  await tx.$queryRaw`SELECT id FROM workspaces WHERE id = ${workspaceId}::uuid FOR UPDATE`;
+  await lockWorkspace(tx, workspaceId);
   const w = await tx.workspace.findUniqueOrThrow({
     where: { id: workspaceId },
     select: { creditsCurrent: true, creditsRollover: true, creditsPurchased: true, creditsGranted: true },

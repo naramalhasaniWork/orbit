@@ -41,7 +41,16 @@ vi.mock("@/server/http/session", async () => (await import("../helpers/route-aut
 vi.mock("@/server/http/auth", async (orig) =>
   (await import("../helpers/route-auth")).authMock(await orig<Record<string, unknown>>())
 );
-vi.mock("@/lib/auth/tenant", () => ({ canConsume: (...a: unknown[]) => canConsume(...a) }));
+vi.mock("@/lib/auth/tenant", async () => {
+  const { prisma } = await import("@/lib/db");
+  return {
+    // Seat check then insert, like the real one minus the row lock (covered in seat-reservation.test)
+    withSeatReserved: async (workspaceId: string, take: (tx: unknown) => Promise<unknown>) => {
+      const decision = await canConsume(workspaceId, "member");
+      return decision.allowed ? { ok: true, value: await take(prisma) } : { ok: false, decision };
+    },
+  };
+});
 vi.mock("@/lib/auth/audit", () => ({ writeAuditLog: vi.fn() }));
 vi.mock("@/lib/email/invite-email", () => ({
   deliverInviteEmail: (...a: unknown[]) => sendInvite(...a),

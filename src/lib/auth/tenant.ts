@@ -140,6 +140,33 @@ export async function countSeatsInUse(
   return { members, pending };
 }
 
+/** Lock the workspace row for the rest of the transaction (SELECT ... FOR UPDATE). */
+export async function lockWorkspace(tx: Prisma.TransactionClient, workspaceId: string): Promise<void> {
+  await tx.$queryRaw`SELECT id FROM workspaces WHERE id = ${workspaceId}::uuid FOR UPDATE`;
+}
+
+export type SeatReservation<T> =
+  | { ok: true; value: T }
+  | { ok: false; decision: Extract<ConsumeDecision, { allowed: false }> };
+
+/**
+ * Check for a free seat and take it in one transaction: the workspace row
+ * lock makes concurrent invites queue, so each re-counts after the previous
+ * one inserted and two cannot both take the last seat. `take` runs only when
+ * a seat is free and must write through the given transaction.
+ */
+export async function withSeatReserved<T>(
+  workspaceId: string,
+  take: (tx: Prisma.TransactionClient) => Promise<T>
+): Promise<SeatReservation<T>> {
+  return prisma.$transaction(async (tx) => {
+    await lockWorkspace(tx, workspaceId);
+    const decision = await canConsume(workspaceId, "member", tx);
+    if (!decision.allowed) return { ok: false as const, decision };
+    return { ok: true as const, value: await take(tx) };
+  });
+}
+
 function limitReached(reason: string): ConsumeDecision {
   return { allowed: false, code: "LIMIT_REACHED", reason };
 }
