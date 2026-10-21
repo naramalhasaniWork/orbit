@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { requireSuperAdmin, apiSuccess, handleApiError } from "@/lib/utils/api";
 import { buildAuditCsvRow, CSV_HEADER } from "../../workspaces/[workspaceId]/audit-logs/csv-utils";
 import { eeFeatureRequired } from "@/ee/require-feature";
+import { PERSON_SELECT, resolveAvatarUrl } from "@/lib/avatar/resolve";
 
 // ============================================================
 // GET /api/admin/audit-logs — Global audit log view (super admin)
@@ -34,7 +35,7 @@ export async function GET(request: NextRequest) {
       prisma.auditLog.findMany({
         where,
         include: {
-          user: { select: { id: true, name: true, email: true } },
+          user: { select: PERSON_SELECT },
           workspace: { select: { id: true, name: true, slug: true } },
         },
         orderBy: { createdAt: "desc" },
@@ -52,6 +53,7 @@ export async function GET(request: NextRequest) {
         userId: log.userId,
         userEmail: log.user?.email ?? null,
         userName: log.user?.name ?? null,
+        userImage: log.user ? resolveAvatarUrl(log.user) : null,
         action: log.action,
         resourceType: log.resourceType,
         resourceId: log.resourceId,

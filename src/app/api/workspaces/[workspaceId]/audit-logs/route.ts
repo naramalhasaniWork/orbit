@@ -4,6 +4,7 @@ import { buildAuditCsvRow, CSV_HEADER } from "./csv-utils";
 import type { WorkspaceScope } from "@/server/data/scope";
 import { route } from "@/server/http/route";
 import { eeFeatureRequired } from "@/ee/require-feature";
+import { PERSON_SELECT, resolveAvatarUrl } from "@/lib/avatar/resolve";
 
 // ============================================================
 // GET /api/workspaces/[workspaceId]/audit-logs
@@ -33,7 +34,7 @@ export const GET = route(
     const [logs, total] = await Promise.all([
       db.auditLog.findMany({
         where,
-        include: { user: { select: { id: true, name: true, email: true } } },
+        include: { user: { select: PERSON_SELECT } },
         orderBy: { createdAt: "desc" },
         skip: (page - 1) * limit,
         take: limit,
@@ -117,7 +118,7 @@ interface AuditLogRecord {
   metadata: unknown;
   ipAddress: string | null;
   createdAt: Date;
-  user: { id: string; name: string | null; email: string } | null;
+  user: { id: string; name: string | null; email: string; image?: string | null; avatarKey?: string | null } | null;
 }
 
 function serializeLog(log: AuditLogRecord) {
@@ -126,6 +127,7 @@ function serializeLog(log: AuditLogRecord) {
     userId: log.userId,
     userEmail: log.user?.email ?? null,
     userName: log.user?.name ?? null,
+    userImage: log.user ? resolveAvatarUrl({ id: log.user.id, image: log.user.image ?? null, avatarKey: log.user.avatarKey ?? null }) : null,
     action: log.action,
     resourceType: log.resourceType,
     resourceId: log.resourceId,

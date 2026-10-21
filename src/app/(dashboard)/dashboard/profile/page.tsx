@@ -1,9 +1,9 @@
 "use client";
 import { Pending } from "@/components/telemetry/pending";
 
-import Image from "next/image";
 import { useSession, signOut } from "next-auth/react";
 import { Button } from "@/components/ui/button";
+import { AvatarUpload } from "@/components/profile/avatar-upload";
 import {
   User,
   Mail,
@@ -66,48 +66,29 @@ export default function ProfilePage() {
         </p>
       </div>
 
-      {/* Avatar & Identity */}
-      <div className="surface-1 rounded-xl border border-border p-6">
-        <div className="flex items-start gap-5">
-          <div className="shrink-0">
-            {session.user?.image ? (
-              <Image
-                src={session.user.image}
-                alt={session.user.name ?? "Avatar"}
-                width={72}
-                height={72}
-                className="rounded-full ring-2 ring-border"
-              />
-            ) : (
-              <div className="h-[72px] w-[72px] rounded-full bg-foreground/[0.06] ring-2 ring-border flex items-center justify-center">
-                <span className="text-2xl font-medium text-muted-foreground">
-                  {session.user?.name?.charAt(0)?.toUpperCase() ?? "U"}
-                </span>
-              </div>
+      {/* Photo & Identity */}
+      <div className="surface-1 rounded-xl border border-border p-6 space-y-5">
+        <div className="min-w-0 space-y-1">
+          <h2 className="text-lg font-medium text-foreground truncate">
+            {session.user?.name ?? "Unknown User"}
+          </h2>
+          <p className="text-sm text-muted-foreground truncate">
+            {session.user?.email ?? "No email"}
+          </p>
+          <div className="flex items-center gap-2 pt-1">
+            <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-md border bg-foreground/[0.04] border-border text-muted-foreground capitalize">
+              <GitBranch className="h-3 w-3" />
+              {provider}
+            </span>
+            {session.userRole === "super_admin" && (
+              <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-md bg-tm-fail/15 text-tm-fail border border-tm-fail/20">
+                <Shield className="h-3 w-3" />
+                Super Admin
+              </span>
             )}
           </div>
-
-          <div className="flex-1 min-w-0 space-y-1">
-            <h2 className="text-lg font-medium text-foreground truncate">
-              {session.user?.name ?? "Unknown User"}
-            </h2>
-            <p className="text-sm text-muted-foreground truncate">
-              {session.user?.email ?? "No email"}
-            </p>
-            <div className="flex items-center gap-2 pt-1">
-              <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-md border bg-foreground/[0.04] border-border text-muted-foreground capitalize">
-                <GitBranch className="h-3 w-3" />
-                {provider}
-              </span>
-              {session.userRole === "super_admin" && (
-                <span className="inline-flex items-center gap-1 text-xs px-2 py-0.5 rounded-md bg-tm-fail/15 text-tm-fail border border-tm-fail/20">
-                  <Shield className="h-3 w-3" />
-                  Super Admin
-                </span>
-              )}
-            </div>
-          </div>
         </div>
+        <AvatarUpload />
       </div>
 
       {/* Account Details */}

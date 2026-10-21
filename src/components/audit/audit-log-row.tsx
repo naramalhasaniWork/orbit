@@ -4,6 +4,7 @@ import { useState } from "react";
 import { ChevronRight } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import { cn } from "@/lib/utils";
+import { Avatar } from "@/components/ui/avatar";
 import type { AuditLogEntry } from "./audit-types";
 import { getActionColor, ACTION_BADGE_CLASSES } from "./audit-types";
 
@@ -49,7 +50,14 @@ export function AuditLogRow({ log, showWorkspace }: AuditLogRowProps) {
 
         {/* User */}
         <td className="px-3 py-2.5 text-xs text-foreground whitespace-nowrap">
-          {log.userName ?? log.userEmail ?? "System"}
+          {log.userName || log.userEmail ? (
+            <span className="inline-flex items-center gap-2">
+              <Avatar name={log.userName} email={log.userEmail} image={log.userImage} size="xs" decorative />
+              {log.userName ?? log.userEmail}
+            </span>
+          ) : (
+            "System"
+          )}
         </td>
 
         {/* Action */}

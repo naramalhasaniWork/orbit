@@ -7,6 +7,7 @@ export interface AuditLogEntry {
   userId: string | null;
   userEmail: string | null;
   userName: string | null;
+  userImage?: string | null;
   action: string;
   resourceType: string | null;
   resourceId: string | null;

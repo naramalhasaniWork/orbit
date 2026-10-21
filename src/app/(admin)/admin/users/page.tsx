@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth";
 import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { resolveAvatarUrl } from "@/lib/avatar/resolve";
 import { UsersClient } from "@/components/admin/users-client";
 
 export default async function AdminUsersPage() {
@@ -16,6 +17,7 @@ export default async function AdminUsersPage() {
       name: true,
       email: true,
       image: true,
+      avatarKey: true,
       role: true,
       createdAt: true,
       updatedAt: true,
@@ -32,7 +34,7 @@ export default async function AdminUsersPage() {
     id: u.id,
     name: u.name,
     email: u.email,
-    image: u.image,
+    image: resolveAvatarUrl(u),
     role: u.role,
     createdAt: u.createdAt.toISOString(),
     lastActive: u.updatedAt.toISOString(),

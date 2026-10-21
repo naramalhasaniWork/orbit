@@ -27,16 +27,24 @@ export async function GET() {
             tier: true,
             creditBalance: true,
             createdAt: true,
+            // The first connected GitHub account gives the workspace its mark
+            githubInstallations: {
+              where: { avatarUrl: { not: null } },
+              select: { avatarUrl: true },
+              orderBy: { createdAt: "asc" },
+              take: 1,
+            },
           },
         },
       },
       orderBy: { createdAt: "asc" },
     });
 
-    const workspaces = memberships.map((m) => ({
-      ...m.workspace,
-      role: m.role,
-      memberId: m.id,
+    const workspaces = memberships.map(({ workspace: { githubInstallations, ...workspace }, role, id }) => ({
+      ...workspace,
+      image: githubInstallations[0]?.avatarUrl ?? null,
+      role,
+      memberId: id,
     }));
 
     return apiSuccess(workspaces);

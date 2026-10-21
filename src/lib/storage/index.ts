@@ -1,6 +1,6 @@
-import { S3Client, PutObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { readFile, writeFile, mkdir } from "fs/promises";
+import { readFile, writeFile, mkdir, rm } from "fs/promises";
 import { join, dirname, resolve, basename, sep } from "path";
 import { existsSync, mkdirSync } from "fs";
 
@@ -12,6 +12,8 @@ export interface StorageProvider {
   upload(key: string, data: Buffer, contentType: string): Promise<void>;
   download(key: string): Promise<Buffer>;
   getUrl(key: string): Promise<string>;
+  /** Deletes the object; a missing key is not an error. */
+  remove(key: string): Promise<void>;
 }
 
 // ============================================================
@@ -50,6 +52,10 @@ export function createLocalStorage(basePath: string): StorageProvider {
 
     async getUrl(key) {
       return `file://${resolveInside(basePath, key)}`;
+    },
+
+    async remove(key) {
+      await rm(resolveInside(basePath, key), { force: true });
     },
   };
 }
@@ -90,6 +96,10 @@ function createS3Storage(): StorageProvider {
     async getUrl(key) {
       const command = new GetObjectCommand({ Bucket: bucket, Key: key });
       return getSignedUrl(client, command, { expiresIn: 3600 });
+    },
+
+    async remove(key) {
+      await client.send(new DeleteObjectCommand({ Bucket: bucket, Key: key }));
     },
   };
 }

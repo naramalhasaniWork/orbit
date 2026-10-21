@@ -259,6 +259,8 @@ model User {
   email             String    @unique
   name              String?
   image             String?
+  // Uploaded photo in storage; wins over the GitHub `image` (src/lib/avatar/resolve.ts)
+  avatarKey         String?   @map("avatar_key")
   role              UserRole  @default(user)
   emailVerified     DateTime? @map("email_verified")
   githubId          String?   @unique @map("github_id")

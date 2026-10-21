@@ -41,6 +41,25 @@
     --tm-info: 213.9 42.3% 39.4%; /* #3A5F8F */
     --tm-warn: 30.2 100% 32%; /* #A35200 */
 
+    /* Avatar fallbacks — initials on a muted earth tone, picked by hash (src/lib/avatar/identity.ts).
+       No blue, magenta or purple. fg on bg is AA in both modes (avatar-palette.test.ts). */
+    --tm-avatar-clay-bg: 14.5 43.3% 86.9%; /* #ECD6CF */
+    --tm-avatar-clay-fg: 10.3 45.2% 32.9%; /* #7A3B2E */
+    --tm-avatar-ochre-bg: 42.5 63.2% 82.9%; /* #EFDFB8 */
+    --tm-avatar-ochre-fg: 39.2 79.8% 23.3%; /* #6B4A0C */
+    --tm-avatar-moss-bg: 70.3 33.3% 82.9%; /* #DDE2C5 */
+    --tm-avatar-moss-fg: 71.5 46.4% 22%; /* #48521E */
+    --tm-avatar-pine-bg: 157.1 28% 85.3%; /* #CFE4DC */
+    --tm-avatar-pine-fg: 164.2 46.9% 22.2%; /* #1E5345 */
+    --tm-avatar-sage-bg: 146.7 12.7% 86.1%; /* #D7E0DB */
+    --tm-avatar-sage-fg: 154.3 15.6% 26.5%; /* #394E45 */
+    --tm-avatar-rust-bg: 25.5 64.4% 85.7%; /* #F2D7C3 */
+    --tm-avatar-rust-fg: 19.5 76.5% 30%; /* #873812 */
+    --tm-avatar-sand-bg: 40.8 36.2% 86.5%; /* #E9E1D0 */
+    --tm-avatar-sand-fg: 40 30.4% 27.1%; /* #5A4C30 */
+    --tm-avatar-graphite-bg: 220 4.9% 88%; /* #DFE0E2 */
+    --tm-avatar-graphite-fg: 218.2 8.4% 25.7%; /* #3C4047 */
+
     /* Elevation: popovers and menus only. No shadows inside the workspace. */
     --tm-shadow-elevated: 0 1px 0 #e3e3df, 0 8px 24px -16px rgb(17 19 22 / 0.18);
 
@@ -86,6 +105,23 @@
     --tm-flaky: 213.3 14.9% 64.5%; /* #97A3B2 */
     --tm-info: 214.3 66.4% 73.1%; /* #8DB4E8 */
     --tm-warn: 34.9 85.8% 58.4%; /* #F0A43A */
+
+    --tm-avatar-clay-bg: 11.1 29.7% 17.8%; /* #3B2520 */
+    --tm-avatar-clay-fg: 13.5 57.4% 78.8%; /* #E8B8AA */
+    --tm-avatar-ochre-bg: 42.6 51.4% 14.5%; /* #382D12 */
+    --tm-avatar-ochre-fg: 41.6 68.9% 68.4%; /* #E6C477 */
+    --tm-avatar-moss-bg: 72.5 33.3% 14.1%; /* #2B3018 */
+    --tm-avatar-moss-fg: 70 38% 69%; /* #C4CE92 */
+    --tm-avatar-pine-bg: 162.9 38.9% 14.1%; /* #16322A */
+    --tm-avatar-pine-fg: 158.2 41.3% 68.6%; /* #8ED0B8 */
+    --tm-avatar-sage-bg: 145 14.3% 16.5%; /* #243029 */
+    --tm-avatar-sage-fg: 147 14.9% 73.7%; /* #B2C6BB */
+    --tm-avatar-rust-bg: 21.5 48.1% 15.9%; /* #3C2315 */
+    --tm-avatar-rust-fg: 21.8 76.1% 73.7%; /* #EFAE89 */
+    --tm-avatar-sand-bg: 43.3 21.4% 16.5%; /* #332E21 */
+    --tm-avatar-sand-fg: 43.5 40.8% 75.5%; /* #DACCA7 */
+    --tm-avatar-graphite-bg: 217.5 9.8% 16.1%; /* #25282D */
+    --tm-avatar-graphite-fg: 218.2 9.9% 78.2%; /* #C2C6CD */
 
     --tm-shadow-elevated: inset 0 1px 0 rgb(255 255 255 / 0.04), 0 8px 24px -16px rgb(0 0 0 / 0.6);
   }

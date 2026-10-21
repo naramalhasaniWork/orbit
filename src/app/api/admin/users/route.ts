@@ -1,6 +1,7 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
+import { resolveAvatarUrl } from "@/lib/avatar/resolve";
 import {
   requireSuperAdmin,
   apiSuccess,
@@ -62,6 +63,7 @@ export async function GET(request: NextRequest) {
           name: true,
           email: true,
           image: true,
+          avatarKey: true,
           role: true,
           createdAt: true,
           updatedAt: true,
@@ -82,7 +84,7 @@ export async function GET(request: NextRequest) {
       id: u.id,
       name: u.name,
       email: u.email,
-      image: u.image,
+      image: resolveAvatarUrl(u),
       role: u.role,
       createdAt: u.createdAt,
       lastActive: u.updatedAt,
