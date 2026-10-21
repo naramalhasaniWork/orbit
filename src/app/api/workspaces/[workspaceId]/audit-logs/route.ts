@@ -3,10 +3,11 @@ import { prisma } from "@/lib/db";
 import { apiSuccess, apiError } from "@/lib/utils/api";
 import { buildAuditCsvRow, CSV_HEADER } from "./csv-utils";
 import { route } from "@/server/http/route";
+import { eeLicenseRequired } from "@/ee/require-license";
 
 // ============================================================
 // GET /api/workspaces/[workspaceId]/audit-logs
-// Supports JSON (default) and CSV (?format=csv) responses
+// Supports JSON (default) and CSV (?format=csv, Enterprise) responses
 // ============================================================
 
 export const GET = route(
@@ -26,7 +27,7 @@ export const GET = route(
     const where = buildWhereClause(workspaceId, { actionFilter, userId, resourceType, from, to, search });
 
     if (format === "csv") {
-      return streamCsvResponse(where);
+      return eeLicenseRequired("Audit log export") ?? streamCsvResponse(where);
     }
 
     const [logs, total] = await Promise.all([

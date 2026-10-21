@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { requireSuperAdmin, apiSuccess, handleApiError } from "@/lib/utils/api";
 import { buildAuditCsvRow, CSV_HEADER } from "../../workspaces/[workspaceId]/audit-logs/csv-utils";
+import { eeLicenseRequired } from "@/ee/require-license";
 
 // ============================================================
 // GET /api/admin/audit-logs — Global audit log view (super admin)
@@ -26,7 +27,7 @@ export async function GET(request: NextRequest) {
     const where = buildWhereClause({ actionFilter, userId, resourceType, workspaceId, from, to, search });
 
     if (format === "csv") {
-      return streamCsvResponse(where);
+      return eeLicenseRequired("Audit log export") ?? streamCsvResponse(where);
     }
 
     const [logs, total] = await Promise.all([

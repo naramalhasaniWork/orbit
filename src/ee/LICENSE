@@ -1,0 +1,89 @@
+DRAFT — have counsel review before relying on it.
+
+Orbit Enterprise License
+
+Copyright (c) 2026 Naram Alhasani. All rights reserved.
+
+This license applies to every file in the `src/ee/` directory of the Orbit
+repository and to any file elsewhere whose header states that it is covered by
+this license (together, the "Enterprise Software"). Everything else in the
+repository is licensed under the GNU Affero General Public License version 3
+only (see the LICENSE file at the repository root).
+
+1. Definitions
+
+   "Licensor" means Naram Alhasani.
+
+   "You" means the individual or legal entity exercising rights under this
+   license, and any entity that controls, is controlled by, or is under common
+   control with it.
+
+   "Subscription" means a paid Orbit Enterprise subscription or other written
+   agreement with the Licensor that covers Your use of the Enterprise Software
+   for a stated number of seats and term.
+
+   "License Key" means a key issued by the Licensor under a Subscription that
+   the Enterprise Software verifies before enabling its features.
+
+   "Production Use" means any use other than Development Use, including use
+   that processes real customer, employee or business data, or that serves end
+   users.
+
+   "Development Use" means use solely to develop, test, evaluate or
+   demonstrate the Enterprise Software or Your integration with it, in
+   environments that are not Production Use.
+
+2. Development Use is free
+
+   You may copy, run and modify the Enterprise Software for Development Use
+   without a Subscription or License Key.
+
+3. Production Use requires a Subscription
+
+   You may use the Enterprise Software for Production Use only while You hold
+   a valid Subscription and a valid License Key, and only within the number of
+   seats and the term that Subscription covers.
+
+4. Modifications
+
+   You may modify the Enterprise Software for Production Use only while You
+   hold a valid Subscription and License Key. Modifications must not remove,
+   disable or work around the License Key check or any other technical limit
+   on use. The Licensor owns all rights in the Enterprise Software, including
+   in Your modifications to it, to the extent the law allows; where it does
+   not, You grant the Licensor a perpetual, worldwide, royalty-free license to
+   use, modify and distribute those modifications.
+
+5. No redistribution
+
+   You may not sell, sublicense, distribute, host for third parties, or
+   otherwise make the Enterprise Software or any modification of it available
+   to anyone other than Your own employees and contractors acting on Your
+   behalf, except as the Licensor agrees in writing.
+
+6. Third-party components
+
+   Third-party components used by the Enterprise Software remain under their
+   own licenses. Nothing in this license limits the rights the AGPL-3.0 grants
+   You for the parts of Orbit outside the Enterprise Software.
+
+7. Termination
+
+   Your rights under this license end automatically if You breach it, or, for
+   Production Use, when Your Subscription ends. On termination You must stop
+   Production Use of the Enterprise Software.
+
+8. No warranty
+
+   THE ENTERPRISE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+   EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+   MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+
+9. Limitation of liability
+
+   TO THE MAXIMUM EXTENT PERMITTED BY LAW, IN NO EVENT SHALL THE LICENSOR BE
+   LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF
+   CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE
+   ENTERPRISE SOFTWARE OR ITS USE.
+
+For a Subscription or License Key, contact [CONTACT EMAIL].
