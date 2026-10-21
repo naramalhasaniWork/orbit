@@ -18,6 +18,9 @@ export const authOptions: AuthOptions = {
     GitHubProvider({
       clientId: process.env.GITHUB_CLIENT_ID!,
       clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+      // GitHub sends an RFC 9207 `iss` on the callback (since April 2026); openid-client
+      // rejects any callback carrying `iss` unless the issuer is configured to match it.
+      issuer: "https://github.com/login/oauth",
       // GitHub Apps ignore OAuth scopes (permissions come from the App's configuration),
       // so none are requested here. GITHUB_CLIENT_ID/SECRET must be the GitHub App's.
     }),

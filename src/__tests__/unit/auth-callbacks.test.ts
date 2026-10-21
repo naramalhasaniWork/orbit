@@ -5,7 +5,7 @@ import type { Account, User } from "next-auth";
 process.env.ENCRYPTION_KEY = "d".repeat(64);
 
 vi.mock("@next-auth/prisma-adapter", () => ({ PrismaAdapter: () => ({}) }));
-vi.mock("next-auth/providers/github", () => ({ default: () => ({ id: "github" }) }));
+vi.mock("next-auth/providers/github", () => ({ default: (options: object) => ({ id: "github", options }) }));
 vi.mock("next-auth/providers/gitlab", () => ({ default: () => ({ id: "gitlab" }) }));
 vi.mock("@/lib/auth/signup-policy", () => ({ evaluateSignIn: vi.fn() }));
 vi.mock("@/lib/auth/rate-limit", () => ({ consumeRateLimit: vi.fn() }));
@@ -184,5 +184,12 @@ describe("jwt callback: deleted workspaces", () => {
       workspace: { deletedAt: null },
     });
     expect(token.workspaceId).toBe("ws-old");
+  });
+});
+
+describe("GitHub provider", () => {
+  it("declares GitHub's issuer, so callbacks carrying an RFC 9207 iss are accepted", () => {
+    const github = authOptions.providers.find((p) => p.id === "github") as { options?: { issuer?: string } };
+    expect(github.options?.issuer).toBe("https://github.com/login/oauth");
   });
 });
