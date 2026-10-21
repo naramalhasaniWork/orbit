@@ -8,7 +8,7 @@ import { SystemMapView } from "@/components/dashboard/system-map-view";
 import Link from "next/link";
 import { EmptyState } from "@/components/shared/empty-state";
 import { Button } from "@/components/ui/button";
-import type { MapNode, MapEdge, TestStatus, ChangeStatus } from "@/components/dashboard/map-types";
+import { getMapGraph } from "@/lib/map/map-data";
 
 export default async function MapPage({
   searchParams,
@@ -52,51 +52,7 @@ export default async function MapPage({
   const lastCommitSha = settings.lastCommitSha;
   const lastCommitMessage = settings.lastCommitMessage;
 
-  const [dbNodes, dbEdges] = await Promise.all([
-    prisma.systemMapNode.findMany({
-      where: { projectId: project.id },
-      select: {
-        id: true,
-        type: true,
-        name: true,
-        filePath: true,
-        metadata: true,
-      },
-      orderBy: { createdAt: "asc" },
-    }),
-    prisma.systemMapEdge.findMany({
-      where: { projectId: project.id },
-      select: {
-        id: true,
-        sourceNodeId: true,
-        targetNodeId: true,
-        relationship: true,
-      },
-    }),
-  ]);
-
-  // Determine test status per node from latest test results
-  const nodeTestStatuses = await getNodeTestStatuses(project.id);
-
-  const nodes: MapNode[] = dbNodes.map((n) => {
-    const meta = n.metadata as Record<string, unknown> | null;
-    return {
-      id: n.id,
-      type: n.type as MapNode["type"],
-      name: n.name,
-      filePath: n.filePath,
-      metadata: meta,
-      testStatus: nodeTestStatuses.get(n.id) ?? ("untested" as TestStatus),
-      changeStatus: (meta?.changeStatus as ChangeStatus) ?? undefined,
-    };
-  });
-
-  const edges: MapEdge[] = dbEdges.map((e) => ({
-    id: e.id,
-    sourceId: e.sourceNodeId,
-    targetId: e.targetNodeId,
-    relationship: e.relationship,
-  }));
+  const { nodes, edges } = await getMapGraph(project.id);
 
   return (
     <div className="flex h-[calc(100dvh-8.5rem)] min-h-[480px] flex-col">
@@ -148,52 +104,3 @@ export default async function MapPage({
   );
 }
 
-async function getNodeTestStatuses(
-  projectId: string
-): Promise<Map<string, TestStatus>> {
-  const statuses = new Map<string, TestStatus>();
-
-  // Get test cases with their journeys and latest verdicts
-  const testCases = await prisma.testCase.findMany({
-    where: { projectId, isEnabled: true },
-    select: {
-      journey: true,
-      lastVerdict: true,
-    },
-  });
-
-  // Map journeys to verdict summaries
-  const journeyVerdicts = new Map<string, Set<string>>();
-  for (const tc of testCases) {
-    if (!tc.journey) continue;
-    const verdicts = journeyVerdicts.get(tc.journey) ?? new Set<string>();
-    if (tc.lastVerdict) verdicts.add(tc.lastVerdict);
-    journeyVerdicts.set(tc.journey, verdicts);
-  }
-
-  // Get nodes and match to journeys by name
-  const nodes = await prisma.systemMapNode.findMany({
-    where: { projectId },
-    select: { id: true, name: true },
-  });
-
-  for (const node of nodes) {
-    const verdicts = journeyVerdicts.get(node.name);
-    if (!verdicts || verdicts.size === 0) {
-      statuses.set(node.id, "untested");
-      continue;
-    }
-
-    if (verdicts.has("fail")) {
-      statuses.set(node.id, "fail");
-    } else if (verdicts.has("flaky")) {
-      statuses.set(node.id, "flaky");
-    } else if (verdicts.has("pass") || verdicts.has("healed")) {
-      statuses.set(node.id, "pass");
-    } else {
-      statuses.set(node.id, "untested");
-    }
-  }
-
-  return statuses;
-}
