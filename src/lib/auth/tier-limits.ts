@@ -6,8 +6,8 @@
  * concurrentRuns caps simultaneously executing runs per workspace (queued
  * runs wait; see lib/queue/run-slots.ts). Self-hosted is unlimited.
  *
- * monthlyCredits is per seat on seat-based tiers (the Stripe subscription
- * quantity multiplies it) and per workspace otherwise.
+ * members and monthlyCredits are per seat on seat-based tiers (the Stripe
+ * subscription quantity multiplies them) and per workspace otherwise.
  *
  * Kept free of server imports so client components can read it.
  */
@@ -23,7 +23,7 @@ export const TIER_LIMITS = {
     allowedModels: ["claude-haiku-4-5-20251001"] as readonly string[],
   },
   starter: {
-    members: 5,
+    members: 1,
     projects: 5,
     seatBased: true,
     runsPerMonth: 500,
@@ -33,7 +33,7 @@ export const TIER_LIMITS = {
     allowedModels: ["claude-haiku-4-5-20251001", "claude-sonnet-4-6"] as readonly string[],
   },
   professional: {
-    members: 10,
+    members: 1,
     projects: Infinity,
     seatBased: true,
     runsPerMonth: 5000,
@@ -69,6 +69,12 @@ export function tierDisplayName(tier: string): string {
   return tier in TIER_DISPLAY_NAMES ? TIER_DISPLAY_NAMES[tier as WorkspaceTier] : tier;
 }
 
+/** Member limit: one member per purchased seat on seat-based tiers, else the tier's fixed limit. */
+export function memberLimit(tier: WorkspaceTier, seatCount: number): number {
+  const { members, seatBased } = TIER_LIMITS[tier];
+  return seatBased ? members * Math.max(1, seatCount) : members;
+}
+
 function countLabel(n: number, singular: string, plural: string): string {
   if (n === Infinity) return `Unlimited ${plural}`;
   return `${n.toLocaleString("en-US")} ${n === 1 ? singular : plural}`;
@@ -86,7 +92,9 @@ export function tierLimitFeatures(tier: WorkspaceTier): string[] {
   const limits = TIER_LIMITS[tier];
   return [
     countLabel(limits.projects, "project", "projects"),
-    countLabel(limits.members, "team member", "team members"),
+    limits.seatBased
+      ? `${countLabel(limits.members, "team member", "team members")} per seat`
+      : countLabel(limits.members, "team member", "team members"),
     tierCreditsLabel(tier),
   ];
 }

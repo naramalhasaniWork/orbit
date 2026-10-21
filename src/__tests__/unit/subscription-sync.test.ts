@@ -29,6 +29,7 @@ describe("syncSubscriptionToWorkspace", () => {
       where: { id: "ws-1" },
       data: expect.objectContaining({
         tier: "starter",
+        seatCount: 4,
         monthlyCredits: TIER_LIMITS.starter.monthlyCredits * 4,
       }),
     });

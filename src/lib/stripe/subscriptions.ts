@@ -55,6 +55,24 @@ export async function changeTier(
   });
 }
 
+/**
+ * Set the seat count (subscription quantity). Stripe prorates the change;
+ * the customer.subscription.updated webhook syncs seatCount back.
+ */
+export async function updateSeatCount(subscriptionId: string, seats: number) {
+  const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+  const itemId = subscription.items.data[0]?.id;
+
+  if (!itemId) {
+    throw new Error("No subscription item found");
+  }
+
+  return stripe.subscriptions.update(subscriptionId, {
+    items: [{ id: itemId, quantity: seats }],
+    proration_behavior: "create_prorations",
+  });
+}
+
 export async function syncSubscriptionToWorkspace(
   workspaceId: string,
   stripeSubscriptionId: string,
@@ -100,6 +118,7 @@ export async function syncSubscriptionToWorkspace(
       tier,
       billingPeriodStart: currentPeriodStart,
       billingPeriodEnd: currentPeriodEnd,
+      seatCount: Math.max(1, seats),
       ...(monthlyCredits !== null ? { monthlyCredits } : {}),
     },
   });
@@ -117,6 +136,7 @@ export async function downgradeToFree(workspaceId: string) {
       billingPeriodStart: null,
       billingPeriodEnd: null,
       monthlyCredits: freeCredits,
+      seatCount: 1,
     },
   });
 

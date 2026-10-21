@@ -7,7 +7,7 @@ import { prisma } from "@/lib/db";
 import type { Prisma } from "@/generated/prisma/client";
 import { isSelfHosted } from "@/lib/self-host";
 import { checkBudgetLimit } from "@/lib/billing/usage-aggregator";
-import { TIER_LIMITS, type WorkspaceTier } from "./tier-limits";
+import { TIER_LIMITS, memberLimit, type WorkspaceTier } from "./tier-limits";
 
 export { TIER_LIMITS, type WorkspaceTier };
 
@@ -78,7 +78,7 @@ export async function canConsume(
   if (isSelfHosted()) return { allowed: true };
   const workspace = await db.workspace.findUnique({
     where: { id: workspaceId },
-    select: { tier: true, creditBalance: true },
+    select: { tier: true, creditBalance: true, seatCount: true },
   });
   if (!workspace) {
     return { allowed: false, code: "NOT_FOUND", reason: "Workspace not found" };
@@ -94,16 +94,14 @@ export async function canConsume(
         : { allowed: true };
     }
     case "member": {
-      const [members, pending] = await Promise.all([
-        db.workspaceMember.count({ where: { workspaceId } }),
-        // Expired invites no longer hold a seat
-        db.workspaceInvitation.count({
-          where: { workspaceId, status: "pending", expiresAt: { gt: new Date() } },
-        }),
-      ]);
-      return members + pending >= limits.members
-        ? limitReached(`Member limit reached (${limits.members}). Upgrade your plan to add more members.`)
-        : { allowed: true };
+      const seats = await countSeatsInUse(workspaceId, db);
+      const limit = memberLimit(workspace.tier, workspace.seatCount);
+      if (seats.members + seats.pending < limit) return { allowed: true };
+      return limitReached(
+        limits.seatBased
+          ? `All ${limit} seats are in use (${seats.members} members, ${seats.pending} pending invites). Add seats in Billing to invite more members.`
+          : `Member limit reached (${limit}). Upgrade your plan to add more members.`
+      );
     }
     case "run": {
       const monthStart = new Date();
@@ -122,6 +120,24 @@ export async function canConsume(
     case "credits":
       return checkCredits(workspaceId, workspace.creditBalance, limits.monthlyCredits);
   }
+}
+
+/**
+ * Seats held: members plus live pending invites (an expired invite frees its
+ * seat). After a seat reduction this can exceed the limit; nobody is removed,
+ * but new invites are blocked until it is back under.
+ */
+export async function countSeatsInUse(
+  workspaceId: string,
+  db: Prisma.TransactionClient = prisma
+): Promise<{ members: number; pending: number }> {
+  const [members, pending] = await Promise.all([
+    db.workspaceMember.count({ where: { workspaceId } }),
+    db.workspaceInvitation.count({
+      where: { workspaceId, status: "pending", expiresAt: { gt: new Date() } },
+    }),
+  ]);
+  return { members, pending };
 }
 
 function limitReached(reason: string): ConsumeDecision {

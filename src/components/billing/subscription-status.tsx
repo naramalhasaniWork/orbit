@@ -5,6 +5,8 @@ import { useEffect, useState, useCallback } from "react";
 import { Zap, Calendar, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { tierDisplayName } from "@/lib/auth/tier-limits";
+import { CreditBucketsSummary, type CreditBucketsData } from "./credit-buckets-summary";
+import { SeatUsage, type SeatUsageData } from "./seat-usage";
 
 interface SubscriptionData {
   tier: string;
@@ -19,6 +21,8 @@ interface SubscriptionData {
   hasStripeCustomer: boolean;
   creditBalance: number;
   monthlyCredits: number;
+  credits: CreditBucketsData;
+  seats: SeatUsageData;
 }
 
 interface SubscriptionStatusProps {
@@ -141,6 +145,15 @@ export function SubscriptionStatus({ workspaceId }: SubscriptionStatusProps) {
           </button>
         )}
       </div>
+
+      <CreditBucketsSummary credits={data.credits} />
+
+      <SeatUsage
+        workspaceId={workspaceId}
+        seats={data.seats}
+        canChangeSeats={sub?.status === "active" || sub?.status === "trialing"}
+        onChanged={fetchSubscription}
+      />
 
       {sub && (
         <div className="mt-4 pt-4 border-t border-border">
