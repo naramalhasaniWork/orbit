@@ -22,11 +22,9 @@ export default async function AdminLayout({
     <div className="flex h-dvh surface-0 overflow-hidden">
       <AdminSidebar />
       <div className="flex flex-col flex-1 min-w-0">
-        <header className="h-14 flex items-center justify-between px-6 border-b border-border surface-1">
+        <header className="flex h-[52px] items-center justify-between border-b border-border bg-card px-6">
           <div className="flex items-center gap-2">
-            <span className="text-xs font-medium px-2 py-0.5 rounded-md bg-red-500/15 text-red-400 border border-red-500/20">
-              SUPER ADMIN
-            </span>
+            <span className="tm-label rounded-sm border border-tm-line-strong px-1.5 text-tm-t2">Super admin</span>
             <span className="text-sm text-muted-foreground">
               Platform Management
             </span>

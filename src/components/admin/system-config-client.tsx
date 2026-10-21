@@ -76,14 +76,14 @@ export function SystemConfigClient({
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-lg font-semibold text-foreground">System Configuration</h2>
+          <h2 className="text-lg font-medium text-foreground">System Configuration</h2>
           <p className="text-sm text-muted-foreground">
             Platform-wide feature flags, maintenance mode, and announcements.
           </p>
         </div>
         <div className="flex items-center gap-3">
           {status && (
-            <span className={cn("text-xs", status.ok ? "text-orbit-pass" : "text-red-400")} role="status">
+            <span className={cn("text-xs", status.ok ? "text-orbit-pass" : "text-tm-fail")} role="status">
               {status.message}
             </span>
           )}
@@ -97,7 +97,7 @@ export function SystemConfigClient({
       {/* Feature Flags */}
       <div className="rounded-xl surface-1 border border-border p-5 space-y-4">
         <div className="flex items-center gap-2">
-          <Settings className="h-4 w-4 text-orbit-accent" />
+          <Settings className="h-4 w-4 text-foreground" />
           <h3 className="text-sm font-medium text-foreground">Feature Flags</h3>
         </div>
         <div className="space-y-3">
@@ -149,7 +149,7 @@ export function SystemConfigClient({
       {/* System Announcement */}
       <div className="rounded-xl surface-1 border border-border p-5 space-y-4">
         <div className="flex items-center gap-2">
-          <Bell className="h-4 w-4 text-orbit-accent" />
+          <Bell className="h-4 w-4 text-foreground" />
           <h3 className="text-sm font-medium text-foreground">System Announcement</h3>
         </div>
         <div className="space-y-1.5">

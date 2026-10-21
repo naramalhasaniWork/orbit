@@ -74,7 +74,7 @@ export function CostDashboard({ workspaceId }: CostDashboardProps) {
     return (
       <div className="space-y-4">
         {[1, 2, 3, 4].map((i) => (
-          <div key={i} className="h-28 rounded-xl bg-foreground/[0.02] animate-pulse" />
+          <div key={i} className="h-28 rounded-xl bg-foreground/[0.02]" />
         ))}
       </div>
     );
@@ -104,7 +104,7 @@ export function CostDashboard({ workspaceId }: CostDashboardProps) {
         <PeriodSelector period={period} onChange={setPeriod} />
         <button
           onClick={() => setShowPurchase(true)}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-orbit-accent text-white text-sm font-medium hover:bg-orbit-accent/90 transition-colors"
+          className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/85 transition-colors"
         >
           <ShoppingCart className="h-3.5 w-3.5" />
           Buy Credits
@@ -182,7 +182,7 @@ function SummaryCard({
         <Icon className="h-3.5 w-3.5 text-muted-foreground" />
         <span className="text-[11px] font-medium text-muted-foreground">{label}</span>
       </div>
-      <p className="text-lg font-semibold text-foreground">{value}</p>
+      <p className="text-lg font-medium text-foreground">{value}</p>
       <p className="text-[11px] text-muted-foreground mt-0.5">{sub}</p>
     </div>
   );
@@ -210,10 +210,10 @@ function CreditBar({
           className={cn(
             "h-full rounded-full transition-all",
             percent >= 90
-              ? "bg-red-400"
+              ? "bg-tm-fail"
               : percent >= 70
-                ? "bg-amber-400"
-                : "bg-orbit-accent"
+                ? "bg-tm-warn"
+                : "bg-foreground"
           )}
           style={{ width: `${percent}%` }}
         />
@@ -251,9 +251,9 @@ function PeriodSelector({
 
 function AlertBanner({ alert }: { alert: UsageAlert }) {
   const config = {
-    critical: { border: "border-red-400/30", bg: "bg-red-400/5", icon: "text-red-400" },
-    warning: { border: "border-amber-400/30", bg: "bg-amber-400/5", icon: "text-amber-400" },
-    info: { border: "border-blue-400/30", bg: "bg-blue-400/5", icon: "text-blue-400" },
+    critical: { border: "border-tm-fail/30", bg: "bg-tm-fail/5", icon: "text-tm-fail" },
+    warning: { border: "border-tm-warn/30", bg: "bg-tm-warn/5", icon: "text-tm-warn" },
+    info: { border: "border-tm-info/30", bg: "bg-tm-info/5", icon: "text-tm-info" },
   }[alert.severity];
 
   return (

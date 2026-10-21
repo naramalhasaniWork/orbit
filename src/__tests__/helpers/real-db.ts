@@ -4,11 +4,11 @@ import type { PrismaClient } from "@/generated/prisma/client";
 /**
  * Real-Postgres suites run only when ORBIT_TEST_DATABASE_URL points at a migrated database
  * (e.g. postgresql://postgres@127.0.0.1:5434/orbit_mig); otherwise they skip. Call
- * useRealDb() before anything imports @/lib/db, since the client reads DATABASE_URL once.
+ * withRealDb() before anything imports @/lib/db, since the client reads DATABASE_URL once.
  */
 export const realDbUrl = process.env.ORBIT_TEST_DATABASE_URL ?? null;
 
-export function useRealDb(): void {
+export function withRealDb(): void {
   if (realDbUrl) process.env.DATABASE_URL = realDbUrl;
 }
 

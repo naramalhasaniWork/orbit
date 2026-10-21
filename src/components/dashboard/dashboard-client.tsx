@@ -21,7 +21,8 @@ interface Project {
 }
 
 interface DashboardStats {
-  passRate: number;
+  passRate: number | null;
+  latestRunNumber: number | null;
   flakyCount: number;
   coverage: number;
   lastDuration: number;
@@ -146,11 +147,17 @@ export function DashboardClient({
 
       <StatStrip
         stats={[
-          { label: "Pass rate", value: stats.passRate, suffix: "%", trend: t?.passRate, spark: s?.passRate },
+          {
+            label: stats.latestRunNumber ? `Pass rate · run #${stats.latestRunNumber}` : "Pass rate",
+            value: stats.passRate ?? "–",
+            suffix: stats.passRate === null ? undefined : "%",
+            trend: t?.passRate,
+            spark: s?.passRate,
+          },
           { label: "Flaky tests", value: stats.flakyCount, trend: t?.flakyCount, upIsGood: false, spark: s?.flakyCount },
           { label: "Coverage", value: stats.coverage, suffix: "%", trend: t?.coverage, spark: s?.coverage },
           {
-            label: "Last run",
+            label: "Duration",
             value: stats.lastDuration > 0 ? (stats.lastDuration / 1000).toFixed(1) : "–",
             suffix: stats.lastDuration > 0 ? "s" : undefined,
             trend: t?.duration,
@@ -177,7 +184,7 @@ export function DashboardClient({
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 lg:divide-x lg:divide-border">
-        <NeedsYouList items={needsYou} projectId={activeProject.id} />
+        <NeedsYouList items={needsYou} projectId={activeProject.id} runNumber={stats.latestRunNumber} />
         <RiskiestList items={riskiest} />
       </div>
     </div>

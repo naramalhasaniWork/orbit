@@ -60,7 +60,7 @@ export function TestResultCard({ result, projectId, runId, defaultExpanded = fal
         <span className="min-w-0">
           <span className="block truncate text-[13px] font-medium text-foreground">
             {result.testCase.name}
-            {result.testCase.isCritical && <span className="tm-label ml-2 text-tm-fail">Critical</span>}
+            {result.testCase.isCritical && <span className="tm-label ml-2 rounded-sm border border-tm-line-strong px-1 text-tm-t2">Critical</span>}
           </span>
           {result.testCase.journey && (
             <span className="block truncate text-[12px] text-tm-t2">{result.testCase.journey}</span>

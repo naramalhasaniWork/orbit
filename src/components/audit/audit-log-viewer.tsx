@@ -41,6 +41,7 @@ export function AuditLogViewer({ workspaceId, showWorkspace }: AuditLogViewerPro
   const [members, setMembers] = useState<WorkspaceMemberOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
   const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const apiBase = workspaceId
@@ -110,6 +111,7 @@ export function AuditLogViewer({ workspaceId, showWorkspace }: AuditLogViewerPro
 
   const handleExportCsv = async () => {
     setExporting(true);
+    setExportError(null);
     try {
       const params = new URLSearchParams({ format: "csv" });
       if (filters.action) params.set("action", filters.action);
@@ -120,6 +122,11 @@ export function AuditLogViewer({ workspaceId, showWorkspace }: AuditLogViewerPro
       if (filters.search) params.set("search", filters.search);
 
       const res = await fetch(`${apiBase}?${params}`);
+      if (!res.ok) {
+        const body = (await res.json().catch(() => null)) as { error?: { message?: string } } | null;
+        setExportError(body?.error?.message ?? "Export failed");
+        return;
+      }
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -168,6 +175,12 @@ export function AuditLogViewer({ workspaceId, showWorkspace }: AuditLogViewerPro
           </button>
         </div>
       </div>
+
+      {exportError && (
+        <p role="alert" className="text-xs text-muted-foreground">
+          {exportError}
+        </p>
+      )}
 
       {/* Table */}
       <div className="rounded-lg border border-border overflow-hidden">

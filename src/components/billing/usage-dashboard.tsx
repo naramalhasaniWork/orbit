@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Activity, Users, FolderOpen, Zap, TrendingUp } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { tierDisplayName } from "@/lib/auth/tier-limits";
 
 interface UsageData {
   tier: string;
@@ -34,13 +35,6 @@ interface UsageDashboardProps {
   workspaceId: string;
 }
 
-const TIER_LABELS: Record<string, string> = {
-  free: "Free",
-  starter: "Starter",
-  professional: "Professional",
-  enterprise: "Enterprise",
-};
-
 function UsageMeter({
   label,
   icon: Icon,
@@ -66,7 +60,7 @@ function UsageMeter({
           <Icon className="h-4 w-4 text-muted-foreground" />
           <span className="text-xs font-medium text-muted-foreground">{label}</span>
         </div>
-        <span className="text-sm font-semibold text-foreground">
+        <span className="text-sm font-medium text-foreground">
           {current.toLocaleString()}
           {!isInfinite && (
             <span className="text-muted-foreground font-normal">
@@ -85,7 +79,7 @@ function UsageMeter({
           <div
             className={cn(
               "h-full rounded-full transition-all duration-500",
-              isAtLimit ? "bg-red-400" : isNearLimit ? "bg-amber-400" : "bg-orbit-accent"
+              isAtLimit ? "bg-tm-fail" : isNearLimit ? "bg-tm-warn" : "bg-foreground"
             )}
             style={{ width: `${percentage}%` }}
           />
@@ -116,7 +110,7 @@ export function UsageDashboard({ workspaceId }: UsageDashboardProps) {
     return (
       <div className="space-y-4">
         {[1, 2, 3, 4].map((i) => (
-          <div key={i} className="h-20 rounded-xl bg-muted/30 animate-pulse" />
+          <div key={i} className="h-20 rounded-xl bg-muted/30" />
         ))}
       </div>
     );
@@ -133,12 +127,12 @@ export function UsageDashboard({ workspaceId }: UsageDashboardProps) {
       {/* Tier badge */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-orbit-accent/15 flex items-center justify-center">
-            <Zap className="h-5 w-5 text-orbit-accent" />
+          <div className="h-10 w-10 rounded-xl bg-foreground/[0.06] flex items-center justify-center">
+            <Zap className="h-5 w-5 text-foreground" />
           </div>
           <div>
             <p className="text-sm font-medium text-foreground">
-              {TIER_LABELS[data.tier] ?? data.tier} Plan
+              {tierDisplayName(data.tier)} Plan
             </p>
             <p className="text-xs text-muted-foreground">
               {data.current.creditBalance.toLocaleString()} credits remaining
@@ -188,7 +182,7 @@ export function UsageDashboard({ workspaceId }: UsageDashboardProps) {
               return (
                 <div
                   key={day.date}
-                  className="flex-1 bg-orbit-accent/30 hover:bg-orbit-accent/50 rounded-t transition-colors cursor-default"
+                  className="flex-1 bg-foreground/[0.06] hover:bg-accent rounded-t transition-colors cursor-default"
                   style={{ height: `${Math.max(height, 4)}%` }}
                   title={`${day.date}: ${day.runs} runs`}
                 />
@@ -220,7 +214,7 @@ export function UsageDashboard({ workspaceId }: UsageDashboardProps) {
                 <span
                   className={cn(
                     "text-sm font-medium",
-                    tx.amount < 0 ? "text-red-400" : "text-green-400"
+                    tx.amount < 0 ? "text-tm-fail" : "text-tm-pass"
                   )}
                 >
                   {tx.amount > 0 ? "+" : ""}

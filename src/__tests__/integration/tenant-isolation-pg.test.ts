@@ -1,13 +1,13 @@
 import { describe, it, expect, vi, beforeAll, afterAll } from "vitest";
 import { NextRequest } from "next/server";
-import { dropTenant, realDbUrl, seedTenant, useRealDb, type TenantFixture } from "../helpers/real-db";
+import { dropTenant, realDbUrl, seedTenant, withRealDb, type TenantFixture } from "../helpers/real-db";
 
 /**
  * Every migrated id-param route, called by workspace B's owner with workspace A's ids, answers
  * 404 and leaves A's rows alone. Real Postgres, real route(), real membership read: only the
  * NextAuth session and the side-effect services are stubbed.
  */
-useRealDb();
+withRealDb();
 
 const caller = vi.hoisted(() => ({ userId: "", workspaceId: "" }));
 const sideEffects = vi.hoisted(() => ({

@@ -118,7 +118,7 @@ export function ConfigEditor({ projectId }: ConfigEditorProps) {
 
   if (loading) {
     return (
-      <div className="rounded-xl surface-1 p-8 animate-pulse">
+      <div className="rounded-xl surface-1 p-8">
         <div className="h-4 w-32 bg-muted rounded" />
       </div>
     );
@@ -209,7 +209,7 @@ export function ConfigEditor({ projectId }: ConfigEditorProps) {
 
       {/* Scope Config */}
       <div className="rounded-xl surface-1 p-4 space-y-3">
-        <h4 className="text-xs font-medium text-foreground uppercase tracking-wider">
+        <h4 className=" text-foreground tm-label">
           Scope
         </h4>
         <div className="space-y-2">
@@ -239,7 +239,7 @@ export function ConfigEditor({ projectId }: ConfigEditorProps) {
 
       {/* Coverage Config */}
       <div className="rounded-xl surface-1 p-4 space-y-3">
-        <h4 className="text-xs font-medium text-foreground uppercase tracking-wider">
+        <h4 className=" text-foreground tm-label">
           Coverage Targets
         </h4>
         <div className="grid grid-cols-2 gap-4">
@@ -284,7 +284,7 @@ export function ConfigEditor({ projectId }: ConfigEditorProps) {
 
       {/* Execution Config */}
       <div className="rounded-xl surface-1 p-4 space-y-3">
-        <h4 className="text-xs font-medium text-foreground uppercase tracking-wider">
+        <h4 className=" text-foreground tm-label">
           Execution
         </h4>
         <div className="grid grid-cols-2 gap-4">

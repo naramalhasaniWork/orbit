@@ -1,7 +1,8 @@
 "use client";
 
+import { Pending } from "@/components/telemetry/pending";
 import { useState } from "react";
-import { Check, Zap, ArrowRight, Loader2 } from "lucide-react";
+import { Check, Zap, ArrowRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { tierCreditsLabel, tierLimitFeatures } from "@/lib/auth/tier-limits";
 
@@ -113,7 +114,7 @@ export function PricingSelector({ currentTier, onSelectTier }: PricingSelectorPr
           )}
         >
           Annual
-          <span className="ml-1.5 text-xs text-green-400">Save 15%</span>
+          <span className="ml-1.5 text-xs text-tm-pass">Save 15%</span>
         </button>
       </div>
 
@@ -129,26 +130,26 @@ export function PricingSelector({ currentTier, onSelectTier }: PricingSelectorPr
               className={cn(
                 "rounded-xl border p-5 flex flex-col",
                 tier.highlight
-                  ? "border-orbit-accent/40 bg-orbit-accent/[0.03]"
+                  ? "border-tm-line-strong bg-foreground/[0.06]"
                   : "border-border bg-muted/30",
-                isCurrent && "ring-1 ring-orbit-accent/30"
+                isCurrent && "ring-1 ring-tm-line-strong"
               )}
             >
               <div className="mb-4">
                 <div className="flex items-center gap-2 mb-1">
-                  <h3 className="text-sm font-semibold text-foreground">{tier.name}</h3>
+                  <h3 className="text-sm font-medium text-foreground">{tier.name}</h3>
                   {isCurrent && (
-                    <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-orbit-accent/15 text-orbit-accent">
+                    <span className="text-[10px] font-medium px-1.5 py-0.5 rounded-full bg-foreground/[0.06] text-foreground">
                       Current
                     </span>
                   )}
                 </div>
                 <div className="flex items-baseline gap-1">
                   {price === 0 ? (
-                    <span className="text-2xl font-bold text-foreground">Free</span>
+                    <span className="text-2xl font-medium text-foreground">Free</span>
                   ) : (
                     <>
-                      <span className="text-2xl font-bold text-foreground">${price}</span>
+                      <span className="text-2xl font-medium text-foreground">${price}</span>
                       <span className="text-xs text-muted-foreground">/{tier.period}</span>
                     </>
                   )}
@@ -159,7 +160,7 @@ export function PricingSelector({ currentTier, onSelectTier }: PricingSelectorPr
               <ul className="space-y-2 mb-5 flex-1">
                 {tier.features.map((feature) => (
                   <li key={feature} className="flex items-start gap-2 text-xs text-muted-foreground">
-                    <Check className="h-3.5 w-3.5 mt-0.5 text-orbit-accent shrink-0" />
+                    <Check className="h-3.5 w-3.5 mt-0.5 text-foreground shrink-0" />
                     {feature}
                   </li>
                 ))}
@@ -175,13 +176,13 @@ export function PricingSelector({ currentTier, onSelectTier }: PricingSelectorPr
                     : tier.key === "free"
                       ? "bg-muted/40 text-muted-foreground cursor-default"
                       : tier.highlight
-                        ? "bg-orbit-accent text-white hover:bg-orbit-accent/90"
+                        ? "bg-primary text-primary-foreground hover:bg-primary/85"
                         : "bg-muted/60 text-foreground hover:bg-muted/70",
                   loading === tier.key && "opacity-70"
                 )}
               >
                 {loading === tier.key ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <Pending />
                 ) : isCurrent ? (
                   "Current Plan"
                 ) : tier.key === "free" ? (

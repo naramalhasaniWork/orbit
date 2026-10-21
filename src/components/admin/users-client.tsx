@@ -40,8 +40,8 @@ interface UsersClientProps {
 
 const roleColors: Record<string, string> = {
   user: "bg-muted/50 text-muted-foreground border-border",
-  admin: "bg-blue-500/15 text-blue-400 border-blue-500/20",
-  super_admin: "bg-red-500/15 text-red-400 border-red-500/20",
+  admin: "bg-tm-info/15 text-tm-info border-tm-info/20",
+  super_admin: "bg-tm-fail/15 text-tm-fail border-tm-fail/20",
 };
 
 const roleIcons: Record<string, typeof User> = {
@@ -84,7 +84,7 @@ export function UsersClient({ users, total }: UsersClientProps) {
             />
           ) : (
             <div className="h-7 w-7 rounded-full bg-muted/50 flex items-center justify-center">
-              <span className="text-[10px] font-semibold text-muted-foreground">
+              <span className="text-[10px] font-medium text-muted-foreground">
                 {(row.name ?? row.email)[0]?.toUpperCase()}
               </span>
             </div>
@@ -202,7 +202,7 @@ export function UsersClient({ users, total }: UsersClientProps) {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-semibold">Users</h1>
+        <h1 className="text-xl font-medium">Users</h1>
         <p className="text-sm text-muted-foreground mt-1">
           All users on the platform
         </p>

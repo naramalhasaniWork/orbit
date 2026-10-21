@@ -47,7 +47,7 @@ Orbit is an AI-native testing platform that combines deep code-awareness (like C
 - **AST Parsing:** web-tree-sitter with WASM binaries, regex fallback (`src/services/indexing/ast-parser-regex.ts`)
 - **AI:** Anthropic Claude + OpenAI, model routing per task type (`src/lib/ai/model-router.ts`)
 - **Auth:** NextAuth v4 with GitHub OAuth, JWT strategy, auto workspace provisioning
-- **UI:** shadcn/ui (New York style), react-force-graph-2d for System Map, Geist font
+- **UI:** shadcn/ui primitives on the Telemetry tokens (`src/app/globals.css`), Instrument Sans + Martian Mono + Geist Mono, motion from `src/lib/motion.ts`
 - **Testing:** Vitest (`pnpm test`)
 - **Deployment:** Dockerfile (Railway via `railway.toml`, or `docker-compose.yml` for self-hosting); see `docs/self-hosting/`
 
@@ -180,10 +180,11 @@ const model = getModelForTask("test_planning"); // Returns appropriate model ID
 Task types: `classification`, `extraction`, `test_planning`, `browser_execution`, `failure_analysis`, `report_generation`, `security_testing`
 
 ### System Map Visualization
-Uses `react-force-graph-2d` with Canvas rendering for 500+ node performance:
-- Custom node renderer in `src/components/dashboard/map-canvas-renderer.ts`
-- Node colors by test status: green (pass), red (fail), yellow (flaky), gray (untested)
-- Click-to-inspect with detail panel
+The default view is a layered left→right map (routes → components → APIs → data), not force-directed:
+- Layout, journey path and change impact in `src/lib/map/layered.ts`; rendering in `src/components/dashboard/layered-map.tsx`
+- Border style encodes node type (solid route, dashed component, double API, filled data); a 4px mark carries test status
+- `?view=impact` highlights nodes changed in the last sync plus their dependents; `?view=3d` lazy-loads `system-map-3d.tsx`
+- Click-to-inspect with detail panel (`?node=`)
 
 ## Coding Standards
 
@@ -235,17 +236,13 @@ Agent prompt definitions live in `.claude/agents/`. Use these when spawning spec
 - `indexing-service.md` — Indexing pipeline implementation
 - `integrations.md` — GitHub/Linear/Slack connectors
 
-## Spec Reference
+## License and Ownership
 
-Full product spec at `Orbit System Brief/orbit-spec.md` (868 lines). Sections:
-1. Vision & Architecture
-2. Repo Indexing (Analyst Agent)
-3. Test Planning (Planner Agent)
-4. Test Execution (Executor Agent)
-5. Reporting & Integrations
-6. Credits & Billing
-7. Deployment & Infrastructure
-8. Dashboard & Onboarding
+Copyright (c) 2026 Naram Alhasani (personally). Everything outside `src/ee/` is AGPL-3.0-only (`LICENSE`); `src/ee/` is under the commercial Orbit Enterprise License (`src/ee/LICENSE`). See `COPYRIGHT`.
+
+- Paid features live in `src/ee/` and are gated with `eeFeatureRequired()` / `hasEeFeature()` (`src/ee/entitlement.ts`). Hosted: by workspace plan (Team/`professional` and Enterprise). Self-hosted: by license key only, an offline Ed25519 check of `ORBIT_EE_LICENSE_KEY` against the embedded `EE_PUBLIC_KEY`; keys issued with `scripts/ee/issue-license.ts`; the private key never enters the repo. Currently gated: audit log CSV export.
+- Gating another existing core feature is an owner decision; never cripple self-hosting of the core.
+- Contributions need the CLA (`.github/CLA.md`). No per-file license headers.
 
 ## Deployment
 

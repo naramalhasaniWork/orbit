@@ -64,6 +64,11 @@ export const TIER_DISPLAY_NAMES: Record<WorkspaceTier, string> = {
   enterprise: "Enterprise",
 };
 
+/** Display name for a tier value that may come from an untyped API payload. */
+export function tierDisplayName(tier: string): string {
+  return tier in TIER_DISPLAY_NAMES ? TIER_DISPLAY_NAMES[tier as WorkspaceTier] : tier;
+}
+
 function countLabel(n: number, singular: string, plural: string): string {
   if (n === Infinity) return `Unlimited ${plural}`;
   return `${n.toLocaleString("en-US")} ${n === 1 ? singular : plural}`;

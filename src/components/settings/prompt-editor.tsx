@@ -1,7 +1,8 @@
 "use client";
 
+import { Pending } from "@/components/telemetry/pending";
 import { useState, useEffect, useCallback } from "react";
-import { RotateCcw, Save, AlertTriangle, Loader2 } from "lucide-react";
+import { RotateCcw, Save, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
@@ -165,7 +166,7 @@ export function PromptEditor({ workspaceId, agentPhase, open, onOpenChange }: Pr
                       onChange={(e) => setCustomInstructions(e.target.value)}
                       placeholder="Add custom instructions for this agent..."
                       rows={8}
-                      className="w-full rounded-md bg-foreground/[0.04] border border-transparent px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-orbit-accent resize-y font-mono"
+                      className="w-full rounded-md bg-foreground/[0.04] border border-transparent px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus-visible:ring-ring resize-y font-mono"
                     />
                     <div className="flex items-center justify-between">
                       <p className="text-[10px] text-muted-foreground">
@@ -207,7 +208,7 @@ export function PromptEditor({ workspaceId, agentPhase, open, onOpenChange }: Pr
                       onChange={(e) => setFullPrompt(e.target.value)}
                       readOnly={!editFull}
                       rows={16}
-                      className={`w-full rounded-md border border-transparent px-3 py-2 text-xs text-foreground font-mono resize-y focus:outline-none focus:ring-1 focus:ring-orbit-accent ${
+                      className={`w-full rounded-md border border-transparent px-3 py-2 text-xs text-foreground font-mono resize-y focus:outline-none focus:ring-1 focus-visible:ring-ring ${
                         editFull ? "bg-foreground/[0.04]" : "bg-foreground/[0.02] cursor-default"
                       }`}
                     />
@@ -232,10 +233,10 @@ export function PromptEditor({ workspaceId, agentPhase, open, onOpenChange }: Pr
                   size="sm"
                   onClick={() => setShowChangelogDialog(true)}
                   disabled={saving}
-                  className="bg-orbit-accent hover:bg-orbit-accent/90 text-white"
+                  className="bg-primary hover:bg-primary/85 text-primary-foreground"
                 >
                   {saving ? (
-                    <><Loader2 className="h-3.5 w-3.5 animate-spin" /> Saving...</>
+                    <><Pending /> Saving...</>
                   ) : (
                     <><Save className="h-3.5 w-3.5" /> Save</>
                   )}
@@ -275,7 +276,7 @@ export function PromptEditor({ workspaceId, agentPhase, open, onOpenChange }: Pr
             <Button
               size="sm"
               onClick={confirmSave}
-              className="bg-orbit-accent hover:bg-orbit-accent/90 text-white"
+              className="bg-primary hover:bg-primary/85 text-primary-foreground"
             >
               Save
             </Button>

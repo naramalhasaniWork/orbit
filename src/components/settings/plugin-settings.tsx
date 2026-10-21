@@ -1,5 +1,6 @@
 "use client";
 
+import { Pending } from "@/components/telemetry/pending";
 import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -13,8 +14,7 @@ import {
   Settings,
   ChevronDown,
   ChevronUp,
-  Loader2,
-} from "lucide-react";
+  } from "lucide-react";
 
 // ============================================================
 // Types
@@ -184,7 +184,7 @@ function LoadingSkeleton() {
       {[1, 2, 3].map((i) => (
         <div
           key={i}
-          className="rounded-xl surface-1 p-4 animate-pulse"
+          className="rounded-xl surface-1 p-4"
         >
           <div className="flex items-center gap-3">
             <div className="h-8 w-8 bg-foreground/[0.06] rounded-lg" />
@@ -251,8 +251,8 @@ function PluginCard({
                   variant="outline"
                   className={
                     plugin.enabled
-                      ? "text-[10px] border-emerald-500/30 text-emerald-400 shrink-0"
-                      : "text-[10px] border-zinc-500/30 text-zinc-400 shrink-0"
+                      ? "text-[10px] border-tm-pass/30 text-tm-pass shrink-0"
+                      : "text-[10px] border-tm-t3/30 text-tm-t3 shrink-0"
                   }
                 >
                   {plugin.enabled ? "Active" : "Disabled"}
@@ -267,7 +267,7 @@ function PluginCard({
 
         <div className="flex items-center gap-2 shrink-0">
           {isLoading && (
-            <Loader2 className="h-3.5 w-3.5 text-muted-foreground animate-spin" />
+            <Pending />
           )}
           {plugin.installed ? (
             <>
@@ -382,7 +382,7 @@ function PluginConfigPanel({
         <Button
           size="sm"
           variant="ghost"
-          className="text-red-400 hover:text-red-300 hover:bg-red-400/10 gap-1.5 text-xs"
+          className="text-tm-fail hover:text-tm-fail hover:bg-tm-fail/10 gap-1.5 text-xs"
           onClick={onUninstall}
           disabled={isLoading}
         >
@@ -394,7 +394,7 @@ function PluginConfigPanel({
             size="sm"
             onClick={() => onConfigSave(localConfig)}
             disabled={isLoading}
-            className="bg-orbit-accent hover:bg-orbit-accent/90 text-white text-xs"
+            className="bg-primary hover:bg-primary/85 text-primary-foreground text-xs"
           >
             Save Config
           </Button>

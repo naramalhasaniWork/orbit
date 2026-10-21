@@ -17,6 +17,7 @@ function matches(row: Row, where: Where = {}): boolean {
     if (key === "AND") return (Array.isArray(cond) ? cond : [cond]).every((term) => matches(row, term as Where));
     if (cond && typeof cond === "object" && !Array.isArray(cond)) {
       const c = cond as Row;
+      if ("path" in c) return ((c.path as string[]).reduce<unknown>((v, k) => (v as Row | null)?.[k], row[key])) === c.equals;
       if ("equals" in c) return c.equals === Prisma.DbNull ? row[key] === null || row[key] === undefined : row[key] === c.equals;
       if ("not" in c) return c.not === Prisma.DbNull ? row[key] !== null && row[key] !== undefined : row[key] !== c.not;
     }
@@ -146,6 +147,16 @@ export function createFakeConfigDb() {
     },
     integrationConfig: {
       ...integrationConfig,
+      // `select: { workspace: { select: { name } } }` reads the related workspace
+      findMany: async (args: { where?: Where; select?: Row; take?: number } = {}) => {
+        const rows = await integrationConfig.findMany(args);
+        if (!args.select?.workspace) return rows;
+        return rows.map((r, i) => {
+          const source = integrationConfig.rows.filter((x) => matches(x, args.where))[i];
+          const ws = workspaces.find((w) => w.id === source.workspaceId);
+          return { ...r, workspace: { name: ws?.name ?? ws?.id } };
+        });
+      },
       findUnique: async ({ where, select }: { where: { integration_config_unique: Row }; select?: Row }) => {
         const row = integrationConfig.rows.find((r) => matches(r, where.integration_config_unique));
         return row ? pick(row, select) : null;

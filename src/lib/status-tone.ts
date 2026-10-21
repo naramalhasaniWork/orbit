@@ -29,6 +29,13 @@ export const STATUS_TONES: Record<StatusTone, ToneSpec> = {
 
 const LIVE_RUN_STATUSES = new Set(["indexing", "planning", "executing", "reporting"]);
 
+/** A run that ran to an end with results: what home's numbers and sentences are about. Cancelled runs are not. */
+export const FINISHED_RUN_STATUSES = ["completed", "failed"] as const;
+
+export function isFinishedRunStatus(status: string): boolean {
+  return (FINISHED_RUN_STATUSES as readonly string[]).includes(status);
+}
+
 export function isLiveRunStatus(status: string): boolean {
   return LIVE_RUN_STATUSES.has(status);
 }
@@ -50,6 +57,13 @@ export function toneForRun(status: string, counts: RunCounts = {}): StatusTone {
     return "pass";
   }
   return "untested";
+}
+
+/** The word for a run that agrees with its glyph: a completed run with failures says Failed. */
+export function runWord(status: string, counts: RunCounts = {}): string {
+  const tone = toneForRun(status, counts);
+  if (status === "completed") return tone === "fail" ? "Failed" : tone === "flaky" ? "Flaky" : "Passed";
+  return status.charAt(0).toUpperCase() + status.slice(1);
 }
 
 /** Tone for a TestResult verdict. A healed selector still passed. */

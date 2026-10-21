@@ -1,5 +1,6 @@
 "use client";
 
+import { Pending } from "@/components/telemetry/pending";
 import { useState, useRef, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,7 +12,6 @@ import {
   Shield,
   KeyRound,
   Code,
-  Loader2,
   CheckCircle,
   XCircle,
 } from "lucide-react";
@@ -40,12 +40,12 @@ const FILE_TYPES = [
 ] as const;
 
 const TYPE_BADGE_COLORS: Record<string, string> = {
-  openapi: "bg-blue-500/15 text-blue-400",
-  markdown: "bg-emerald-500/15 text-emerald-400",
-  design_system: "bg-violet-500/15 text-violet-400",
-  business_rules: "bg-amber-500/15 text-amber-400",
-  test_credentials: "bg-red-500/15 text-red-400",
-  other: "bg-zinc-500/15 text-zinc-400",
+  openapi: "bg-tm-info/15 text-tm-info",
+  markdown: "bg-tm-pass/15 text-tm-pass",
+  design_system: "bg-tm-t2/15 text-tm-t2",
+  business_rules: "bg-tm-warn/15 text-tm-warn",
+  test_credentials: "bg-tm-fail/15 text-tm-fail",
+  other: "bg-tm-t3/15 text-tm-t3",
 };
 
 function formatBytes(bytes: number): string {
@@ -191,7 +191,7 @@ export function KnowledgeUpload({ workspaceId, initialFiles = [] }: KnowledgeUpl
         onClick={() => !uploading && fileInputRef.current?.click()}
         className={`relative rounded-xl border-2 border-dashed p-8 text-center cursor-pointer transition-colors ${
           dragOver
-            ? "border-orbit-accent/60 bg-orbit-accent/5"
+            ? "border-tm-line-strong bg-foreground/[0.06]"
             : "border-border hover:border-border hover:bg-foreground/[0.02]"
         }`}
       >
@@ -205,11 +205,11 @@ export function KnowledgeUpload({ workspaceId, initialFiles = [] }: KnowledgeUpl
 
         {uploading ? (
           <div className="space-y-3">
-            <Loader2 className="h-8 w-8 text-orbit-accent mx-auto animate-spin" />
+            <Pending />
             <p className="text-sm text-muted-foreground">Processing file...</p>
             <div className="w-48 mx-auto h-1.5 bg-foreground/[0.06] rounded-full overflow-hidden">
               <div
-                className="h-full bg-orbit-accent rounded-full transition-all duration-300"
+                className="h-full bg-foreground rounded-full transition-all duration-300"
                 style={{ width: `${uploadProgress}%` }}
               />
             </div>
@@ -229,13 +229,13 @@ export function KnowledgeUpload({ workspaceId, initialFiles = [] }: KnowledgeUpl
 
       {/* Status messages */}
       {error && (
-        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-red-500/10 text-red-400 text-xs">
+        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-tm-fail/10 text-tm-fail text-xs">
           <XCircle className="h-3.5 w-3.5 shrink-0" />
           {error}
         </div>
       )}
       {success && (
-        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-500/10 text-emerald-400 text-xs">
+        <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-tm-pass/10 text-tm-pass text-xs">
           <CheckCircle className="h-3.5 w-3.5 shrink-0" />
           {success}
         </div>
@@ -284,7 +284,7 @@ export function KnowledgeUpload({ workspaceId, initialFiles = [] }: KnowledgeUpl
                 <Button
                   size="sm"
                   variant="ghost"
-                  className="text-muted-foreground hover:text-red-400 shrink-0"
+                  className="text-muted-foreground hover:text-tm-fail shrink-0"
                   onClick={() => handleDelete(file.id, file.name)}
                 >
                   <Trash2 className="h-3.5 w-3.5" />

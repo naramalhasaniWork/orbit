@@ -6,6 +6,11 @@
  * retry policy can be tested with fake timers.
  */
 
+import { compareStreamIds, isStreamId } from "@/lib/sse/stream-id";
+
+/** Events that carry no id of their own; the browser repeats the previous id on them. */
+const UNNUMBERED_EVENT_TYPES = new Set(["connected", "heartbeat", "timeout", "error", "replay_gap"]);
+
 export interface SSEMessage {
   type: string;
   data: unknown;
@@ -47,6 +52,7 @@ export const DEFAULT_SSE_EVENT_TYPES = [
   "heartbeat",
   "timeout",
   "error",
+  "replay_gap",
   "indexing:started",
   "indexing:phase",
   "indexing:node_discovered",
@@ -100,6 +106,9 @@ export function openReconnectingSource(options: ReconnectingSourceOptions): { cl
   let source: EventSourceLike | null = null;
   let attempt = 0;
   let lastEventId: string | null = null;
+  // Newest numbered event handed to the caller; a reconnect replays from lastEventId
+  // and the server may resend the boundary event, so anything not newer is dropped.
+  let lastDeliveredId: string | null = null;
   let retryTimer: ReturnType<typeof setTimeout> | null = null;
   let healthyTimer: ReturnType<typeof setTimeout> | null = null;
   let closed = false;
@@ -162,6 +171,10 @@ export function openReconnectingSource(options: ReconnectingSourceOptions): { cl
       if (closed || source !== es) return;
       if (event.lastEventId) lastEventId = event.lastEventId;
       if (typeof event.data !== "string") return; // transport-level error event
+      if (!UNNUMBERED_EVENT_TYPES.has(event.type) && isStreamId(event.lastEventId)) {
+        if (lastDeliveredId && compareStreamIds(event.lastEventId, lastDeliveredId) <= 0) return;
+        lastDeliveredId = event.lastEventId;
+      }
       let data: unknown;
       try {
         data = JSON.parse(event.data);

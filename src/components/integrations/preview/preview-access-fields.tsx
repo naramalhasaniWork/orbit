@@ -99,7 +99,7 @@ export function PreviewAccessFields({ projectId, draft, onChange, hasStoredToken
             <p className="text-xs text-muted-foreground text-pretty">
               The saved token is only sent to a recent preview&apos;s URL. To test another URL, enter the token above.
             </p>
-            <p id={`${id}-result`} aria-live="polite" className={result?.ok ? "text-xs text-orbit-pass" : "text-xs text-red-400"}>
+            <p id={`${id}-result`} aria-live="polite" className={result?.ok ? "text-xs text-orbit-pass" : "text-xs text-tm-fail"}>
               {result && <><span aria-hidden>{result.ok ? "✓ " : "✕ "}</span>{result.message}</>}
             </p>
           </div>

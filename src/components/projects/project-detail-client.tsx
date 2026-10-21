@@ -1,20 +1,17 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
-import { cn } from "@/lib/utils";
-import { Badge } from "@/components/ui/badge";
-import { StatusDot } from "@/components/shared/status-dot";
-import { SystemMap } from "@/components/dashboard/system-map";
+import { Status } from "@/components/telemetry/status";
+import { LayeredMap } from "@/components/dashboard/layered-map";
+import { StatStrip } from "@/components/dashboard/home-sections";
+import { toneForHealth, toneForRun } from "@/lib/status-tone";
+import { MODE_LABELS, TRIGGER_LABELS } from "@/components/runs/run-types";
 import { EmptyState } from "@/components/shared/empty-state";
 import { IndexingStatusPanel } from "@/components/projects/indexing-status-panel";
 import {
   GitBranch,
   ExternalLink,
-  Map as MapIcon,
   TestTube2,
-  FileText,
-  Layers,
   ArrowRight,
 } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
@@ -68,30 +65,7 @@ interface ProjectDetailClientProps {
   mapEdges: MapEdge[];
 }
 
-// ------------------------------------------------------------------
-// Animation variants
-// ------------------------------------------------------------------
-
-const stagger = {
-  hidden: { opacity: 0 },
-  show: { opacity: 1, transition: { staggerChildren: 0.06 } },
-};
-
-const fadeUp = {
-  hidden: { opacity: 0, y: 8 },
-  show: { opacity: 1, y: 0, transition: { duration: 0.35, ease: "easeOut" } },
-};
-
-const healthDot: Record<string, "pass" | "fail" | "flaky" | "untested"> = {
-  healthy: "pass",
-  degraded: "flaky",
-  failing: "fail",
-};
-
-// ------------------------------------------------------------------
-// Component
-// ------------------------------------------------------------------
-
+/** Project overview: identity, counts, index, a window onto the layered map, recent runs. */
 export function ProjectDetailClient({
   project,
   recentRuns,
@@ -101,228 +75,115 @@ export function ProjectDetailClient({
   const router = useRouter();
 
   return (
-    <motion.div
-      variants={stagger}
-      initial="hidden"
-      animate="show"
-      className="space-y-6 max-w-6xl"
-    >
-      {/* Header */}
-      <motion.div variants={fadeUp} className="flex items-start justify-between">
-        <div className="space-y-1">
-          <div className="flex items-center gap-3">
-            <h1 className="text-lg font-medium text-foreground">
-              {project.name}
-            </h1>
-            <StatusDot
-              status={healthDot[project.healthStatus] ?? "untested"}
-            />
-            {project.framework && (
-              <Badge variant="outline" className="text-[10px] h-4 px-1.5">
-                {project.framework}
-              </Badge>
-            )}
-          </div>
-          <div className="flex items-center gap-3 text-sm text-muted-foreground">
-            <a
-              href={project.repoUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex items-center gap-1 hover:text-foreground transition-colors"
-            >
-              <GitBranch className="h-3.5 w-3.5" />
-              {project.repoOwner}/{project.repoName}
-              <ExternalLink className="h-3 w-3" />
-            </a>
-            <span className="text-muted-foreground/40">|</span>
-            <span>{project.defaultBranch}</span>
-            <span className="text-muted-foreground/40">|</span>
-            <span>
-              Created{" "}
-              {formatDistanceToNow(new Date(project.createdAt), {
-                addSuffix: true,
-              })}
-            </span>
-          </div>
+    <div className="space-y-6">
+      <header className="space-y-1.5">
+        <div className="flex flex-wrap items-center gap-3">
+          <h1 className="text-balance text-[26px] font-medium leading-tight tracking-display">{project.name}</h1>
+          <Status tone={toneForHealth(project.healthStatus)} label={project.healthStatus} mono />
+          {project.framework && <span className="tm-label rounded-sm border border-border px-1.5 text-tm-t2">{project.framework}</span>}
         </div>
-      </motion.div>
+        <p className="tm-label flex flex-wrap items-center gap-x-2 text-tm-t3">
+          <a
+            href={project.repoUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-1 normal-case text-tm-t2 hover:text-foreground hover:underline"
+          >
+            <GitBranch aria-hidden="true" className="size-3" />
+            {project.repoOwner}/{project.repoName}
+            <ExternalLink aria-hidden="true" className="size-3" />
+          </a>
+          <span className="normal-case">· {project.defaultBranch}</span>
+          <span className="normal-case">· created {formatDistanceToNow(new Date(project.createdAt), { addSuffix: true })}</span>
+        </p>
+      </header>
 
-      {/* Stat cards */}
-      <motion.div variants={fadeUp} className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <MiniStat
-          icon={Layers}
-          label="Nodes"
-          value={project.nodeCount}
-          href={`/dashboard/map?project=${project.id}`}
+      <div className="overflow-hidden rounded-lg border border-border bg-card">
+        <StatStrip
+          stats={[
+            { label: "Nodes", value: project.nodeCount },
+            { label: "Edges", value: project.edgeCount },
+            { label: "Test cases", value: project.testCaseCount },
+            { label: "Runs", value: project.testRunCount },
+          ]}
         />
-        <MiniStat
-          icon={GitBranch}
-          label="Edges"
-          value={project.edgeCount}
-        />
-        <MiniStat
-          icon={TestTube2}
-          label="Test Cases"
-          value={project.testCaseCount}
-          href={`/dashboard/plans?project=${project.id}`}
-        />
-        <MiniStat
-          icon={FileText}
-          label="Runs"
-          value={project.testRunCount}
-          href={`/dashboard/runs?project=${project.id}`}
-        />
-      </motion.div>
+      </div>
 
-      {/* Indexing status panel */}
-      <motion.div variants={fadeUp}>
-        <IndexingStatusPanel
-          projectId={project.id}
-          lastIndexedAt={project.lastIndexedAt}
-          nodeCount={project.nodeCount}
-          edgeCount={project.edgeCount}
-          onReindexComplete={() => router.refresh()}
-        />
-      </motion.div>
+      <IndexingStatusPanel
+        projectId={project.id}
+        lastIndexedAt={project.lastIndexedAt}
+        nodeCount={project.nodeCount}
+        edgeCount={project.edgeCount}
+        onReindexComplete={() => router.refresh()}
+      />
 
-      {/* System Map preview + Recent Runs */}
-      <motion.div variants={fadeUp} className="grid grid-cols-1 lg:grid-cols-5 gap-4">
-        {/* System Map */}
-        <div className="lg:col-span-3 rounded-xl surface-1 border border-border p-5">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-[13px] font-medium text-foreground flex items-center gap-2">
-              <MapIcon className="h-3.5 w-3.5 text-muted-foreground" />
-              System Map
-            </h2>
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] text-muted-foreground tabular-nums">
-                {project.nodeCount} nodes / {project.edgeCount} edges
-              </span>
-              <Link
-                href={`/dashboard/map?project=${project.id}`}
-                className="text-xs text-foreground hover:text-foreground transition-colors flex items-center gap-1"
-              >
-                Full view
-                <ArrowRight className="h-3 w-3" />
-              </Link>
-            </div>
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-5">
+        <section aria-labelledby="map-preview" className="overflow-hidden rounded-lg border border-border bg-card lg:col-span-3">
+          <div className="flex h-10 items-center justify-between border-b border-border px-4">
+            <h2 id="map-preview" className="text-[13px] font-medium">System Map</h2>
+            <Link href={`/dashboard/map?project=${project.id}`} className="inline-flex items-center gap-1 text-[12px] text-tm-t2 hover:text-foreground hover:underline">
+              Full view <ArrowRight aria-hidden="true" className="size-3" />
+            </Link>
           </div>
-          <div className="h-[300px] rounded-lg overflow-hidden">
+          <div className="h-[320px] overflow-auto">
             {mapNodes.length > 0 ? (
-              <SystemMap nodes={mapNodes} edges={mapEdges} compact />
+              <LayeredMap
+                nodes={mapNodes}
+                edges={mapEdges}
+                selectedId={null}
+                mode="journey"
+                onSelect={(id) => id && router.push(`/dashboard/map?project=${project.id}&node=${id}`)}
+              />
             ) : (
-              <div className="flex items-center justify-center h-full text-muted-foreground text-[13px]">
-                No system map data yet. Run indexing to generate.
-              </div>
+              <p className="p-4 text-[13px] text-tm-t3">No system map yet. Re-index to map the repository.</p>
             )}
           </div>
-        </div>
+        </section>
 
-        {/* Recent Runs */}
-        <div className="lg:col-span-2 rounded-xl surface-1 border border-border p-4">
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="text-[13px] font-medium text-foreground">
-              Recent Runs
-            </h2>
-            <Link
-              href={`/dashboard/runs?project=${project.id}`}
-              className="text-xs text-foreground hover:text-foreground transition-colors"
-            >
+        <section aria-labelledby="recent-runs" className="overflow-hidden rounded-lg border border-border bg-card lg:col-span-2">
+          <div className="flex h-10 items-center justify-between border-b border-border px-4">
+            <h2 id="recent-runs" className="text-[13px] font-medium">Recent runs</h2>
+            <Link href={`/dashboard/runs?project=${project.id}`} className="text-[12px] text-tm-t2 hover:text-foreground hover:underline">
               View all
             </Link>
           </div>
-
           {recentRuns.length === 0 ? (
-            <EmptyState
-              icon={TestTube2}
-              title="No runs yet"
-              description="Trigger a test run to see results here."
-              className="py-8"
-            />
+            <EmptyState icon={TestTube2} title="No runs yet" description="Run the plan to see results here." className="py-8" />
           ) : (
-            <div className="space-y-1">
+            <ul>
               {recentRuns.map((run) => (
-                <RunRow key={run.id} run={run} projectId={project.id} />
+                <RecentRunRow key={run.id} run={run} projectId={project.id} />
               ))}
-            </div>
+            </ul>
           )}
-        </div>
-      </motion.div>
-    </motion.div>
-  );
-}
-
-// ------------------------------------------------------------------
-// Sub-components
-// ------------------------------------------------------------------
-
-function MiniStat({
-  icon: Icon,
-  label,
-  value,
-  href,
-}: {
-  icon: React.ElementType;
-  label: string;
-  value: number;
-  href?: string;
-}) {
-  const content = (
-    <div
-      className={cn(
-        "flex items-center gap-3 p-3 rounded-xl surface-1 border border-border",
-        href && "hover:border-muted-foreground/20 transition-all duration-200 cursor-pointer"
-      )}
-    >
-      <div className="flex items-center justify-center h-8 w-8 rounded-lg bg-muted/30">
-        <Icon className="h-4 w-4 text-muted-foreground" />
-      </div>
-      <div>
-        <span className="text-lg font-medium tabular-nums text-foreground block leading-tight">
-          {value}
-        </span>
-        <span className="text-[11px] text-muted-foreground">{label}</span>
+        </section>
       </div>
     </div>
   );
-
-  if (href) {
-    return <Link href={href}>{content}</Link>;
-  }
-  return content;
 }
 
-function RunRow({ run, projectId }: { run: RecentRun; projectId: string }) {
-  const status =
-    run.status === "executing" || run.status === "indexing" || run.status === "planning"
-      ? "running"
-      : run.failed > 0
-        ? "fail"
-        : run.flaky > 0
-          ? "flaky"
-          : run.passed > 0
-            ? "pass"
-            : "untested";
-
+function RecentRunRow({ run, projectId }: { run: RecentRun; projectId: string }) {
+  const tone = toneForRun(run.status, run);
   return (
-    <Link
-      href={`/dashboard/runs/${run.id}?project=${projectId}`}
-      className="flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-muted/20 transition-colors"
-    >
-      <StatusDot status={status} pulse={status === "running"} />
-      <div className="flex-1 min-w-0">
-        <span className="text-sm text-foreground">
-          {formatRunTitle(run)}
+    <li className="border-b border-border last:border-b-0">
+      <Link
+        href={`/dashboard/runs/${run.id}?project=${projectId}`}
+        className="grid grid-cols-[16px_minmax(0,1fr)_auto] items-center gap-3 px-4 py-2.5 hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
+      >
+        <Status tone={tone} glyphOnly />
+        <span className="min-w-0">
+          <span className="block truncate text-[13px]">{formatRunTitle(run)}</span>
+          <span className="tm-label block truncate text-tm-t3">
+            {TRIGGER_LABELS[run.trigger] ?? run.trigger} · {MODE_LABELS[run.mode] ?? run.mode}
+            <span className="normal-case"> · {formatDistanceToNow(new Date(run.createdAt), { addSuffix: true })}</span>
+          </span>
         </span>
-        <span className="text-xs text-muted-foreground block">
-          {run.mode} {run.trigger} · {formatDistanceToNow(new Date(run.createdAt), { addSuffix: true })}
+        <span className="tm-num flex gap-2 text-[10.5px]">
+          {run.passed > 0 && <span className="text-tm-pass"><span aria-hidden="true">✓</span>{run.passed}<span className="sr-only"> passed</span></span>}
+          {run.failed > 0 && <span className="text-tm-fail"><span aria-hidden="true">✕</span>{run.failed}<span className="sr-only"> failed</span></span>}
+          {run.flaky > 0 && <span className="text-tm-flaky"><span aria-hidden="true">◐</span>{run.flaky}<span className="sr-only"> flaky</span></span>}
         </span>
-      </div>
-      <div className="flex items-center gap-2 text-xs tabular-nums">
-        {run.passed > 0 && <span className="text-orbit-pass">{run.passed}</span>}
-        {run.failed > 0 && <span className="text-orbit-fail">{run.failed}</span>}
-        {run.flaky > 0 && <span className="text-orbit-flaky">{run.flaky}</span>}
-      </div>
-    </Link>
+      </Link>
+    </li>
   );
 }

@@ -22,17 +22,17 @@ export function PlanSummary({ stats }: PlanSummaryProps) {
         <MiniStat
           label="Enabled"
           value={stats.enabled}
-          color="text-orbit-pass"
+          color="text-foreground"
         />
         <MiniStat
           label="Critical"
           value={stats.critical}
-          color="text-orbit-fail"
+          color="text-foreground"
         />
         <MiniStat
           label="High Priority"
           value={stats.highPriority}
-          color="text-orbit-flaky"
+          color="text-foreground"
         />
       </div>
 

@@ -1,7 +1,8 @@
 "use client";
 
 import { memo } from "react";
-import { Bot, User, Sparkles } from "lucide-react";
+import { Bot, User } from "lucide-react";
+import { ClosingO } from "@/components/telemetry/closing-o";
 import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import { AgentToolCard } from "@/components/agent/agent-tool-card";
@@ -97,7 +98,7 @@ const UserBubble = memo(function UserBubble({ content }: { content: string }) {
       transition={{ duration: 0.2 }}
       className="flex items-start gap-3 justify-end"
     >
-      <div className="max-w-[70%] rounded-2xl rounded-tr-md px-4 py-3 bg-orbit-accent/[0.12] border border-orbit-accent/[0.08]">
+      <div className="max-w-[70%] rounded-lg px-4 py-3 bg-primary text-primary-foreground">
         <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap">
           {content}
         </p>
@@ -132,8 +133,8 @@ const AssistantBubble = memo(function AssistantBubble({
       transition={{ duration: 0.2 }}
       className="flex items-start gap-3"
     >
-      <div className="shrink-0 h-8 w-8 rounded-full bg-orbit-accent/[0.1] flex items-center justify-center mt-0.5 shadow-[0_0_12px_hsl(var(--orbit-accent)/0.1)]">
-        <Bot className="h-4 w-4 text-orbit-accent" />
+      <div className="shrink-0 h-8 w-8 rounded-full bg-foreground/[0.06] flex items-center justify-center mt-0.5">
+        <Bot className="h-4 w-4 text-foreground" />
       </div>
       <div className="flex-1 min-w-0 space-y-2">
         {/* Tool cards */}
@@ -149,10 +150,10 @@ const AssistantBubble = memo(function AssistantBubble({
 
         {/* Text content with markdown rendering */}
         {content && (
-          <div className="rounded-2xl rounded-tl-md px-4 py-3 bg-foreground/[0.03] border border-border">
+          <div className="rounded-lg px-4 py-3 bg-muted">
             <MarkdownRenderer content={content} />
             {isLast && isStreaming && (
-              <span className="inline-block w-[6px] h-[14px] bg-orbit-accent/70 ml-0.5 animate-pulse rounded-sm" />
+              <span className="inline-block w-[6px] h-[14px] bg-foreground/[0.06] ml-0.5 rounded-sm" />
             )}
           </div>
         )}
@@ -161,9 +162,9 @@ const AssistantBubble = memo(function AssistantBubble({
         {!content && isLast && isStreaming && tools.length === 0 && (
           <div className="flex items-center gap-2 px-4 py-3">
             <div className="flex gap-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-orbit-accent/60 animate-pulse" />
-              <span className="w-1.5 h-1.5 rounded-full bg-orbit-accent/60 animate-pulse [animation-delay:150ms]" />
-              <span className="w-1.5 h-1.5 rounded-full bg-orbit-accent/60 animate-pulse [animation-delay:300ms]" />
+              <span className="w-1.5 h-1.5 rounded-full bg-foreground/[0.06]" />
+              <span className="w-1.5 h-1.5 rounded-full bg-foreground/[0.06] [animation-delay:150ms]" />
+              <span className="w-1.5 h-1.5 rounded-full bg-foreground/[0.06] [animation-delay:300ms]" />
             </div>
             <span className="text-xs text-muted-foreground">Thinking...</span>
           </div>
@@ -182,9 +183,7 @@ function EmptyState() {
         transition={{ duration: 0.3 }}
         className="text-center space-y-4 max-w-md"
       >
-        <div className="h-16 w-16 rounded-2xl bg-orbit-accent/[0.08] border border-orbit-accent/[0.08] flex items-center justify-center mx-auto shadow-[0_0_30px_hsl(var(--orbit-accent)/0.08)]">
-          <Sparkles className="h-7 w-7 text-orbit-accent" />
-        </div>
+        <ClosingO size={36} />
         <div className="space-y-2">
           <h3 className="text-base font-medium text-foreground">
             Orbit Agent

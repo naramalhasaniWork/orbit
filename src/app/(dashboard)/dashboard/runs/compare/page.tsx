@@ -36,7 +36,7 @@ export default async function RunComparePage({ searchParams }: RunComparePagePro
         >
           <ArrowLeft className="h-4 w-4" />
         </Link>
-        <h1 className="text-lg font-medium text-foreground">Compare runs</h1>
+        <h1 className="text-balance text-[26px] font-medium leading-tight tracking-display">Compare runs</h1>
       </div>
       <RunComparison projectId={project.id} runAId={runA} runBId={runB} />
     </div>

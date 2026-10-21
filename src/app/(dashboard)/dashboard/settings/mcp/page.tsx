@@ -12,7 +12,7 @@ export default async function McpSettingsPage() {
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <div>
-        <h1 className="text-lg font-semibold text-foreground">MCP Tools</h1>
+        <h2 className="text-balance text-[20px] font-medium leading-tight tracking-display">MCP Tools</h2>
         <p className="text-sm text-muted-foreground mt-1">
           Connect external MCP servers to give Orbit&apos;s agents access to
           additional tools during test execution.

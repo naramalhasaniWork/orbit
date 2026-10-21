@@ -1,8 +1,10 @@
 "use client";
 
+import { Pending } from "@/components/telemetry/pending";
 import { useEffect, useState, useCallback } from "react";
-import { Zap, Calendar, Loader2, ExternalLink } from "lucide-react";
+import { Zap, Calendar, ExternalLink } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { tierDisplayName } from "@/lib/auth/tier-limits";
 
 interface SubscriptionData {
   tier: string;
@@ -23,20 +25,13 @@ interface SubscriptionStatusProps {
   workspaceId: string;
 }
 
-const TIER_LABELS: Record<string, string> = {
-  free: "Free",
-  starter: "Pro",
-  professional: "Team",
-  enterprise: "Enterprise",
-};
-
 const STATUS_CONFIG: Record<string, { label: string; className: string }> = {
-  active: { label: "Active", className: "text-green-400 bg-green-400/10" },
-  trialing: { label: "Trial", className: "text-blue-400 bg-blue-400/10" },
-  past_due: { label: "Past Due", className: "text-red-400 bg-red-400/10" },
+  active: { label: "Active", className: "text-tm-pass bg-tm-pass/10" },
+  trialing: { label: "Trial", className: "text-tm-info bg-tm-info/10" },
+  past_due: { label: "Past Due", className: "text-tm-fail bg-tm-fail/10" },
   canceled: { label: "Canceled", className: "text-muted-foreground bg-muted/40" },
-  incomplete: { label: "Incomplete", className: "text-amber-400 bg-amber-400/10" },
-  unpaid: { label: "Unpaid", className: "text-red-400 bg-red-400/10" },
+  incomplete: { label: "Incomplete", className: "text-tm-warn bg-tm-warn/10" },
+  unpaid: { label: "Unpaid", className: "text-tm-fail bg-tm-fail/10" },
 };
 
 export function SubscriptionStatus({ workspaceId }: SubscriptionStatusProps) {
@@ -94,7 +89,7 @@ export function SubscriptionStatus({ workspaceId }: SubscriptionStatusProps) {
   }
 
   if (loading) {
-    return <div className="h-20 rounded-xl bg-muted/30 animate-pulse" />;
+    return <div className="h-20 rounded-xl bg-muted/30" />;
   }
 
   if (!data) {
@@ -108,13 +103,13 @@ export function SubscriptionStatus({ workspaceId }: SubscriptionStatusProps) {
     <div className="rounded-xl border border-border bg-muted/30 p-5">
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-orbit-accent/15 flex items-center justify-center">
-            <Zap className="h-5 w-5 text-orbit-accent" />
+          <div className="h-10 w-10 rounded-xl bg-foreground/[0.06] flex items-center justify-center">
+            <Zap className="h-5 w-5 text-foreground" />
           </div>
           <div>
             <div className="flex items-center gap-2">
               <p className="text-sm font-medium text-foreground">
-                {TIER_LABELS[data.tier] ?? data.tier} Plan
+                {tierDisplayName(data.tier)} Plan
               </p>
               {sub && statusConfig && (
                 <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${statusConfig.className}`}>
@@ -136,7 +131,7 @@ export function SubscriptionStatus({ workspaceId }: SubscriptionStatusProps) {
             className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-muted-foreground hover:text-foreground bg-muted/40 hover:bg-muted/60 transition-colors"
           >
             {actionLoading ? (
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              <Pending />
             ) : (
               <>
                 <ExternalLink className="h-3 w-3" />
@@ -158,7 +153,7 @@ export function SubscriptionStatus({ workspaceId }: SubscriptionStatusProps) {
             </div>
 
             {sub.cancelAtPeriodEnd && (
-              <span className="text-amber-400">Cancels at period end</span>
+              <span className="text-tm-warn">Cancels at period end</span>
             )}
           </div>
 
@@ -167,7 +162,7 @@ export function SubscriptionStatus({ workspaceId }: SubscriptionStatusProps) {
               <button
                 onClick={() => handleAction("reactivate")}
                 disabled={actionLoading}
-                className="px-3 py-1.5 rounded-lg text-xs font-medium bg-orbit-accent text-white hover:bg-orbit-accent/90 transition-colors"
+                className="px-3 py-1.5 rounded-lg text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/85 transition-colors"
               >
                 Reactivate Subscription
               </button>
@@ -176,7 +171,7 @@ export function SubscriptionStatus({ workspaceId }: SubscriptionStatusProps) {
                 <button
                   onClick={() => handleAction("cancel")}
                   disabled={actionLoading}
-                  className="px-3 py-1.5 rounded-lg text-xs font-medium text-red-400 bg-red-400/10 hover:bg-red-400/15 transition-colors"
+                  className="px-3 py-1.5 rounded-lg text-xs font-medium text-tm-fail bg-tm-fail/10 hover:bg-tm-fail/15 transition-colors"
                 >
                   Cancel Subscription
                 </button>

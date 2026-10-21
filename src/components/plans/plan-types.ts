@@ -49,10 +49,11 @@ export const TEST_TYPE_CONFIG: Record<string, { label: string; className: string
 };
 
 export function getPriorityTier(score: number): { label: string; className: string } {
-  if (score >= 80) return { label: "Critical", className: "text-orbit-fail" };
-  if (score >= 60) return { label: "High", className: "text-orbit-flaky" };
-  if (score >= 30) return { label: "Medium", className: "text-foreground" };
-  return { label: "Low", className: "text-muted-foreground" };
+  // Priority is ink weight, never status colour: red means failed, nothing else.
+  if (score >= 80) return { label: "Critical", className: "text-foreground" };
+  if (score >= 60) return { label: "High", className: "text-foreground" };
+  if (score >= 30) return { label: "Medium", className: "text-tm-t2" };
+  return { label: "Low", className: "text-tm-t3" };
 }
 
 export function computePlanStats(testCases: TestCaseData[]): PlanSummaryStats {

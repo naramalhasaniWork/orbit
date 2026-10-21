@@ -42,6 +42,10 @@ export async function emitRunProgress(
 ): Promise<void> {
   log(`run:progress:${runId}`, data);
   await safePublish(channels.runProgress(runId), { type: "run:progress", payload: data });
+  // Some terminal paths (cancel, empty run) report only a progress status.
+  if (TERMINAL_RUN_STATUSES.has(data.status)) {
+    await closeScreenshotStream(runId, data.status as RunCompletedEvent["status"]);
+  }
 }
 
 export async function emitRunCompleted(
@@ -55,6 +59,7 @@ export async function emitRunCompleted(
   if (data.projectId) {
     await safePublish(channels.projectEvents(data.projectId), event);
   }
+  await closeScreenshotStream(runId, data.status);
 }
 
 // --- Test events ---
@@ -161,6 +166,16 @@ export async function emitIndexingFailed(
 }
 
 // --- Helper ---
+
+const TERMINAL_RUN_STATUSES = new Set(["completed", "failed", "cancelled"]);
+
+/** Tells the live-frame stream the run is over, so its viewer finishes instead of waiting for the stream cap. */
+async function closeScreenshotStream(runId: string, status: RunCompletedEvent["status"]): Promise<void> {
+  await safePublish(channels.runScreenshots(runId), {
+    type: "run:completed",
+    payload: { runId, status },
+  });
+}
 
 async function safePublish(channel: string, data: unknown): Promise<void> {
   try {

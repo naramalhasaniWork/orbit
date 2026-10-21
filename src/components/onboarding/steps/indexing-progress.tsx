@@ -1,9 +1,10 @@
 "use client";
 
+import { Pending } from "@/components/telemetry/pending";
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Check, Loader2, Circle, AlertCircle } from "lucide-react";
+import { Check, Circle, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -35,7 +36,7 @@ interface IndexingProgressProps {
 
 function PhaseIcon({ status }: { status: "pending" | "running" | "complete" }) {
   if (status === "complete") return <Check className="h-4 w-4 text-orbit-pass" />;
-  if (status === "running") return <Loader2 className="h-4 w-4 text-orbit-accent animate-spin" />;
+  if (status === "running") return <Pending />;
   return <Circle className="h-4 w-4 text-muted-foreground/40" />;
 }
 
@@ -140,7 +141,7 @@ export function IndexingProgress({ repo, projectId, onComplete }: IndexingProgre
   return (
     <div className="flex flex-col items-center w-full max-w-2xl mx-auto">
       <div className="text-center mb-8">
-        <h2 className="text-xl font-semibold text-foreground mb-2">
+        <h2 className="text-xl font-medium text-foreground mb-2">
           Analyzing your codebase
         </h2>
         <p className="text-sm text-muted-foreground">
@@ -172,7 +173,7 @@ export function IndexingProgress({ repo, projectId, onComplete }: IndexingProgre
                 key={p.id}
                 className={cn(
                   "flex items-center gap-3 px-3 py-2 rounded-md transition-colors",
-                  phaseStatuses[idx] === "running" && "bg-orbit-accent/5"
+                  phaseStatuses[idx] === "running" && "bg-foreground/[0.06]"
                 )}
               >
                 <PhaseIcon status={phaseStatuses[idx]} />
@@ -186,7 +187,7 @@ export function IndexingProgress({ repo, projectId, onComplete }: IndexingProgre
                 >
                   {p.label}
                   {phaseStatuses[idx] === "running" && nodesFound > 0 && (
-                    <span className="ml-2 text-xs text-orbit-accent tabular-nums">
+                    <span className="ml-2 text-xs text-foreground tabular-nums">
                       {nodesFound} nodes
                     </span>
                   )}
@@ -198,7 +199,7 @@ export function IndexingProgress({ repo, projectId, onComplete }: IndexingProgre
 
         <div className="flex-1 rounded-lg surface-1 border border-border overflow-hidden">
           <div className="px-3 py-2 border-b border-border">
-            <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+            <span className=" text-muted-foreground tm-label">
               Output
             </span>
           </div>
@@ -210,7 +211,7 @@ export function IndexingProgress({ repo, projectId, onComplete }: IndexingProgre
                   className={cn(
                     "text-muted-foreground",
                     log.startsWith("[done]") && "text-orbit-pass",
-                    log.startsWith("[start]") && "text-orbit-accent",
+                    log.startsWith("[start]") && "text-foreground",
                     log.includes("complete.") && "text-foreground font-medium mt-2"
                   )}
                 >
@@ -254,7 +255,7 @@ function ProgressRing({ progress }: { progress: number }) {
           <motion.circle
             cx="48" cy="48" r={radius}
             fill="none"
-            stroke="hsl(var(--orbit-accent))"
+            stroke="hsl(var(--tm-t1))"
             strokeWidth="4"
             strokeLinecap="round"
             strokeDasharray={circumference}
@@ -265,7 +266,7 @@ function ProgressRing({ progress }: { progress: number }) {
           />
         </svg>
         <div className="absolute inset-0 flex items-center justify-center">
-          <span className="text-lg font-semibold text-foreground tabular-nums">
+          <span className="text-lg font-medium text-foreground tabular-nums">
             {clampedProgress}%
           </span>
         </div>

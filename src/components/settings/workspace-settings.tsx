@@ -127,7 +127,7 @@ export function WorkspaceSettings({ workspace, role = null }: WorkspaceSettingsP
             onClick={handleSave}
             disabled={saving || (name === workspace.name && slug === workspace.slug)}
             size="sm"
-            className="bg-orbit-accent hover:bg-orbit-accent/90 text-white"
+            className="bg-primary hover:bg-primary/85 text-primary-foreground"
           >
             {saving ? "Saving..." : "Save Changes"}
           </Button>
@@ -148,7 +148,7 @@ export function WorkspaceSettings({ workspace, role = null }: WorkspaceSettingsP
           onChange={(e) => setCustomPrompt(e.target.value)}
           placeholder="e.g., This is a construction SaaS. Test the bid creation flow thoroughly. Always test with the admin user first."
           rows={5}
-          className="w-full rounded-md bg-foreground/[0.04] border border-transparent px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-orbit-accent resize-y"
+          className="w-full rounded-md bg-foreground/[0.04] border border-transparent px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus-visible:ring-ring resize-y"
         />
         {promptError && (
           <div className="text-xs text-orbit-fail">{promptError}</div>
@@ -158,7 +158,7 @@ export function WorkspaceSettings({ workspace, role = null }: WorkspaceSettingsP
           onClick={handleSavePrompt}
           disabled={savingPrompt || customPrompt === (workspace.settings?.customPrompt ?? "")}
           size="sm"
-          className="bg-orbit-accent hover:bg-orbit-accent/90 text-white"
+          className="bg-primary hover:bg-primary/85 text-primary-foreground"
         >
           {savingPrompt ? "Saving..." : "Save Instructions"}
         </Button>

@@ -175,14 +175,14 @@ export function LinearCard({ workspaceId, config, onUpdate }: LinearCardProps) {
             size="sm"
             onClick={handleConnect}
             disabled={saving || !apiKey.trim()}
-            className="bg-orbit-accent hover:bg-orbit-accent/90 text-white gap-1.5"
+            className="bg-primary hover:bg-primary/85 text-primary-foreground gap-1.5"
           >
             <ExternalLink className="h-3.5 w-3.5" />
             {saving ? "Connecting..." : "Connect Linear"}
           </Button>
         </div>
       )}
-      {error && <p className="text-xs text-red-400">{error}</p>}
+      {error && <p className="text-xs text-tm-fail">{error}</p>}
     </div>
   );
 }

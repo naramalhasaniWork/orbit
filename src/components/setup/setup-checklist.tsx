@@ -39,7 +39,7 @@ export function SetupChecklist({ checks, github }: { checks: SetupCheck[]; githu
     <div className="min-h-dvh surface-0 p-4 py-12">
       <div className="max-w-2xl mx-auto space-y-8">
         <div className="space-y-2">
-          <h1 className="text-xl font-semibold text-foreground">Set up Orbit</h1>
+          <h1 className="text-xl font-medium text-foreground">Set up Orbit</h1>
           <p className="text-sm text-muted-foreground">
             This page is only available until the first person signs in. Fix anything marked red,
             then sign in with GitHub: the first account becomes the admin.
@@ -101,7 +101,7 @@ export function SetupChecklist({ checks, github }: { checks: SetupCheck[]; githu
 
         <div className="flex items-center gap-3">
           {allPassing ? (
-            <Button asChild className="bg-orbit-accent hover:bg-orbit-accent/90 text-white">
+            <Button asChild className="bg-primary hover:bg-primary/85 text-primary-foreground">
               <a href="/login">Sign in with GitHub: you&apos;ll become the admin</a>
             </Button>
           ) : (

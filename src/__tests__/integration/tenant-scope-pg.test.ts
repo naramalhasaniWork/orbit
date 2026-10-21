@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { dropTenant, realDbUrl, seedTenant, useRealDb, type TenantFixture } from "../helpers/real-db";
+import { dropTenant, realDbUrl, seedTenant, withRealDb, type TenantFixture } from "../helpers/real-db";
 
-useRealDb();
+withRealDb();
 
 describe.skipIf(!realDbUrl)("tenant scopes on real Postgres", () => {
   let db: typeof import("@/lib/db").prisma;

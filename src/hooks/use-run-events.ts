@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useSSE } from "@/hooks/use-sse";
+import { fetchRunSnapshot, mergeSnapshotTests, snapshotProgress } from "@/hooks/run-snapshot";
 import type {
   TestStartedEvent,
   TestStepEvent,
@@ -75,10 +76,28 @@ export function useRunEvents({
   const onScreenshotRef = useRef(onScreenshot);
   onScreenshotRef.current = onScreenshot;
 
+  // The server could not replay everything we missed; the run record is the source of truth.
+  const resync = useCallback(async () => {
+    const run = await fetchRunSnapshot(projectId, runId).catch(() => null);
+    if (!run) return;
+    const next = snapshotProgress(run);
+    setProgress((prev) => ({ ...next, currentTest: prev?.currentTest ?? null, lastVerdict: prev?.lastVerdict ?? null }));
+    setTests((prev) => mergeSnapshotTests(prev, run));
+    if (TERMINAL_STATUSES.has(run.status)) {
+      setIsTerminal(true);
+      onCompleteRef.current?.(next);
+    }
+  }, [projectId, runId]);
+
   const handleEvent = useCallback((event: { type: string; data: unknown }) => {
     const payload = event.data as Record<string, unknown>;
 
     switch (event.type) {
+      case "replay_gap": {
+        void resync();
+        break;
+      }
+
       case "run:started": {
         const serverTotal = (payload.totalTests as number) ?? 0;
         setProgress((prev) => ({
@@ -221,7 +240,7 @@ export function useRunEvents({
         break;
       }
     }
-  }, []);
+  }, [resync]);
 
   const url = `/api/projects/${projectId}/runs/${runId}/progress`;
   const isEnabled = enabled && !!runId && !!projectId && !isTerminal;

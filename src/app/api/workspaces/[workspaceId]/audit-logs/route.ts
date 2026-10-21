@@ -3,10 +3,11 @@ import { apiSuccess, apiError } from "@/lib/utils/api";
 import { buildAuditCsvRow, CSV_HEADER } from "./csv-utils";
 import type { WorkspaceScope } from "@/server/data/scope";
 import { route } from "@/server/http/route";
+import { eeFeatureRequired } from "@/ee/require-feature";
 
 // ============================================================
 // GET /api/workspaces/[workspaceId]/audit-logs
-// Supports JSON (default) and CSV (?format=csv) responses
+// Supports JSON (default) and CSV (?format=csv, Enterprise) responses
 // ============================================================
 
 export const GET = route(
@@ -26,7 +27,7 @@ export const GET = route(
     const where = buildWhereClause(workspaceId, { actionFilter, userId, resourceType, from, to, search });
 
     if (format === "csv") {
-      return streamCsvResponse(db, where);
+      return (await eeFeatureRequired({ workspaceId }, "audit_export")) ?? streamCsvResponse(db, where);
     }
 
     const [logs, total] = await Promise.all([

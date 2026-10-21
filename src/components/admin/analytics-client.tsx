@@ -75,7 +75,7 @@ export function AnalyticsClient({
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-xl font-semibold">Platform Analytics</h1>
+        <h1 className="text-xl font-medium">Platform Analytics</h1>
         <p className="text-sm text-muted-foreground mt-1">
           Usage trends and growth metrics (last 30 days)
         </p>
@@ -122,7 +122,7 @@ export function AnalyticsClient({
               <MiniBarChart
                 data={runCounts}
                 maxValue={maxRuns}
-                colorClass="bg-orbit-accent/70"
+                colorClass="bg-foreground/[0.06]"
               />
               <div className="flex items-center justify-between text-xs text-muted-foreground">
                 <span>{dailyRunStats[0]?.date}</span>
@@ -148,7 +148,7 @@ export function AnalyticsClient({
               <MiniBarChart
                 data={passedCounts}
                 maxValue={Math.max(...passedCounts, ...failedCounts, 1)}
-                colorClass="bg-emerald-500/70"
+                colorClass="bg-tm-pass/70"
               />
             ) : (
               <p className="text-center text-muted-foreground py-8">No data</p>
@@ -164,7 +164,7 @@ export function AnalyticsClient({
               <MiniBarChart
                 data={failedCounts}
                 maxValue={Math.max(...passedCounts, ...failedCounts, 1)}
-                colorClass="bg-red-500/70"
+                colorClass="bg-tm-fail/70"
               />
             ) : (
               <p className="text-center text-muted-foreground py-8">No data</p>
@@ -184,7 +184,7 @@ export function AnalyticsClient({
               <MiniBarChart
                 data={creditCounts}
                 maxValue={Math.max(...creditCounts, 1)}
-                colorClass="bg-amber-500/70"
+                colorClass="bg-tm-warn/70"
               />
               <div className="flex items-center justify-between text-xs text-muted-foreground">
                 <span>{dailyRunStats[0]?.date}</span>
@@ -208,7 +208,7 @@ export function AnalyticsClient({
               <MiniBarChart
                 data={userGrowth.map((d) => d.count)}
                 maxValue={Math.max(...userGrowth.map((d) => d.count), 1)}
-                colorClass="bg-blue-500/70"
+                colorClass="bg-tm-info/70"
               />
             ) : (
               <p className="text-center text-muted-foreground py-8">No data</p>
@@ -224,7 +224,7 @@ export function AnalyticsClient({
               <MiniBarChart
                 data={workspaceGrowth.map((d) => d.count)}
                 maxValue={Math.max(...workspaceGrowth.map((d) => d.count), 1)}
-                colorClass="bg-purple-500/70"
+                colorClass="bg-tm-t2/70"
               />
             ) : (
               <p className="text-center text-muted-foreground py-8">No data</p>
@@ -270,10 +270,10 @@ export function AnalyticsClient({
                     <td className="px-4 py-2.5 text-right text-muted-foreground">
                       {day.runs}
                     </td>
-                    <td className="px-4 py-2.5 text-right text-emerald-400">
+                    <td className="px-4 py-2.5 text-right text-tm-pass">
                       {day.passed}
                     </td>
-                    <td className="px-4 py-2.5 text-right text-red-400">
+                    <td className="px-4 py-2.5 text-right text-tm-fail">
                       {day.failed}
                     </td>
                     <td className="px-4 py-2.5 text-right text-muted-foreground">

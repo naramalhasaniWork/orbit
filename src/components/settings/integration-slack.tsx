@@ -7,7 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
 import { Eye, EyeOff, ExternalLink, Hash } from "lucide-react";
-import { SlackCommandsLink } from "@/components/settings/slack-commands-link";
+import { SlackCommandsLink, type IncomingSlackClaim } from "@/components/settings/slack-commands-link";
 
 interface SlackNotifications {
   runCompleted: boolean;
@@ -19,6 +19,7 @@ export interface SlackConfig {
   notifications?: SlackNotifications;
   teamId?: string | null;
   pendingTeamId?: string | null;
+  incomingClaims?: IncomingSlackClaim[];
 }
 
 interface SlackCardProps {
@@ -135,6 +136,7 @@ export function SlackCard({ workspaceId, config, onUpdate }: SlackCardProps) {
             workspaceId={workspaceId}
             teamId={config?.teamId ?? null}
             pendingTeamId={config?.pendingTeamId ?? null}
+            incomingClaims={config?.incomingClaims ?? []}
             onChange={onUpdate}
           />
 
@@ -172,14 +174,14 @@ export function SlackCard({ workspaceId, config, onUpdate }: SlackCardProps) {
             size="sm"
             onClick={handleConnect}
             disabled={saving || !webhookUrl.trim()}
-            className="bg-orbit-accent hover:bg-orbit-accent/90 text-white gap-1.5"
+            className="bg-primary hover:bg-primary/85 text-primary-foreground gap-1.5"
           >
             <ExternalLink className="h-3.5 w-3.5" />
             {saving ? "Connecting..." : "Connect Slack"}
           </Button>
         </div>
       )}
-      {error && <p className="text-xs text-red-400">{error}</p>}
+      {error && <p className="text-xs text-tm-fail">{error}</p>}
     </div>
   );
 }

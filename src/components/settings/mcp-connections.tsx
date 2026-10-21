@@ -1,10 +1,10 @@
 "use client";
 
+import { Pending } from "@/components/telemetry/pending";
 import { useState, useEffect, useCallback } from "react";
 import {
   Plus,
   Trash2,
-  Loader2,
   Zap,
   Check,
   X,
@@ -314,7 +314,7 @@ function ConnectionCard({
         >
           {testing ? (
             <>
-              <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" /> Testing...
+              <Pending /> Testing...
             </>
           ) : (
             <>
@@ -481,7 +481,7 @@ function AddConnectionForm({
           type="submit"
           size="sm"
           disabled={saving || !name.trim() || !serverUrl.trim()}
-          className="bg-orbit-accent hover:bg-orbit-accent/90 text-white"
+          className="bg-primary hover:bg-primary/85 text-primary-foreground"
         >
           {saving ? "Creating..." : "Create Connection"}
         </Button>
@@ -506,7 +506,7 @@ function StatusDot({
     status === "connected"
       ? "bg-orbit-pass"
       : status === "pending"
-        ? "bg-amber-500"
+        ? "bg-tm-warn"
         : "bg-muted-foreground/40";
 
   return (

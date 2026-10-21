@@ -35,7 +35,9 @@ export async function GET(
     return new Response("Project not found", { status: 404 });
   }
 
-  const lastEventId = request.headers.get("Last-Event-ID");
+  const lastEventId =
+    request.headers.get("Last-Event-ID") ??
+    request.nextUrl.searchParams.get("lastEventId");
   const channel = channels.projectEvents(projectId);
 
   return createSSEStream({
