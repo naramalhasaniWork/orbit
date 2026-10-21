@@ -3,6 +3,7 @@
 import { Pending } from "@/components/telemetry/pending";
 import { useState, useCallback, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
+import { motionSafe, routeSibling, useReducedMotionSafe } from "@/lib/motion";
 import { StepIndicator } from "./step-indicator";
 import { ConnectRepo } from "./steps/connect-repo";
 import { IndexingProgress } from "./steps/indexing-progress";
@@ -22,26 +23,6 @@ function writeStepToUrl(step: number, projectId?: string) {
   window.history.replaceState({}, "", url.toString());
 }
 
-const pageVariants = {
-  enter: (direction: number) => ({
-    x: direction > 0 ? 24 : -24,
-    opacity: 0,
-  }),
-  center: {
-    x: 0,
-    opacity: 1,
-  },
-  exit: (direction: number) => ({
-    x: direction > 0 ? -24 : 24,
-    opacity: 0,
-  }),
-};
-
-const pageTransition = {
-  type: "tween" as const,
-  duration: 0.25,
-  ease: "easeInOut" as const,
-};
 
 interface OnboardingWizardProps {
   initialProjectId?: string | null;
@@ -53,6 +34,8 @@ export function OnboardingWizard({ initialProjectId }: OnboardingWizardProps) {
   const [selectedRepo, setSelectedRepo] = useState<RepoItem | null>(null);
   const [projectId, setProjectId] = useState<string | null>(null);
   const [enabledTestCount, setEnabledTestCount] = useState(0);
+  // Steps are siblings: forward enters from the right, back from the left (±12px, brand easing).
+  const variants = motionSafe(routeSibling(direction > 0 ? 1 : -1), useReducedMotionSafe());
 
   // On mount, detect where the user left off
   useEffect(() => {
@@ -132,16 +115,8 @@ export function OnboardingWizard({ initialProjectId }: OnboardingWizardProps) {
       </div>
 
       <div className="flex-1 min-h-0 overflow-auto">
-        <AnimatePresence mode="wait" custom={direction}>
-          <motion.div
-            key={step}
-            custom={direction}
-            variants={pageVariants}
-            initial="enter"
-            animate="center"
-            exit="exit"
-            transition={pageTransition}
-          >
+        <AnimatePresence mode="wait">
+          <motion.div key={step} variants={variants} initial="initial" animate="animate" exit="exit">
             {step === 1 && <ConnectRepo onSelect={handleRepoSelect} />}
 
             {step === 2 && selectedRepo && projectId && (
