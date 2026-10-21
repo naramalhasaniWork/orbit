@@ -10,7 +10,7 @@ const FOOTER_LINKS = {
   ],
   Company: [
     { label: "About", href: "/about" },
-    { label: "Contact", href: "mailto:[CONTACT EMAIL]" },
+    { label: "Contact", href: "mailto:naram@hey.com" },
   ],
   Legal: [
     { label: "Privacy", href: "/privacy" },

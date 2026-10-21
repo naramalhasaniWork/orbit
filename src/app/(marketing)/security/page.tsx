@@ -149,8 +149,8 @@ export default function SecurityPage() {
             <p>
               If you discover a security vulnerability in Orbit, we ask that you
               report it responsibly. Please email{" "}
-              <a href="mailto:[CONTACT EMAIL]" className="text-orbit-accent hover:underline">
-                [CONTACT EMAIL]
+              <a href="mailto:naram@hey.com" className="text-orbit-accent hover:underline">
+                naram@hey.com
               </a>{" "}
               with details of the vulnerability. Do not publicly disclose the
               issue until we have had a chance to investigate and address it.

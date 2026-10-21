@@ -46,8 +46,8 @@ export function PrivacyClient() {
             </p>
             <p>
               For privacy-related questions, contact us at{" "}
-              <a href="mailto:[CONTACT EMAIL]" className="text-orbit-accent hover:underline">
-                [CONTACT EMAIL]
+              <a href="mailto:naram@hey.com" className="text-orbit-accent hover:underline">
+                naram@hey.com
               </a>.
             </p>
           </Section>
@@ -199,8 +199,8 @@ export function PrivacyClient() {
             </ul>
             <p>
               To exercise any of these rights, email{" "}
-              <a href="mailto:[CONTACT EMAIL]" className="text-orbit-accent hover:underline">
-                [CONTACT EMAIL]
+              <a href="mailto:naram@hey.com" className="text-orbit-accent hover:underline">
+                naram@hey.com
               </a>.
               We will respond within 30 days.
             </p>
@@ -248,8 +248,8 @@ export function PrivacyClient() {
             <p>
               For questions, concerns, or requests related to this privacy
               policy, contact us at{" "}
-              <a href="mailto:[CONTACT EMAIL]" className="text-orbit-accent hover:underline">
-                [CONTACT EMAIL]
+              <a href="mailto:naram@hey.com" className="text-orbit-accent hover:underline">
+                naram@hey.com
               </a>.
             </p>
           </Section>
