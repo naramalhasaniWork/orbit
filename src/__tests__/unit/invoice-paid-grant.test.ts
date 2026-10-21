@@ -4,7 +4,10 @@ import { createFakeCreditDb } from "../helpers/fake-credit-db";
 
 vi.mock("@/lib/stripe/client", () => ({ stripe: {} }));
 vi.mock("@/lib/stripe/credits", () => ({ fulfillCreditPurchase: vi.fn() }));
-vi.mock("@/lib/billing/credit-periods", () => ({ grantAddedSeatCredits: vi.fn() }));
+vi.mock("@/lib/billing/credit-periods", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/billing/credit-periods")>()),
+  grantAddedSeatCredits: vi.fn(),
+}));
 vi.mock("@/lib/db", () => ({
   prisma: {
     workspace: { findFirst: vi.fn() },
@@ -16,7 +19,7 @@ vi.mock("@/lib/stripe/prices", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@/lib/stripe/prices")>();
   return {
     ...actual,
-    getTierFromPriceId: vi.fn((id: string) => (id === "price_pro" ? "starter" : null)),
+    getTierFromPriceId: vi.fn((id: string) => (id === "price_pro" || id === "price_pro_annual" ? "starter" : null)),
   };
 });
 
@@ -136,8 +139,8 @@ describe("handleInvoicePaid credit grant", () => {
     ], "in_seats", "subscription_update"));
 
     expect(grantAddedSeatCredits).toHaveBeenCalledWith({
-      workspaceId: "ws-1", stripeInvoiceId: "in_seats", tier: "starter", addedSeats: 3,
-      period: { start: new Date(1_760_000_000_000), end: new Date(PERIOD_END * 1000) },
+      workspaceId: "ws-1", stripeInvoiceId: "in_seats", tier: "starter", oldSeats: 2, newSeats: 5,
+      changedAt: new Date(1_760_000_000_000),
     });
     expect(fake.rows).toHaveLength(0);
   });
@@ -151,5 +154,21 @@ describe("handleInvoicePaid credit grant", () => {
     ], "in_cut", "subscription_update"));
 
     expect(grantAddedSeatCredits).not.toHaveBeenCalled();
+  });
+
+  it("an annual invoice grants month 1 only; the scheduler grants the rest", async () => {
+    const fake = useFake({ current: 0, granted: 0 });
+    const yearly = invoice([{ price: "price_pro_annual", quantity: 2 }], "in_year");
+    const line = (yearly.lines.data[0] as unknown as { period: { start: number; end: number } });
+    line.period = { start: 1_760_000_000, end: 1_760_000_000 + 365 * 86_400 };
+
+    await handleInvoicePaid(yearly);
+
+    expect(fake.workspace).toMatchObject({
+      creditsCurrent: PER_SEAT * 2, creditsPeriodPaidSeats: 2,
+      creditsPeriodStart: new Date(1_760_000_000_000),
+    });
+    // One month's grant, not twelve
+    expect(fake.rows.at(-1)?.amount).toBe(PER_SEAT * 2);
   });
 });

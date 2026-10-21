@@ -56,13 +56,16 @@ export async function handleSchedulerJob(
     console.error(`[Worker:scheduler] Commit poll error: ${msg}`);
   }
 
-  // Free plans: reset the monthly credit allowance when a period ends
+  // Monthly credits no invoice grants: Free resets and annual plans' later months
   try {
-    const { resetDueFreeCredits } = await import("@/lib/billing/credit-periods");
+    const { resetDueFreeCredits, grantDueAnnualCredits } = await import("@/lib/billing/scheduled-grants");
     const reset = await resetDueFreeCredits();
-    if (reset > 0) console.log(`[Worker:scheduler] Reset Free credits for ${reset} workspace(s)`);
+    const annual = await grantDueAnnualCredits();
+    if (reset + annual > 0) {
+      console.log(`[Worker:scheduler] Monthly credits: ${reset} Free reset(s), ${annual} annual grant(s)`);
+    }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err);
-    console.error(`[Worker:scheduler] Free credit reset error: ${msg}`);
+    console.error(`[Worker:scheduler] Monthly credit grant error: ${msg}`);
   }
 }

@@ -5,7 +5,7 @@ import { getMonthlyCreditGrant } from "@/lib/stripe/prices";
 import { getInvoicedPlan, getSeatIncrease } from "@/lib/stripe/invoice-lines";
 import { tierDisplayName } from "@/lib/auth/tier-limits";
 import { lockCredits, grantMonthlyCredits } from "@/lib/billing/credit-buckets";
-import { grantAddedSeatCredits } from "@/lib/billing/credit-periods";
+import { grantAddedSeatCredits, creditPeriodEnd } from "@/lib/billing/credit-periods";
 import { fulfillCreditPurchase } from "@/lib/stripe/credits";
 import type Stripe from "stripe";
 
@@ -159,7 +159,9 @@ export async function handleInvoicePaid(invoice: Stripe.Invoice) {
 
     const seatsLabel = plan.seats > 1 ? `, ${plan.seats} seats` : "";
     // Rolled-over credits expire when the next period's grant arrives
-    await grantMonthlyCredits(tx, workspace.id, locked, grant, plan.period, {
+    // A yearly invoice grants month 1; the scheduler grants the months after it
+    const period = { start: plan.period.start, end: creditPeriodEnd(plan.period.start, plan.period.end), paidSeats: plan.seats };
+    await grantMonthlyCredits(tx, workspace.id, locked, grant, period, {
       description: `Monthly credit grant (${tierDisplayName(plan.tier)} plan${seatsLabel})`,
       metadata: { stripeInvoiceId: invoice.id, tier: plan.tier, seats: plan.seats },
     });
@@ -201,7 +203,16 @@ export async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
   });
 }
 
-export async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
+/**
+ * Subscription events can arrive out of order, so both handlers sync from the
+ * subscription as Stripe has it now, not from the event payload: a stale
+ * event then re-applies the current state, a no-op.
+ */
+export async function handleSubscriptionUpdated(event: Stripe.Subscription) {
+  const subscription = await stripe.subscriptions.retrieve(event.id);
+  // A cancellation is handled once, by customer.subscription.deleted
+  if (subscription.status === "canceled") return;
+
   let workspaceId = subscription.metadata?.workspaceId;
   if (!workspaceId) {
     const customerId = typeof subscription.customer === "string"
@@ -234,7 +245,10 @@ export async function handleSubscriptionUpdated(subscription: Stripe.Subscriptio
   );
 }
 
-export async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
+export async function handleSubscriptionDeleted(event: Stripe.Subscription) {
+  const subscription = await stripe.subscriptions.retrieve(event.id);
+  if (subscription.status !== "canceled") return;
+
   const customerId = typeof subscription.customer === "string"
     ? subscription.customer
     : subscription.customer?.id;
@@ -243,9 +257,11 @@ export async function handleSubscriptionDeleted(subscription: Stripe.Subscriptio
 
   const workspace = await prisma.workspace.findFirst({
     where: { stripeCustomerId: customerId },
+    select: { id: true, stripeSubscriptionId: true },
   });
 
-  if (!workspace) return;
+  // An old subscription ending after the customer moved to a new one changes nothing
+  if (!workspace || (workspace.stripeSubscriptionId && workspace.stripeSubscriptionId !== subscription.id)) return;
 
   await downgradeToFree(workspace.id);
 
