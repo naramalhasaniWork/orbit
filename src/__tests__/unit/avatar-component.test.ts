@@ -1,10 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { createElement } from "react";
+import { createElement, type ComponentType } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { Avatar, WorkspaceMark } from "@/components/ui/avatar";
 import { avatarTone } from "@/lib/avatar/identity";
 
-const render = (el: Parameters<typeof createElement>[0], props: object) => renderToStaticMarkup(createElement(el, props));
+const render = <P extends object>(el: ComponentType<P>, props: P) => renderToStaticMarkup(createElement(el, props));
 
 describe("Avatar", () => {
   it("shows the photo with the person's name as alt", () => {
