@@ -2,6 +2,7 @@ import { z } from "zod";
 import { apiSuccess, apiError } from "@/lib/utils/api";
 import { cancelRun } from "@/services/orchestrator/run-manager";
 import { route } from "@/server/http/route";
+import { PERSON_SELECT, toPersonView } from "@/lib/avatar/resolve";
 
 // ============================================================
 // GET /api/projects/[projectId]/runs/[runId] — Get run details
@@ -36,14 +37,7 @@ export const GET = route({}, async ({ params: { projectId, runId }, db }) => {
           url: true,
         },
       },
-      triggeredBy: {
-        select: {
-          id: true,
-          name: true,
-          email: true,
-          image: true,
-        },
-      },
+      triggeredBy: { select: PERSON_SELECT },
     },
   });
 
@@ -51,7 +45,7 @@ export const GET = route({}, async ({ params: { projectId, runId }, db }) => {
     return apiError("Test run not found", "NOT_FOUND", 404);
   }
 
-  return apiSuccess(run);
+  return apiSuccess({ ...run, triggeredBy: run.triggeredBy ? toPersonView(run.triggeredBy) : null });
 });
 
 // ============================================================

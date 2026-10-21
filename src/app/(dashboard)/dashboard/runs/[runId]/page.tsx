@@ -3,6 +3,7 @@ import { redirect, notFound } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { RunDetailClient } from "@/components/runs/run-detail-client";
+import { PERSON_SELECT, toPersonView } from "@/lib/avatar/resolve";
 import { loadRunVisualResults } from "@/services/visual-qa/run-results";
 
 interface RunDetailPageProps {
@@ -23,6 +24,7 @@ export default async function RunDetailPage({ params }: RunDetailPageProps) {
     where: { id: runId, project: { workspaceId } },
     include: {
       project: { select: { id: true, name: true } },
+      triggeredBy: { select: PERSON_SELECT },
       results: {
         include: {
           testCase: {
@@ -61,6 +63,7 @@ export default async function RunDetailPage({ params }: RunDetailPageProps) {
     branch: run.branch,
     commitSha: run.commitSha,
     createdAt: run.createdAt,
+    triggeredBy: run.triggeredBy ? toPersonView(run.triggeredBy) : null,
     results: run.results.map((r) => ({
       id: r.id,
       verdict: r.verdict,

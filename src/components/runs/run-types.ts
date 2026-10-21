@@ -1,3 +1,5 @@
+import type { PersonView } from "@/lib/avatar/resolve";
+
 export interface RunListItem {
   id: string;
   sequenceNumber: number;
@@ -14,6 +16,8 @@ export interface RunListItem {
   branch: string | null;
   commitSha: string | null;
   createdAt: Date;
+  /** Who started it; null for webhook, schedule and API runs. */
+  triggeredBy?: PersonView | null;
 }
 
 export interface TestResultData {
@@ -53,6 +57,7 @@ export interface RunDetailData {
   branch: string | null;
   commitSha: string | null;
   createdAt: Date;
+  triggeredBy?: PersonView | null;
   results: TestResultData[];
 }
 

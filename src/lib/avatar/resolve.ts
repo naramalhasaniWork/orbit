@@ -28,3 +28,17 @@ export function resolveAvatarUrl(user: AvatarSource): string | null {
   if (user.avatarKey) return avatarRoute(user.id, user.avatarKey);
   return user.image || null;
 }
+
+/** A person as the UI shows them: no ids or storage keys leave the server. */
+export interface PersonView {
+  name: string | null;
+  email: string | null;
+  image: string | null;
+}
+
+/** Select for a related user (triggeredBy, user, …) that toPersonView can render. */
+export const PERSON_SELECT = { ...AVATAR_SOURCE_SELECT, name: true, email: true } as const;
+
+export function toPersonView(user: AvatarSource & { name: string | null; email: string | null }): PersonView {
+  return { name: user.name, email: user.email, image: resolveAvatarUrl(user) };
+}
