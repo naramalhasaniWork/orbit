@@ -91,7 +91,7 @@ export function ConfigureEnv({ projectId, onContinue, onSkip, onBack }: Configur
   return (
     <div className="flex flex-col items-center w-full max-w-md mx-auto">
       <div className="text-center mb-8">
-        <h2 className="text-xl font-medium text-foreground mb-2">
+        <h2 className="mb-2 text-balance text-[22px] font-medium tracking-display">
           Configure environment
         </h2>
         <p className="text-sm text-muted-foreground">

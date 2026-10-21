@@ -138,7 +138,7 @@ export function PlanPreview({ projectId, onContinue, onBack }: PlanPreviewProps)
     return (
       <div className="flex flex-col items-center w-full max-w-2xl mx-auto">
         <div className="text-center mb-6">
-          <h2 className="text-xl font-medium text-foreground mb-2">
+          <h2 className="mb-2 text-balance text-[22px] font-medium tracking-display">
             {generating ? "Generating test plan..." : "Loading test plan..."}
           </h2>
           <p className="text-sm text-muted-foreground flex items-center justify-center gap-2">
@@ -175,7 +175,7 @@ export function PlanPreview({ projectId, onContinue, onBack }: PlanPreviewProps)
   return (
     <div className="flex flex-col items-center w-full max-w-2xl mx-auto">
       <div className="text-center mb-6">
-        <h2 className="text-xl font-medium text-foreground mb-2">
+        <h2 className="mb-2 text-balance text-[22px] font-medium tracking-display">
           Test plan generated
         </h2>
         <p className="text-sm text-muted-foreground">

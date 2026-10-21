@@ -31,7 +31,7 @@ export function LaunchRun({ projectId, enabledTestCount, repoName, onBack, onCon
     setRunState("complete");
   }, []);
 
-  const { progress } = useRunEvents({
+  useRunEvents({
     projectId,
     runId: runId ?? "",
     enabled: runState === "running" && !!runId,
@@ -101,9 +101,6 @@ export function LaunchRun({ projectId, enabledTestCount, repoName, onBack, onCon
 
   const passCount = runningTests.filter((t) => t.status === "pass").length;
   const failCount = runningTests.filter((t) => t.status === "fail").length;
-  const totalTests = progress?.totalTests ?? enabledTestCount;
-  const completed = progress?.completed ?? (passCount + failCount);
-  const pct = totalTests > 0 ? Math.round((completed / totalTests) * 100) : 0;
 
   const showViewport = (runState === "running" || runState === "complete") && !!runId;
 
@@ -134,7 +131,6 @@ export function LaunchRun({ projectId, enabledTestCount, repoName, onBack, onCon
             {runState === "running" && (
               <RunningView
                 tests={runningTests}
-                progress={pct}
                 passCount={passCount}
                 failCount={failCount}
               />

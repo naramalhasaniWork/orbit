@@ -141,7 +141,7 @@ export function IndexingProgress({ repo, projectId, onComplete }: IndexingProgre
   return (
     <div className="flex flex-col items-center w-full max-w-2xl mx-auto">
       <div className="text-center mb-8">
-        <h2 className="text-xl font-medium text-foreground mb-2">
+        <h2 className="mb-2 text-balance text-[22px] font-medium tracking-display">
           Analyzing your codebase
         </h2>
         <p className="text-sm text-muted-foreground">
@@ -266,7 +266,7 @@ function ProgressRing({ progress }: { progress: number }) {
           />
         </svg>
         <div className="absolute inset-0 flex items-center justify-center">
-          <span className="text-lg font-medium text-foreground tabular-nums">
+          <span className="tm-num text-[18px] text-foreground">
             {clampedProgress}%
           </span>
         </div>
