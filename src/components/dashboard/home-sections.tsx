@@ -20,19 +20,25 @@ export interface StripStat {
   tone?: "fail";
 }
 
-/** Row 1: the stat strip. Martian Mono numerals, hairline dividers, one cell per measure. */
-export function StatStrip({ stats }: { stats: StripStat[] }) {
+/** Row 1: the stat strip. Martian Mono numerals, hairline dividers, one cell per measure. `compact` for the home launchpad. */
+export function StatStrip({ stats, compact = false }: { stats: StripStat[]; compact?: boolean }) {
   return (
     <div className="grid grid-cols-2 border-y border-border md:grid-cols-4">
       {stats.map((s) => {
         const good = s.trend !== undefined && s.trend !== 0 && (s.trend > 0) === (s.upIsGood ?? true);
         return (
-          <div key={s.label} className="flex flex-col gap-1.5 border-border px-5 py-4 max-md:[&:nth-child(odd)]:border-r md:[&:not(:last-child)]:border-r">
+          <div
+            key={s.label}
+            className={cn(
+              "flex flex-col border-border px-5 max-md:[&:nth-child(odd)]:border-r md:[&:not(:last-child)]:border-r",
+              compact ? "gap-1 py-3" : "gap-1.5 py-4"
+            )}
+          >
             <span className="tm-label flex items-center justify-between gap-2 text-tm-t3">
               {s.label}
               {s.spark && s.spark.length >= 2 && <Sparkline data={s.spark} width={56} height={16} strokeColor="hsl(var(--tm-t3))" />}
             </span>
-            <span className={cn("tm-num text-[28px] leading-none tracking-[-0.02em]", s.tone === "fail" && "text-tm-fail")}>
+            <span className={cn("tm-num leading-none tracking-[-0.02em]", compact ? "text-[22px]" : "text-[28px]", s.tone === "fail" && "text-tm-fail")}>
               <RollingNumber value={s.value} />
               {s.suffix && <span className="text-[14px] text-tm-t3">{s.suffix}</span>}
             </span>
@@ -129,12 +135,12 @@ export function NeedsYouList({
 }
 
 /** Row 3, right: planned tests that have never run, riskiest first. */
-export function RiskiestList({ items }: { items: RiskyJourney[] }) {
+export function RiskiestList({ items, projectId }: { items: RiskyJourney[]; projectId: string }) {
   return (
     <section aria-labelledby="riskiest" className="flex flex-col px-5 py-5">
       <div className="mb-2 flex items-baseline justify-between">
-        <h2 id="riskiest" className="text-[14px] font-medium">Riskiest untested journeys</h2>
-        <Link href="/dashboard/plans" className="text-[12px] text-tm-t2 hover:text-foreground hover:underline">
+        <h2 id="riskiest" className="text-[14px] font-medium">Riskiest untested</h2>
+        <Link href={`/dashboard/plans?project=${projectId}`} className="text-[12px] text-tm-t2 hover:text-foreground hover:underline">
           Plan them
         </Link>
       </div>

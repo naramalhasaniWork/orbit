@@ -17,7 +17,7 @@ interface SparklineData {
   duration: number[];
 }
 
-interface DashboardStats {
+export interface DashboardStats {
   /** Pass rate of the latest finished run; null when it executed nothing. */
   passRate: number | null;
   /** That run's number, so the page can say which run the numbers describe. */

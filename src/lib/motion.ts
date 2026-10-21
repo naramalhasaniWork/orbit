@@ -68,17 +68,20 @@ export const scaleIn: Variants = {
   show: { opacity: 1, scale: 1, transition: tween.open },
 };
 
-/** Route motion is directional and starts at 0.15 opacity, never 0. */
+/**
+ * Route motion is directional and starts at 0.15 opacity, never 0. Navigation is frequent,
+ * so a route swap takes the 180ms "change" duration, not the 240ms "open".
+ */
 export const routeChild: Variants = {
   initial: { opacity: 0.15, y: 8 },
-  animate: { opacity: 1, y: 0, transition: tween.open },
-  exit: { opacity: 0, transition: exit(durations.open) },
+  animate: { opacity: 1, y: 0, transition: tween.change },
+  exit: { opacity: 0, transition: exit(durations.change) },
 };
 
 export const routeBack: Variants = {
   initial: { opacity: 0.15, y: -4 },
-  animate: { opacity: 1, y: 0, transition: tween.open },
-  exit: { opacity: 0, transition: exit(durations.open) },
+  animate: { opacity: 1, y: 0, transition: tween.change },
+  exit: { opacity: 0, transition: exit(durations.change) },
 };
 
 export const routeSibling = (direction: 1 | -1): Variants => ({
@@ -195,9 +198,29 @@ export function routeDirection(prevPath: string | null, nextPath: string): Route
   return "sibling";
 }
 
-export function routeVariants(direction: RouteDirection, reduced: boolean): Variants {
+/**
+ * Moving between tabs of one group (the settings sections): +1 to a tab further right, -1 to one
+ * further left, null when either path is not one of the tabs. A tab owns its sub-paths.
+ */
+export function tabStep(prevPath: string | null, nextPath: string, tabs: readonly string[]): 1 | -1 | null {
+  if (prevPath === null) return null;
+  const indexOf = (path: string) => {
+    let best = -1;
+    tabs.forEach((t, i) => {
+      if ((path === t || path.startsWith(`${t}/`)) && (best < 0 || t.length > tabs[best].length)) best = i;
+    });
+    return best;
+  };
+  const a = indexOf(prevPath);
+  const b = indexOf(nextPath);
+  if (a < 0 || b < 0 || a === b) return null;
+  return b > a ? 1 : -1;
+}
+
+/** Siblings slide only inside a tab group (`step`); any other sideways move is a plain rise. */
+export function routeVariants(direction: RouteDirection, reduced: boolean, step: 1 | -1 | null = null): Variants {
   if (reduced || direction === "none") return crossfade;
   if (direction === "child") return routeChild;
   if (direction === "back") return routeBack;
-  return routeSibling(1);
+  return step ? routeSibling(step) : routeChild;
 }

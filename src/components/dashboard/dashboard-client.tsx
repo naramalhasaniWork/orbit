@@ -12,8 +12,13 @@ import { useProjectEvents, type ProjectRunUpdate } from "@/hooks/use-project-eve
 import { IndexingStatus } from "@/components/project/indexing-status";
 import { SyncStatus, type SyncInfo } from "@/components/dashboard/sync-status";
 import { NeedsYouList, ProjectTracks, RiskiestList, StatStrip } from "@/components/dashboard/home-sections";
+import { PullRequestList } from "@/components/dashboard/pull-request-list";
+import { JumpBackIn } from "@/components/dashboard/jump-back-in";
+import { MapPreview } from "@/components/dashboard/map-preview";
+import { ActivityFeed } from "@/components/dashboard/activity-feed";
 import { homeHeadline } from "@/lib/dashboard/home-copy";
 import type { NeedsYouItem, ProjectTrack, RiskyJourney } from "@/lib/dashboard/home";
+import type { Launchpad } from "@/lib/dashboard/launchpad";
 
 interface Project {
   id: string;
@@ -58,9 +63,13 @@ interface DashboardClientProps {
   tracks: ProjectTrack[];
   needsYou: NeedsYouItem[];
   riskiest: RiskyJourney[];
+  launchpad: Launchpad;
 }
 
-/** Home: one sentence of state, the stat strip, the ground tracks, then what needs you. */
+/**
+ * Home is a launchpad: one sentence of state and the stat strip, then the PRs Orbit checked beside
+ * where to jump back in, the map at a glance and the team. One column on phones, PRs first.
+ */
 export function DashboardClient({
   activeProject,
   recentRuns,
@@ -71,6 +80,7 @@ export function DashboardClient({
   tracks,
   needsYou,
   riskiest,
+  launchpad,
 }: DashboardClientProps) {
   const router = useRouter();
   const [liveActiveRun, setLiveActiveRun] = useState<ActiveRun | null>(null);
@@ -146,6 +156,7 @@ export function DashboardClient({
       )}
 
       <StatStrip
+        compact
         stats={[
           {
             label: stats.latestRunNumber ? `Pass rate · run #${stats.latestRunNumber}` : "Pass rate",
@@ -167,25 +178,31 @@ export function DashboardClient({
         ]}
       />
 
-      <div className="border-b border-border">
-        <ProjectTracks tracks={tracks} activeProjectId={activeProject.id} />
-      </div>
-
-      {indexingInfo && (
-        <div className="border-b border-border px-5 py-4">
-          <IndexingStatus
-            projectId={activeProject.id}
-            lastIndexedAt={indexingInfo.lastIndexedAt}
-            nodeCount={indexingInfo.nodeCount}
-            edgeCount={indexingInfo.edgeCount}
-            isIndexing={indexingInfo.isIndexing}
-          />
+      <div className="grid grid-cols-1 border-b border-border lg:grid-cols-[minmax(0,1fr)_minmax(320px,380px)]">
+        <div className="min-w-0 divide-y divide-border lg:border-r lg:border-border">
+          <PullRequestList rows={launchpad.pullRequests} projectId={activeProject.id} />
+          <div className="grid grid-cols-1 md:grid-cols-2 md:divide-x md:divide-border">
+            <NeedsYouList items={needsYou} projectId={activeProject.id} runNumber={stats.latestRunNumber} />
+            <RiskiestList items={riskiest} projectId={activeProject.id} />
+          </div>
+          <ProjectTracks tracks={tracks} activeProjectId={activeProject.id} />
         </div>
-      )}
-
-      <div className="grid grid-cols-1 lg:grid-cols-2 lg:divide-x lg:divide-border">
-        <NeedsYouList items={needsYou} projectId={activeProject.id} runNumber={stats.latestRunNumber} />
-        <RiskiestList items={riskiest} />
+        <aside aria-label="Shortcuts and context" className="min-w-0 divide-y divide-border max-lg:border-t max-lg:border-border">
+          <JumpBackIn items={launchpad.jumpBackIn} projectId={activeProject.id} />
+          <div className="space-y-4 px-5 py-5">
+            <MapPreview nodes={launchpad.map.nodes} edges={launchpad.map.edges} projectId={activeProject.id} />
+            {indexingInfo && (
+              <IndexingStatus
+                projectId={activeProject.id}
+                lastIndexedAt={indexingInfo.lastIndexedAt}
+                nodeCount={indexingInfo.nodeCount}
+                edgeCount={indexingInfo.edgeCount}
+                isIndexing={indexingInfo.isIndexing}
+              />
+            )}
+          </div>
+          {launchpad.activity.length > 0 && <ActivityFeed events={launchpad.activity} />}
+        </aside>
       </div>
     </div>
   );

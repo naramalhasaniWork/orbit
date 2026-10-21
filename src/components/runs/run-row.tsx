@@ -1,11 +1,12 @@
 "use client";
 
-import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";
 import { SelectCheckbox } from "@/components/shared/select-checkbox";
 import { Status } from "@/components/telemetry/status";
 import { Avatar } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
+import { TransitionLink } from "@/components/layout/transition-link";
+import { sharedName } from "@/lib/view-transition";
 import { formatRunTitle } from "@/lib/runs/run-title";
 import { runWord, toneForRun } from "@/lib/status-tone";
 import {
@@ -33,13 +34,14 @@ export function RunRow({ run, selected, onToggleSelect }: RunRowProps) {
       <div className="py-3 pl-4 pr-1">
         <SelectCheckbox checked={selected} onToggle={onToggleSelect} label={`Select ${title}`} />
       </div>
-      <Link
+      <TransitionLink
         href={`/dashboard/runs/${run.id}`}
+        shared={sharedName("run", run.id)}
         className="grid min-w-0 flex-1 grid-cols-[96px_minmax(0,1fr)_auto] items-center gap-4 py-3 pl-3 pr-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring sm:grid-cols-[96px_minmax(0,1fr)_auto_64px]"
       >
         <Status tone={tone} label={word} mono />
         <span className="min-w-0">
-          <span className="block truncate text-[13px] font-medium text-foreground">{title}</span>
+          <span data-vt-source className="block truncate text-[13px] font-medium text-foreground">{title}</span>
           {/* Inline text so it ends in an ellipsis; below sm only trigger and age. */}
           <span className="tm-label mt-0.5 block truncate text-tm-t3">
             {run.triggeredBy && (
@@ -60,7 +62,7 @@ export function RunRow({ run, selected, onToggleSelect }: RunRowProps) {
         </span>
         <TestCounts run={run} />
         <span className="tm-num hidden text-right text-[10.5px] text-tm-t2 sm:block">{formatDuration(run.durationMs)}</span>
-      </Link>
+      </TransitionLink>
     </div>
   );
 }

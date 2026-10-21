@@ -390,6 +390,41 @@
   box-shadow: 0 0 0 100vmax rgb(0 0 0 / 0.6), 0 0 0 1px hsl(var(--tm-t1));
 }
 
+/*
+ * Shared-element route transitions (src/lib/view-transition.ts). The frame (sidebar, header) is
+ * the root and never animates; the workspace (`main`) fades out fast and rises in; a shared
+ * element (a run's title, the map preview) moves into its place in the destination.
+ */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+}
+::view-transition-old(main) {
+  animation: tm-vt-out 126ms var(--ease-in) both;
+}
+::view-transition-new(main) {
+  animation: tm-vt-in var(--dur-change) var(--ease-out) both;
+}
+::view-transition-group(*) {
+  animation-duration: var(--dur-open);
+  animation-timing-function: var(--ease-in-out);
+}
+::view-transition-group(root),
+::view-transition-group(main) {
+  animation-duration: 0s;
+}
+@keyframes tm-vt-out {
+  to {
+    opacity: 0;
+  }
+}
+@keyframes tm-vt-in {
+  from {
+    opacity: 0.15;
+    transform: translateY(8px);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
