@@ -33,7 +33,7 @@ interface OptionalGroup {
 
 const OPTIONAL_GROUPS: OptionalGroup[] = [
   { vars: ["GITHUB_APP_ID", "GITHUB_APP_PRIVATE_KEY", "GITHUB_APP_SLUG"], feature: "GitHub App installation flow (public repos still work via GITHUB_TOKEN)", selfHostedOnly: true },
-  { vars: ["GITHUB_WEBHOOK_SECRET"], feature: "GitHub webhook signature verification" },
+  { vars: ["GITHUB_WEBHOOK_SECRET"], feature: "GitHub webhooks (every delivery is rejected until it is set)" },
   { vars: ["SLACK_SIGNING_SECRET"], feature: "Slack interactions" },
   { vars: ["LINEAR_API_KEY"], feature: "Linear issue creation" },
   { vars: ["BROWSERBASE_API_KEY"], feature: "Browserbase cloud browsers (local Playwright is used)" },

@@ -37,6 +37,12 @@ describe("site metadata", () => {
     expect(rules.disallow).toEqual(expect.arrayContaining(["/dashboard", "/admin", "/api"]));
   });
 
+  it("robots and sitemap are rendered per request, so one image serves hosted and self-hosted", async () => {
+    // Prerendered at build, a self-hosted image would serve the hosted robots.txt.
+    expect((await import("@/app/robots")).dynamic).toBe("force-dynamic");
+    expect((await import("@/app/sitemap")).dynamic).toBe("force-dynamic");
+  });
+
   it("JSON-LD offers mirror the billing config and invent no ratings", async () => {
     const { softwareApplicationJsonLd } = await import("@/lib/marketing/json-ld");
     const ld = softwareApplicationJsonLd();
