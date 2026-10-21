@@ -11,7 +11,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import Image from "next/image";
+import { Avatar } from "@/components/ui/avatar";
 import { MoreHorizontal, ShieldCheck, User, Shield } from "lucide-react";
 
 interface UserWorkspace {
@@ -74,21 +74,7 @@ export function UsersClient({ users, total }: UsersClientProps) {
       sortable: true,
       render: (row: UserRow) => (
         <div className="flex items-center gap-3">
-          {row.image ? (
-            <Image
-              src={row.image}
-              alt=""
-              width={28}
-              height={28}
-              className="h-7 w-7 rounded-full"
-            />
-          ) : (
-            <div className="h-7 w-7 rounded-full bg-muted/50 flex items-center justify-center">
-              <span className="text-[10px] font-medium text-muted-foreground">
-                {(row.name ?? row.email)[0]?.toUpperCase()}
-              </span>
-            </div>
-          )}
+          <Avatar name={row.name} email={row.email} image={row.image} size="md" decorative />
           <div>
             <p className="font-medium">{row.name ?? "Unnamed"}</p>
             <p className="text-xs text-muted-foreground">{row.email}</p>

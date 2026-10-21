@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { StatsCard } from "@/components/admin/stats-card";
 import { cn } from "@/lib/utils";
+import { Avatar } from "@/components/ui/avatar";
 import {
   Users,
   FolderKanban,
@@ -163,13 +164,16 @@ export function WorkspaceDetailClient({
                   className="border-b border-border/50 hover:bg-muted/30"
                 >
                   <td className="px-4 py-3">
-                    <div>
-                      <p className="font-medium">
-                        {m.user.name ?? "Unnamed"}
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {m.user.email}
-                      </p>
+                    <div className="flex items-center gap-3">
+                      <Avatar name={m.user.name} email={m.user.email} image={m.user.image} size="md" decorative />
+                      <div>
+                        <p className="font-medium">
+                          {m.user.name ?? "Unnamed"}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {m.user.email}
+                        </p>
+                      </div>
                     </div>
                   </td>
                   <td className="px-4 py-3">
