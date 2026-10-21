@@ -22,7 +22,7 @@ export const GET = route(
       select: {
         tier: true,
         creditBalance: true,
-        monthlyCredits: true,
+        creditsGranted: true,
         seatCount: true,
       },
     });
@@ -100,7 +100,7 @@ export const GET = route(
     });
 
     const creditsUsedThisMonth = Math.abs(monthlyCreditsUsed._sum.amount ?? 0);
-    const creditLimit = monthlyCreditAllowance(tier, workspace.monthlyCredits);
+    const creditLimit = monthlyCreditAllowance(tier, workspace.creditsGranted);
     const budgetPercentage = getBudgetPercentage(creditsUsedThisMonth, creditLimit);
 
     return apiSuccess({

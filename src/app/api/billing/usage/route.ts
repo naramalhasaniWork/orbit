@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
       select: {
         tier: true,
         creditBalance: true,
-        monthlyCredits: true,
+        creditsGranted: true,
         billingPeriodStart: true,
         billingPeriodEnd: true,
         tokenBudgetMonthly: true,
@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
       budget,
       projectCosts: projectUsages,
       creditBalance: workspace.creditBalance,
-      monthlyCredits: workspace.monthlyCredits,
+      monthlyCredits: workspace.creditsGranted, // this period's grant from the buckets, not the plan allowance
       tier: workspace.tier,
     });
   } catch (error) {

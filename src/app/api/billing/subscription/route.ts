@@ -32,7 +32,7 @@ export async function GET(request: NextRequest) {
         billingPeriodStart: true,
         billingPeriodEnd: true,
         creditBalance: true,
-        monthlyCredits: true,
+        creditsGranted: true,
         creditsCurrent: true,
         creditsRollover: true,
         creditsPurchased: true,
@@ -62,7 +62,7 @@ export async function GET(request: NextRequest) {
         : null,
       hasStripeCustomer: !!workspace.stripeCustomerId,
       creditBalance: workspace.creditBalance,
-      monthlyCredits: workspace.monthlyCredits,
+      monthlyCredits: workspace.creditsGranted, // this period's grant from the buckets, not the plan allowance
       credits: {
         current: workspace.creditsCurrent,
         rollover: workspace.creditsRollover,

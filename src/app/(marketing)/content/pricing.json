@@ -1,7 +1,6 @@
 {
   "headline": "Pricing That Scales With You",
   "subheadline": "Start free. Pay for what you use.",
-  "creditExplainer": "1 credit = 1 test case execution. A typical PR check uses 20-40 credits.",
   "tiers": [
     {
       "name": "Free",
