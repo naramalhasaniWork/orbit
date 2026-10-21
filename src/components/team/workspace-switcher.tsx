@@ -23,6 +23,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { WorkspaceMark } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { setWorkspaceCookie } from "@/lib/workspace-cookie";
 
@@ -32,6 +33,8 @@ interface Workspace {
   slug: string;
   tier: string;
   role: string;
+  /** GitHub org avatar of the workspace's first installation. */
+  image: string | null;
 }
 
 interface WorkspaceSwitcherProps {
@@ -119,11 +122,7 @@ export function WorkspaceSwitcher({
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <button className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-muted/40 transition-colors">
-            <div className="h-6 w-6 rounded-md bg-foreground/[0.06] flex items-center justify-center shrink-0">
-              <span className="text-[10px] font-medium text-foreground">
-                {displayName.charAt(0).toUpperCase()}
-              </span>
-            </div>
+            <WorkspaceMark id={currentWorkspaceId} name={displayName} image={current?.image} size="sm" />
             <span className="text-xs text-muted-foreground truncate max-w-[120px]">
               {displayName}
             </span>
@@ -144,15 +143,13 @@ export function WorkspaceSwitcher({
                 disabled={switching === ws.id}
                 className={cn("gap-2 cursor-pointer")}
               >
-                <div className="h-5 w-5 rounded bg-muted/50 flex items-center justify-center shrink-0">
-                  {switching === ws.id ? (
+                {switching === ws.id ? (
+                  <span className="flex size-5 shrink-0 items-center justify-center">
                     <Pending />
-                  ) : (
-                    <span className="text-[9px] font-medium text-muted-foreground">
-                      {ws.name.charAt(0).toUpperCase()}
-                    </span>
-                  )}
-                </div>
+                  </span>
+                ) : (
+                  <WorkspaceMark id={ws.id} name={ws.name} image={ws.image} size="sm" />
+                )}
                 <span className="flex-1 truncate">{ws.name}</span>
                 <span className="text-[10px] text-muted-foreground capitalize">
                   {ws.role}
