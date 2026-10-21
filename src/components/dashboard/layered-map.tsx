@@ -25,7 +25,8 @@ interface LayeredMapProps {
   nodes: MapNode[];
   edges: MapEdge[];
   selectedId: string | null;
-  onSelect: (id: string | null) => void;
+  /** Omit for a static picture (the home preview): nodes render as text, not buttons. */
+  onSelect?: (id: string | null) => void;
   /** "impact": highlight what changed since the last sync and everything depending on it. */
   mode: "journey" | "impact";
   /** Onboarding: nodes slide in and edges draw as indexing discovers them; reflows glide. */
@@ -98,12 +99,11 @@ export function LayeredMap({ nodes, edges, selectedId, onSelect, mode, assemble 
         const tone = STATUS_TONES[node.testStatus ?? "untested"];
         const isSelected = node.id === selectedId;
         const changed = node.changeStatus === "added" || node.changeStatus === "modified";
+        const Node = onSelect ? "button" : "span";
         return (
-          <button
+          <Node
             key={node.id}
-            type="button"
-            onClick={() => onSelect(isSelected ? null : node.id)}
-            aria-pressed={isSelected}
+            {...(onSelect && { type: "button" as const, onClick: () => onSelect(isSelected ? null : node.id), "aria-pressed": isSelected })}
             aria-label={`${node.name}, ${node.type}, ${tone.label}${changed ? `, ${node.changeStatus}` : ""}`}
             title={node.filePath ?? node.name}
             className={cn(
@@ -120,7 +120,7 @@ export function LayeredMap({ nodes, edges, selectedId, onSelect, mode, assemble 
             <span aria-hidden="true" className={cn("size-1 shrink-0", tone.fill, tone.square ? "rounded-[1px]" : "rounded-full")} />
             <span className={cn("min-w-0 flex-1 truncate", highlight && !lit(node.id) ? "text-tm-t3" : "text-foreground")}>{node.name}</span>
             {changed && <span className="tm-label shrink-0 text-tm-t3">{node.changeStatus === "added" ? "New" : "Chg"}</span>}
-          </button>
+          </Node>
         );
       })}
 

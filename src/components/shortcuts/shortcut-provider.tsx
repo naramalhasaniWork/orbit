@@ -18,9 +18,11 @@ type Handler = () => void;
 
 interface ShortcutContextValue {
   register: (id: ShortcutId, handler: Handler) => () => void;
+  /** Run a registered action as if its keys were pressed. False when nothing is attached to it right now. */
+  trigger: (id: ShortcutId) => boolean;
 }
 
-const ShortcutContext = createContext<ShortcutContextValue>({ register: () => () => {} });
+const ShortcutContext = createContext<ShortcutContextValue>({ register: () => () => {}, trigger: () => false });
 
 const OPEN_DIALOG_SELECTOR = '[role="dialog"][data-state="open"], [role="alertdialog"][data-state="open"]';
 
@@ -68,7 +70,12 @@ export function ShortcutProvider({ children }: { children: React.ReactNode }) {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [router]);
 
-  const value = useMemo(() => ({ register }), [register]);
+  const trigger = useCallback((id: ShortcutId) => {
+    const handler = handlers.current.get(id);
+    handler?.();
+    return handler !== undefined;
+  }, []);
+  const value = useMemo(() => ({ register, trigger }), [register, trigger]);
 
   return (
     <ShortcutContext.Provider value={value}>
@@ -89,4 +96,9 @@ export function useShortcutAction(id: ShortcutId, handler: Handler | undefined) 
     if (!active) return;
     return register(id, () => latest.current?.());
   }, [id, active, register]);
+}
+
+/** Fire a registered shortcut action from a button: the same gate and feedback as the keys. */
+export function useShortcutTrigger(): (id: ShortcutId) => boolean {
+  return useContext(ShortcutContext).trigger;
 }
