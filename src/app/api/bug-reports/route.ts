@@ -16,6 +16,7 @@ import { getStorage } from "@/lib/storage";
 import { apiSuccess } from "@/lib/utils/api";
 import { createBugReport } from "@/server/data/bug-report-repo";
 import { HttpError } from "@/server/http/errors";
+import { readCappedBody } from "@/server/http/read-capped-body";
 import { route } from "@/server/http/route";
 
 export const dynamic = "force-dynamic";
@@ -64,13 +65,10 @@ export const POST = route({}, async ({ req, auth, workspaceId, session, log }) =
   const limited = await consumeRateLimit(`bug-report:${auth.userId}`, RATE_LIMIT.limit, RATE_LIMIT.windowSec);
   if (!limited.allowed) return tooManyRequests(limited, "You've sent a lot of reports. Try again in a bit.");
 
-  if (Number(req.headers.get("content-length") ?? 0) > MAX_BODY_BYTES) {
-    throw new HttpError(413, "SCREENSHOT_TOO_LARGE", "Screenshots can be up to 5 MB");
-  }
-
+  const capped = await readCappedBody(req, MAX_BODY_BYTES, "Screenshots can be up to 5 MB");
   let form: FormData;
   try {
-    form = await req.formData();
+    form = await capped.formData();
   } catch {
     throw new HttpError(400, "INVALID_BODY", "Send the report as multipart form data");
   }

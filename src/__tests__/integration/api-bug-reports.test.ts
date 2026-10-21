@@ -55,15 +55,39 @@ vi.mock("@/lib/bug-reports/notify", () => ({ notifyNewBugReport: h.notify }));
 const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0]);
 const REPORT_ID = "6f1c1e1a-1b2c-4d3e-8f90-123456789abc";
 
-function submit(fields: Record<string, string | Blob>): NextRequest {
+/** Encodes the form the way a browser sends it: multipart bytes with a Content-Length. */
+async function submit(fields: Record<string, string | Blob>): Promise<NextRequest> {
   const form = new FormData();
   for (const [k, v] of Object.entries(fields)) form.append(k, v);
-  return new NextRequest("http://localhost/api/bug-reports", { method: "POST", body: form });
+  const encoded = new Response(form);
+  const body = new Uint8Array(await encoded.arrayBuffer());
+  return new NextRequest("http://localhost/api/bug-reports", {
+    method: "POST",
+    body,
+    headers: { "content-type": encoded.headers.get("content-type") ?? "", "content-length": String(body.byteLength) },
+  });
 }
 
 async function post(fields: Record<string, string | Blob>) {
   const { POST } = await import("@/app/api/bug-reports/route");
-  return POST(submit(fields));
+  return POST(await submit(fields));
+}
+
+/** A 7 MB multipart body streamed with whatever Content-Length the caller claims (or none). */
+function oversized(contentLength?: string): NextRequest {
+  const chunk = new TextEncoder().encode("x".repeat(64 * 1024));
+  let sent = 0;
+  const body = new ReadableStream<Uint8Array>({
+    pull(controller) {
+      if (sent >= 7 * 1024 * 1024) return controller.close();
+      sent += chunk.byteLength;
+      controller.enqueue(chunk);
+    },
+  });
+  const headers: Record<string, string> = { "content-type": "multipart/form-data; boundary=b" };
+  if (contentLength !== undefined) headers["content-length"] = contentLength;
+  const init = { method: "POST", body, headers, duplex: "half" } as RequestInit;
+  return new NextRequest(new Request("http://localhost/api/bug-reports", init));
 }
 
 beforeEach(() => {
@@ -158,6 +182,20 @@ describe("POST /api/bug-reports", () => {
     expect(h.upload).not.toHaveBeenCalled();
     expect(h.createBugReport).not.toHaveBeenCalled();
   });
+
+  it("413s an oversized body without a Content-Length, before parsing it", async () => {
+    const { POST } = await import("@/app/api/bug-reports/route");
+    const res = await POST(oversized());
+    expect(res.status).toBe(413);
+    expect(h.createBugReport).not.toHaveBeenCalled();
+  });
+
+  it("413s an oversized body whose Content-Length lies", async () => {
+    const { POST } = await import("@/app/api/bug-reports/route");
+    const res = await POST(oversized("1024"));
+    expect(res.status).toBe(413);
+    expect(h.createBugReport).not.toHaveBeenCalled();
+  });
 });
 
 describe("/api/admin/bug-reports", () => {
@@ -179,6 +217,33 @@ describe("/api/admin/bug-reports", () => {
     expect(h.getBugReport).not.toHaveBeenCalled();
     expect(h.setBugReportStatus).not.toHaveBeenCalled();
     expect(h.download).not.toHaveBeenCalled();
+  });
+
+  it("a signed-out caller gets 401 on list, read and screenshot", async () => {
+    h.caller.signedIn = false;
+    const { GET: list } = await import("@/app/api/admin/bug-reports/route");
+    const { GET: read } = await import("@/app/api/admin/bug-reports/[id]/route");
+    const { GET: screenshot } = await import("@/app/api/admin/bug-reports/[id]/screenshot/route");
+
+    expect((await list(new NextRequest("http://localhost/api/admin/bug-reports"))).status).toBe(401);
+    expect((await read(new NextRequest(url), segment)).status).toBe(401);
+    expect((await screenshot(new NextRequest(`${url}/screenshot`), segment)).status).toBe(401);
+    expect(h.listBugReports).not.toHaveBeenCalled();
+    expect(h.getBugReport).not.toHaveBeenCalled();
+    expect(h.download).not.toHaveBeenCalled();
+  });
+
+  it("an admin asking for an unknown or malformed id gets 404", async () => {
+    h.caller.userRole = "super_admin";
+    const { GET: read } = await import("@/app/api/admin/bug-reports/[id]/route");
+    const { GET: screenshot } = await import("@/app/api/admin/bug-reports/[id]/screenshot/route");
+    const bad = { params: Promise.resolve({ id: "../../etc/passwd" }) };
+
+    expect((await read(new NextRequest(url), segment)).status).toBe(404);
+    expect((await read(new NextRequest(url), bad)).status).toBe(404);
+    expect((await screenshot(new NextRequest(`${url}/screenshot`), bad)).status).toBe(404);
+    expect(h.getBugReport).toHaveBeenCalledTimes(1);
+    expect(h.getBugReportScreenshotKey).not.toHaveBeenCalled();
   });
 
   it("lists open reports by default and honours the filter", async () => {
