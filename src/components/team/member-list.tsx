@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import Image from "next/image";
 import { MoreHorizontal, Shield, Crown, Eye, CreditCard, UserMinus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,6 +12,7 @@ import {
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
+import { Avatar } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 
 interface Member {
@@ -99,21 +99,7 @@ export function MemberList({
             )}
           >
             <div className="flex items-center gap-3 min-w-0">
-              {member.user.image ? (
-                <Image
-                  src={member.user.image}
-                  alt=""
-                  width={32}
-                  height={32}
-                  className="rounded-full ring-1 ring-border"
-                />
-              ) : (
-                <div className="h-8 w-8 rounded-full bg-muted/50 flex items-center justify-center shrink-0">
-                  <span className="text-xs font-medium text-muted-foreground">
-                    {member.user.name?.charAt(0)?.toUpperCase() ?? "U"}
-                  </span>
-                </div>
-              )}
+              <Avatar name={member.user.name} email={member.user.email} image={member.user.image} size="md" decorative />
 
               <div className="min-w-0">
                 <div className="flex items-center gap-2">

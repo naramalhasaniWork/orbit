@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import { Avatar } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 
 interface Invitation {
@@ -190,11 +191,7 @@ export function InviteForm({ invitations, onInvite, onResend, onRevoke }: Invite
                   className="flex items-center justify-between px-4 py-2.5 rounded-lg hover:bg-muted/30 transition-colors"
                 >
                   <div className="flex items-center gap-3 min-w-0">
-                    <div className="h-8 w-8 rounded-full bg-muted/50 flex items-center justify-center shrink-0">
-                      <span className="text-xs font-medium text-muted-foreground">
-                        {inv.email.charAt(0).toUpperCase()}
-                      </span>
-                    </div>
+                    <Avatar email={inv.email} size="md" decorative />
                     <div className="min-w-0">
                       <span className="text-sm text-foreground truncate block">
                         {inv.email}

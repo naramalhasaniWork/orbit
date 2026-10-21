@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { TeamManagement } from "@/components/team/team-management";
+import { resolveAvatarUrl } from "@/lib/avatar/resolve";
 
 export default async function MembersSettingsPage() {
   const session = await getServerSession(authOptions);
@@ -25,6 +26,7 @@ export default async function MembersSettingsPage() {
           name: true,
           email: true,
           image: true,
+          avatarKey: true,
           createdAt: true,
         },
       },
@@ -49,7 +51,7 @@ export default async function MembersSettingsPage() {
       id: m.user.id,
       name: m.user.name,
       email: m.user.email,
-      image: m.user.image,
+      image: resolveAvatarUrl(m.user),
     },
   }));
 
