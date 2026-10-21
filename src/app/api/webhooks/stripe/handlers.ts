@@ -1,8 +1,9 @@
 import { stripe } from "@/lib/stripe/client";
 import { prisma } from "@/lib/db";
 import { syncSubscriptionToWorkspace, downgradeToFree } from "@/lib/stripe/subscriptions";
-import { getMonthlyCreditGrant, getTierFromPriceId } from "@/lib/stripe/prices";
-import { tierDisplayName, type WorkspaceTier } from "@/lib/auth/tier-limits";
+import { getMonthlyCreditGrant } from "@/lib/stripe/prices";
+import { getInvoicedPlan, getSeatIncrease } from "@/lib/stripe/invoice-lines";
+import { tierDisplayName } from "@/lib/auth/tier-limits";
 import { lockCredits, grantMonthlyCredits } from "@/lib/billing/credit-buckets";
 import { grantAddedSeatCredits } from "@/lib/billing/credit-periods";
 import { fulfillCreditPurchase } from "@/lib/stripe/credits";
@@ -128,6 +129,13 @@ export async function handleInvoicePaid(invoice: Stripe.Invoice) {
     },
   });
 
+  // A paid seat increase grants the added seats' credits for the rest of the period
+  if (invoice.billing_reason === "subscription_update") {
+    const increase = getSeatIncrease(invoice);
+    if (increase) await grantAddedSeatCredits({ workspaceId: workspace.id, stripeInvoiceId: invoice.id, ...increase });
+    return;
+  }
+
   // Grant from what this invoice billed, not the synced workspace fields:
   // the first invoice.paid can arrive before the subscription sync.
   const plan = getInvoicedPlan(invoice);
@@ -156,27 +164,6 @@ export async function handleInvoicePaid(invoice: Stripe.Invoice) {
       metadata: { stripeInvoiceId: invoice.id, tier: plan.tier, seats: plan.seats },
     });
   });
-}
-
-/**
- * Tier, seat count and period an invoice billed: the first non-proration
- * subscription line whose price maps to a tier.
- */
-function getInvoicedPlan(
-  invoice: Stripe.Invoice
-): { tier: WorkspaceTier; seats: number; period: { start: Date; end: Date } } | null {
-  for (const line of invoice.lines?.data ?? []) {
-    const item = line.parent?.subscription_item_details;
-    if (!item || item.proration) continue;
-    const price = line.pricing?.price_details?.price;
-    const priceId = typeof price === "string" ? price : price?.id;
-    const tier = priceId ? getTierFromPriceId(priceId) : null;
-    if (tier) {
-      const period = { start: new Date(line.period.start * 1000), end: new Date(line.period.end * 1000) };
-      return { tier, seats: line.quantity ?? 1, period };
-    }
-  }
-  return null;
 }
 
 export async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
@@ -214,7 +201,7 @@ export async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
   });
 }
 
-export async function handleSubscriptionUpdated(subscription: Stripe.Subscription, stripeEventId: string) {
+export async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
   let workspaceId = subscription.metadata?.workspaceId;
   if (!workspaceId) {
     const customerId = typeof subscription.customer === "string"
@@ -232,27 +219,18 @@ export async function handleSubscriptionUpdated(subscription: Stripe.Subscriptio
     workspaceId = workspace.id;
   }
 
+  // Seat count follows items, which Stripe changes only once a seat increase is paid
   const priceId = subscription.items.data[0]?.price.id ?? "";
   const p = getSubscriptionPeriod(subscription);
-  const periodStart = new Date(p.start * 1000);
-  const periodEnd = new Date(p.end * 1000);
-  const seats = getSeatCount(subscription);
-
-  // Seats added mid-period get their credits now, before the sync records the new count
-  const tier = getTierFromPriceId(priceId);
-  if (tier) {
-    await grantAddedSeatCredits({ workspaceId, tier, seats, periodStart, periodEnd, stripeEventId });
-  }
-
   await syncSubscriptionToWorkspace(
     workspaceId,
     subscription.id,
     priceId,
     subscription.status,
-    periodStart,
-    periodEnd,
+    new Date(p.start * 1000),
+    new Date(p.end * 1000),
     p.cancelAtPeriodEnd,
-    seats
+    getSeatCount(subscription)
   );
 }
 

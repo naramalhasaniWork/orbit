@@ -103,10 +103,12 @@ describe("downgrade to Free", () => {
 });
 
 describe("prorated credits for added seats", () => {
-  const periodStart = new Date("2026-10-01T00:00:00Z");
-  const periodEnd = new Date("2026-10-31T00:00:00Z");
-  const halfway = new Date("2026-10-16T00:00:00Z");
-  const change = { workspaceId: "ws-1", tier: "starter" as const, seats: 5, periodStart, periodEnd, stripeEventId: "evt_1" };
+  const billing = { billingPeriodStart: new Date("2026-10-01T00:00:00Z"), billingPeriodEnd: new Date("2026-10-31T00:00:00Z") };
+  // Paid halfway through the period
+  const increase = {
+    workspaceId: "ws-1", tier: "starter" as const, addedSeats: 3, stripeInvoiceId: "in_seats",
+    period: { start: new Date("2026-10-16T00:00:00Z"), end: billing.billingPeriodEnd },
+  };
 
   it("computes added seats x per-seat credits x remaining fraction, rounded down", () => {
     expect(proratedSeatCredits(3, 1000, 0.5)).toBe(1500);
@@ -114,28 +116,26 @@ describe("prorated credits for added seats", () => {
     expect(proratedSeatCredits(-2, 1000, 0.5)).toBe(0);
   });
 
-  it("grants the added seats' share of the period right away, once per event", async () => {
-    const fake = useFake({ current: 1200, granted: 2 * PER_SEAT, extra: { tier: "starter", seatCount: 2 } });
+  it("grants the added seats' share of the period once per paid invoice", async () => {
+    const fake = useFake({ current: 1200, granted: 2 * PER_SEAT, extra: billing });
 
-    expect(await grantAddedSeatCredits(change, halfway)).toBe(3 * PER_SEAT / 2);
-    expect(await grantAddedSeatCredits(change, halfway)).toBe(0);
+    await Promise.all([grantAddedSeatCredits(increase), grantAddedSeatCredits(increase)]);
+    await grantAddedSeatCredits(increase);
 
-    expect(fake.workspace).toMatchObject({
-      seatCount: 5, creditsCurrent: 1200 + 1500, creditsGranted: 2 * PER_SEAT + 1500,
-    });
+    const credits = (3 * PER_SEAT) / 2;
+    expect(fake.workspace).toMatchObject({ creditsCurrent: 1200 + credits, creditsGranted: 2 * PER_SEAT + credits });
     expect(fake.rows).toEqual([
-      expect.objectContaining({ type: "monthly_grant", amount: 1500, metadata: { stripeEventId: "evt_1", seatsAdded: 3, prorated: true } }),
+      expect.objectContaining({
+        type: "monthly_grant", amount: credits,
+        metadata: { stripeInvoiceId: "in_seats", seatsAdded: 3, prorated: true },
+      }),
     ]);
   });
 
-  it("claws nothing back on a seat cut and grants nothing on a plan change", async () => {
-    const fake = useFake({ current: 1200, granted: 5 * PER_SEAT, extra: { tier: "starter", seatCount: 5 } });
-    expect(await grantAddedSeatCredits({ ...change, seats: 2 }, halfway)).toBe(0);
-
-    fake.workspace.tier = "free";
-    expect(await grantAddedSeatCredits({ ...change, seats: 9, stripeEventId: "evt_2" }, halfway)).toBe(0);
-
+  it("grants nothing without a synced billing period or on non-seat tiers", async () => {
+    const fake = useFake({ current: 1200, extra: { billingPeriodStart: null, billingPeriodEnd: null } });
+    expect(await grantAddedSeatCredits(increase)).toBe(0);
+    expect(await grantAddedSeatCredits({ ...increase, tier: "free", stripeInvoiceId: "in_2" })).toBe(0);
     expect(fake.rows).toHaveLength(0);
-    expect(fake.workspace.creditsCurrent).toBe(1200);
   });
 });

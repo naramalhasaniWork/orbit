@@ -69,7 +69,7 @@ export function SeatUsage({ workspaceId, seats, canChangeSeats, onChanged }: Sea
           <input
             id="seat-count"
             type="number"
-            min={1}
+            min={Math.max(1, used)}
             max={1000}
             value={target}
             onChange={(e) => setTarget(Math.max(1, Number(e.target.value) || 1))}
@@ -84,6 +84,11 @@ export function SeatUsage({ workspaceId, seats, canChangeSeats, onChanged }: Sea
           </button>
           {error && <span className="text-xs text-tm-fail">{error}</span>}
         </div>
+      )}
+      {seats.seatBased && canChangeSeats && (
+        <p className="text-[11px] text-muted-foreground">
+          Added seats are invoiced now (prorated) and apply once paid. You can&apos;t go below the seats in use.
+        </p>
       )}
     </div>
   );

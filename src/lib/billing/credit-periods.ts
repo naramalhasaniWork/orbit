@@ -90,49 +90,47 @@ export function proratedSeatCredits(addedSeats: number, perSeat: number, remaini
   return Math.floor(addedSeats * perSeat * Math.min(1, Math.max(0, remainingFraction)));
 }
 
-interface SeatChange {
+interface SeatIncrease {
   workspaceId: string;
   tier: WorkspaceTier;
-  seats: number;
-  periodStart: Date;
-  periodEnd: Date;
-  stripeEventId: string;
+  addedSeats: number;
+  /** The proration window: from the change to the end of the period */
+  period: { start: Date; end: Date };
+  stripeInvoiceId: string;
 }
 
 /**
- * A seat increase on the same seat-based plan grants the added seats' credits
- * for the rest of the period right away. Seat cuts claw nothing back; a new
- * subscription or a plan change grants through its invoice instead. The new
- * seat count is written under the same lock, so a redelivered event finds no
- * increase; the event id makes that explicit.
+ * When a seat increase's proration invoice is paid, grant the added seats'
+ * credits for the rest of the period: added seats x per-seat credits x the
+ * share of the billing period left. Once per invoice. Seat cuts claw nothing
+ * back; the seat count itself is synced from the subscription.
  */
-export async function grantAddedSeatCredits(change: SeatChange, now: Date = new Date()): Promise<number> {
-  const { workspaceId, tier, seats, periodStart, periodEnd, stripeEventId } = change;
+export async function grantAddedSeatCredits(increase: SeatIncrease): Promise<number> {
+  const { workspaceId, tier, addedSeats, period, stripeInvoiceId } = increase;
   const perSeat = TIER_LIMITS[tier].monthlyCredits;
   if (!TIER_LIMITS[tier].seatBased || perSeat === Infinity) return 0;
 
   return prisma.$transaction(async (tx) => {
     const locked = await lockCredits(tx, workspaceId);
-    const ws = await tx.workspace.findUniqueOrThrow({
-      where: { id: workspaceId },
-      select: { tier: true, seatCount: true },
-    });
     const seen = await tx.creditTransaction.findFirst({
-      where: { workspaceId, type: "monthly_grant", metadata: { path: ["stripeEventId"], equals: stripeEventId } },
+      where: { workspaceId, type: "monthly_grant", metadata: { path: ["stripeInvoiceId"], equals: stripeInvoiceId } },
       select: { id: true },
     });
-    if (seen || ws.tier !== tier || seats <= ws.seatCount) return 0;
+    if (seen) return 0;
 
-    const length = periodEnd.getTime() - periodStart.getTime();
-    const fraction = length > 0 ? (periodEnd.getTime() - now.getTime()) / length : 0;
-    const added = seats - ws.seatCount;
-    const credits = proratedSeatCredits(added, perSeat, fraction);
-
-    await tx.workspace.update({ where: { id: workspaceId }, data: { seatCount: seats } });
+    const ws = await tx.workspace.findUniqueOrThrow({
+      where: { id: workspaceId },
+      select: { billingPeriodStart: true, billingPeriodEnd: true },
+    });
+    if (!ws.billingPeriodStart || !ws.billingPeriodEnd) return 0;
+    const length = ws.billingPeriodEnd.getTime() - ws.billingPeriodStart.getTime();
+    const fraction = length > 0 ? (period.end.getTime() - period.start.getTime()) / length : 0;
+    const credits = proratedSeatCredits(addedSeats, perSeat, fraction);
     if (credits <= 0) return 0;
+
     await addGrantCredits(tx, workspaceId, locked, credits, {
-      description: `Prorated credits for ${added} added seat${added === 1 ? "" : "s"}`,
-      metadata: { stripeEventId, seatsAdded: added, prorated: true },
+      description: `Prorated credits for ${addedSeats} added seat${addedSeats === 1 ? "" : "s"}`,
+      metadata: { stripeInvoiceId, seatsAdded: addedSeats, prorated: true },
     });
     return credits;
   });

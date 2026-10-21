@@ -57,20 +57,26 @@ export async function changeTier(
 }
 
 /**
- * Set the seat count (subscription quantity). Stripe prorates the change;
- * the customer.subscription.updated webhook syncs seatCount back.
+ * Change the seat count (subscription quantity). An increase is invoiced at
+ * once and only takes effect when that invoice is paid
+ * (pending_if_incomplete), so seats are never granted unpaid; the webhook
+ * sync then raises seatCount and invoice.paid grants the prorated credits.
+ * A decrease is credited on the next invoice.
  */
 export async function updateSeatCount(subscriptionId: string, seats: number) {
   const subscription = await stripe.subscriptions.retrieve(subscriptionId);
-  const itemId = subscription.items.data[0]?.id;
+  const item = subscription.items.data[0];
 
-  if (!itemId) {
+  if (!item) {
     throw new Error("No subscription item found");
   }
 
+  const increase = seats > (item.quantity ?? 1);
   return stripe.subscriptions.update(subscriptionId, {
-    items: [{ id: itemId, quantity: seats }],
-    proration_behavior: "create_prorations",
+    items: [{ id: item.id, quantity: seats }],
+    ...(increase
+      ? { proration_behavior: "always_invoice", payment_behavior: "pending_if_incomplete" }
+      : { proration_behavior: "create_prorations" }),
   });
 }
 

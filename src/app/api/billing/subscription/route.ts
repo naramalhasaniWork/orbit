@@ -136,6 +136,20 @@ export async function PATCH(request: NextRequest) {
         if (!TIER_LIMITS[workspace.tier as WorkspaceTier].seatBased) {
           return apiError("This plan is not billed per seat", "NOT_SEAT_BASED", 400);
         }
+        const subscription = await getSubscriptionForWorkspace(ctx.workspaceId);
+        if (subscription?.status !== "active" && subscription?.status !== "trialing") {
+          return apiError("Seats can only change on an active subscription", "SUBSCRIPTION_INACTIVE", 409);
+        }
+        // Paying for fewer seats than are in use is not allowed; nobody is removed automatically
+        const inUse = await countSeatsInUse(ctx.workspaceId);
+        if (seats < inUse.members + inUse.pending) {
+          return apiError(
+            `${inUse.members + inUse.pending} seats are in use (${inUse.members} members, ${inUse.pending} pending invites). Remove members or revoke invites before reducing seats.`,
+            "SEATS_IN_USE",
+            409
+          );
+        }
+        // seatCount changes only when Stripe confirms (webhook sync), never here
         await updateSeatCount(workspace.stripeSubscriptionId, seats);
         return apiSuccess({ message: "Seat change initiated" });
       }

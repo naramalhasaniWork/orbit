@@ -4,6 +4,7 @@ import { createFakeCreditDb } from "../helpers/fake-credit-db";
 
 vi.mock("@/lib/stripe/client", () => ({ stripe: {} }));
 vi.mock("@/lib/stripe/credits", () => ({ fulfillCreditPurchase: vi.fn() }));
+vi.mock("@/lib/billing/credit-periods", () => ({ grantAddedSeatCredits: vi.fn() }));
 vi.mock("@/lib/db", () => ({
   prisma: {
     workspace: { findFirst: vi.fn() },
@@ -22,6 +23,7 @@ vi.mock("@/lib/stripe/prices", async (importOriginal) => {
 import { prisma } from "@/lib/db";
 import { handleInvoicePaid } from "@/app/api/webhooks/stripe/handlers";
 import { TIER_LIMITS } from "@/lib/auth/tier-limits";
+import { grantAddedSeatCredits } from "@/lib/billing/credit-periods";
 
 const db = prisma as unknown as {
   workspace: { findFirst: ReturnType<typeof vi.fn> };
@@ -31,11 +33,12 @@ const db = prisma as unknown as {
 const PER_SEAT = TIER_LIMITS.starter.monthlyCredits;
 const PERIOD_END = 1_762_600_000;
 
-interface LineSpec { price: string; quantity: number; proration?: boolean }
+interface LineSpec { price: string; quantity: number; proration?: boolean; amount?: number }
 
-function invoice(lines: LineSpec[], id = "in_1"): Stripe.Invoice {
+function invoice(lines: LineSpec[], id = "in_1", billingReason = "subscription_cycle"): Stripe.Invoice {
   return {
     id,
+    billing_reason: billingReason,
     customer: "cus_1",
     amount_paid: 7900,
     currency: "usd",
@@ -46,6 +49,7 @@ function invoice(lines: LineSpec[], id = "in_1"): Stripe.Invoice {
     lines: {
       data: lines.map((l) => ({
         quantity: l.quantity,
+        amount: l.amount ?? 7900,
         period: { start: 1_760_000_000, end: PERIOD_END },
         pricing: { type: "price_details", price_details: { price: l.price, product: "prod_1" } },
         parent: {
@@ -121,5 +125,31 @@ describe("handleInvoicePaid credit grant", () => {
     expect(fake.workspace).toMatchObject({
       creditsCurrent: PER_SEAT, creditsRollover: 400, creditBalance: PER_SEAT + 400,
     });
+  });
+
+  it("grants a paid seat increase's prorated credits from its proration lines, not a monthly grant", async () => {
+    const fake = useFake({ current: 500, granted: PER_SEAT });
+
+    await handleInvoicePaid(invoice([
+      { price: "price_pro", quantity: 2, proration: true, amount: -3950 },
+      { price: "price_pro", quantity: 5, proration: true, amount: 9875 },
+    ], "in_seats", "subscription_update"));
+
+    expect(grantAddedSeatCredits).toHaveBeenCalledWith({
+      workspaceId: "ws-1", stripeInvoiceId: "in_seats", tier: "starter", addedSeats: 3,
+      period: { start: new Date(1_760_000_000_000), end: new Date(PERIOD_END * 1000) },
+    });
+    expect(fake.rows).toHaveLength(0);
+  });
+
+  it("grants nothing for a seat decrease invoice", async () => {
+    useFake({ current: 500 });
+
+    await handleInvoicePaid(invoice([
+      { price: "price_pro", quantity: 5, proration: true, amount: -9875 },
+      { price: "price_pro", quantity: 2, proration: true, amount: 3950 },
+    ], "in_cut", "subscription_update"));
+
+    expect(grantAddedSeatCredits).not.toHaveBeenCalled();
   });
 });
