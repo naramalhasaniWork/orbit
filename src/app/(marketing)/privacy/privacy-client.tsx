@@ -36,6 +36,7 @@ export function PrivacyClient() {
 
         <div className="mt-12 space-y-10">
           <Section title="1. Who We Are">
+            {/* [REVIEW WITH COUNSEL] Data controller: confirm Naram Alhasani, personally, as the operator/controller, and add a postal address if GDPR/UK GDPR applies. */}
             <p>
               Orbit is an AI-native testing platform operated by Naram Alhasani
               (&quot;we,&quot; &quot;us,&quot; or &quot;our&quot;). We help development teams automatically
