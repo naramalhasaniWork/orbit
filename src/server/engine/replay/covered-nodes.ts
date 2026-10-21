@@ -1,5 +1,8 @@
 import { prisma } from "@/lib/db";
 import type { ResolvedAction } from "./types";
+import { routeCoversPattern } from "./url-pattern";
+
+export { routeCoversPattern };
 
 /**
  * Which System Map route nodes a script exercises, so a code change can
@@ -16,28 +19,6 @@ export function coveredRoutes(actions: ResolvedAction[]): string[] {
     }
   }
   return Array.from(routes).sort();
-}
-
-const DYNAMIC = /^(\[.+\]|:.+)$/;
-const CATCH_ALL = /^\[\[?\.\.\..+\]\]?$/;
-
-function segments(path: string): string[] {
-  return path.split("/").filter(Boolean);
-}
-
-/** Does a route definition ("/projects/[id]", "/users/:id", "/docs/[...slug]") cover a URL pattern? */
-export function routeCoversPattern(route: string, pattern: string): boolean {
-  const routeSegs = segments(route);
-  const patternSegs = segments(pattern);
-  for (let i = 0; i < routeSegs.length; i++) {
-    const seg = routeSegs[i];
-    if (CATCH_ALL.test(seg)) return patternSegs.length >= i + (seg.startsWith("[[") ? 0 : 1);
-    const actual = patternSegs[i];
-    if (actual === undefined) return false;
-    if (DYNAMIC.test(seg)) continue;
-    if (seg !== actual) return false;
-  }
-  return routeSegs.length === patternSegs.length;
 }
 
 export async function coveredNodeIds(projectId: string, routes: string[]): Promise<string[]> {

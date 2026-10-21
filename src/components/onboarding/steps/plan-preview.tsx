@@ -2,34 +2,12 @@
 
 import { Pending } from "@/components/telemetry/pending";
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { ChevronRight, AlertTriangle, ArrowUp, Minus, ArrowDown, AlertCircle } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { ChevronRight, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/utils";
 import { usePlanGeneration } from "@/hooks/use-plan-generation";
+import { PlanJourneys } from "./plan-journeys";
 import type { PlanTestCase } from "../onboarding-types";
-
-type Priority = "critical" | "high" | "medium" | "low";
-
-const PRIORITY_CONFIG: Record<
-  Priority,
-  { icon: typeof AlertTriangle; color: string; bg: string }
-> = {
-  critical: { icon: AlertTriangle, color: "text-foreground", bg: "border border-tm-line-strong" },
-  high: { icon: ArrowUp, color: "text-foreground", bg: "border border-border" },
-  medium: { icon: Minus, color: "text-foreground", bg: "bg-foreground/[0.06]" },
-  low: { icon: ArrowDown, color: "text-muted-foreground", bg: "bg-muted/50" },
-};
-
-function getPriority(score: number): Priority {
-  if (score >= 80) return "critical";
-  if (score >= 60) return "high";
-  if (score >= 40) return "medium";
-  return "low";
-}
 
 interface PlanPreviewProps {
   projectId: string;
@@ -113,24 +91,8 @@ export function PlanPreview({ projectId, onContinue, onBack }: PlanPreviewProps)
 
   const enabledCount = tests.filter((t) => t.isEnabled).length;
 
-  const byPriority = useMemo(() => {
-    const counts = { critical: 0, high: 0, medium: 0, low: 0 };
-    for (const t of tests) {
-      if (t.isEnabled) counts[getPriority(t.priorityScore)]++;
-    }
-    return counts;
-  }, [tests]);
-
-  const journeys = useMemo(() => {
-    const map = new Map<string, PlanTestCase[]>();
-    for (const t of tests) {
-      const key = t.journey ?? "Uncategorized";
-      const list = map.get(key) ?? [];
-      list.push(t);
-      map.set(key, list);
-    }
-    return Array.from(map.entries());
-  }, [tests]);
+  const journeyCount = useMemo(() => new Set(tests.map((t) => t.journey ?? "Other")).size, [tests]);
+  const criticalCount = tests.filter((t) => t.isCritical && t.isEnabled).length;
 
   const error = localError ?? generation.error;
 
@@ -176,73 +138,20 @@ export function PlanPreview({ projectId, onContinue, onBack }: PlanPreviewProps)
     <div className="flex flex-col items-center w-full max-w-2xl mx-auto">
       <div className="text-center mb-6">
         <h2 className="mb-2 text-balance text-[22px] font-medium tracking-display">
-          Test plan generated
+          {journeyCount === 1 ? "1 journey" : `${journeyCount} journeys`} to walk
         </h2>
-        <p className="text-sm text-muted-foreground">
-          Orbit created {tests.length} test cases across {journeys.length} user
-          journeys. Toggle any tests you want to skip.
+        <p className="text-pretty text-sm text-muted-foreground">
+          Orbit read the map and planned the journeys most likely to break, with why and the routes each one goes through.
         </p>
       </div>
 
-      <div className="flex gap-2 mb-5 flex-wrap justify-center">
-        {(["critical", "high", "medium", "low"] as const).map((priority) => {
-          const config = PRIORITY_CONFIG[priority];
-          const Icon = config.icon;
-          return (
-            <Badge
-              key={priority}
-              variant="outline"
-              className={cn("gap-1.5 capitalize", config.color)}
-            >
-              <Icon className="h-3 w-3" />
-              {byPriority[priority]} {priority}
-            </Badge>
-          );
-        })}
-      </div>
+      <p className="tm-label mb-3 text-tm-t2">
+        <span className="tm-num">{tests.length}</span> tests · <span className="tm-num">{criticalCount}</span> critical · switch off any to skip
+      </p>
 
-      <ScrollArea className="w-full h-[320px] rounded-lg surface-1">
-        <div className="p-4 space-y-5">
-          {journeys.map(([journey, items]) => (
-            <div key={journey}>
-              <div className="flex items-center gap-2 mb-2">
-                <span className=" tm-label text-muted-foreground">
-                  {journey}
-                </span>
-                <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                  {items.filter((t) => t.isEnabled).length}/{items.length}
-                </Badge>
-              </div>
-              <div className="space-y-0.5">
-                {items.map((test) => {
-                  const priority = getPriority(test.priorityScore);
-                  const pc = PRIORITY_CONFIG[priority];
-                  const PIcon = pc.icon;
-                  return (
-                    <div
-                      key={test.id}
-                      className={cn(
-                        "flex items-center gap-3 px-3 py-2 rounded-md transition-colors",
-                        test.isEnabled ? "hover:bg-muted/30" : "opacity-40"
-                      )}
-                    >
-                      <div className={cn("flex items-center justify-center h-5 w-5 rounded", pc.bg)}>
-                        <PIcon className={cn("h-3 w-3", pc.color)} />
-                      </div>
-                      <span className="text-sm text-foreground flex-1">{test.name}</span>
-                      <Switch
-                        checked={test.isEnabled}
-                        onCheckedChange={() => toggleTest(test.id)}
-                        className="scale-90"
-                      />
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-        </div>
-      </ScrollArea>
+      <div className="w-full max-h-[420px] overflow-auto overscroll-contain rounded-lg border border-border bg-card">
+        <PlanJourneys tests={tests} onToggle={toggleTest} />
+      </div>
 
       <p className="text-sm text-muted-foreground mt-4 tabular-nums">
         {enabledCount} of {tests.length} tests ready to run

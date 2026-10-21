@@ -53,3 +53,25 @@ export function toStoredUrl(target: string, environmentUrl: string): string {
   if (!parsed || !env || parsed.origin !== env.origin) return target;
   return parsed.pathname + parsed.search + parsed.hash;
 }
+
+const DYNAMIC = /^(\[.+\]|:.+)$/;
+const CATCH_ALL = /^\[\[?\.\.\..+\]\]?$/;
+
+function segments(path: string): string[] {
+  return path.split("/").filter(Boolean);
+}
+
+/** Does a route definition ("/projects/[id]", "/users/:id", "/docs/[...slug]") cover a URL pattern? */
+export function routeCoversPattern(route: string, pattern: string): boolean {
+  const routeSegs = segments(route);
+  const patternSegs = segments(pattern);
+  for (let i = 0; i < routeSegs.length; i++) {
+    const seg = routeSegs[i];
+    if (CATCH_ALL.test(seg)) return patternSegs.length >= i + (seg.startsWith("[[") ? 0 : 1);
+    const actual = patternSegs[i];
+    if (actual === undefined) return false;
+    if (DYNAMIC.test(seg)) continue;
+    if (seg !== actual) return false;
+  }
+  return routeSegs.length === patternSegs.length;
+}
