@@ -10,7 +10,7 @@ const FOOTER_LINKS = {
   ],
   Company: [
     { label: "About", href: "/about" },
-    { label: "Contact", href: "mailto:hello@sunrisesystems.co" },
+    { label: "Contact", href: "mailto:[CONTACT EMAIL]" },
   ],
   Legal: [
     { label: "Privacy", href: "/privacy" },
@@ -57,10 +57,10 @@ export function MarketingFooter() {
 
         <div className="mt-12 pt-8 border-t border-border/50 flex flex-col sm:flex-row justify-between items-center gap-4">
           <p className="text-xs text-muted-foreground">
-            &copy; {new Date().getFullYear()} Orbit. All rights reserved.
+            &copy; {new Date().getFullYear()} Naram Alhasani. Orbit core is AGPL-3.0.
           </p>
           <p className="text-xs text-muted-foreground">
-            Built by Sunrise Systems
+            Built by Naram Alhasani
           </p>
         </div>
       </div>
