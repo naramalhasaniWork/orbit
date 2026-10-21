@@ -18,8 +18,8 @@ const PRIORITY_CONFIG: Record<
   Priority,
   { icon: typeof AlertTriangle; color: string; bg: string }
 > = {
-  critical: { icon: AlertTriangle, color: "text-orbit-fail", bg: "bg-orbit-fail/10" },
-  high: { icon: ArrowUp, color: "text-orbit-flaky", bg: "bg-orbit-flaky/10" },
+  critical: { icon: AlertTriangle, color: "text-foreground", bg: "border border-tm-line-strong" },
+  high: { icon: ArrowUp, color: "text-foreground", bg: "border border-border" },
   medium: { icon: Minus, color: "text-foreground", bg: "bg-foreground/[0.06]" },
   low: { icon: ArrowDown, color: "text-muted-foreground", bg: "bg-muted/50" },
 };

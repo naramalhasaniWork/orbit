@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { openGraphFor } from "@/lib/marketing/site";
 import { ProsePage, ProseRow } from "@/components/marketing/prose-page";
 import about from "@/app/(marketing)/content/about.json";
 
@@ -7,7 +8,7 @@ export const metadata: Metadata = {
   description: about.subheadline,
   alternates: { canonical: "/about" },
   twitter: { title: "About · Orbit", description: about.subheadline },
-  openGraph: { url: "/about", title: "About · Orbit", description: about.subheadline },
+  openGraph: openGraphFor("/about", "About · Orbit", about.subheadline),
 };
 
 export default function AboutPage() {

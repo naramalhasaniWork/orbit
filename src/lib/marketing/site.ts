@@ -31,3 +31,11 @@ export function pageTitle(page?: string): string {
 
 /** Public pages that exist and have content; docs, blog and changelog join when they do. */
 export const PUBLIC_PATHS = ["/", "/features", "/pricing", "/about", "/security", "/privacy", "/terms"] as const;
+
+/**
+ * A page's Open Graph block. Next replaces (not merges) the root openGraph when a page sets its own,
+ * so type, site name and locale are repeated here with the page's url, title and description.
+ */
+export function openGraphFor(path: string, title: string, description: string) {
+  return { type: "website" as const, siteName: SITE.name, locale: "en_US", url: path, title, description };
+}

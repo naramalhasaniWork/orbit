@@ -7,14 +7,14 @@ import { LandingPage } from "@/components/marketing/landing-page";
 import { isSelfHosted } from "@/lib/self-host";
 import { isSetupOpen } from "@/lib/setup/access";
 import type { Metadata } from "next";
-import { SITE, pageTitle } from "@/lib/marketing/site";
+import { SITE, pageTitle, openGraphFor } from "@/lib/marketing/site";
 import { softwareApplicationJsonLd } from "@/lib/marketing/json-ld";
 
 export const metadata: Metadata = {
   title: pageTitle(),
   description: SITE.description,
   alternates: { canonical: "/" },
-  openGraph: { url: "/", title: pageTitle(), description: SITE.description },
+  openGraph: openGraphFor("/", pageTitle(), SITE.description),
 };
 
 export default async function Home() {
