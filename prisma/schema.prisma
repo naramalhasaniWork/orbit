@@ -208,6 +208,8 @@ model Workspace {
   creditsPurchased  Int       @default(0) @map("credits_purchased")
   creditsGranted    Int       @default(100) @map("credits_granted")
   rolloverExpiresAt DateTime? @map("rollover_expires_at")
+  // Start of the current credit period; Free resets its allowance a month after this
+  creditsPeriodStart DateTime @default(now()) @map("credits_period_start")
   // Seats on the Stripe subscription; the member limit on seat-based tiers
   seatCount       Int           @default(1) @map("seat_count")
   tokenBudgetMonthly Int?       @map("token_budget_monthly")

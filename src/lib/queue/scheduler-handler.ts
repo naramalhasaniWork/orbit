@@ -55,4 +55,14 @@ export async function handleSchedulerJob(
     const msg = err instanceof Error ? err.message : String(err);
     console.error(`[Worker:scheduler] Commit poll error: ${msg}`);
   }
+
+  // Free plans: reset the monthly credit allowance when a period ends
+  try {
+    const { resetDueFreeCredits } = await import("@/lib/billing/credit-periods");
+    const reset = await resetDueFreeCredits();
+    if (reset > 0) console.log(`[Worker:scheduler] Reset Free credits for ${reset} workspace(s)`);
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error(`[Worker:scheduler] Free credit reset error: ${msg}`);
+  }
 }

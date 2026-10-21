@@ -147,16 +147,17 @@ export async function addPurchasedCredits(
 
 /**
  * Start a new monthly period (caller holds the lock): expire last period's
- * rollover, roll the unused grant over until `rolloverExpiresAt` (the next
- * grant), and set current to the new grant. Writes one expiry row per source
- * so the credit history explains every change in balance.
+ * rollover, roll the unused grant over until `period.end` (the next grant),
+ * and set current to the new grant. Pass `locked.granted = 0` for no rollover
+ * (Free, downgrades): all unused credits then expire. Writes one expiry row
+ * per source so the credit history explains every change in balance.
  */
 export async function grantMonthlyCredits(
   tx: Tx,
   workspaceId: string,
   locked: LockedCredits,
   grant: number,
-  rolloverExpiresAt: Date,
+  period: { start: Date; end: Date },
   entry: LedgerEntry
 ): Promise<GrantOutcome> {
   const outcome = applyGrantToBuckets(locked.buckets, locked.granted, grant);
@@ -164,7 +165,7 @@ export async function grantMonthlyCredits(
 
   const expiries = [
     { amount: outcome.expiredRollover, source: "rollover", text: "Rolled-over credits from last month expired" },
-    { amount: outcome.expiredCurrent, source: "current", text: "Unused credits above one month's grant expired" },
+    { amount: outcome.expiredCurrent, source: "current", text: "Unused monthly credits expired" },
   ];
   for (const e of expiries) {
     if (e.amount <= 0) continue;
@@ -182,7 +183,7 @@ export async function grantMonthlyCredits(
   }
 
   const rolloverNote = outcome.rolledOver > 0
-    ? `; ${outcome.rolledOver} unused credits roll over until ${rolloverExpiresAt.toISOString().slice(0, 10)}`
+    ? `; ${outcome.rolledOver} unused credits roll over until ${period.end.toISOString().slice(0, 10)}`
     : "";
   await tx.creditTransaction.create({
     data: {
@@ -199,8 +200,38 @@ export async function grantMonthlyCredits(
     data: {
       ...bucketData(outcome.buckets),
       creditsGranted: grant,
-      rolloverExpiresAt: outcome.rolledOver > 0 ? rolloverExpiresAt : null,
+      creditsPeriodStart: period.start,
+      rolloverExpiresAt: outcome.rolledOver > 0 ? period.end : null,
     },
   });
   return outcome;
+}
+
+/**
+ * Add credits to the current period's grant mid-period (caller holds the
+ * lock), e.g. for seats added after the period started. They roll over like
+ * the rest of the grant.
+ */
+export async function addGrantCredits(
+  tx: Tx,
+  workspaceId: string,
+  locked: LockedCredits,
+  credits: number,
+  entry: LedgerEntry
+): Promise<void> {
+  const after = { ...locked.buckets, current: locked.buckets.current + credits };
+  await tx.workspace.update({
+    where: { id: workspaceId },
+    data: { ...bucketData(after), creditsGranted: locked.granted + credits },
+  });
+  await tx.creditTransaction.create({
+    data: {
+      workspaceId,
+      type: "monthly_grant",
+      amount: credits,
+      balance: bucketTotal(after),
+      description: entry.description,
+      metadata: entry.metadata,
+    },
+  });
 }

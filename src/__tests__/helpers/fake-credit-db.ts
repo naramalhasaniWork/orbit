@@ -22,6 +22,7 @@ interface FakeWorkspace {
   creditsGranted: number;
   creditBalance: number;
   rolloverExpiresAt: Date | null;
+  [field: string]: unknown;
 }
 
 interface FindWhere {
@@ -33,7 +34,14 @@ interface FindWhere {
 const tick = () => new Promise<void>((resolve) => setImmediate(resolve));
 
 export function createFakeCreditDb(
-  initial: { current: number; rollover?: number; purchased?: number; granted?: number },
+  initial: {
+    current: number;
+    rollover?: number;
+    purchased?: number;
+    granted?: number;
+    /** Other workspace columns the code under test reads (tier, seatCount, ...) */
+    extra?: Record<string, unknown>;
+  },
   { lock = true }: { lock?: boolean } = {}
 ) {
   const workspace: FakeWorkspace = {
@@ -43,6 +51,7 @@ export function createFakeCreditDb(
     creditsGranted: initial.granted ?? initial.current,
     creditBalance: initial.current + (initial.rollover ?? 0) + (initial.purchased ?? 0),
     rolloverExpiresAt: null,
+    ...initial.extra,
   };
   const rows: FakeCreditRow[] = [];
   let lockTail: Promise<void> = Promise.resolve();

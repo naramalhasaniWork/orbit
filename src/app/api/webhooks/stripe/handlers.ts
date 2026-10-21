@@ -4,6 +4,7 @@ import { syncSubscriptionToWorkspace, downgradeToFree } from "@/lib/stripe/subsc
 import { getMonthlyCreditGrant, getTierFromPriceId } from "@/lib/stripe/prices";
 import { tierDisplayName, type WorkspaceTier } from "@/lib/auth/tier-limits";
 import { lockCredits, grantMonthlyCredits } from "@/lib/billing/credit-buckets";
+import { grantAddedSeatCredits } from "@/lib/billing/credit-periods";
 import { fulfillCreditPurchase } from "@/lib/stripe/credits";
 import type Stripe from "stripe";
 
@@ -150,7 +151,7 @@ export async function handleInvoicePaid(invoice: Stripe.Invoice) {
 
     const seatsLabel = plan.seats > 1 ? `, ${plan.seats} seats` : "";
     // Rolled-over credits expire when the next period's grant arrives
-    await grantMonthlyCredits(tx, workspace.id, locked, grant, plan.periodEnd, {
+    await grantMonthlyCredits(tx, workspace.id, locked, grant, plan.period, {
       description: `Monthly credit grant (${tierDisplayName(plan.tier)} plan${seatsLabel})`,
       metadata: { stripeInvoiceId: invoice.id, tier: plan.tier, seats: plan.seats },
     });
@@ -158,19 +159,22 @@ export async function handleInvoicePaid(invoice: Stripe.Invoice) {
 }
 
 /**
- * Tier, seat count and period end an invoice billed: the first non-proration
+ * Tier, seat count and period an invoice billed: the first non-proration
  * subscription line whose price maps to a tier.
  */
 function getInvoicedPlan(
   invoice: Stripe.Invoice
-): { tier: WorkspaceTier; seats: number; periodEnd: Date } | null {
+): { tier: WorkspaceTier; seats: number; period: { start: Date; end: Date } } | null {
   for (const line of invoice.lines?.data ?? []) {
     const item = line.parent?.subscription_item_details;
     if (!item || item.proration) continue;
     const price = line.pricing?.price_details?.price;
     const priceId = typeof price === "string" ? price : price?.id;
     const tier = priceId ? getTierFromPriceId(priceId) : null;
-    if (tier) return { tier, seats: line.quantity ?? 1, periodEnd: new Date(line.period.end * 1000) };
+    if (tier) {
+      const period = { start: new Date(line.period.start * 1000), end: new Date(line.period.end * 1000) };
+      return { tier, seats: line.quantity ?? 1, period };
+    }
   }
   return null;
 }
@@ -210,8 +214,8 @@ export async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
   });
 }
 
-export async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
-  const workspaceId = subscription.metadata?.workspaceId;
+export async function handleSubscriptionUpdated(subscription: Stripe.Subscription, stripeEventId: string) {
+  let workspaceId = subscription.metadata?.workspaceId;
   if (!workspaceId) {
     const customerId = typeof subscription.customer === "string"
       ? subscription.customer
@@ -221,36 +225,34 @@ export async function handleSubscriptionUpdated(subscription: Stripe.Subscriptio
 
     const workspace = await prisma.workspace.findFirst({
       where: { stripeCustomerId: customerId },
+      select: { id: true },
     });
 
     if (!workspace) return;
-
-    const priceId = subscription.items.data[0]?.price.id ?? "";
-    const p = getSubscriptionPeriod(subscription);
-    await syncSubscriptionToWorkspace(
-      workspace.id,
-      subscription.id,
-      priceId,
-      subscription.status,
-      new Date(p.start * 1000),
-      new Date(p.end * 1000),
-      p.cancelAtPeriodEnd,
-      getSeatCount(subscription)
-    );
-    return;
+    workspaceId = workspace.id;
   }
 
   const priceId = subscription.items.data[0]?.price.id ?? "";
   const p = getSubscriptionPeriod(subscription);
+  const periodStart = new Date(p.start * 1000);
+  const periodEnd = new Date(p.end * 1000);
+  const seats = getSeatCount(subscription);
+
+  // Seats added mid-period get their credits now, before the sync records the new count
+  const tier = getTierFromPriceId(priceId);
+  if (tier) {
+    await grantAddedSeatCredits({ workspaceId, tier, seats, periodStart, periodEnd, stripeEventId });
+  }
+
   await syncSubscriptionToWorkspace(
     workspaceId,
     subscription.id,
     priceId,
     subscription.status,
-    new Date(p.start * 1000),
-    new Date(p.end * 1000),
+    periodStart,
+    periodEnd,
     p.cancelAtPeriodEnd,
-    getSeatCount(subscription)
+    seats
   );
 }
 

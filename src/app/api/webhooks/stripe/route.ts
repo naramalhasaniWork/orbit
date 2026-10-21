@@ -91,7 +91,7 @@ async function handleEvent(event: Stripe.Event) {
       break;
 
     case "customer.subscription.updated":
-      await handleSubscriptionUpdated(event.data.object as Stripe.Subscription);
+      await handleSubscriptionUpdated(event.data.object as Stripe.Subscription, event.id);
       break;
 
     case "customer.subscription.deleted":

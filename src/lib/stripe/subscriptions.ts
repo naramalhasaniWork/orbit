@@ -2,6 +2,7 @@ import { stripe } from "./client";
 import { prisma } from "@/lib/db";
 import { getTierFromPriceId, getMonthlyCreditGrant } from "./prices";
 import type { WorkspaceTier } from "@/lib/auth/tenant";
+import { startFreePeriod } from "@/lib/billing/credit-periods";
 
 export async function createSubscription(
   customerId: string,
@@ -139,6 +140,9 @@ export async function downgradeToFree(workspaceId: string) {
       seatCount: 1,
     },
   });
+
+  // The paid grant and its rollover expire; purchased credits stay
+  await startFreePeriod(workspaceId);
 
   // Mark all subscriptions as canceled
   await prisma.subscription.updateMany({

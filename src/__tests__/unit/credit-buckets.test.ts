@@ -12,6 +12,7 @@ import type { Prisma } from "@/generated/prisma/client";
 
 type Fake = ReturnType<typeof createFakeCreditDb>;
 const EXPIRES = new Date("2026-12-01T00:00:00Z");
+const PERIOD = { start: new Date("2026-11-01T00:00:00Z"), end: EXPIRES };
 
 function run<T>(fake: Fake, fn: (tx: Prisma.TransactionClient) => Promise<T>): Promise<T> {
   return fake.$transaction((tx) => fn(tx as Prisma.TransactionClient));
@@ -20,7 +21,7 @@ function run<T>(fake: Fake, fn: (tx: Prisma.TransactionClient) => Promise<T>): P
 const charge = (fake: Fake, amount: number) =>
   run(fake, async (tx) => chargeCredits(tx, "ws-1", await lockCredits(tx, "ws-1"), amount, { description: "run" }));
 const grant = (fake: Fake, amount: number) =>
-  run(fake, async (tx) => grantMonthlyCredits(tx, "ws-1", await lockCredits(tx, "ws-1"), amount, EXPIRES, { description: "grant" }));
+  run(fake, async (tx) => grantMonthlyCredits(tx, "ws-1", await lockCredits(tx, "ws-1"), amount, PERIOD, { description: "grant" }));
 const buy = (fake: Fake, amount: number) =>
   run(fake, async (tx) => addPurchasedCredits(tx, "ws-1", await lockCredits(tx, "ws-1"), amount, { description: "pack" }));
 
