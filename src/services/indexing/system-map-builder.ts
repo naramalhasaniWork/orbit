@@ -1,6 +1,6 @@
 import { prisma } from "@/lib/db";
 import { patchProjectSettings } from "@/server/data/settings-repo";
-import { emitIndexingNodeDiscovered } from "@/lib/websocket";
+import { emitIndexingEdgeDiscovered, emitIndexingNodeDiscovered } from "@/lib/websocket";
 import type { RouteManifest } from "@/services/indexing/route-extractor";
 import type { ComponentMap } from "@/services/indexing/component-mapper";
 import type { ASTResult } from "@/services/indexing/ast-parser";
@@ -323,7 +323,7 @@ export async function buildSystemMap(
     if (seenEdges.has(edgeKey)) continue;
     seenEdges.add(edgeKey);
 
-    await prisma.systemMapEdge.create({
+    const created = await prisma.systemMapEdge.create({
       data: {
         projectId,
         sourceNodeId: sourceId,
@@ -333,6 +333,14 @@ export async function buildSystemMap(
       },
     });
     edgeCount++;
+
+    await emitIndexingEdgeDiscovered(projectId, {
+      projectId,
+      edgeId: created.id,
+      sourceId,
+      targetId,
+      relationship: edge.relationship,
+    });
   }
 
   // Update project framework

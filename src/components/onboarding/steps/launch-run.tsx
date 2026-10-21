@@ -136,12 +136,14 @@ export function LaunchRun({ projectId, enabledTestCount, repoName, onBack, onCon
               />
             )}
 
-            {runState === "complete" && (
+            {runState === "complete" && runId && (
               <CompleteView
+                tests={runningTests}
                 total={runningTests.length || enabledTestCount}
                 passCount={passCount}
                 failCount={failCount}
                 projectId={projectId}
+                runId={runId}
               />
             )}
           </div>

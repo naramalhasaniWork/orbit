@@ -1,30 +1,18 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Route, Component, Server, Database, ChevronRight, AlertCircle } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { ChevronRight, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
-import { cn } from "@/lib/utils";
+import { LiveMap } from "../live-map";
 import type { SystemMapData } from "../onboarding-types";
 import type { MapNode } from "@/components/dashboard/map-types";
 
-const TYPE_CONFIG: Record<
-  string,
-  { label: string; icon: typeof Route; color: string }
-> = {
-  route: { label: "Routes", icon: Route, color: "text-foreground" },
-  component: { label: "Components", icon: Component, color: "text-orbit-pass" },
-  endpoint: { label: "API Endpoints", icon: Server, color: "text-orbit-flaky" },
-  model: { label: "Data Models", icon: Database, color: "text-tm-t2" },
-};
-
 const STAT_KEYS = [
-  { key: "routes" as const, label: "Routes", color: "text-foreground" },
-  { key: "components" as const, label: "Components", color: "text-orbit-pass" },
-  { key: "endpoints" as const, label: "Endpoints", color: "text-orbit-flaky" },
-  { key: "models" as const, label: "Models", color: "text-tm-t2" },
+  { key: "routes" as const, label: "Routes" },
+  { key: "components" as const, label: "Components" },
+  { key: "endpoints" as const, label: "APIs" },
+  { key: "models" as const, label: "Models" },
 ];
 
 interface MapPreviewProps {
@@ -80,7 +68,7 @@ export function MapPreview({ projectId, onContinue, onBack }: MapPreviewProps) {
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center w-full max-w-2xl mx-auto">
+      <div className="flex flex-col items-center w-full max-w-4xl mx-auto">
         <Skeleton className="h-6 w-48 mb-2" />
         <Skeleton className="h-4 w-64 mb-6" />
         <div className="grid grid-cols-4 gap-3 w-full mb-6">
@@ -88,7 +76,7 @@ export function MapPreview({ projectId, onContinue, onBack }: MapPreviewProps) {
             <Skeleton key={i} className="h-20 rounded-lg" />
           ))}
         </div>
-        <Skeleton className="w-full h-[280px] rounded-lg" />
+        <Skeleton className="w-full h-[300px] md:h-[380px] rounded-lg" />
       </div>
     );
   }
@@ -105,79 +93,31 @@ export function MapPreview({ projectId, onContinue, onBack }: MapPreviewProps) {
     );
   }
 
-  const grouped = data.nodes.reduce<Record<string, MapNode[]>>((acc, node) => {
-    if (!acc[node.type]) acc[node.type] = [];
-    acc[node.type].push(node);
-    return acc;
-  }, {});
-
   return (
-    <div className="flex flex-col items-center w-full max-w-2xl mx-auto">
-      <div className="text-center mb-6">
+    <div className="mx-auto flex w-full max-w-4xl flex-col items-center">
+      <div className="mb-6 text-center">
         <h2 className="mb-2 text-balance text-[22px] font-medium tracking-display">
           System Map ready
         </h2>
-        <p className="text-sm text-muted-foreground">
-          Here is what Orbit discovered in your codebase.
+        <p className="text-pretty text-sm text-muted-foreground">
+          {data.summary.totalNodes} nodes and {data.summary.totalEdges} connections. Pick one to trace the journeys through it.
         </p>
       </div>
 
-      <div className="grid grid-cols-4 gap-3 w-full mb-6">
+      <dl className="mb-4 grid w-full grid-cols-4 gap-3">
         {STAT_KEYS.map((stat) => (
-          <div
-            key={stat.key}
-            className="flex flex-col items-center border-t border-foreground px-3 py-3"
-          >
-            <span className={cn("text-2xl font-medium tabular-nums", stat.color)}>
+          <div key={stat.key} className="flex flex-col gap-1 border-t border-foreground pt-2">
+            <dt className="tm-label order-2 text-tm-t3">{stat.label}</dt>
+            <dd className="tm-num order-1 text-[22px] leading-none text-foreground sm:text-[28px]">
               {data.summary[stat.key]}
-            </span>
-            <span className="text-xs text-muted-foreground">{stat.label}</span>
+            </dd>
           </div>
         ))}
+      </dl>
+
+      <div className="w-full rounded-lg border border-border bg-card">
+        <LiveMap nodes={data.nodes} edges={data.edges} className="h-[300px] p-2 md:h-[380px]" />
       </div>
-
-      <ScrollArea className="w-full h-[280px] rounded-lg surface-1">
-        <div className="p-4 space-y-5">
-          {(["route", "component", "endpoint", "model"] as const).map((type) => {
-            const config = TYPE_CONFIG[type];
-            if (!config) return null;
-            const items = grouped[type] ?? [];
-            const Icon = config.icon;
-
-            return (
-              <div key={type}>
-                <div className="flex items-center gap-2 mb-2">
-                  <Icon className={cn("h-4 w-4", config.color)} />
-                  <span className=" tm-label text-muted-foreground">
-                    {config.label}
-                  </span>
-                  <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
-                    {items.length}
-                  </Badge>
-                </div>
-                <div className="grid gap-1">
-                  {items.slice(0, 20).map((item) => (
-                    <div
-                      key={item.id}
-                      className="flex items-center gap-3 px-3 py-1.5 rounded text-sm hover:bg-muted/30 transition-colors"
-                    >
-                      <span className="font-mono text-foreground">{item.name}</span>
-                      <span className="text-xs text-muted-foreground/60 truncate ml-auto">
-                        {item.filePath}
-                      </span>
-                    </div>
-                  ))}
-                  {items.length > 20 && (
-                    <div className="px-3 py-1 text-xs text-muted-foreground">
-                      +{items.length - 20} more
-                    </div>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </ScrollArea>
 
       <div className="flex items-center gap-3 mt-6">
         <Button variant="ghost" onClick={onBack}>

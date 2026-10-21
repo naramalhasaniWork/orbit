@@ -31,7 +31,7 @@ export function SystemMapView({ nodes, edges }: { nodes: MapNode[]; edges: MapEd
   const changedCount = nodes.filter((n) => n.changeStatus === "added" || n.changeStatus === "modified").length;
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-border bg-card">
+    <div data-tour="system-map" className="flex min-h-0 flex-1 flex-col overflow-hidden rounded-lg border border-border bg-card">
       <div role="tablist" aria-label="Map view" className="flex h-10 shrink-0 items-center gap-1 border-b border-border px-2">
         {VIEWS.map((v) => (
           <button

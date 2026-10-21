@@ -2,6 +2,7 @@ import { apiSuccess, apiError } from "@/lib/utils/api";
 import { enqueuePlanGeneration } from "@/services/planning/plan-jobs";
 import { isProjectIndexed, INDEX_REQUIRED_MESSAGE } from "@/services/indexing/index-status";
 import { route } from "@/server/http/route";
+import { journeyTouches } from "@/lib/onboarding/journey-touches";
 
 // Dynamic import: planner transitively imports prompt files containing
 // markdown with backtick-escaped code examples that confuse the Next.js
@@ -27,6 +28,9 @@ export const GET = route({}, async ({ params: { projectId }, workspaceId, db }) 
   if (!cached) {
     return apiSuccess({ plan: null, testCases: [] });
   }
+  const routeNames = (
+    await project.systemMapNode.findMany({ where: { type: "route" }, select: { name: true } })
+  ).map((n) => n.name);
 
   return apiSuccess({
     plan: {
@@ -53,6 +57,7 @@ export const GET = route({}, async ({ params: { projectId }, workspaceId, db }) 
       isEnabled: tc.isEnabled,
       isCritical: tc.isCritical,
       lastVerdict: tc.lastVerdict,
+      touches: journeyTouches(tc.steps, routeNames),
     })),
   });
 });

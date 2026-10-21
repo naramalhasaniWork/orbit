@@ -27,6 +27,7 @@ export function FailureWriteup({ result, projectId, runId, otherFailures }: Fail
 
   return (
     <section
+      data-tour="what-broke"
       aria-labelledby="what-broke"
       className={`motion-safe:animate-slide-up grid gap-6 rounded-lg border border-border bg-card p-5 ${steps.length > 0 ? "lg:grid-cols-[minmax(0,1fr)_280px]" : ""}`}
     >

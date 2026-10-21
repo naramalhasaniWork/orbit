@@ -28,10 +28,12 @@ interface LayeredMapProps {
   onSelect: (id: string | null) => void;
   /** "impact": highlight what changed since the last sync and everything depending on it. */
   mode: "journey" | "impact";
+  /** Onboarding: nodes slide in and edges draw as indexing discovers them; reflows glide. */
+  assemble?: boolean;
 }
 
 /** The layered map: routes → components → APIs → data, left to right. */
-export function LayeredMap({ nodes, edges, selectedId, onSelect, mode }: LayeredMapProps) {
+export function LayeredMap({ nodes, edges, selectedId, onSelect, mode, assemble = false }: LayeredMapProps) {
   const layout = useMemo(() => layoutLayers(nodes, edges), [nodes, edges]);
   const pos = useMemo(() => {
     const m = new Map<string, { x: number; y: number; layer: number }>();
@@ -78,7 +80,12 @@ export function LayeredMap({ nodes, edges, selectedId, onSelect, mode }: Layered
               key={e.id}
               d={`M${x1} ${y1} H${mid} V${y2} H${x2}`}
               fill="none"
-              className={cn(on ? (mode === "impact" ? "stroke-foreground" : "stroke-tm-live") : "stroke-tm-line-strong", highlight && !on && "opacity-30")}
+              className={cn(
+                on ? (mode === "impact" ? "stroke-foreground" : "stroke-tm-live") : "stroke-tm-line-strong",
+                highlight && !on && "opacity-30",
+                assemble && "animate-[tm-edge-draw_280ms_var(--ease-out)_both] [transform-box:fill-box]"
+              )}
+              style={assemble ? { transformOrigin: forward ? "left center" : "right center" } : undefined}
               strokeWidth={on ? 1.5 : 1}
             />
           );
@@ -100,12 +107,15 @@ export function LayeredMap({ nodes, edges, selectedId, onSelect, mode }: Layered
             aria-label={`${node.name}, ${node.type}, ${tone.label}${changed ? `, ${node.changeStatus}` : ""}`}
             title={node.filePath ?? node.name}
             className={cn(
-              "absolute flex items-center gap-2 rounded-sm px-2 text-left text-[12px] transition-opacity duration-change focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              "absolute left-0 top-0 flex items-center gap-2 rounded-sm px-2 text-left text-[12px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              assemble
+                ? "animate-[tm-node-in_240ms_var(--ease-out)_both] transition-transform duration-layout ease-in-out"
+                : "transition-opacity duration-change",
               TYPE_STYLE[layer],
               isSelected && "outline outline-1 outline-offset-2 outline-tm-live",
               highlight && !lit(node.id) && "opacity-35"
             )}
-            style={{ left: p.x, top: p.y, width: COL_W, height: NODE_H }}
+            style={{ transform: `translate(${p.x}px, ${p.y}px)`, width: COL_W, height: NODE_H }}
           >
             <span aria-hidden="true" className={cn("size-1 shrink-0", tone.fill, tone.square ? "rounded-[1px]" : "rounded-full")} />
             <span className={cn("min-w-0 flex-1 truncate", highlight && !lit(node.id) ? "text-tm-t3" : "text-foreground")}>{node.name}</span>

@@ -35,6 +35,15 @@ export interface IndexingNodeDiscoveredEvent {
   filePath: string | null;
 }
 
+/** An edge of the System Map, emitted after every node exists so the onboarding map can draw it. */
+export interface IndexingEdgeDiscoveredEvent {
+  projectId: string;
+  edgeId: string;
+  sourceId: string;
+  targetId: string;
+  relationship: string;
+}
+
 export interface IndexingProgressEvent {
   projectId: string;
   phase: string;
@@ -171,6 +180,7 @@ export type IndexingEvent =
   | { type: "indexing:started"; payload: IndexingStartedEvent }
   | { type: "indexing:phase"; payload: IndexingPhaseEvent }
   | { type: "indexing:node_discovered"; payload: IndexingNodeDiscoveredEvent }
+  | { type: "indexing:edge_discovered"; payload: IndexingEdgeDiscoveredEvent }
   | { type: "indexing:progress"; payload: IndexingProgressEvent }
   | { type: "indexing:completed"; payload: IndexingCompletedEvent }
   | { type: "indexing:failed"; payload: IndexingFailedEvent };

@@ -56,6 +56,7 @@ export const DEFAULT_SSE_EVENT_TYPES = [
   "indexing:started",
   "indexing:phase",
   "indexing:node_discovered",
+  "indexing:edge_discovered",
   "indexing:progress",
   "indexing:completed",
   "indexing:failed",

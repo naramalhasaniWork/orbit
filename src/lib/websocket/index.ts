@@ -10,6 +10,7 @@ import type {
   IndexingStartedEvent,
   IndexingPhaseEvent,
   IndexingNodeDiscoveredEvent,
+  IndexingEdgeDiscoveredEvent,
   IndexingProgressEvent,
   IndexingCompletedEvent,
   IndexingFailedEvent,
@@ -128,6 +129,17 @@ export async function emitIndexingNodeDiscovered(
   log(`indexing:node:${projectId}`, data);
   await safePublish(channels.indexingProgress(projectId), {
     type: "indexing:node_discovered",
+    payload: data,
+  });
+}
+
+export async function emitIndexingEdgeDiscovered(
+  projectId: string,
+  data: IndexingEdgeDiscoveredEvent
+): Promise<void> {
+  log(`indexing:edge:${projectId}`, data);
+  await safePublish(channels.indexingProgress(projectId), {
+    type: "indexing:edge_discovered",
     payload: data,
   });
 }

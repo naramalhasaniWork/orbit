@@ -44,10 +44,19 @@ export function IntegrationSettings({ workspaceId, integrations: initial, previe
     }));
   }
 
+  const noneConnected =
+    !integrations.github?.connected &&
+    !integrations.linear?.connected &&
+    !integrations.slack?.connected &&
+    !Object.values(previewConnections).some((p) => p.connection);
+
   return (
     <div className="space-y-4">
-      <p className="text-xs text-muted-foreground">
-        Connect external services to enable automated reporting, issue tracking, and notifications.
+      {/* A fresh workspace: say what the first connection buys; its button is the GitHub card's. */}
+      <p className={noneConnected ? "text-pretty text-[13px] text-foreground" : "text-xs text-muted-foreground"}>
+        {noneConnected
+          ? "Nothing is connected yet. Start with GitHub: Orbit then tests the journeys each pull request touches and posts the result as a check."
+          : "Connect external services to enable automated reporting, issue tracking, and notifications."}
       </p>
 
       <GitHubCard
@@ -56,17 +65,19 @@ export function IntegrationSettings({ workspaceId, integrations: initial, previe
         onUpdate={(cfg) => updateIntegration("github", cfg)}
       />
 
-      <LinearCard
-        workspaceId={workspaceId}
-        config={integrations.linear}
-        onUpdate={(cfg) => updateIntegration("linear", cfg)}
-      />
+      <div data-tour="integrations" className="space-y-4">
+        <LinearCard
+          workspaceId={workspaceId}
+          config={integrations.linear}
+          onUpdate={(cfg) => updateIntegration("linear", cfg)}
+        />
 
-      <SlackCard
-        workspaceId={workspaceId}
-        config={integrations.slack}
-        onUpdate={(cfg) => updateIntegration("slack", cfg)}
-      />
+        <SlackCard
+          workspaceId={workspaceId}
+          config={integrations.slack}
+          onUpdate={(cfg) => updateIntegration("slack", cfg)}
+        />
+      </div>
 
       <h2 className="pt-4 tm-label text-muted-foreground">Preview deployments</h2>
       <p className="text-xs text-muted-foreground text-pretty -mt-2">

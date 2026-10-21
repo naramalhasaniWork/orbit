@@ -95,7 +95,7 @@ export function GitHubCard({ workspaceId, config, onUpdate }: GitHubCardProps) {
   }
 
   return (
-    <div className="rounded-xl surface-1 p-6 space-y-4">
+    <div data-tour="github" className="rounded-xl surface-1 p-6 space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
           <div className="h-9 w-9 rounded-lg bg-muted/50 flex items-center justify-center">

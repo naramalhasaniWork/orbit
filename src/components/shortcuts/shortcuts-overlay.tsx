@@ -7,8 +7,10 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { useRouter } from "next/navigation";
 import { SHORTCUTS, SHORTCUT_GROUPS } from "@/lib/shortcuts/registry";
 import { ShortcutKeys } from "@/components/shortcuts/shortcut-keys";
+import { replayTour } from "@/components/onboarding/tour/replay-tour";
 
 interface ShortcutsOverlayProps {
   open: boolean;
@@ -16,6 +18,7 @@ interface ShortcutsOverlayProps {
 }
 
 export function ShortcutsOverlay({ open, onOpenChange }: ShortcutsOverlayProps) {
+  const router = useRouter();
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-md">
@@ -42,6 +45,16 @@ export function ShortcutsOverlay({ open, onOpenChange }: ShortcutsOverlayProps) 
             </section>
           ))}
         </div>
+        <button
+          type="button"
+          onClick={() => {
+            onOpenChange(false);
+            void replayTour(router.push);
+          }}
+          className="self-start text-[13px] text-tm-t2 underline decoration-tm-line-strong underline-offset-4 hover:text-foreground hover:decoration-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          Replay the product tour
+        </button>
       </DialogContent>
     </Dialog>
   );

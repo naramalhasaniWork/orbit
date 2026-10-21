@@ -45,6 +45,10 @@ export interface PlanTestCase {
   criticality: number;
   isEnabled: boolean;
   isCritical: boolean;
+  /** The planner's reason for the test. */
+  rationale: string | null;
+  /** System Map routes its steps go through. */
+  touches: string[];
 }
 
 export interface RunResult {

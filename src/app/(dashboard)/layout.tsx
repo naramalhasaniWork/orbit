@@ -16,6 +16,7 @@ import { getSystemConfig } from "@/lib/system-config";
 import { SIDEBAR_COOKIE, parseSidebarExpanded } from "@/lib/sidebar-pref";
 import { WorkspaceRecovery } from "@/components/layout/workspace-recovery";
 import { DashboardProviders } from "@/components/layout/dashboard-providers";
+import { TourHost } from "@/components/onboarding/tour/tour-host";
 
 // Private: never indexed, whatever robots.txt says.
 export const metadata: Metadata = { robots: { index: false, follow: false } };
@@ -128,6 +129,9 @@ export default async function DashboardLayout({
           </div>
           <Suspense>
             <ChatPanelWrapper projects={projects} />
+          </Suspense>
+          <Suspense>
+            <TourHost />
           </Suspense>
         </div>
       </DashboardProviders>

@@ -3,7 +3,11 @@ import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { parseProjectSettings } from "@/server/data/settings-repo";
+import { Network } from "lucide-react";
 import { SystemMapView } from "@/components/dashboard/system-map-view";
+import Link from "next/link";
+import { EmptyState } from "@/components/shared/empty-state";
+import { Button } from "@/components/ui/button";
 import type { MapNode, MapEdge, TestStatus, ChangeStatus } from "@/components/dashboard/map-types";
 
 export default async function MapPage({
@@ -125,7 +129,21 @@ export default async function MapPage({
           </p>
         </div>
       </div>
-      <SystemMapView nodes={nodes} edges={edges} />
+      {nodes.length === 0 ? (
+        <EmptyState
+          icon={Network}
+          title="The map is empty"
+          description="Index the repository and Orbit draws every route, component, API and data model, and how they connect."
+          action={
+            <Button asChild>
+              <Link href={`/dashboard/onboarding?project=${project.id}&step=2`}>Index the repository</Link>
+            </Button>
+          }
+          className="flex-1 rounded-lg border border-border bg-card"
+        />
+      ) : (
+        <SystemMapView nodes={nodes} edges={edges} />
+      )}
     </div>
   );
 }
