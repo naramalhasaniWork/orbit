@@ -175,7 +175,7 @@ export function ConnectRepo({ onSelect }: ConnectRepoProps) {
   return (
     <div className="flex flex-col items-center w-full max-w-xl mx-auto">
       <div className="text-center mb-8">
-        <h2 className="text-xl font-medium text-foreground mb-2">
+        <h2 className="mb-2 text-balance text-[22px] font-medium tracking-display">
           Connect a repository
         </h2>
         <p className="text-sm text-muted-foreground">

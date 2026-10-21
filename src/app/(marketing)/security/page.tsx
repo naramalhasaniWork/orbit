@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ArrowLeft, Lock, Shield, Server, Users, Eye, FileKey, Bug } from "lucide-react";
 
 export const metadata = {
-  title: "Security - Orbit",
+  title: "Security · Orbit",
   description:
     "How Orbit protects your source code, credentials, and data. Our security architecture explained.",
 };

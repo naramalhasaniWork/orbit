@@ -2,8 +2,9 @@
 
 import { Pending } from "@/components/telemetry/pending";
 import { useState, useEffect, useCallback } from "react";
-import { X, Coins, Sparkles, Check } from "lucide-react";
+import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface CreditPackage {
   id: string;
@@ -70,40 +71,15 @@ export function CreditPurchaseDialog({
     }
   }
 
-  if (!open) return null;
-
   return (
-    <div className="fixed inset-0 z-modal flex items-center justify-center">
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/60"
-        onClick={onClose}
-      />
-
-      {/* Dialog */}
-      <div className="relative w-full max-w-2xl mx-4 rounded-2xl border border-border bg-[#0a0a0f] shadow-2xl">
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-border">
-          <div className="flex items-center gap-3">
-            <div className="h-8 w-8 rounded-lg bg-foreground/[0.06] flex items-center justify-center">
-              <Coins className="h-4 w-4 text-foreground" />
-            </div>
-            <div>
-              <h2 className="text-sm font-medium text-foreground">
-                Buy Credits
-              </h2>
-              <p className="text-xs text-muted-foreground">
-                Current balance: {balance.toLocaleString()} credits
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={onClose}
-            className="p-1.5 rounded-lg hover:bg-foreground/5 transition-colors"
-          >
-            <X className="h-4 w-4 text-muted-foreground" />
-          </button>
-        </div>
+    <Dialog open={open} onOpenChange={(next) => !next && onClose()}>
+      <DialogContent className="max-w-2xl gap-0 p-0">
+        <DialogHeader className="border-b border-border px-6 py-4 pr-12">
+          <DialogTitle>Buy credits</DialogTitle>
+          <DialogDescription className="tm-label text-tm-t3">
+            Current balance <span className="tm-num">{balance.toLocaleString("en-US")}</span> credits
+          </DialogDescription>
+        </DialogHeader>
 
         {/* Packages */}
         <div className="p-6">
@@ -112,7 +88,7 @@ export function CreditPurchaseDialog({
               {[1, 2, 3, 4].map((i) => (
                 <div
                   key={i}
-                  className="h-40 rounded-xl bg-foreground/[0.02]"
+                  className="h-40 rounded-lg bg-muted"
                 />
               ))}
             </div>
@@ -133,13 +109,12 @@ export function CreditPurchaseDialog({
 
         {/* Footer */}
         <div className="px-6 py-3 border-t border-border">
-          <p className="text-[11px] text-muted-foreground text-center">
-            Credits are added to your workspace instantly after payment.
-            One-time purchase, no recurring charge.
+          <p className="text-center text-[12px] text-tm-t3">
+            Credits are added to your workspace after payment. One-time purchase, no recurring charge.
           </p>
         </div>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -159,7 +134,7 @@ function PackageCard({
   return (
     <div
       className={cn(
-        "relative rounded-xl border p-4 flex flex-col transition-colors",
+        "relative rounded-lg border p-4 flex flex-col transition-colors",
         pkg.popular
           ? "border-tm-line-strong bg-foreground/[0.06]"
           : "border-border bg-foreground/[0.02] hover:border-border"
@@ -167,10 +142,7 @@ function PackageCard({
     >
       {pkg.popular && (
         <div className="absolute -top-2.5 left-1/2 -translate-x-1/2">
-          <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-primary text-[10px] font-medium text-primary-foreground">
-            <Sparkles className="h-3 w-3" />
-            Popular
-          </span>
+          <span className="tm-label rounded-sm bg-primary px-1.5 py-0.5 text-primary-foreground">Popular</span>
         </div>
       )}
 

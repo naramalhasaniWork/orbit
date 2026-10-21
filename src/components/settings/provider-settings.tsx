@@ -171,7 +171,7 @@ export function ProviderSettings({ workspaceId }: ProviderSettingsProps) {
     return (
       <div className="space-y-4">
         {PROVIDERS.map((p) => (
-          <Skeleton key={p.id} className="h-48 w-full rounded-xl" />
+          <Skeleton key={p.id} className="h-48 w-full rounded-lg" />
         ))}
       </div>
     );
@@ -187,7 +187,7 @@ export function ProviderSettings({ workspaceId }: ProviderSettingsProps) {
           : "not_configured";
 
         return (
-          <div key={provider.id} className="rounded-xl surface-1 p-6 space-y-4">
+          <div key={provider.id} className="border-t border-border pt-6 space-y-4">
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">
                 <StatusDot status={status} />

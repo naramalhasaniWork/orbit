@@ -1,62 +1,54 @@
 {
-  "section_title": "Everything a QA Engineer Does, Automated",
-  "section_subtitle": "Orbit doesn't just record clicks. It reads your codebase, understands your architecture, and builds tests that cover what matters.",
+  "headline": "What Orbit does today.",
+  "subheadline": "Only what ships. Each line below is in the product you can deploy now.",
   "features": [
     {
-      "id": "system-map",
-      "title": "System Map Intelligence",
-      "description": "Orbit parses your entire codebase with tree-sitter AST analysis, detects your framework, and builds an interactive graph of every route, component, endpoint, and auth flow. It understands your app the way a senior engineer would — in under 2 minutes.",
-      "icon": "network",
-      "category": "understanding"
+      "id": "pr-checks",
+      "label": "Pull requests",
+      "title": "One check per PR, scoped to the diff",
+      "description": "Changed files are traced through the System Map to the journeys they can reach. Orbit runs those, posts one GitHub check with what broke, and stays quiet when everything passes."
     },
     {
-      "id": "ai-test-generation",
-      "title": "AI Test Plan Generation",
-      "description": "From the System Map, Orbit generates prioritized test cases covering user journeys, API contracts, auth flows, form validation, and edge cases. Each test is scored by criticality, risk, and coverage gap — so the most important paths get tested first.",
-      "icon": "brain",
-      "category": "planning"
+      "id": "replay",
+      "label": "Replay",
+      "title": "Passing steps replay without a model call",
+      "description": "A case's first passing run is compiled into a replay script. Later runs replay it with zero model calls; when a step diverges the agent takes over from that step and saves the heal as the next version."
     },
     {
-      "id": "browser-execution",
-      "title": "Real Browser Execution",
-      "description": "Tests run in actual Chromium browsers via Playwright and Stagehand. Orbit navigates your app, fills forms, clicks buttons, and verifies outcomes — capturing screenshots, video, network logs, and console errors at every step.",
-      "icon": "monitor",
-      "category": "execution"
+      "id": "previews",
+      "label": "Previews",
+      "title": "Railway and Cloudflare previews",
+      "description": "Runs target the PR's preview deployment: Railway PR environments and Cloudflare Pages previews, including previews behind Cloudflare Access."
     },
     {
-      "id": "self-healing",
-      "title": "Self-Healing Selectors",
-      "description": "When your UI changes, Orbit doesn't break. AI-powered selector healing identifies the intended element even when IDs, classes, or DOM structure shift. Persistent changes are surfaced for review — not silently ignored.",
-      "icon": "refresh",
-      "category": "maintenance"
+      "id": "explain",
+      "label": "Failures",
+      "title": "What broke, in plain English",
+      "description": "Each failure comes with the cause, the step it failed at, screenshots around it and a suggested fix. Create a Linear issue from the failure in one click."
     },
     {
-      "id": "continuous-testing",
-      "title": "Continuous on Every Push",
-      "description": "Orbit watches your repo and runs regression tests on every PR, targeting only code paths affected by the diff. Full suites run nightly. Your test plan evolves automatically as your codebase changes — no manual updates needed.",
-      "icon": "repeat",
-      "category": "automation"
+      "id": "self-host",
+      "label": "Self-host",
+      "title": "Runs on your infrastructure",
+      "description": "One web service, Postgres, Redis and a headless browser. Deploy on Railway or with docker compose; the first sign-in becomes the admin. A self-hosted instance has no usage limits."
     },
     {
-      "id": "failure-analysis",
-      "title": "AI Failure Explanations",
-      "description": "When a test fails, Orbit tells you why in plain English. It pinpoints the likely root cause, shows the relevant code, and suggests a fix — complete with screenshots and video evidence. Create a Linear issue with one click.",
-      "icon": "search",
-      "category": "reporting"
+      "id": "byok",
+      "label": "Models",
+      "title": "Bring your own model key",
+      "description": "Anthropic, OpenAI or OpenRouter, set per workspace. Every model call is attributed to the run that made it, so the cost of a run is visible."
+    },
+    {
+      "id": "mcp",
+      "label": "MCP",
+      "title": "MCP in both directions",
+      "description": "Orbit exposes an MCP server so your coding agent can read the System Map, plans and results, and it can call your MCP tools during a test."
     },
     {
       "id": "integrations",
-      "title": "Fits Your Workflow",
-      "description": "GitHub PR checks that block broken merges. Linear integration that auto-creates bug tickets. Slack notifications for your team. Orbit works where you already work.",
-      "icon": "plug",
-      "category": "integrations"
-    },
-    {
-      "id": "security",
-      "title": "Enterprise-Grade Security",
-      "description": "Credentials encrypted with AES-256 at rest. Ephemeral browser containers destroyed after each run. Row-level tenant isolation. Zero plaintext secret storage. Full audit logs. Your staging environment, your data, fully protected.",
-      "icon": "shield",
-      "category": "security"
+      "label": "Integrations",
+      "title": "GitHub, Linear, Slack",
+      "description": "GitHub App for repo access, PR comments and checks. Linear for issues created from failures. Slack for run results and failure alerts in a channel you pick."
     }
   ]
 }

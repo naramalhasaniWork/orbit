@@ -114,7 +114,7 @@ export function MapPreview({ projectId, onContinue, onBack }: MapPreviewProps) {
   return (
     <div className="flex flex-col items-center w-full max-w-2xl mx-auto">
       <div className="text-center mb-6">
-        <h2 className="text-xl font-medium text-foreground mb-2">
+        <h2 className="mb-2 text-balance text-[22px] font-medium tracking-display">
           System Map ready
         </h2>
         <p className="text-sm text-muted-foreground">
@@ -126,7 +126,7 @@ export function MapPreview({ projectId, onContinue, onBack }: MapPreviewProps) {
         {STAT_KEYS.map((stat) => (
           <div
             key={stat.key}
-            className="flex flex-col items-center rounded-lg surface-1 px-3 py-3"
+            className="flex flex-col items-center border-t border-foreground px-3 py-3"
           >
             <span className={cn("text-2xl font-medium tabular-nums", stat.color)}>
               {data.summary[stat.key]}

@@ -128,7 +128,7 @@ export function PricingSelector({ currentTier, onSelectTier }: PricingSelectorPr
             <div
               key={tier.key}
               className={cn(
-                "rounded-xl border p-5 flex flex-col",
+                "rounded-lg border p-5 flex flex-col",
                 tier.highlight
                   ? "border-tm-line-strong bg-foreground/[0.06]"
                   : "border-border bg-muted/30",

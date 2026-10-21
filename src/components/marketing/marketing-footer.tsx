@@ -30,8 +30,8 @@ export function MarketingFooter() {
               <Logo size="sm" brand />
             </Link>
             <p className="text-sm text-muted-foreground leading-relaxed">
-              AI-native testing platform. Code-aware, app-aware, fully
-              autonomous.
+              Know what a pull request broke before you merge it. Open
+              source, self-hostable.
             </p>
           </div>
 

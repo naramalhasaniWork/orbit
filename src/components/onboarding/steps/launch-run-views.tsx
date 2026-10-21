@@ -1,16 +1,36 @@
 "use client";
 
-import { Pending } from "@/components/telemetry/pending";
 import { useRouter } from "next/navigation";
-import { Play, Check, ArrowRight, AlertCircle } from "lucide-react";
+import { Play, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
-import { StatusDot } from "@/components/shared/status-dot";
+import { Pending } from "@/components/telemetry/pending";
+import { ClosingO } from "@/components/telemetry/closing-o";
+import { GroundTrack } from "@/components/telemetry/ground-track";
+import { RollingNumber } from "@/components/telemetry/rolling-number";
+import { LiveRow } from "@/components/execution/live-list";
+import type { StatusTone } from "@/lib/status-tone";
 
 export interface TestProgress {
   name: string;
   status: "pending" | "running" | "pass" | "fail";
+}
+
+const TONE: Record<TestProgress["status"], StatusTone> = {
+  pending: "untested",
+  running: "live",
+  pass: "pass",
+  fail: "fail",
+};
+
+const VISIBLE_TESTS = 10;
+
+function StepHeading({ title, lead }: { title: string; lead: React.ReactNode }) {
+  return (
+    <div className="mb-6 space-y-2 text-center">
+      <h2 className="text-balance text-[22px] font-medium tracking-display">{title}</h2>
+      <p className="text-pretty text-[14px] text-tm-t2">{lead}</p>
+    </div>
+  );
 }
 
 export function ReadyView({
@@ -26,102 +46,74 @@ export function ReadyView({
 }) {
   return (
     <>
-      <div className="text-center mb-8">
-        <h2 className="text-xl font-medium text-foreground mb-2">
-          Ready to launch
-        </h2>
-        <p className="text-sm text-muted-foreground">
-          Orbit will execute {enabledTestCount} tests against {repoName} in a
-          cloud browser environment.
-        </p>
-      </div>
-
-      <div className="w-full rounded-lg surface-1 p-5 mb-8 space-y-3">
+      <StepHeading
+        title="Ready for the first run"
+        lead={`Orbit will run ${enabledTestCount} tests against ${repoName} in a real browser.`}
+      />
+      <dl className="mb-8 w-full rounded-lg border border-border bg-card">
         <SummaryRow label="Repository" value={repoName} />
         <SummaryRow label="Test cases" value={`${enabledTestCount} enabled`} />
-        <SummaryRow label="Browser" value="Chromium (headless)" />
-        <SummaryRow label="Est. duration" value="~2 minutes" />
-      </div>
-
+        <SummaryRow label="Browser" value="Chromium, headless" />
+      </dl>
       <div className="flex items-center gap-3">
         <Button variant="ghost" onClick={onBack}>
           Back
         </Button>
-        <Button
-          className="bg-primary hover:bg-primary/85 text-primary-foreground gap-2 h-12 px-8 text-base"
-          onClick={onLaunch}
-        >
-          <Play className="h-5 w-5" />
-          Launch First Run
+        <Button size="lg" onClick={onLaunch}>
+          <Play aria-hidden="true" />
+          Launch first run
         </Button>
       </div>
     </>
   );
 }
 
+/** The first run, live: one ground-track tick per test, and the running test grows its StepBar. */
 export function RunningView({
   tests,
-  progress,
   passCount,
   failCount,
 }: {
   tests: TestProgress[];
-  progress: number;
   passCount: number;
   failCount: number;
 }) {
+  const done = passCount + failCount;
+  const ticks = tests.filter((t) => t.status !== "pending").map((t) => ({ tone: TONE[t.status] }));
+
   return (
     <>
-      <div className="text-center mb-6">
-        <h2 className="text-xl font-medium text-foreground mb-2">
-          Running tests
-        </h2>
-        <p className="text-sm text-muted-foreground">
-          {passCount + failCount} of {tests.length || "?"} complete
+      <div className="mb-6 flex flex-col items-center gap-3 text-center">
+        <ClosingO size={40} state="running" />
+        <h2 className="text-[22px] font-medium tracking-display">Running tests</h2>
+        <p className="tm-label text-tm-t2">
+          <RollingNumber value={`${String(done).padStart(2, "0")}/${String(tests.length || 0).padStart(2, "0")}`} /> complete
         </p>
       </div>
 
-      <div className="w-full h-2 rounded-full bg-muted mb-6 overflow-hidden">
-        <div
-          className="h-full bg-orbit-accent rounded-full transition-all duration-500 ease-out"
-          style={{ width: `${progress}%` }}
-        />
-      </div>
-
       {tests.length > 0 && (
-        <div className="w-full space-y-1">
-          {tests.slice(0, 10).map((test, idx) => (
-            <div key={idx} className="flex items-center gap-3 px-3 py-2 rounded-md">
-              <TestStatusIcon status={test.status} />
-              <span className={cn(
-                "text-sm flex-1 truncate",
-                test.status === "pending" && "text-muted-foreground/50",
-                test.status === "running" && "text-foreground",
-                test.status === "pass" && "text-muted-foreground",
-                test.status === "fail" && "text-orbit-fail",
-              )}>
-                {test.name}
-              </span>
-            </div>
-          ))}
-          {tests.length > 10 && (
-            <div className="px-3 py-1 text-xs text-muted-foreground">
-              +{tests.length - 10} more tests
-            </div>
-          )}
+        <div className="mb-4 w-full">
+          <GroundTrack ticks={ticks} slots={tests.length} animate noun="tests" />
         </div>
       )}
 
-      {tests.length === 0 && (
-        <div className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Pending />
-          Waiting for test results...
-        </div>
+      {tests.length > 0 ? (
+        <ol aria-live="polite" className="w-full overflow-hidden rounded-lg border border-border bg-card">
+          {tests.slice(0, VISIBLE_TESTS).map((test, idx) => (
+            <LiveRow key={`${idx}-${test.name}`} index={idx} tone={TONE[test.status]} label={test.name} />
+          ))}
+          {tests.length > VISIBLE_TESTS && (
+            <li className="tm-label px-3 py-2 text-tm-t3">+{tests.length - VISIBLE_TESTS} more tests</li>
+          )}
+        </ol>
+      ) : (
+        <Pending label="Waiting for the first test result" showLabel />
       )}
     </>
   );
 }
 
+/** Says how the run went: the O closes on a pass and stops on a square when anything failed. */
 export function CompleteView({
   total,
   passCount,
@@ -134,45 +126,27 @@ export function CompleteView({
   projectId?: string;
 }) {
   const router = useRouter();
-  const passRate = total > 0 ? Math.round((passCount / total) * 100) : 0;
+  const passRate = total > 0 ? Math.round((passCount / total) * 100) : null;
 
   return (
     <>
-      <div className="text-center mb-6">
-        <div className="flex items-center justify-center h-16 w-16 rounded-full bg-orbit-pass/10 mx-auto mb-4">
-          <Check className="h-8 w-8 text-orbit-pass" />
-        </div>
-        <h2 className="text-xl font-medium text-foreground mb-2">
-          First run complete
+      <div className="mb-6 flex flex-col items-center gap-3 text-center">
+        <ClosingO size={48} state={failCount > 0 ? "failed" : "passed"} />
+        <h2 className="text-[22px] font-medium tracking-display">
+          {failCount > 0 ? `First run finished, ${failCount} failed` : "First run passed"}
         </h2>
-        <p className="text-sm text-muted-foreground">
-          {passRate}% pass rate across {total} tests
+        <p className="tm-label flex gap-3 text-tm-t2">
+          <span className="text-tm-pass"><span aria-hidden="true">✓</span> {passCount} passed</span>
+          {failCount > 0 && <span className="text-tm-fail"><span aria-hidden="true">✕</span> {failCount} failed</span>}
+          {passRate !== null && <span>· {passRate}% of {total}</span>}
         </p>
       </div>
-
-      <div className="flex gap-3 mb-8">
-        <Badge variant="outline" className="text-orbit-pass border-orbit-pass/30 gap-1.5">
-          <StatusDot status="pass" />
-          {passCount} passed
-        </Badge>
-        {failCount > 0 && (
-          <Badge variant="outline" className="text-orbit-fail border-orbit-fail/30 gap-1.5">
-            <StatusDot status="fail" />
-            {failCount} failed
-          </Badge>
-        )}
-      </div>
-
       <Button
-        className="bg-primary hover:bg-primary/85 text-primary-foreground gap-2"
         size="lg"
-        onClick={() => {
-          const url = projectId ? `/dashboard?project=${projectId}` : "/dashboard";
-          router.push(url);
-        }}
+        onClick={() => router.push(projectId ? `/dashboard?project=${projectId}` : "/dashboard")}
       >
-        Go to Dashboard
-        <ArrowRight className="h-4 w-4" />
+        {failCount > 0 ? "See what broke" : "Go to home"}
+        <ArrowRight aria-hidden="true" />
       </Button>
     </>
   );
@@ -191,15 +165,15 @@ export function ErrorView({
 }) {
   return (
     <>
-      <div className="flex items-center gap-2 text-sm text-orbit-fail bg-orbit-fail/10 rounded-md px-3 py-2 mb-6">
-        <AlertCircle className="h-4 w-4 shrink-0" />
+      <p role="alert" className="mb-6 w-full rounded-md border border-tm-fail/30 bg-tm-fail-bg px-3 py-2 text-[13px] text-tm-fail">
+        <span aria-hidden="true">✕ </span>
         {error}
-      </div>
-      <div className="flex gap-3">
+      </p>
+      <div className="flex flex-wrap gap-3">
         <Button variant="ghost" onClick={onBack}>Back</Button>
         {onConfigureEnv && (
           <Button variant="outline" onClick={onConfigureEnv}>
-            Configure Environment
+            Configure environment
           </Button>
         )}
         <Button variant="outline" onClick={onRetry}>Retry</Button>
@@ -208,18 +182,11 @@ export function ErrorView({
   );
 }
 
-function TestStatusIcon({ status }: { status: TestProgress["status"] }) {
-  if (status === "running") return <Pending />;
-  if (status === "pass") return <StatusDot status="pass" size="md" />;
-  if (status === "fail") return <StatusDot status="fail" size="md" />;
-  return <StatusDot status="untested" size="md" />;
-}
-
 function SummaryRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between text-sm">
-      <span className="text-muted-foreground">{label}</span>
-      <span className="text-foreground font-medium">{value}</span>
+    <div className="flex items-center justify-between gap-4 border-b border-border px-4 py-3 last:border-b-0">
+      <dt className="tm-label text-tm-t3">{label}</dt>
+      <dd className="truncate text-[13px] font-medium">{value}</dd>
     </div>
   );
 }

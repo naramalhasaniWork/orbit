@@ -64,7 +64,7 @@ export default async function MembersSettingsPage() {
   }));
 
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
+    <div className="max-w-4xl space-y-6">
       <div>
         <h2 className="text-balance text-[20px] font-medium leading-tight tracking-display">Team Members</h2>
         <p className="text-sm text-muted-foreground mt-1">
