@@ -170,15 +170,63 @@ export async function withSeatReserved<T>(
   take: (ws: WorkspaceScope) => Promise<T>
 ): Promise<SeatReservation<T>> {
   return scope.tx(async (ws) => {
-    const { workspaceId } = scope;
-    await lockWorkspace(ws, workspaceId);
-    if (!isSelfHosted()) {
-      const row = await ws.workspace.findUnique({ where: { id: workspaceId }, select: { tier: true, seatCount: true } });
-      if (!row) return { ok: false as const, decision: { allowed: false as const, code: "NOT_FOUND" as const, reason: "Workspace not found" } };
-      const decision = seatDecision(row.tier, row.seatCount, await countSeatsInUse(workspaceId, ws));
-      if (!decision.allowed) return { ok: false as const, decision };
-    }
+    await lockWorkspace(ws, scope.workspaceId);
+    const decision = await seatAvailable(ws, scope.workspaceId);
+    if (!decision.allowed) return { ok: false as const, decision };
     return { ok: true as const, value: await take(ws) };
+  });
+}
+
+/** Whether a seat is free right now; call under lockWorkspace for a decision that holds. */
+async function seatAvailable(ws: SeatDb, workspaceId: string): Promise<ConsumeDecision> {
+  if (isSelfHosted()) return { allowed: true };
+  const row = await ws.workspace.findUnique({ where: { id: workspaceId }, select: { tier: true, seatCount: true } });
+  if (!row) return { allowed: false, code: "NOT_FOUND", reason: "Workspace not found" };
+  return seatDecision(row.tier, row.seatCount, await countSeatsInUse(workspaceId, ws));
+}
+
+const REISSUABLE = ["pending", "expired"] as const;
+
+/**
+ * Re-issue an invitation (new token and expiry) in one transaction under the
+ * workspace lock. The invitation is re-read inside the lock; only a lapsed
+ * one needs a free seat. A lapsed invite is not among the live pending
+ * invites countSeatsInUse counts, so the check never counts its own seat.
+ * Concurrent re-issues of one lapsed invite therefore revive it once: the
+ * second sees it live again and only rotates the token.
+ */
+export async function reissueInvitation(
+  scope: WorkspaceScope,
+  invitationId: string,
+  fresh: { token: string; expiresAt: Date },
+  now: Date = new Date()
+) {
+  type Result =
+    | { ok: true; invitation: NonNullable<Awaited<ReturnType<WorkspaceScope["workspaceInvitation"]["findFirst"]>>> }
+    | { ok: false; decision: Extract<ConsumeDecision, { allowed: false }> };
+  const notFound: Result = {
+    ok: false,
+    decision: { allowed: false, code: "NOT_FOUND", reason: "Invitation not found or already processed" },
+  };
+  const { workspaceId } = scope;
+  return scope.tx(async (ws): Promise<Result> => {
+    await lockWorkspace(ws, workspaceId);
+    const where = { id: invitationId, workspaceId, status: { in: [...REISSUABLE] } };
+    const current = await ws.workspaceInvitation.findFirst({ where, select: { status: true, expiresAt: true } });
+    if (!current) return notFound;
+
+    if (current.status === "expired" || current.expiresAt <= now) {
+      const decision = await seatAvailable(ws, workspaceId);
+      if (!decision.allowed) return { ok: false, decision };
+    }
+
+    const { count } = await ws.workspaceInvitation.updateMany({
+      where,
+      data: { token: fresh.token, expiresAt: fresh.expiresAt, status: "pending" },
+    });
+    if (count === 0) return notFound;
+    const invitation = await ws.workspaceInvitation.findFirst({ where: { id: invitationId, workspaceId } });
+    return invitation ? { ok: true, invitation } : notFound;
   });
 }
 

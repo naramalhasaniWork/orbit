@@ -4,8 +4,7 @@
  */
 
 import { assertCanManageRole } from "@/lib/auth/rbac";
-import { withSeatReserved } from "@/lib/auth/tenant";
-import type { WorkspaceScope } from "@/server/data/scope";
+import { reissueInvitation } from "@/lib/auth/tenant";
 import { writeAuditLog } from "@/lib/auth/audit";
 import { apiSuccess, apiError } from "@/lib/utils/api";
 import { newInviteExpiry, newInviteToken } from "@/lib/invitations";
@@ -25,30 +24,16 @@ export const POST = route(
     // Same ceiling as creating an invite: you cannot re-issue an invite for a role at or above your own
     assertCanManageRole(session.role, invitation.role);
 
-    const revive = (ws: WorkspaceScope) =>
-      ws.workspaceInvitation.update({
-        where: { id: invitation.id },
-        data: {
-          token: newInviteToken(),
-          expiresAt: newInviteExpiry(),
-          status: "pending",
-        },
-      });
-
-    // A lapsed invitation no longer holds a seat, so reviving it needs room
-    // again: checked and taken under the workspace lock, like a new invite
-    const lapsed = invitation.status === "expired" || invitation.expiresAt <= new Date();
-    let updated;
-    if (lapsed) {
-      const reserved = await withSeatReserved(db, revive);
-      if (!reserved.ok) {
-        const { reason, code } = reserved.decision;
-        return apiError(reason, code, code === "NOT_FOUND" ? 404 : 403);
-      }
-      updated = reserved.value;
-    } else {
-      updated = await revive(db);
+    // Re-read, seat check (lapsed invites only) and update all happen under the workspace lock
+    const result = await reissueInvitation(db, invitation.id, {
+      token: newInviteToken(),
+      expiresAt: newInviteExpiry(),
+    });
+    if (!result.ok) {
+      const { reason, code } = result.decision;
+      return apiError(reason, code, code === "NOT_FOUND" ? 404 : 403);
     }
+    const updated = result.invitation;
 
     const emailResult = await deliverInviteEmail(workspaceId, updated, session.user.name ?? null);
 
