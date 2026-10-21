@@ -1,37 +1,62 @@
 # Orbit
 
-**Your Codebase Already Knows What to Test**
+**Know what this PR broke before you merge it.**
 
-Orbit is an AI-native testing platform that reads your repo, understands your application architecture, and generates a complete test suite — then executes it in real browsers against your staging environment. No test engineers. No hand-written scripts. Autonomous QA that updates every time your code changes.
+Orbit reads the diff, works out which user journeys it touches, and walks them in a real browser on your
+preview deployment. What broke lands on the PR in plain English, with the recording and the line that
+caused it. It runs on your infrastructure with your model key. Open source (AGPL-3.0).
 
-## What It Does
+![A failed run in Orbit: the failure explained first, then the suggested fix, with one tick per test](docs/images/run-failure.png)
 
-1. **Connect your repo** via GitHub OAuth
-2. **Orbit indexes it** in under 2 minutes — detecting frameworks, routes, components, APIs, auth flows, and data models
-3. **A test plan appears** — prioritized by criticality, risk, and coverage gaps
-4. **Tests run in real browsers** — navigating your app, filling forms, clicking buttons, verifying outcomes
-5. **Results land where you work** — GitHub PR checks, Linear comments, Slack notifications, VS Code inline
+## Quickstart
 
-## Key Features
+**Railway.** Deploy the services described in [docs/self-hosting/railway.md](./docs/self-hosting/railway.md)
+(web, Postgres with pgvector, Redis, browserless), then follow
+[docs/self-hosting/first-run.md](./docs/self-hosting/first-run.md): the `/setup` checklist, one GitHub App,
+and the first sign-in becomes the admin.
 
-- **System Map** — Interactive graph of your entire application architecture, built from AST parsing with tree-sitter
-- **AI Test Generation** — Prioritized test cases covering user journeys, API contracts, auth flows, forms, and edge cases
-- **Real Browser Execution** — Playwright + Stagehand running tests in actual Chromium instances
-- **Self-Healing Selectors** — AI adapts to UI changes automatically; no broken tests from CSS refactors
-- **Continuous on Every PR** — Diff-aware regression runs targeting only changed code paths
-- **AI Failure Analysis** — Plain-English explanations of what broke, why, and how to fix it
-- **Integrations** — GitHub Checks, Linear, Slack, VS Code extension, CLI, MCP server
+**Docker Compose.**
+
+```bash
+cp .env.selfhost.example .env     # secrets, GitHub App, model key
+docker compose up -d
+```
+
+Open the app, finish `/setup`, sign in. The same [first-run guide](./docs/self-hosting/first-run.md) applies
+from step 2.
+
+## How it works
+
+1. **Map.** Routes, components, API calls and data models become a dependency graph (tree-sitter), rebuilt on every push.
+2. **Scope.** On a pull request, changed files are walked up the graph to the journeys a user would notice.
+3. **Run.** A real Chromium walks each journey on the PR's preview (Railway PR environments, Cloudflare Pages, including behind Cloudflare Access).
+4. **Explain.** One GitHub check with the cause, the step it failed at, screenshots and a suggested fix. Linear and Slack if you want them.
+5. **Replay.** A case's first passing run is compiled into a replay script; later runs replay it with zero model calls.
+
+## How it compares
+
+An honest sketch of the trade-offs, not a feature war.
+
+| | Orbit | Playwright with an AI agent | Hosted AI QA services |
+|---|---|---|---|
+| Who writes the tests | Planned from the code map; you review and edit | You (the agent helps write specs) | The vendor's agent, from your app's UI |
+| What runs on a PR | Journeys the diff can reach | Your whole suite, or what you select | Usually the whole suite, or a schedule |
+| Where it runs | Your infrastructure | Your CI | Their cloud |
+| Your code leaves your infra | No | No | Typically yes, or the app is crawled |
+| Model cost | Your key, visible per run; replays cost no model calls | Your key, while authoring | Bundled into their price |
+| Maintenance when the UI changes | Agent heals a diverged step and saves the new version | You update selectors and specs | The vendor's agent |
 
 ## Architecture
 
-Orbit uses a four-agent system where specialized AI agents handle distinct phases:
+One Next.js service (web and BullMQ workers in-process, or split with `ORBIT_ROLE`), Postgres with pgvector,
+Redis and a headless browser.
 
-| Agent | Role | Model |
-|-------|------|-------|
-| **Analyst** | Indexes repos, builds the System Map | Haiku (fast classification) |
-| **Planner** | Generates prioritized test plans | Sonnet (reasoning) |
-| **Executor** | Runs tests in real browsers | Sonnet + Vision |
-| **Reporter** | Synthesizes results, posts reports | Sonnet (writing) |
+- **Indexing** (`src/services/indexing/`): clone, framework detection, tree-sitter parsing, System Map.
+- **Planning** (`src/services/planning/`): journeys, prioritised test cases, diff scoping.
+- **Execution** (`src/server/engine/`, `src/services/execution/`): one case runner, Playwright over CDP, compile-and-replay.
+- **Reporting** (`src/services/reporting/`): failure analysis, GitHub checks and comments, Linear, Slack.
+- **Previews** (`src/services/preview/`): Railway and Cloudflare Pages preview discovery and binding.
+- **MCP** (`src/services/mcp/`): an MCP server for coding agents, and MCP tools callable during a test.
 
 ### Compile-and-replay
 
@@ -46,11 +71,11 @@ Later runs replay the script with zero model calls. When a step diverges, the ag
 - **Framework:** Next.js 14+ App Router (TypeScript strict)
 - **Database:** PostgreSQL + pgvector for semantic retrieval
 - **Queue:** BullMQ on Redis
-- **Browser Automation:** Playwright + Stagehand (Browserbase)
-- **AST Parsing:** tree-sitter (100+ languages)
-- **AI Providers:** Anthropic Claude + OpenAI (model routing per task)
+- **Browser automation:** Playwright over CDP (browserless or local Chromium)
+- **AST parsing:** tree-sitter, with a regex fallback
+- **AI providers:** Anthropic, OpenAI or OpenRouter, routed per task; bring your own key
 - **Auth:** NextAuth with GitHub OAuth
-- **Real-time:** Socket.io for live run progress
+- **Real-time:** Server-Sent Events for live run progress
 
 ## Project Structure
 
@@ -75,7 +100,8 @@ src/
     reporting/        # Results synthesis, report generation
     orchestrator/     # Multi-agent coordination, token budgets
     integrations/     # Linear, GitHub, Slack connectors
-    mcp/              # MCP server for editor integrations
+    mcp/              # MCP server for coding agents, MCP tools during tests
+    preview/          # Railway and Cloudflare Pages preview discovery
     ai-suggestions/   # AI-powered test suggestions
   workers/            # BullMQ job processors
   types/              # Shared TypeScript interfaces
@@ -93,7 +119,7 @@ src/
 ### Setup
 
 ```bash
-git clone https://github.com/your-org/orbit.git
+git clone https://github.com/naramalhasaniWork/orbit.git
 cd orbit
 pnpm install
 
@@ -181,4 +207,10 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md) for development setup, coding standards
 
 ## License
 
-Proprietary. Copyright Naram Alhasani. All rights reserved.
+Orbit's core is open source under the [GNU AGPL-3.0](./LICENSE). Self-hosting is free, with every feature
+and no usage limits.
+
+Code under [`ee/`](./ee/) is a commercial add-on under its own license ([`ee/LICENSE`](./ee/LICENSE)); it is not
+needed to self-host Orbit.
+
+Copyright © 2026 Naram Alhasani.
