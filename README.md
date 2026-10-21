@@ -181,4 +181,9 @@ See [CONTRIBUTING.md](./CONTRIBUTING.md) for development setup, coding standards
 
 ## License
 
-Proprietary. Copyright Naram Alhasani. All rights reserved.
+Copyright (c) 2026 Naram Alhasani.
+
+- The core (everything outside `src/ee/`) is [AGPL-3.0-only](./LICENSE).
+- `src/ee/` is under the commercial [Orbit Enterprise License](./src/ee/LICENSE): free for development and testing, a subscription for production use.
+
+Self-hosting the core is free. See [COPYRIGHT](./COPYRIGHT) for the split and [CONTRIBUTING.md](./CONTRIBUTING.md#license-and-cla) for the contributor license agreement.

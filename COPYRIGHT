@@ -1,0 +1,12 @@
+Copyright (c) 2026 Naram Alhasani
+
+Orbit is dual-licensed:
+
+- Everything in this repository outside the `src/ee/` directory is licensed
+  under the GNU Affero General Public License, version 3 only
+  (SPDX-License-Identifier: AGPL-3.0-only). See LICENSE.
+
+- Everything in the `src/ee/` directory is licensed under the Orbit Enterprise
+  License. See src/ee/LICENSE.
+
+Third-party components keep their own licenses.
