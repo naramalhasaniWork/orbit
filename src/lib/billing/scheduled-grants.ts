@@ -84,8 +84,15 @@ export function grantDueAnnualCredits(now: Date = new Date()): Promise<number> {
       ? await tx.subscription.findFirst({ where: { stripeSubscriptionId: ws.stripeSubscriptionId }, select: { status: true } })
       : null;
     if (subscription?.status !== "active" && subscription?.status !== "trialing") return false;
+    // The mirrored status alone isn't proof of payment: the billing period itself must be paid
+    if (!ws.billingPeriodStart) return false;
+    const paid = await tx.invoice.findFirst({
+      where: { workspaceId: id, status: "paid", periodStart: { lte: ws.billingPeriodStart }, periodEnd: { gt: ws.billingPeriodStart } },
+      select: { id: true },
+    });
+    if (!paid) return false;
 
-    const start = currentPeriodStart(ws.billingPeriodStart ?? ws.creditsPeriodStart, now);
+    const start = currentPeriodStart(ws.billingPeriodStart, now);
     if (ws.billingPeriodEnd && start >= ws.billingPeriodEnd) return false; // the renewal invoice grants
     if (start <= ws.creditsPeriodStart) return false;
 

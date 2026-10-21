@@ -96,6 +96,8 @@ export function createFakeCreditDb(
         },
       },
       testRun: { update: async () => ({}) },
+      // A paid invoice covering the billing period, when a test sets extra.paidInvoice
+      invoice: { findFirst: async () => (workspace.paidInvoice ? { id: "inv-row" } : null) },
       // The workspace's subscription row, when a test sets extra.subscriptionStatus
       subscription: {
         findFirst: async () => (workspace.subscriptionStatus ? { status: workspace.subscriptionStatus } : null),

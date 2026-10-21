@@ -110,6 +110,13 @@ export async function handleInvoicePaid(invoice: Stripe.Invoice) {
 
   if (!workspace) return;
 
+  // A subscription invoice records the service period its plan line bills
+  // (Stripe's invoice-level period is the previous one), so a paid invoice
+  // row says which billing period was actually paid for
+  const plan = getInvoicedPlan(invoice);
+  const periodStart = plan?.period.start ?? new Date(invoice.period_start * 1000);
+  const periodEnd = plan?.period.end ?? new Date(invoice.period_end * 1000);
+
   await prisma.invoice.upsert({
     where: { stripeInvoiceId: invoice.id },
     create: {
@@ -119,13 +126,15 @@ export async function handleInvoicePaid(invoice: Stripe.Invoice) {
       currency: invoice.currency,
       status: invoice.status ?? "paid",
       pdfUrl: invoice.invoice_pdf ?? null,
-      periodStart: new Date(invoice.period_start * 1000),
-      periodEnd: new Date(invoice.period_end * 1000),
+      periodStart,
+      periodEnd,
     },
     update: {
       amount: invoice.amount_paid,
       status: invoice.status ?? "paid",
       pdfUrl: invoice.invoice_pdf ?? null,
+      periodStart,
+      periodEnd,
     },
   });
 
@@ -142,7 +151,6 @@ export async function handleInvoicePaid(invoice: Stripe.Invoice) {
 
   // Grant from what this invoice billed, not the synced workspace fields:
   // the first invoice.paid can arrive before the subscription sync.
-  const plan = getInvoicedPlan(invoice);
   if (!plan) return; // not a subscription invoice (or unknown price)
   const grant = getMonthlyCreditGrant(plan.tier, plan.seats);
   if (!grant || grant <= 0) return; // unlimited tier
@@ -214,6 +222,8 @@ export async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
  */
 export async function handleSubscriptionUpdated(event: Stripe.Subscription) {
   const subscription = await stripe.subscriptions.retrieve(event.id);
+  // A first payment that never completed ends the subscription; Stripe sends no deleted event for it
+  if (subscription.status === "incomplete_expired") return endSubscription(subscription);
   // A cancellation is handled once, by customer.subscription.deleted
   if (subscription.status === "canceled") return;
 
@@ -251,8 +261,12 @@ export async function handleSubscriptionUpdated(event: Stripe.Subscription) {
 
 export async function handleSubscriptionDeleted(event: Stripe.Subscription) {
   const subscription = await stripe.subscriptions.retrieve(event.id);
-  if (subscription.status !== "canceled") return;
+  if (subscription.status !== "canceled" && subscription.status !== "incomplete_expired") return;
+  await endSubscription(subscription);
+}
 
+/** Downgrade to Free when an ended subscription is still the workspace's current one. */
+async function endSubscription(subscription: Stripe.Subscription) {
   const customerId = typeof subscription.customer === "string"
     ? subscription.customer
     : subscription.customer?.id;

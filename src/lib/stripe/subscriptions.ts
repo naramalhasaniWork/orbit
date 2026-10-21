@@ -158,18 +158,25 @@ export async function downgradeToFree(workspaceId: string) {
   });
 }
 
-function mapStripeStatus(
-  status: string
-): "active" | "past_due" | "canceled" | "trialing" | "incomplete" | "unpaid" {
-  const statusMap: Record<string, "active" | "past_due" | "canceled" | "trialing" | "incomplete" | "unpaid"> = {
-    active: "active",
-    past_due: "past_due",
-    canceled: "canceled",
-    trialing: "trialing",
-    incomplete: "incomplete",
-    unpaid: "unpaid",
-  };
-  return statusMap[status] ?? "active";
+type MirroredStatus = "active" | "past_due" | "canceled" | "trialing" | "incomplete" | "unpaid";
+
+/** Stripe statuses we mirror as-is or map; nothing outside this list may become granting. */
+const STATUS_ALLOWLIST: Record<string, MirroredStatus> = {
+  active: "active",
+  trialing: "trialing",
+  past_due: "past_due",
+  unpaid: "unpaid",
+  incomplete: "incomplete",
+  canceled: "canceled",
+  incomplete_expired: "canceled",
+};
+
+/**
+ * Fails closed: paused, or any status Stripe adds later, is stored as unpaid,
+ * which grants nothing and lets the subscription be reactivated by a later sync.
+ */
+export function mapStripeStatus(status: string): MirroredStatus {
+  return STATUS_ALLOWLIST[status] ?? "unpaid";
 }
 
 export async function getSubscriptionForWorkspace(workspaceId: string) {

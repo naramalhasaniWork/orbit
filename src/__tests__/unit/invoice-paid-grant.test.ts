@@ -96,6 +96,15 @@ describe("handleInvoicePaid credit grant", () => {
     });
   });
 
+  it("records the plan line's service period on the invoice row, not Stripe's invoice-level period", async () => {
+    useFake({ current: 0 });
+    await handleInvoicePaid(invoice([{ price: "price_pro", quantity: 1 }]));
+    const upsert = (prisma as unknown as { invoice: { upsert: ReturnType<typeof vi.fn> } }).invoice.upsert;
+    expect(upsert.mock.calls[0][0].create).toMatchObject({
+      periodStart: new Date(1_760_000_000_000), periodEnd: new Date(PERIOD_END * 1000),
+    });
+  });
+
   it("ignores proration lines", async () => {
     const fake = useFake({ current: 0, granted: 0 });
 

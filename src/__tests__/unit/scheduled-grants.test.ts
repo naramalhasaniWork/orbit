@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createFakeCreditDb } from "../helpers/fake-credit-db";
 
 vi.mock("@/lib/self-host", () => ({ isSelfHosted: () => false }));
+vi.mock("@/lib/stripe/client", () => ({ stripe: {} }));
 vi.mock("@/lib/db", () => ({
   prisma: { workspace: { findMany: vi.fn() }, $transaction: vi.fn() },
 }));
@@ -17,6 +18,7 @@ vi.mock("@/lib/stripe/prices", async (importOriginal) => {
 import { prisma } from "@/lib/db";
 import { TIER_LIMITS } from "@/lib/auth/tier-limits";
 import { resetDueFreeCredits, grantDueAnnualCredits } from "@/lib/billing/scheduled-grants";
+import { mapStripeStatus } from "@/lib/stripe/subscriptions";
 
 const db = prisma as unknown as {
   workspace: { findMany: ReturnType<typeof vi.fn> };
@@ -77,7 +79,7 @@ describe("Free monthly reset", () => {
 
 describe("annual plans' monthly grant", () => {
   const annual = {
-    tier: "starter", stripePriceId: "price_pro_annual", stripeSubscriptionId: "sub_1", subscriptionStatus: "active",
+    tier: "starter", stripePriceId: "price_pro_annual", stripeSubscriptionId: "sub_1", subscriptionStatus: "active", paidInvoice: true,
     seatCount: 3, billingPeriodStart: new Date("2026-07-10T00:00:00Z"), billingPeriodEnd: new Date("2027-07-10T00:00:00Z"),
     creditsPeriodStart: new Date("2026-09-10T00:00:00Z"),
   };
@@ -116,4 +118,27 @@ describe("annual plans' monthly grant", () => {
     expect(await grantDueAnnualCredits(now)).toBe(0);
     expect(fake.rows).toHaveLength(0);
   });
+
+  it("grants nothing without a paid invoice covering the billing period", async () => {
+    const fake = useFake({ current: 400, extra: { ...annual, paidInvoice: false } });
+    expect(await grantDueAnnualCredits(now)).toBe(0);
+    expect(fake.rows).toHaveLength(0);
+  });
+
+  it.each(["paused", "some_future_status"])("a %s subscription grants nothing (status mapping fails closed)", async (status) => {
+    const fake = useFake({ current: 400, extra: { ...annual, subscriptionStatus: mapStripeStatus(status) } });
+    expect(await grantDueAnnualCredits(now)).toBe(0);
+    expect(fake.rows).toHaveLength(0);
+  });
 });
+
+describe("mapStripeStatus", () => {
+  it("allowlists known statuses and maps incomplete_expired to canceled", () => {
+    expect(mapStripeStatus("active")).toBe("active");
+    expect(mapStripeStatus("trialing")).toBe("trialing");
+    expect(mapStripeStatus("incomplete_expired")).toBe("canceled");
+    expect(mapStripeStatus("paused")).toBe("unpaid");
+    expect(mapStripeStatus("whatever")).toBe("unpaid");
+  });
+});
+

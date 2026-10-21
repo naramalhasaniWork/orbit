@@ -70,4 +70,18 @@ describe("subscription events sync from Stripe's current state", () => {
     await handleSubscriptionDeleted(sub(2, "canceled"));
     expect(downgradeToFree).toHaveBeenCalledWith("ws-1");
   });
+
+  it("incomplete_expired downgrades, but only the workspace's current subscription", async () => {
+    retrieve.mockResolvedValue(sub(2, "incomplete_expired"));
+
+    db.workspace.findFirst.mockResolvedValue({ id: "ws-1", stripeSubscriptionId: "sub_new" });
+    await handleSubscriptionUpdated(sub(2, "incomplete"));
+    expect(downgradeToFree).not.toHaveBeenCalled();
+
+    db.workspace.findFirst.mockResolvedValue({ id: "ws-1", stripeSubscriptionId: "sub_1" });
+    await handleSubscriptionUpdated(sub(2, "incomplete"));
+    expect(downgradeToFree).toHaveBeenCalledWith("ws-1");
+    expect(syncSubscriptionToWorkspace).not.toHaveBeenCalled();
+  });
 });
+
