@@ -2,6 +2,7 @@
 
 import { Pending } from "@/components/telemetry/pending";
 import { useState, useCallback } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ClipboardList, Plus } from "lucide-react";
 import { AnimatePresence } from "framer-motion";
@@ -65,7 +66,12 @@ export function PlansClient({
       <EmptyState
         icon={ClipboardList}
         title="No project selected"
-        description="Connect a repository first to generate test plans."
+        description="Plans come from a repository's System Map: connect one and Orbit writes tests for its riskiest journeys."
+        action={
+          <Button asChild>
+            <Link href="/dashboard/onboarding">Connect a repository</Link>
+          </Button>
+        }
       />
     );
   }
@@ -91,7 +97,11 @@ export function PlansClient({
         <EmptyState
           icon={ClipboardList}
           title="No test plans yet"
-          description={isIndexed ? "Generate your first test plan from the indexed system map." : NOT_INDEXED_HINT}
+          description={
+            isIndexed
+              ? "Orbit reads the System Map and writes tests for the journeys most likely to break, with why for each."
+              : NOT_INDEXED_HINT
+          }
           action={
             <Button
               className="bg-primary hover:bg-primary/85 text-primary-foreground gap-2"

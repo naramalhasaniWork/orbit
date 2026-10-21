@@ -2,6 +2,7 @@
 
 import { Pending } from "@/components/telemetry/pending";
 import { useState, useMemo, useCallback } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Play, Filter, ChevronLeft, ChevronRight } from "lucide-react";
@@ -116,7 +117,12 @@ export function RunsClient({
       <EmptyState
         icon={Play}
         title="No project selected"
-        description="Connect a repository first to run tests."
+        description="Runs belong to a project: connect a repository and Orbit plans what to test in it."
+        action={
+          <Button asChild>
+            <Link href="/dashboard/onboarding">Connect a repository</Link>
+          </Button>
+        }
       />
     );
   }
@@ -190,7 +196,13 @@ export function RunsClient({
           <EmptyState
             icon={Play}
             title="No runs yet"
-            description="Trigger your first test run to see results here."
+            description="A run walks every planned journey in a real browser and explains, in plain English, anything that breaks."
+            action={
+              <Button onClick={handleStartRun} disabled={startingRun} aria-busy={startingRun || undefined}>
+                <Play aria-hidden="true" />
+                {startingRun ? "Starting" : "Start the first run"}
+              </Button>
+            }
           />
         )
       ) : (

@@ -44,10 +44,19 @@ export function IntegrationSettings({ workspaceId, integrations: initial, previe
     }));
   }
 
+  const noneConnected =
+    !integrations.github?.connected &&
+    !integrations.linear?.connected &&
+    !integrations.slack?.connected &&
+    !Object.values(previewConnections).some((p) => p.connection);
+
   return (
     <div className="space-y-4">
-      <p className="text-xs text-muted-foreground">
-        Connect external services to enable automated reporting, issue tracking, and notifications.
+      {/* A fresh workspace: say what the first connection buys; its button is the GitHub card's. */}
+      <p className={noneConnected ? "text-pretty text-[13px] text-foreground" : "text-xs text-muted-foreground"}>
+        {noneConnected
+          ? "Nothing is connected yet. Start with GitHub: Orbit then tests the journeys each pull request touches and posts the result as a check."
+          : "Connect external services to enable automated reporting, issue tracking, and notifications."}
       </p>
 
       <GitHubCard
