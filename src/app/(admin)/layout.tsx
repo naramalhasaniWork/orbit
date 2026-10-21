@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { AdminSidebar } from "@/components/admin/admin-sidebar";
 import { AdminSignOut } from "@/components/admin/admin-sign-out";
+import { countOpenBugReports } from "@/server/data/bug-report-repo";
 
 // Private: never indexed, whatever robots.txt says.
 export const metadata: Metadata = { robots: { index: false, follow: false } };
@@ -23,9 +24,11 @@ export default async function AdminLayout({
   const userRole = (session as { userRole?: string } | null)?.userRole;
   if (userRole !== "super_admin") redirect("/dashboard");
 
+  const openReports = await countOpenBugReports();
+
   return (
     <div className="flex h-dvh surface-0 overflow-hidden">
-      <AdminSidebar />
+      <AdminSidebar counts={{ "/admin/reports": openReports }} />
       <div className="flex flex-col flex-1 min-w-0">
         <header className="flex h-[52px] items-center justify-between border-b border-border bg-card px-6">
           <div className="flex items-center gap-2">

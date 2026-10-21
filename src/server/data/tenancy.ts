@@ -131,6 +131,8 @@ export const GLOBAL_MODELS: ReadonlySet<string> = new Set([
   "ModelRegistry",
   "GlobalModelPolicy",
   "JobFailure",
+  // A platform support inbox read by super admins across workspaces; workspaceId is informational.
+  "BugReport",
 ]);
 
 const WHERE_OPS = new Set([
