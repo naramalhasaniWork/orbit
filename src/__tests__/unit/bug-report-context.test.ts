@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
 import { redactSecrets, sanitizeClientContext, sanitizePath } from "@/lib/bug-reports/context";
 import { sniffScreenshotType } from "@/lib/bug-reports/screenshot";
 import { recentConsoleErrors, recordConsoleError } from "@/lib/bug-reports/console-buffer";
@@ -43,6 +43,36 @@ describe("console ring buffer", () => {
     expect(recent).toHaveLength(20);
     expect(recent[19]).toContain("boom 24");
     expect(recent.join("\n")).not.toContain("token=abc");
+  });
+});
+
+describe("installConsoleBuffer", () => {
+  const realError = console.error;
+  afterEach(() => {
+    console.error = realError;
+    vi.unstubAllGlobals();
+    vi.resetModules();
+  });
+
+  it("wraps console.error and adds the window listeners once, however often it is called", async () => {
+    const target = new EventTarget();
+    const addEventListener = vi.spyOn(target, "addEventListener");
+    vi.stubGlobal("window", target);
+    const sink = vi.fn();
+    console.error = sink;
+    vi.resetModules();
+    const fresh = await import("@/lib/bug-reports/console-buffer");
+
+    fresh.installConsoleBuffer();
+    const wrapped = console.error;
+    fresh.installConsoleBuffer();
+    fresh.installConsoleBuffer();
+
+    expect(console.error).toBe(wrapped);
+    expect(addEventListener).toHaveBeenCalledTimes(2);
+    console.error("once only");
+    expect(sink).toHaveBeenCalledOnce();
+    expect(fresh.recentConsoleErrors().filter((e) => e.endsWith("once only"))).toHaveLength(1);
   });
 });
 

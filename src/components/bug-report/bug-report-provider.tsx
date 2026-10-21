@@ -31,6 +31,8 @@ export function BugReportProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   useShortcutAction("bug", () => openBugReport());
+  // Stable, so re-renders while the toast is up don't restart its timer.
+  const hideToast = useCallback(() => setSentAt(null), []);
 
   const value = useMemo(() => ({ openBugReport }), [openBugReport]);
 
@@ -46,7 +48,7 @@ export function BugReportProvider({ children }: { children: React.ReactNode }) {
           setSentAt(Date.now());
         }}
       />
-      <SentToast sentAt={sentAt} onDone={() => setSentAt(null)} />
+      <SentToast sentAt={sentAt} onDone={hideToast} />
     </BugReportContext.Provider>
   );
 }
