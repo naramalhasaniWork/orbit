@@ -5,7 +5,9 @@ export function LandingHero() {
   return (
     <section className="mx-auto grid max-w-[1240px] grid-cols-1 items-end gap-12 px-4 pb-10 pt-16 sm:px-8 lg:grid-cols-2">
       <div className="flex flex-col gap-5">
-        <span className="tm-label text-tm-t3">AI QA for pull requests · Open source (AGPL-3.0)</span>
+        <span className="tm-label text-tm-t3">
+          AI QA for pull requests · <span className="whitespace-nowrap">Open source (AGPL-3.0)</span>
+        </span>
         <h1 className="text-balance text-[clamp(44px,6.2vw,80px)] font-medium leading-[0.94] tracking-[-0.05em] motion-safe:animate-slide-up">
           {SITE.headline}
         </h1>

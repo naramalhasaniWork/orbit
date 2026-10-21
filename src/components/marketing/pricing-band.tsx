@@ -16,7 +16,7 @@ function bandTiers(): BandTier[] {
   const team = getTierConfig("professional");
   const annual = (n: number | null) => (n ? `$${n}/seat/mo billed annually` : undefined);
   return [
-    { label: "Self-hosted", price: "Free", body: "Every feature on your infrastructure, with your model key. No usage limits." },
+    { label: "Self-hosted", price: "Free", body: "The open-source core on your infrastructure, with your model key. No usage limits." },
     { label: pro.name, price: `$${pro.priceMonthly}`, unit: " / seat / mo", note: annual(pro.priceAnnual), body: "Managed browsers and model, GitHub, Linear and Slack." },
     { label: team.name, price: `$${team.priceMonthly}`, unit: " / seat / mo", note: annual(team.priceAnnual), body: "Roles and permissions, audit logs, priority support." },
     { label: getTierConfig("enterprise").name, price: "Contact", body: "Dedicated infrastructure, data residency and an SLA." },
