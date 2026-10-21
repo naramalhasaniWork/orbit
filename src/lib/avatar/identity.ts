@@ -27,7 +27,8 @@ export function avatarToneStyle(tone: AvatarTone): { backgroundColor: string; co
   return { backgroundColor: `hsl(var(--tm-avatar-${tone}-bg))`, color: `hsl(var(--tm-avatar-${tone}-fg))` };
 }
 
-const WORD_START = /^[\p{L}\p{N}]/u;
+// Constructed so the es5 compile target accepts the unicode flag.
+const WORD_START = new RegExp("^[\\p{L}\\p{N}]", "u");
 
 /** First grapheme of a word, upper-cased; only words that start with a letter or digit count. */
 function firstGlyph(word: string): string | null {
