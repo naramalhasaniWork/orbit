@@ -76,11 +76,11 @@ describe("updateSeatCount", () => {
     });
   });
 
-  it("credits a decrease on the next invoice", async () => {
+  it("does not prorate a decrease: removed seats stop billing at renewal", async () => {
     await updateSeatCount("sub_1", 2);
     expect(stripeSubs.update).toHaveBeenCalledWith("sub_1", {
       items: [{ id: "si_1", quantity: 2 }],
-      proration_behavior: "create_prorations",
+      proration_behavior: "none",
     });
   });
 });

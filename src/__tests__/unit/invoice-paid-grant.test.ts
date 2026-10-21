@@ -36,7 +36,7 @@ const db = prisma as unknown as {
 const PER_SEAT = TIER_LIMITS.starter.monthlyCredits;
 const PERIOD_END = 1_762_600_000;
 
-interface LineSpec { price: string; quantity: number; proration?: boolean; amount?: number }
+interface LineSpec { price: string; quantity: number; proration?: boolean; amount?: number; item?: string }
 
 function invoice(lines: LineSpec[], id = "in_1", billingReason = "subscription_cycle"): Stripe.Invoice {
   return {
@@ -54,10 +54,10 @@ function invoice(lines: LineSpec[], id = "in_1", billingReason = "subscription_c
         quantity: l.quantity,
         amount: l.amount ?? 7900,
         period: { start: 1_760_000_000, end: PERIOD_END },
-        pricing: { type: "price_details", price_details: { price: l.price, product: "prod_1" } },
+        pricing: { type: "price_details", price_details: { price: l.price, product: "prod_1" }, unit_amount_decimal: "7900" },
         parent: {
           type: "subscription_item_details",
-          subscription_item_details: { proration: l.proration ?? false, subscription: "sub_1" },
+          subscription_item_details: { proration: l.proration ?? false, subscription: "sub_1", subscription_item: l.item ?? "si_1" },
         },
       })),
     },
@@ -134,8 +134,8 @@ describe("handleInvoicePaid credit grant", () => {
     const fake = useFake({ current: 500, granted: PER_SEAT });
 
     await handleInvoicePaid(invoice([
-      { price: "price_pro", quantity: 2, proration: true, amount: -3950 },
-      { price: "price_pro", quantity: 5, proration: true, amount: 9875 },
+      { price: "price_pro", quantity: 2, proration: true, amount: -7900 },
+      { price: "price_pro", quantity: 5, proration: true, amount: 19750 },
     ], "in_seats", "subscription_update"));
 
     expect(grantAddedSeatCredits).toHaveBeenCalledWith({
@@ -171,4 +171,28 @@ describe("handleInvoicePaid credit grant", () => {
     // One month's grant, not twelve
     expect(fake.rows.at(-1)?.amount).toBe(PER_SEAT * 2);
   });
+
+  describe("seat-change invoices that can't be accounted for grant nothing", () => {
+    const up = (lines: LineSpec[]) => invoice(lines, "in_odd", "subscription_update");
+    const credit = { price: "price_pro", quantity: 2, proration: true, amount: -7900 };
+    const charge = { price: "price_pro", quantity: 5, proration: true, amount: 19750 };
+
+    it.each([
+      ["an extra proration line", [credit, charge, { ...charge, quantity: 1, amount: 3950 }]],
+      ["a missing credit line", [charge]],
+      ["lines on different subscription items", [credit, { ...charge, item: "si_2" }]],
+      ["lines on different prices", [{ ...credit, price: "price_pro_annual" }, charge]],
+      ["a net amount that doesn't match the added seats", [credit, { ...charge, amount: 30000 }]],
+    ])("%s", async (_label, lines) => {
+      useFake({ current: 500 });
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+      await handleInvoicePaid(up(lines as LineSpec[]));
+
+      expect(grantAddedSeatCredits).not.toHaveBeenCalled();
+      expect(warn).toHaveBeenCalledWith(expect.stringContaining("no seat credits granted"));
+      warn.mockRestore();
+    });
+  });
 });
+

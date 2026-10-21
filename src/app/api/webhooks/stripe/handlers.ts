@@ -131,8 +131,12 @@ export async function handleInvoicePaid(invoice: Stripe.Invoice) {
 
   // A paid seat increase grants the added seats' credits for the rest of the period
   if (invoice.billing_reason === "subscription_update") {
-    const increase = getSeatIncrease(invoice);
-    if (increase) await grantAddedSeatCredits({ workspaceId: workspace.id, stripeInvoiceId: invoice.id, ...increase });
+    const seats = getSeatIncrease(invoice);
+    if ("increase" in seats) {
+      await grantAddedSeatCredits({ workspaceId: workspace.id, stripeInvoiceId: invoice.id, ...seats.increase });
+    } else {
+      console.warn(`[Stripe Webhook] invoice ${invoice.id}: no seat credits granted (${seats.rejected})`);
+    }
     return;
   }
 

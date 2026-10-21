@@ -61,7 +61,8 @@ export async function changeTier(
  * once and only takes effect when that invoice is paid
  * (pending_if_incomplete), so seats are never granted unpaid; the webhook
  * sync then raises seatCount and invoice.paid grants the prorated credits.
- * A decrease is credited on the next invoice.
+ * A decrease is not prorated: removed seats stop billing at renewal, so there
+ * is no mid-period refund and no credit clawback.
  */
 export async function updateSeatCount(subscriptionId: string, seats: number) {
   const subscription = await stripe.subscriptions.retrieve(subscriptionId);
@@ -76,7 +77,7 @@ export async function updateSeatCount(subscriptionId: string, seats: number) {
     items: [{ id: item.id, quantity: seats }],
     ...(increase
       ? { proration_behavior: "always_invoice", payment_behavior: "pending_if_incomplete" }
-      : { proration_behavior: "create_prorations" }),
+      : { proration_behavior: "none" }),
   });
 }
 

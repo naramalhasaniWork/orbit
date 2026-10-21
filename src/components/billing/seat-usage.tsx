@@ -87,7 +87,7 @@ export function SeatUsage({ workspaceId, seats, canChangeSeats, onChanged }: Sea
       )}
       {seats.seatBased && canChangeSeats && (
         <p className="text-[11px] text-muted-foreground">
-          Added seats are invoiced now (prorated) and apply once paid. You can&apos;t go below the seats in use.
+          Added seats are invoiced now (prorated) and apply once paid. Removed seats stop billing at renewal. You can&apos;t go below the seats in use.
         </p>
       )}
     </div>
