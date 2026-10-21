@@ -5,16 +5,6 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import type { RepoItem } from "../onboarding-types";
 
-const LANGUAGE_COLORS: Record<string, string> = {
-  TypeScript: "bg-tm-info",
-  JavaScript: "bg-tm-warn",
-  Go: "bg-tm-info",
-  Python: "bg-tm-warn",
-  Rust: "bg-tm-warn",
-  Ruby: "bg-tm-fail",
-  Java: "bg-tm-warn",
-  Unknown: "bg-tm-t3",
-};
 
 function formatUpdatedAt(dateStr: string): string {
   const diffMs = Date.now() - new Date(dateStr).getTime();
@@ -60,10 +50,8 @@ export function RepoList({ repos, selectedId, onSelect }: RepoListProps) {
               )}
             </div>
             <div className="flex items-center gap-3 text-xs text-muted-foreground">
-              <span className="flex items-center gap-1">
-                <span className={cn("h-2 w-2 rounded-full", LANGUAGE_COLORS[repo.language] ?? "bg-tm-t3")} />
-                {repo.language}
-              </span>
+              {/* Language is a category, not a status: no colour. */}
+              <span className="tm-label text-tm-t3">{repo.language}</span>
               <span className="flex items-center gap-1">
                 <Star className="h-3 w-3" />
                 {repo.stars}

@@ -1,4 +1,3 @@
-import { prisma } from "@/lib/db";
 import { apiSuccess, apiError } from "@/lib/utils/api";
 import { route } from "@/server/http/route";
 
@@ -40,15 +39,8 @@ const VALID_TYPES = new Set([
 
 export const POST = route(
   { permission: "plans.create" },
-  async ({ req: request, params: { projectId }, workspaceId }) => {
-    const project = await prisma.project.findFirst({
-      where: { id: projectId, workspaceId },
-      select: { id: true },
-    });
-
-    if (!project) {
-      return apiError("Project not found", "NOT_FOUND", 404);
-    }
+  async ({ req: request, params: { projectId }, workspaceId, db }) => {
+    const project = await db.project(projectId);
 
     const body = (await request.json()) as ImportBody;
 
@@ -97,7 +89,7 @@ export const POST = route(
     }
 
     // Get or create a new plan version
-    const latestPlan = await prisma.testPlan.findFirst({
+    const latestPlan = await project.testPlan.findFirst({
       where: { projectId },
       orderBy: { version: "desc" },
       select: { version: true },
@@ -106,13 +98,13 @@ export const POST = route(
     const newVersion = (latestPlan?.version ?? 0) + 1;
 
     // Deactivate existing plans
-    await prisma.testPlan.updateMany({
+    await project.testPlan.updateMany({
       where: { projectId, isActive: true },
       data: { isActive: false },
     });
 
     // Create new plan
-    const plan = await prisma.testPlan.create({
+    const plan = await project.testPlan.create({
       data: {
         projectId,
         version: newVersion,
@@ -127,7 +119,7 @@ export const POST = route(
     });
 
     // Create test cases
-    await prisma.testCase.createMany({
+    await project.testCase.createMany({
       data: validatedCases.map((tc) => ({
         testPlanId: plan.id,
         projectId,

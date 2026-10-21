@@ -1,4 +1,3 @@
-import { prisma } from "@/lib/db";
 import { apiSuccess, apiError } from "@/lib/utils/api";
 import {
   generateBehaviorDocs,
@@ -11,8 +10,8 @@ import { route } from "@/server/http/route";
 // Generate behavior documentation from test plans
 // ============================================================
 
-export const GET = route({}, async ({ req: request, params: { projectId }, workspaceId }) => {
-  const project = await prisma.project.findFirst({
+export const GET = route({}, async ({ req: request, params: { projectId }, workspaceId, db }) => {
+  const project = await db.project.findFirst({
     where: { id: projectId, workspaceId },
     select: { id: true, name: true },
   });

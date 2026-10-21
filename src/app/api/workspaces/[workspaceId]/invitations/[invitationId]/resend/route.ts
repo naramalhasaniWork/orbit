@@ -3,10 +3,9 @@
  * Rotates the token (invalidating the old link), extends the expiry and re-sends the email.
  */
 
-import { prisma } from "@/lib/db";
 import { assertCanManageRole } from "@/lib/auth/rbac";
 import { withSeatReserved } from "@/lib/auth/tenant";
-import type { Prisma } from "@/generated/prisma/client";
+import type { WorkspaceScope } from "@/server/data/scope";
 import { writeAuditLog } from "@/lib/auth/audit";
 import { apiSuccess, apiError } from "@/lib/utils/api";
 import { newInviteExpiry, newInviteToken } from "@/lib/invitations";
@@ -15,8 +14,8 @@ import { route } from "@/server/http/route";
 
 export const POST = route(
   { workspace: "param", permission: "members.invite" },
-  async ({ params: { invitationId }, workspaceId, session }) => {
-    const invitation = await prisma.workspaceInvitation.findFirst({
+  async ({ params: { invitationId }, workspaceId, session, db }) => {
+    const invitation = await db.workspaceInvitation.findFirst({
       where: { id: invitationId, workspaceId, status: { in: ["pending", "expired"] } },
     });
     if (!invitation) {
@@ -26,8 +25,8 @@ export const POST = route(
     // Same ceiling as creating an invite: you cannot re-issue an invite for a role at or above your own
     assertCanManageRole(session.role, invitation.role);
 
-    const revive = (db: Prisma.TransactionClient) =>
-      db.workspaceInvitation.update({
+    const revive = (ws: WorkspaceScope) =>
+      ws.workspaceInvitation.update({
         where: { id: invitation.id },
         data: {
           token: newInviteToken(),
@@ -41,14 +40,14 @@ export const POST = route(
     const lapsed = invitation.status === "expired" || invitation.expiresAt <= new Date();
     let updated;
     if (lapsed) {
-      const reserved = await withSeatReserved(workspaceId, revive);
+      const reserved = await withSeatReserved(db, revive);
       if (!reserved.ok) {
         const { reason, code } = reserved.decision;
         return apiError(reason, code, code === "NOT_FOUND" ? 404 : 403);
       }
       updated = reserved.value;
     } else {
-      updated = await revive(prisma);
+      updated = await revive(db);
     }
 
     const emailResult = await deliverInviteEmail(workspaceId, updated, session.user.name ?? null);

@@ -1,14 +1,13 @@
-import { prisma } from "@/lib/db";
 import { apiSuccess } from "@/lib/utils/api";
-import type { AgentPhase } from "@/generated/prisma/client";
+import type { AgentPhase } from "@/server/data/types";
 import { route } from "@/server/http/route";
 
 const VALID_PHASES: AgentPhase[] = ["analyst", "planner", "executor", "reporter", "auditor"];
 
 export const GET = route(
   { workspace: "param", permission: "settings.view" },
-  async ({ workspaceId }) => {
-    const versions = await prisma.promptVersion.findMany({
+  async ({ workspaceId, db }) => {
+    const versions = await db.promptVersion.findMany({
       where: { workspaceId, promptType: "user" },
       select: {
         agentPhase: true,

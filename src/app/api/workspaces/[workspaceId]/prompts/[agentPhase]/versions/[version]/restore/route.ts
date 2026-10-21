@@ -1,13 +1,12 @@
-import { prisma } from "@/lib/db";
 import { apiSuccess, apiError } from "@/lib/utils/api";
-import type { AgentPhase } from "@/generated/prisma/client";
+import type { AgentPhase } from "@/server/data/types";
 import { route } from "@/server/http/route";
 
 const VALID_PHASES: AgentPhase[] = ["analyst", "planner", "executor", "reporter", "auditor"];
 
 export const POST = route(
   { workspace: "param", permission: "settings.manage" },
-  async ({ params: { agentPhase, version: versionStr }, workspaceId }) => {
+  async ({ params: { agentPhase, version: versionStr }, workspaceId, db }) => {
     if (!VALID_PHASES.includes(agentPhase as AgentPhase)) {
       return apiError(
         "Invalid agentPhase. Must be one of: analyst, planner, executor, reporter, auditor",
@@ -21,7 +20,7 @@ export const POST = route(
       return apiError("Invalid version number", "VALIDATION_ERROR", 400);
     }
 
-    const targetVersion = await prisma.promptVersion.findFirst({
+    const targetVersion = await db.promptVersion.findFirst({
       where: {
         workspaceId,
         agentPhase: agentPhase as AgentPhase,
@@ -34,7 +33,7 @@ export const POST = route(
       return apiError("Version not found", "NOT_FOUND", 404);
     }
 
-    const restored = await prisma.$transaction(async (tx) => {
+    const restored = await db.tx(async (tx) => {
       await tx.promptVersion.updateMany({
         where: {
           workspaceId,

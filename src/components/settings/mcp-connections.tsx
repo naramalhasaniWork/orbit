@@ -77,8 +77,8 @@ export function McpConnections({ workspaceId }: McpConnectionsProps) {
   if (loading) {
     return (
       <div className="space-y-4">
-        <Skeleton className="h-48 w-full rounded-xl" />
-        <Skeleton className="h-48 w-full rounded-xl" />
+        <Skeleton className="h-48 w-full rounded-lg" />
+        <Skeleton className="h-48 w-full rounded-lg" />
       </div>
     );
   }
@@ -95,7 +95,7 @@ export function McpConnections({ workspaceId }: McpConnectionsProps) {
       ))}
 
       {connections.length === 0 && !showAddForm && (
-        <div className="rounded-xl surface-1 p-8 text-center">
+        <div className="rounded-lg border border-dashed border-tm-line-strong p-8 text-center">
           <Plug className="h-8 w-8 text-muted-foreground mx-auto mb-3" />
           <p className="text-sm text-muted-foreground">
             No MCP connections configured. Connect an external MCP server to give
@@ -211,7 +211,7 @@ function ConnectionCard({
   }
 
   return (
-    <div className="rounded-xl surface-1 p-6 space-y-4">
+    <div className="border-t border-border pt-6 space-y-4">
       {/* Header */}
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-3">
@@ -402,7 +402,7 @@ function AddConnectionForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="rounded-xl surface-1 p-6 space-y-4">
+    <form onSubmit={handleSubmit} className="border-t border-border pt-6 space-y-4">
       <h3 className="text-sm font-medium text-foreground">
         Add MCP Connection
       </h3>

@@ -1,10 +1,10 @@
 import { NextRequest } from "next/server";
-import { prisma } from "@/lib/db";
 import { requirePermission } from "@/lib/auth/rbac";
 import { apiSuccess, handleApiError } from "@/lib/utils/api";
 import { getWorkspaceApiKey } from "@/lib/ai/model-router";
 import { ensureModelRegistryFresh } from "@/server/ai/openrouter-registry";
-import type { AgentPhase } from "@/generated/prisma/client";
+import type { AgentPhase } from "@/server/data/types";
+import { forWorkspace } from "@/server/data/scope";
 
 interface ModelInfo {
   modelId: string;
@@ -102,10 +102,11 @@ export async function GET(
 ) {
   try {
     const { workspaceId } = await params;
+    const db = forWorkspace(workspaceId);
     await requirePermission(workspaceId, "settings.view");
 
     // Get workspace tier
-    const workspace = await prisma.workspace.findUniqueOrThrow({
+    const workspace = await db.workspace.findUniqueOrThrow({
       where: { id: workspaceId },
       select: { tier: true },
     });
@@ -123,18 +124,18 @@ export async function GET(
     }
 
     // Get all models from the registry (synced from OpenRouter etc.)
-    const registryModels = await prisma.modelRegistry.findMany({
+    const registryModels = await db.modelRegistry.findMany({
       where: { isActive: true },
     });
 
     // Get global model policies
-    const policies = await prisma.globalModelPolicy.findMany();
+    const policies = await db.globalModelPolicy.findMany();
     const policyMap = new Map(
       policies.map((p) => [`${p.provider}:${p.modelId}`, p])
     );
 
     // Get which providers the workspace has configured
-    const providerConfigs = await prisma.providerConfig.findMany({
+    const providerConfigs = await db.providerConfig.findMany({
       where: { workspaceId, isActive: true },
       select: { provider: true },
     });

@@ -1,4 +1,3 @@
-import { prisma } from "@/lib/db";
 import { apiSuccess, apiError } from "@/lib/utils/api";
 import { route } from "@/server/http/route";
 
@@ -6,17 +5,10 @@ import { route } from "@/server/http/route";
 // GET /api/projects/[projectId]/audit/[auditId] — Single audit
 // ============================================================
 
-export const GET = route({}, async ({ params: { projectId, auditId }, workspaceId }) => {
-  const project = await prisma.project.findFirst({
-    where: { id: projectId, workspaceId },
-    select: { id: true },
-  });
+export const GET = route({}, async ({ params: { projectId, auditId }, workspaceId, db }) => {
+  const project = await db.project(projectId);
 
-  if (!project) {
-    return apiError("Project not found", "NOT_FOUND", 404);
-  }
-
-  const audit = await prisma.auditResult.findFirst({
+  const audit = await project.auditResult.findFirst({
     where: { id: auditId, projectId },
   });
 

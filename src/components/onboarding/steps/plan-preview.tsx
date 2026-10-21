@@ -18,8 +18,8 @@ const PRIORITY_CONFIG: Record<
   Priority,
   { icon: typeof AlertTriangle; color: string; bg: string }
 > = {
-  critical: { icon: AlertTriangle, color: "text-orbit-fail", bg: "bg-orbit-fail/10" },
-  high: { icon: ArrowUp, color: "text-orbit-flaky", bg: "bg-orbit-flaky/10" },
+  critical: { icon: AlertTriangle, color: "text-foreground", bg: "border border-tm-line-strong" },
+  high: { icon: ArrowUp, color: "text-foreground", bg: "border border-border" },
   medium: { icon: Minus, color: "text-foreground", bg: "bg-foreground/[0.06]" },
   low: { icon: ArrowDown, color: "text-muted-foreground", bg: "bg-muted/50" },
 };
@@ -138,7 +138,7 @@ export function PlanPreview({ projectId, onContinue, onBack }: PlanPreviewProps)
     return (
       <div className="flex flex-col items-center w-full max-w-2xl mx-auto">
         <div className="text-center mb-6">
-          <h2 className="text-xl font-medium text-foreground mb-2">
+          <h2 className="mb-2 text-balance text-[22px] font-medium tracking-display">
             {generating ? "Generating test plan..." : "Loading test plan..."}
           </h2>
           <p className="text-sm text-muted-foreground flex items-center justify-center gap-2">
@@ -175,7 +175,7 @@ export function PlanPreview({ projectId, onContinue, onBack }: PlanPreviewProps)
   return (
     <div className="flex flex-col items-center w-full max-w-2xl mx-auto">
       <div className="text-center mb-6">
-        <h2 className="text-xl font-medium text-foreground mb-2">
+        <h2 className="mb-2 text-balance text-[22px] font-medium tracking-display">
           Test plan generated
         </h2>
         <p className="text-sm text-muted-foreground">

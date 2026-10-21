@@ -1,6 +1,6 @@
 /**
  * Error types the route wrapper maps to HTTP responses (see map-error.ts).
- * Leaf module: no imports, so both lib/utils/api and the wrapper can depend on it.
+ * Imports only the domain errors, so both lib/utils/api and the wrapper can depend on it.
  */
 
 export class AuthError extends Error {
@@ -48,9 +48,4 @@ export class QueueUnavailableError extends ServiceUnavailableError {
   }
 }
 
-export class NotFoundError extends Error {
-  constructor(message = "Resource not found") {
-    super(message);
-    this.name = "NotFoundError";
-  }
-}
+export { NotFoundError } from "@/server/domain/errors";

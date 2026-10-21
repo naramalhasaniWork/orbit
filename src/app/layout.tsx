@@ -3,6 +3,7 @@ import { Instrument_Sans, Martian_Mono } from "next/font/google";
 import { GeistMono } from "geist/font/mono";
 import { SessionProvider } from "@/components/providers/session-provider";
 import { themeInitScript } from "@/lib/theme";
+import { SITE, pageTitle } from "@/lib/marketing/site";
 import "./globals.css";
 
 // UI face. 400 and 500 only; hierarchy comes from size and ink, not weight.
@@ -21,10 +22,25 @@ const martianMono = Martian_Mono({
   display: "swap",
 });
 
+// Site-wide defaults. Pages set their own title, canonical and og:url; private areas are noindex
+// in their layouts. The Open Graph / Twitter image comes from app/opengraph-image.tsx.
 export const metadata: Metadata = {
-  title: "Orbit — AI-Native Testing Platform",
-  description:
-    "Connect your repo, get autonomous test coverage. Code-aware + app-aware + fully autonomous.",
+  metadataBase: new URL(SITE.url),
+  title: pageTitle(),
+  description: SITE.description,
+  applicationName: SITE.name,
+  openGraph: {
+    type: "website",
+    siteName: SITE.name,
+    title: pageTitle(),
+    description: SITE.description,
+    locale: "en_US",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: pageTitle(),
+    description: SITE.description,
+  },
 };
 
 export const viewport: Viewport = {

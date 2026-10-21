@@ -1,18 +1,10 @@
-import { prisma } from "@/lib/db";
 import { apiSuccess, apiError } from "@/lib/utils/api";
 import { route } from "@/server/http/route";
 
-export const GET = route({}, async ({ params: { projectId }, workspaceId }) => {
-  const project = await prisma.project.findFirst({
-    where: { id: projectId, workspaceId },
-    select: { id: true },
-  });
+export const GET = route({}, async ({ params: { projectId }, workspaceId, db }) => {
+  const project = await db.project(projectId);
 
-  if (!project) {
-    return apiError("Project not found", "NOT_FOUND", 404);
-  }
-
-  const flakyTests = await prisma.flakyTest.findMany({
+  const flakyTests = await project.flakyTest.findMany({
     where: { projectId },
     include: {
       testCase: {

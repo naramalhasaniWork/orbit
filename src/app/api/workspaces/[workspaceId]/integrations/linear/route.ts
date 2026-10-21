@@ -8,7 +8,6 @@
  */
 
 import { z } from "zod";
-import { prisma } from "@/lib/db";
 import { auditSettingsChange } from "@/lib/auth/audit";
 import { apiError } from "@/lib/utils/api";
 import {
@@ -34,7 +33,7 @@ const patchSchema = z
 
 export const POST = route(
   { workspace: "param", permission: "settings.manage", body: connectSchema },
-  async ({ body: { apiKey, teamId }, workspaceId, session }) => {
+  async ({ body: { apiKey, teamId }, workspaceId, session, db }) => {
     let team: { teamId: string; teamName: string } | null;
     try {
       team = await lookupLinearTeam(apiKey, teamId);
@@ -63,9 +62,9 @@ export const POST = route(
 
 export const PATCH = route(
   { workspace: "param", permission: "settings.manage", body: patchSchema },
-  async ({ body, workspaceId }) => {
+  async ({ body, workspaceId, db }) => {
     if (body.inboundProjectId) {
-      const project = await prisma.project.findFirst({
+      const project = await db.project.findFirst({
         where: { id: body.inboundProjectId, workspaceId },
         select: { id: true },
       });
@@ -79,7 +78,7 @@ export const PATCH = route(
 
 export const DELETE = route(
   { workspace: "param", permission: "settings.manage" },
-  async ({ workspaceId, session }) => {
+  async ({ workspaceId, session, db }) => {
     await disconnectIntegration(workspaceId, "linear");
 
     await auditSettingsChange(session.user.id, workspaceId, "integration.linear", {

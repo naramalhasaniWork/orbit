@@ -1,109 +1,38 @@
-"use client";
-
-import { motion } from "framer-motion";
-import { PricingSection } from "@/components/marketing/pricing-section";
-import { CtaSection } from "@/components/marketing/cta-section";
 import pricingContent from "@/app/(marketing)/content/pricing.json";
 import { CREDIT_PACKAGES } from "@/lib/stripe/credit-packages";
-import { tierLimitFeatures, type WorkspaceTier } from "@/lib/auth/tier-limits";
 
-// Numeric limits come from TIER_LIMITS so the page matches what is enforced
-const pricingWithLimits = {
-  ...pricingContent,
-  tiers: pricingContent.tiers.map((tier) => {
-    const limits = tierLimitFeatures(tier.tier as WorkspaceTier);
-    const [first, ...rest] = tier.features;
-    // Keep "Everything in X" as the lead line when present
-    return first?.startsWith("Everything in")
-      ? { ...tier, features: [first, ...limits, ...rest] }
-      : { ...tier, features: [...limits, ...tier.features] };
-  }),
-};
-
+/** Below the pricing band: the FAQ (copy in pricing.json) and credit top-up packs. Static; nothing animates. */
 export function PricingPageClient() {
   return (
-    <div className="pt-24">
-      <PricingSection content={pricingWithLimits} />
-
-      {/* FAQ */}
-      <section className="py-16 lg:py-24 bg-card/50">
-        <div className="mx-auto max-w-3xl px-4 sm:px-6 lg:px-8">
-          <motion.h2
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5 }}
-            className="text-2xl sm:text-3xl font-bold text-center mb-12"
-          >
-            Frequently asked questions
-          </motion.h2>
-
-          <div className="space-y-6">
-            {pricingContent.faq.map((item, i) => (
-              <motion.div
-                key={item.question}
-                initial={{ opacity: 0, y: 15 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true, margin: "-50px" }}
-                transition={{ duration: 0.4, delay: i * 0.06 }}
-                className="rounded-xl border border-border bg-card p-6"
-              >
-                <h3 className="font-semibold mb-2">{item.question}</h3>
-                <p className="text-sm text-muted-foreground leading-relaxed">
-                  {item.answer}
-                </p>
-              </motion.div>
-            ))}
-          </div>
-        </div>
+    <div className="mx-auto max-w-[1240px] px-4 sm:px-8">
+      <section aria-labelledby="faq" className="grid grid-cols-1 gap-6 py-16 md:grid-cols-[200px_minmax(0,1fr)] md:gap-10">
+        <h2 id="faq" className="tm-label pt-1.5 text-tm-t3">Questions</h2>
+        <dl className="max-w-[68ch]">
+          {pricingContent.faq.map((item) => (
+            <div key={item.question} className="border-t border-border py-5 first:border-t-0 first:pt-0">
+              <dt className="text-[16px] font-medium">{item.question}</dt>
+              <dd className="mt-2 text-pretty text-[14px] leading-relaxed text-tm-t2">{item.answer}</dd>
+            </div>
+          ))}
+        </dl>
       </section>
 
-      {/* Credit packs */}
-      <section className="py-16 lg:py-24">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 text-center">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5 }}
-          >
-            <h2 className="text-2xl sm:text-3xl font-bold mb-4">
-              Need more credits?
-            </h2>
-            <p className="text-muted-foreground mb-10">
-              Purchase top-up packs anytime. Purchased credits never expire.
-            </p>
-          </motion.div>
-
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 max-w-3xl mx-auto">
-            {CREDIT_PACKAGES.map((pack, i) => (
-              <motion.div
-                key={pack.id}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.4, delay: i * 0.1 }}
-                className="rounded-xl border border-border bg-card p-6"
-              >
-                <div className="text-2xl font-bold">
-                  {pack.credits.toLocaleString()}
-                </div>
-                <div className="text-xs text-muted-foreground mb-3">
-                  credits
-                </div>
-                <div className="text-lg font-semibold text-orbit-accent">
-                  ${(pack.price / 100).toLocaleString("en-US", { minimumFractionDigits: 0 })}
-                </div>
-                <div className="text-xs text-muted-foreground">
-                  {(pack.price / pack.credits).toFixed(1)}c per credit
-                </div>
-              </motion.div>
-            ))}
-          </div>
+      <section aria-labelledby="credits" className="grid grid-cols-1 gap-6 border-t border-border py-16 md:grid-cols-[200px_minmax(0,1fr)] md:gap-10">
+        <div>
+          <h2 id="credits" className="tm-label pt-1.5 text-tm-t3">Credit top-ups</h2>
+          <p className="mt-2 text-[13px] text-tm-t2">Buy more any time. Purchased credits never expire.</p>
+        </div>
+        <div className="grid grid-cols-2 lg:grid-cols-4">
+          {CREDIT_PACKAGES.map((pack) => (
+            <div key={pack.id} className="flex flex-col gap-1 border-t border-foreground py-4 pr-6">
+              <span className="tm-num text-[22px]">{pack.credits.toLocaleString("en-US")}</span>
+              <span className="tm-label text-tm-t3">credits</span>
+              <span className="tm-num mt-2 text-[15px]">${(pack.price / 100).toLocaleString("en-US", { minimumFractionDigits: 0 })}</span>
+              <span className="tm-label text-tm-t3">{(pack.price / pack.credits).toFixed(1)}¢ per credit</span>
+            </div>
+          ))}
         </div>
       </section>
-
-      <CtaSection />
     </div>
   );
 }

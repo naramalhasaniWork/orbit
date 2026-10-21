@@ -1,4 +1,3 @@
-import { prisma } from "@/lib/db";
 import { apiSuccess, apiError } from "@/lib/utils/api";
 import { route } from "@/server/http/route";
 
@@ -6,15 +5,8 @@ import { route } from "@/server/http/route";
 // GET /api/projects/[projectId]/runs/compare?runA=...&runB=...
 // ============================================================
 
-export const GET = route({}, async ({ req: request, params: { projectId }, workspaceId }) => {
-  const project = await prisma.project.findFirst({
-    where: { id: projectId, workspaceId },
-    select: { id: true },
-  });
-
-  if (!project) {
-    return apiError("Project not found", "NOT_FOUND", 404);
-  }
+export const GET = route({}, async ({ req: request, params: { projectId }, workspaceId, db }) => {
+  const project = await db.project(projectId);
 
   const searchParams = request.nextUrl.searchParams;
   const runAId = searchParams.get("runA");
@@ -29,7 +21,7 @@ export const GET = route({}, async ({ req: request, params: { projectId }, works
   }
 
   const [runA, runB] = await Promise.all([
-    prisma.testRun.findFirst({
+    project.testRun.findFirst({
       where: { id: runAId, projectId },
       include: {
         results: {
@@ -41,7 +33,7 @@ export const GET = route({}, async ({ req: request, params: { projectId }, works
         },
       },
     }),
-    prisma.testRun.findFirst({
+    project.testRun.findFirst({
       where: { id: runBId, projectId },
       include: {
         results: {

@@ -1,20 +1,12 @@
 import { z } from "zod";
-import { prisma } from "@/lib/db";
 import { encrypt } from "@/lib/vault";
 import { apiSuccess, apiError } from "@/lib/utils/api";
 import { route } from "@/server/http/route";
 
-export const GET = route({}, async ({ params: { projectId }, workspaceId }) => {
-  const project = await prisma.project.findFirst({
-    where: { id: projectId, workspaceId },
-    select: { id: true },
-  });
+export const GET = route({}, async ({ params: { projectId }, workspaceId, db }) => {
+  const project = await db.project(projectId);
 
-  if (!project) {
-    return apiError("Project not found", "NOT_FOUND", 404);
-  }
-
-  const secrets = await prisma.secret.findMany({
+  const secrets = await project.secret.findMany({
     where: { projectId },
     select: { id: true, key: true, environmentId: true, createdAt: true, updatedAt: true },
     orderBy: { key: "asc" },
@@ -31,15 +23,8 @@ const CreateSecretSchema = z.object({
 
 export const POST = route(
   { permission: "secrets.manage" },
-  async ({ req: request, params: { projectId }, workspaceId }) => {
-    const project = await prisma.project.findFirst({
-      where: { id: projectId, workspaceId },
-      select: { id: true },
-    });
-
-    if (!project) {
-      return apiError("Project not found", "NOT_FOUND", 404);
-    }
+  async ({ req: request, params: { projectId }, workspaceId, db }) => {
+    const project = await db.project(projectId);
 
     const body = await request.json();
     const parsed = CreateSecretSchema.safeParse(body);
@@ -52,7 +37,7 @@ export const POST = route(
     const { key, value, environmentId } = parsed.data;
     const { encrypted, iv } = encrypt(value);
 
-    const existing = await prisma.secret.findFirst({
+    const existing = await project.secret.findFirst({
       where: {
         projectId,
         key,
@@ -63,13 +48,13 @@ export const POST = route(
     let secret;
     const selectFields = { id: true, key: true, environmentId: true, createdAt: true, updatedAt: true };
     if (existing) {
-      secret = await prisma.secret.update({
+      secret = await project.secret.update({
         where: { id: existing.id },
         data: { encryptedValue: encrypted, iv },
         select: selectFields,
       });
     } else {
-      secret = await prisma.secret.create({
+      secret = await project.secret.create({
         data: { projectId, key, encryptedValue: encrypted, iv, environmentId },
         select: selectFields,
       });

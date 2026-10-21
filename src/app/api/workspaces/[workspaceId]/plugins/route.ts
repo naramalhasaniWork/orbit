@@ -1,6 +1,5 @@
-import { prisma } from "@/lib/db";
 import { apiSuccess, apiError } from "@/lib/utils/api";
-import type { Prisma } from "@/generated/prisma/client";
+import type { Prisma } from "@/server/data/types";
 import { BUILTIN_PLUGINS, BUILTIN_PLUGIN_MAP } from "@/services/plugins/builtins";
 import { route } from "@/server/http/route";
 
@@ -11,8 +10,8 @@ import { route } from "@/server/http/route";
 
 export const GET = route(
   { workspace: "param", permission: "settings.view" },
-  async ({ workspaceId }) => {
-    const installations = await prisma.pluginInstallation.findMany({
+  async ({ workspaceId, db }) => {
+    const installations = await db.pluginInstallation.findMany({
       where: { workspaceId },
       orderBy: { createdAt: "asc" },
     });
@@ -41,7 +40,7 @@ export const GET = route(
 
 export const POST = route(
   { workspace: "param", permission: "settings.manage" },
-  async ({ req: request, workspaceId, session }) => {
+  async ({ req: request, workspaceId, session, db }) => {
     const body = await request.json();
     const { pluginName, config } = body as {
       pluginName: string;
@@ -63,7 +62,7 @@ export const POST = route(
     }
 
     // Check if already installed
-    const existing = await prisma.pluginInstallation.findUnique({
+    const existing = await db.pluginInstallation.findUnique({
       where: {
         plugin_installation_unique: { workspaceId, pluginName },
       },
@@ -77,7 +76,7 @@ export const POST = route(
       );
     }
 
-    const installation = await prisma.pluginInstallation.create({
+    const installation = await db.pluginInstallation.create({
       data: {
         workspaceId,
         pluginName,

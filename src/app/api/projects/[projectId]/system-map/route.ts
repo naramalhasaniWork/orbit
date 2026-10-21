@@ -1,9 +1,8 @@
-import { prisma } from "@/lib/db";
 import { apiSuccess, apiError } from "@/lib/utils/api";
 import { route } from "@/server/http/route";
 
-export const GET = route({}, async ({ params: { projectId }, workspaceId }) => {
-  const project = await prisma.project.findFirst({
+export const GET = route({}, async ({ params: { projectId }, workspaceId, db }) => {
+  const project = await db.project.findFirst({
     where: { id: projectId, workspaceId },
     select: { id: true, framework: true, lastIndexedAt: true },
   });
@@ -12,7 +11,7 @@ export const GET = route({}, async ({ params: { projectId }, workspaceId }) => {
     return apiError("Project not found", "NOT_FOUND", 404);
   }
 
-  const nodes = await prisma.systemMapNode.findMany({
+  const nodes = await db.systemMapNode.findMany({
     where: { projectId },
     select: {
       id: true,
@@ -25,7 +24,7 @@ export const GET = route({}, async ({ params: { projectId }, workspaceId }) => {
     orderBy: { createdAt: "asc" },
   });
 
-  const edges = await prisma.systemMapEdge.findMany({
+  const edges = await db.systemMapEdge.findMany({
     where: { projectId },
     select: {
       id: true,

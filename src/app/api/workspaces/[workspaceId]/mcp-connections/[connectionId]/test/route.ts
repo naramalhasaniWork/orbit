@@ -3,15 +3,14 @@
  * Test connection and rediscover tools.
  */
 
-import { prisma } from "@/lib/db";
 import { apiSuccess, apiError } from "@/lib/utils/api";
 import { testConnection } from "@/services/mcp/client";
 import { route } from "@/server/http/route";
 
 export const POST = route(
   { workspace: "param", permission: "settings.manage" },
-  async ({ params: { connectionId }, workspaceId }) => {
-    const connection = await prisma.mcpConnection.findFirst({
+  async ({ params: { connectionId }, workspaceId, db }) => {
+    const connection = await db.mcpConnection.findFirst({
       where: { id: connectionId, workspaceId },
     });
     if (!connection) {
@@ -29,7 +28,7 @@ export const POST = route(
     }
 
     // Fetch updated tools
-    const updated = await prisma.mcpConnection.findUnique({
+    const updated = await db.mcpConnection.findUnique({
       where: { id: connectionId },
       select: {
         toolsDiscovered: true,

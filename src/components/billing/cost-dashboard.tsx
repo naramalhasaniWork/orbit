@@ -75,7 +75,7 @@ export function CostDashboard({ workspaceId }: CostDashboardProps) {
     return (
       <div className="space-y-4">
         {[1, 2, 3, 4].map((i) => (
-          <div key={i} className="h-28 rounded-xl bg-foreground/[0.02]" />
+          <div key={i} className="h-28 rounded-lg bg-muted" />
         ))}
       </div>
     );
@@ -179,7 +179,7 @@ function SummaryCard({
   sub: string;
 }) {
   return (
-    <div className="p-4 rounded-xl border border-border bg-foreground/[0.02]">
+    <div className="rounded-lg border border-border bg-card p-4">
       <div className="flex items-center gap-2 mb-2">
         <Icon className="h-3.5 w-3.5 text-muted-foreground" />
         <span className="text-[11px] font-medium text-muted-foreground">{label}</span>
@@ -200,7 +200,7 @@ function CreditBar({
   percent: number;
 }) {
   return (
-    <div className="rounded-xl border border-border bg-foreground/[0.02] p-4">
+    <div className="rounded-lg border border-border bg-card p-4">
       <div className="flex items-center justify-between mb-2">
         <span className="text-xs font-medium text-muted-foreground">Credit Usage</span>
         <span className="text-xs text-foreground">
@@ -259,7 +259,7 @@ function AlertBanner({ alert }: { alert: UsageAlert }) {
   }[alert.severity];
 
   return (
-    <div className={cn("flex items-start gap-3 p-3 rounded-xl border", config.border, config.bg)}>
+    <div className={cn("flex items-start gap-3 p-3 rounded-lg border", config.border, config.bg)}>
       <AlertTriangle className={cn("h-4 w-4 mt-0.5 shrink-0", config.icon)} />
       <div>
         <p className="text-sm font-medium text-foreground">{alert.title}</p>

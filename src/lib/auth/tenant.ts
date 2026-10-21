@@ -5,6 +5,7 @@
 
 import { prisma } from "@/lib/db";
 import type { Prisma } from "@/generated/prisma/client";
+import type { WorkspaceScope } from "@/server/data/scope";
 import { isSelfHosted } from "@/lib/self-host";
 import { checkBudgetLimit } from "@/lib/billing/usage-aggregator";
 import { TIER_LIMITS, memberLimit, type WorkspaceTier } from "./tier-limits";
@@ -93,16 +94,8 @@ export async function canConsume(
         ? limitReached(`Project limit reached (${limits.projects}). Upgrade your plan to create more projects.`)
         : { allowed: true };
     }
-    case "member": {
-      const seats = await countSeatsInUse(workspaceId, db);
-      const limit = memberLimit(workspace.tier, workspace.seatCount);
-      if (seats.members + seats.pending < limit) return { allowed: true };
-      return limitReached(
-        limits.seatBased
-          ? `All ${limit} seats are in use (${seats.members} members, ${seats.pending} pending invites). Add seats in Billing to invite more members.`
-          : `Member limit reached (${limit}). Upgrade your plan to add more members.`
-      );
-    }
+    case "member":
+      return seatDecision(workspace.tier, workspace.seatCount, await countSeatsInUse(workspaceId, db));
     case "run": {
       const monthStart = new Date();
       monthStart.setDate(1);
@@ -127,9 +120,12 @@ export async function canConsume(
  * seat). After a seat reduction this can exceed the limit; nobody is removed,
  * but new invites are blocked until it is back under.
  */
+/** The tables a seat check reads: a transaction or a workspace scope (ctx.db). */
+type SeatDb = Pick<Prisma.TransactionClient, "$queryRaw" | "workspace" | "workspaceMember" | "workspaceInvitation">;
+
 export async function countSeatsInUse(
   workspaceId: string,
-  db: Prisma.TransactionClient = prisma
+  db: SeatDb = prisma
 ): Promise<{ members: number; pending: number }> {
   const [members, pending] = await Promise.all([
     db.workspaceMember.count({ where: { workspaceId } }),
@@ -140,8 +136,22 @@ export async function countSeatsInUse(
   return { members, pending };
 }
 
+function seatDecision(
+  tier: WorkspaceTier,
+  seatCount: number,
+  seats: { members: number; pending: number }
+): ConsumeDecision {
+  const limit = memberLimit(tier, seatCount);
+  if (seats.members + seats.pending < limit) return { allowed: true };
+  return limitReached(
+    TIER_LIMITS[tier].seatBased
+      ? `All ${limit} seats are in use (${seats.members} members, ${seats.pending} pending invites). Add seats in Billing to invite more members.`
+      : `Member limit reached (${limit}). Upgrade your plan to add more members.`
+  );
+}
+
 /** Lock the workspace row for the rest of the transaction (SELECT ... FOR UPDATE). */
-export async function lockWorkspace(tx: Prisma.TransactionClient, workspaceId: string): Promise<void> {
+export async function lockWorkspace(tx: Pick<SeatDb, "$queryRaw">, workspaceId: string): Promise<void> {
   await tx.$queryRaw`SELECT id FROM workspaces WHERE id = ${workspaceId}::uuid FOR UPDATE`;
 }
 
@@ -153,17 +163,22 @@ export type SeatReservation<T> =
  * Check for a free seat and take it in one transaction: the workspace row
  * lock makes concurrent invites queue, so each re-counts after the previous
  * one inserted and two cannot both take the last seat. `take` runs only when
- * a seat is free and must write through the given transaction.
+ * a seat is free and must write through the scope it is given.
  */
 export async function withSeatReserved<T>(
-  workspaceId: string,
-  take: (tx: Prisma.TransactionClient) => Promise<T>
+  scope: WorkspaceScope,
+  take: (ws: WorkspaceScope) => Promise<T>
 ): Promise<SeatReservation<T>> {
-  return prisma.$transaction(async (tx) => {
-    await lockWorkspace(tx, workspaceId);
-    const decision = await canConsume(workspaceId, "member", tx);
-    if (!decision.allowed) return { ok: false as const, decision };
-    return { ok: true as const, value: await take(tx) };
+  return scope.tx(async (ws) => {
+    const { workspaceId } = scope;
+    await lockWorkspace(ws, workspaceId);
+    if (!isSelfHosted()) {
+      const row = await ws.workspace.findUnique({ where: { id: workspaceId }, select: { tier: true, seatCount: true } });
+      if (!row) return { ok: false as const, decision: { allowed: false as const, code: "NOT_FOUND" as const, reason: "Workspace not found" } };
+      const decision = seatDecision(row.tier, row.seatCount, await countSeatsInUse(workspaceId, ws));
+      if (!decision.allowed) return { ok: false as const, decision };
+    }
+    return { ok: true as const, value: await take(ws) };
   });
 }
 

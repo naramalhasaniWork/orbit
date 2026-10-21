@@ -26,9 +26,9 @@ export function CreditBucketsSummary({ credits }: { credits: CreditBucketsData }
     <div className="mt-4 pt-4 border-t border-border">
       <dl className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         {buckets.map((b) => (
-          <div key={b.label} className="rounded-lg bg-muted/40 px-3 py-2.5">
+          <div key={b.label} className="border-t border-border pt-2.5">
             <dt className="text-[11px] text-muted-foreground">{b.label}</dt>
-            <dd className={cn("text-sm font-medium tabular-nums", b.value < 0 ? "text-tm-fail" : "text-foreground")}>
+            <dd className={cn("tm-num text-sm font-medium", b.value < 0 ? "text-tm-fail" : "text-foreground")}>
               {b.value.toLocaleString()}
             </dd>
             <dd className="text-[11px] text-muted-foreground mt-0.5">{b.note}</dd>

@@ -1,4 +1,3 @@
-import { prisma } from "@/lib/db";
 import { apiSuccess, apiError } from "@/lib/utils/api";
 import {
   getFailurePatterns,
@@ -10,15 +9,8 @@ import { route } from "@/server/http/route";
 // GET /api/projects/[projectId]/failure-patterns
 // ============================================================
 
-export const GET = route({}, async ({ req: request, params: { projectId }, workspaceId }) => {
-  const project = await prisma.project.findFirst({
-    where: { id: projectId, workspaceId },
-    select: { id: true },
-  });
-
-  if (!project) {
-    return apiError("Project not found", "NOT_FOUND", 404);
-  }
+export const GET = route({}, async ({ req: request, params: { projectId }, workspaceId, db }) => {
+  const project = await db.project(projectId);
 
   const searchParams = request.nextUrl.searchParams;
   const limit = Math.min(

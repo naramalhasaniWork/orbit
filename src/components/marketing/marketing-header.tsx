@@ -1,128 +1,44 @@
-"use client";
-
 import Link from "next/link";
-import { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
 import { Logo } from "@/components/ui/logo";
+import { PLACEHOLDER, SITE } from "@/lib/marketing/site";
 
-const NAV_LINKS = [
+const NAV = [
+  { href: "/#how", label: "How it works" },
   { href: "/features", label: "Features" },
+  { href: "/#self-host", label: "Self-host" },
   { href: "/pricing", label: "Pricing" },
-  { href: "/about", label: "About" },
 ];
 
+/** Static header: no scroll listener, no blur. Wraps instead of hiding links on small screens. */
 export function MarketingHeader() {
-  const [mobileOpen, setMobileOpen] = useState(false);
-  const [scrolled, setScrolled] = useState(false);
-
-  useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 20);
-    window.addEventListener("scroll", onScroll, { passive: true });
-    return () => window.removeEventListener("scroll", onScroll);
-  }, []);
-
   return (
-    <header
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
-        scrolled
-          ? "bg-background/70 backdrop-blur-xl border-b border-border"
-          : "bg-transparent"
-      }`}
-    >
-      <div className="mx-auto max-w-6xl px-6">
-        <div className="flex h-16 items-center justify-between">
-          <Link href="/" className="flex items-center">
-            <Logo size="md" brand />
-          </Link>
-
-          <nav className="hidden md:flex items-center gap-8">
-            {NAV_LINKS.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className="text-[13px] text-muted-foreground hover:text-foreground transition-colors duration-300"
-              >
-                {link.label}
-              </Link>
-            ))}
-          </nav>
-
-          <div className="hidden md:flex items-center gap-4">
-            <Link
-              href="/login"
-              className="text-[13px] text-muted-foreground hover:text-foreground transition-colors duration-300"
-            >
-              Sign In
+    <header className="border-b border-border bg-background">
+      <div className="mx-auto flex max-w-[1240px] flex-wrap items-center gap-x-7 gap-y-3 px-4 py-4 sm:px-8">
+        <Link href="/" aria-label="Orbit home" className="rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <Logo size="md" brand />
+        </Link>
+        <nav aria-label="Main" className="order-3 flex w-full gap-5 overflow-x-auto text-[14px] sm:order-none sm:w-auto">
+          {NAV.map((l) => (
+            <Link key={l.href} href={l.href} className="shrink-0 text-tm-t2 hover:text-foreground">
+              {l.label}
             </Link>
-            <Link
-              href="/login"
-              className="text-[13px] font-medium bg-primary text-primary-foreground px-5 py-2 rounded-full hover:bg-primary/90 transition-all duration-300"
-            >
-              Get Started
-            </Link>
-          </div>
-
-          <button
-            className="md:hidden p-2 text-muted-foreground"
-            onClick={() => setMobileOpen(!mobileOpen)}
-            aria-label="Toggle menu"
+          ))}
+        </nav>
+        <div className="ml-auto flex items-center gap-2.5">
+          <a
+            href={SITE.repoUrl}
+            className="tm-label hidden h-[34px] items-center rounded-md border border-border bg-card px-2.5 text-tm-t2 hover:text-foreground sm:inline-flex"
           >
-            <span className="flex flex-col gap-1.5 w-5">
-              <span
-                className={`h-px bg-current transition-all duration-300 ${
-                  mobileOpen ? "rotate-45 translate-y-[3.5px]" : ""
-                }`}
-              />
-              <span
-                className={`h-px bg-current transition-all duration-300 ${
-                  mobileOpen ? "-rotate-45 -translate-y-[3.5px]" : ""
-                }`}
-              />
-            </span>
-          </button>
+            GitHub ★ {PLACEHOLDER.stars}
+          </a>
+          <Link
+            href="/login"
+            className="inline-flex h-[34px] items-center rounded-md bg-primary px-3.5 text-[13px] font-medium text-primary-foreground hover:bg-primary/85 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          >
+            Sign in
+          </Link>
         </div>
       </div>
-
-      <AnimatePresence>
-        {mobileOpen && (
-          <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: "auto" }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.3, ease: "easeInOut" }}
-            className="md:hidden overflow-hidden bg-background/95 backdrop-blur-xl"
-          >
-            <nav className="px-6 py-6 space-y-1">
-              {NAV_LINKS.map((link) => (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className="block py-3 text-sm text-muted-foreground hover:text-foreground transition-colors"
-                  onClick={() => setMobileOpen(false)}
-                >
-                  {link.label}
-                </Link>
-              ))}
-              <div className="pt-4 mt-4 border-t border-border flex flex-col gap-3">
-                <Link
-                  href="/login"
-                  className="text-sm text-muted-foreground hover:text-foreground transition-colors"
-                  onClick={() => setMobileOpen(false)}
-                >
-                  Sign In
-                </Link>
-                <Link
-                  href="/login"
-                  className="text-sm font-medium bg-primary text-primary-foreground px-5 py-2.5 rounded-full text-center hover:bg-primary/90 transition-all"
-                  onClick={() => setMobileOpen(false)}
-                >
-                  Get Started
-                </Link>
-              </div>
-            </nav>
-          </motion.div>
-        )}
-      </AnimatePresence>
     </header>
   );
 }

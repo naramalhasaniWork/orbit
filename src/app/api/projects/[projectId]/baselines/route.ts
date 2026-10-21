@@ -1,4 +1,3 @@
-import { prisma } from "@/lib/db";
 import { apiSuccess, apiError } from "@/lib/utils/api";
 import {
   getProjectBaselines,
@@ -14,15 +13,8 @@ import { route } from "@/server/http/route";
 // GET /api/projects/[projectId]/baselines
 // ============================================================
 
-export const GET = route({}, async ({ req: request, params: { projectId }, workspaceId }) => {
-  const project = await prisma.project.findFirst({
-    where: { id: projectId, workspaceId },
-    select: { id: true },
-  });
-
-  if (!project) {
-    return apiError("Project not found", "NOT_FOUND", 404);
-  }
+export const GET = route({}, async ({ req: request, params: { projectId }, workspaceId, db }) => {
+  const project = await db.project(projectId);
 
   const type = request.nextUrl.searchParams.get("type") ?? undefined;
   const runId = request.nextUrl.searchParams.get("runId");
@@ -56,15 +48,8 @@ interface AcceptBaselineBody {
 
 export const POST = route(
   { permission: "plans.update" },
-  async ({ req: request, params: { projectId }, workspaceId }) => {
-    const project = await prisma.project.findFirst({
-      where: { id: projectId, workspaceId },
-      select: { id: true },
-    });
-
-    if (!project) {
-      return apiError("Project not found", "NOT_FOUND", 404);
-    }
+  async ({ req: request, params: { projectId }, workspaceId, db }) => {
+    const project = await db.project(projectId);
 
     const body = (await request.json()) as AcceptBaselineBody;
 

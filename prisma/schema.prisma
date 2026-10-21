@@ -541,6 +541,9 @@ model SystemMapNode {
   @@index([projectId])
   @@index([projectId, type])
   @@index([projectId, filePath])
+  // Keyword search (lib/db/vector.ts). Declared here so `prisma migrate dev/diff` keeps it
+  // instead of emitting DROP INDEX; the HNSW and FTS expression indexes are invisible to Prisma.
+  @@index([name(ops: raw("gin_trgm_ops"))], type: Gin, map: "system_map_nodes_name_trgm_idx")
   @@map("system_map_nodes")
 }
 
@@ -693,7 +696,7 @@ model TestResult {
   createdAt          DateTime    @default(now()) @map("created_at")
 
   testRun      TestRun       @relation(fields: [testRunId], references: [id], onDelete: Cascade)
-  testCase     TestCase      @relation(fields: [testCaseId], references: [id])
+  testCase     TestCase      @relation(fields: [testCaseId], references: [id], onDelete: Cascade)
   runArtifacts RunArtifact[]
 
   @@unique([testRunId, testCaseId])

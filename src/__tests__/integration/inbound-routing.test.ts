@@ -42,7 +42,7 @@ vi.mock("@/lib/auth/audit", () => audit);
 import { prisma } from "@/lib/db";
 import { fakeOf } from "../helpers/fake-config-db";
 import { resetRouteAuth, routeAuth } from "../helpers/route-auth";
-import { sealSecret } from "@/lib/integrations/secret-field";
+import { sealSecret } from "@/server/data/sealing";
 
 const RUN_IN_W1 = "6f1c1d1e-0000-4000-8000-000000000001";
 const W1 = "11111111-1111-4111-8111-111111111111";

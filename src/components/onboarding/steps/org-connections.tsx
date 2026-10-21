@@ -45,7 +45,7 @@ export function OrgConnections({ orgs, onConnect }: OrgConnectionsProps) {
         {installed.map((org) => (
           <span
             key={org.id}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-tm-pass/10 text-xs text-tm-pass"
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-sm border border-border text-xs text-tm-pass"
           >
             {org.avatarUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -62,7 +62,7 @@ export function OrgConnections({ orgs, onConnect }: OrgConnectionsProps) {
             key={org.id}
             type="button"
             onClick={onConnect}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-muted/30 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 transition-colors"
+            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-sm border border-dashed border-tm-line-strong text-xs text-tm-t2 hover:text-foreground hover:bg-accent transition-colors"
           >
             {org.avatarUrl ? (
               // eslint-disable-next-line @next/next/no-img-element

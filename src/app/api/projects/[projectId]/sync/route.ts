@@ -1,4 +1,3 @@
-import { prisma } from "@/lib/db";
 import { getIndexingQueue } from "@/lib/queue/queues";
 import { requireQueueAvailable, withQueueTimeout } from "@/lib/queue/availability";
 import { apiSuccess, apiError } from "@/lib/utils/api";
@@ -11,8 +10,8 @@ interface SyncRequestBody {
 
 export const POST = route(
   { permission: "projects.update" },
-  async ({ req: request, params: { projectId }, workspaceId }) => {
-    const project = await prisma.project.findFirst({
+  async ({ req: request, params: { projectId }, workspaceId, db }) => {
+    const project = await db.project.findFirst({
       where: { id: projectId, workspaceId },
     });
 
@@ -53,8 +52,8 @@ export const POST = route(
   }
 );
 
-export const GET = route({}, async ({ params: { projectId }, workspaceId }) => {
-  const project = await prisma.project.findFirst({
+export const GET = route({}, async ({ params: { projectId }, workspaceId, db }) => {
+  const project = await db.project.findFirst({
     where: { id: projectId, workspaceId },
     select: {
       id: true,
@@ -68,11 +67,11 @@ export const GET = route({}, async ({ params: { projectId }, workspaceId }) => {
     return apiError("Project not found", "NOT_FOUND", 404);
   }
 
-  const nodeCount = await prisma.systemMapNode.count({
+  const nodeCount = await db.systemMapNode.count({
     where: { projectId },
   });
 
-  const edgeCount = await prisma.systemMapEdge.count({
+  const edgeCount = await db.systemMapEdge.count({
     where: { projectId },
   });
 

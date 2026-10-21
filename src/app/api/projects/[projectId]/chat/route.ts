@@ -1,4 +1,3 @@
-import { prisma } from "@/lib/db";
 import { apiError, apiSuccess } from "@/lib/utils/api";
 import {
   runOrbitAgent,
@@ -13,16 +12,8 @@ import { route } from "@/server/http/route";
 
 export const POST = route(
   { permission: "runs.create" },
-  async ({ req: request, params: { projectId }, workspaceId, session }) => {
-    // Verify project belongs to workspace
-    const project = await prisma.project.findFirst({
-      where: { id: projectId, workspaceId },
-      select: { id: true },
-    });
-
-    if (!project) {
-      return apiError("Project not found", "NOT_FOUND", 404);
-    }
+  async ({ req: request, params: { projectId }, workspaceId, session, db }) => {
+    const project = await db.project(projectId);
 
     const body = (await request.json()) as { message: string; conversationId?: string };
     const { message } = body;
@@ -34,7 +25,7 @@ export const POST = route(
     // Get or create active conversation
     let conversationId = body.conversationId;
     if (!conversationId) {
-      const existing = await prisma.conversation.findFirst({
+      const existing = await project.conversation.findFirst({
         where: { projectId, userId: session.user.id, isActive: true },
         orderBy: { updatedAt: "desc" },
         select: { id: true },
@@ -43,7 +34,7 @@ export const POST = route(
     }
 
     if (!conversationId) {
-      const conversation = await prisma.conversation.create({
+      const conversation = await project.conversation.create({
         data: {
           projectId,
           userId: session.user.id,
@@ -54,7 +45,7 @@ export const POST = route(
     }
 
     // Save user message
-    await prisma.message.create({
+    await project.message.create({
       data: {
         conversationId,
         role: "user",
@@ -64,7 +55,7 @@ export const POST = route(
     });
 
     // Update conversation timestamp
-    await prisma.conversation.update({
+    await project.conversation.update({
       where: { id: conversationId },
       data: { updatedAt: new Date() },
     });
@@ -167,17 +158,10 @@ export const POST = route(
 
 export const DELETE = route(
   { permission: "projects.update" },
-  async ({ params: { projectId }, workspaceId, session }) => {
-    const project = await prisma.project.findFirst({
-      where: { id: projectId, workspaceId },
-      select: { id: true },
-    });
+  async ({ params: { projectId }, workspaceId, session, db }) => {
+    const project = await db.project(projectId);
 
-    if (!project) {
-      return apiError("Project not found", "NOT_FOUND", 404);
-    }
-
-    await prisma.conversation.updateMany({
+    await project.conversation.updateMany({
       where: {
         projectId,
         userId: session.user.id,

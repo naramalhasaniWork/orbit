@@ -73,7 +73,7 @@ export function SeatUsage({ workspaceId, seats, canChangeSeats, onChanged }: Sea
             max={1000}
             value={target}
             onChange={(e) => setTarget(Math.max(1, Number(e.target.value) || 1))}
-            className="w-20 rounded-lg border border-border bg-background px-2 py-1 text-xs tabular-nums"
+            className="tm-num w-20 rounded-md border border-border bg-background px-2 py-1 text-xs"
           />
           <button
             onClick={saveSeats}

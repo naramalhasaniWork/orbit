@@ -1,19 +1,17 @@
-"use client";
-
-import { HeroSection } from "./hero-section";
-import { HowItWorks } from "./how-it-works";
-import { FeatureGrid } from "./feature-card";
-import { ProductShowcase } from "./product-showcase";
-import { CtaSection } from "./cta-section";
+import { LandingHero } from "./landing-hero";
+import { LandingProof } from "./landing-proof";
+import { DiffToJourneys, HowItWorks, SelfHost } from "./landing-sections";
+import { PricingBand } from "./pricing-band";
 
 export function LandingPage() {
   return (
     <>
-      <HeroSection />
+      <LandingHero />
+      <LandingProof />
       <HowItWorks />
-      <FeatureGrid />
-      <ProductShowcase />
-      <CtaSection />
+      <DiffToJourneys />
+      <SelfHost />
+      <PricingBand />
     </>
   );
 }

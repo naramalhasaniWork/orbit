@@ -1,34 +1,16 @@
 {
-  "headline": "Testing should evolve with your code",
-  "subheadline": "AI coding tools let you ship features in hours. But testing is still the bottleneck — manual scripts, brittle selectors, a QA backlog that grows faster than you can clear it. Orbit was built to fix that.",
+  "headline": "Why Orbit exists.",
+  "subheadline": "AI coding tools made shipping fast. Knowing what a change broke did not get faster.",
   "story": {
     "paragraphs": [
-      "Here's the reality of building software in 2026: AI coding assistants let a two-person team ship what used to take ten. But every feature that goes out untested is a bet against your users. And the faster you ship, the more those bets stack up.",
-      "Existing testing tools weren't built for this world. Record-and-replay breaks every time your UI changes. Scriptless tools crawl URLs without understanding what they're looking at. Enterprise platforms cost six figures and take months to deploy. None of them actually understand your codebase.",
-      "Orbit takes a fundamentally different approach. It reads your code at the AST level — understanding routes, components, auth flows, and business logic the way a senior engineer would. Then it generates and executes comprehensive test plans automatically, updating them every time you push.",
-      "The result is a testing system that doesn't just find bugs — it understands your application deeply enough to anticipate where bugs will appear. No test scripts to write. No selectors to maintain. No QA bottleneck. Just connect your repo, point it at staging, and ship with confidence."
+      "A pull request touches a few files. The question a reviewer actually has is which parts of the app a user would notice, and whether they still work. Writing and maintaining a browser suite to answer that is the work most small teams skip.",
+      "Orbit answers it from the code. It maps the app once, traces each diff to the journeys it can reach, and walks those in a real browser on the PR's preview. The result is one check on the PR, in plain English, with the evidence attached.",
+      "It is built to run on your infrastructure, with your model key, because the code and the credentials it needs are yours. The hosted version, when there is one, will be the same software run for you."
     ]
   },
   "values": [
-    {
-      "title": "One Connection, Full Coverage",
-      "description": "Connect your repo once. Orbit handles indexing, planning, generating, and running. You focus on building — not babysitting test suites.",
-      "icon": "Plug"
-    },
-    {
-      "title": "The AI Works in the Open",
-      "description": "Every decision Orbit makes is visible and explainable. See what it found in your code, why it prioritized a test case, and how it reached its verdict. No black boxes.",
-      "icon": "Eye"
-    },
-    {
-      "title": "You Stay in Control",
-      "description": "Autonomous by default, configurable at every level. Choose the AI model, override prompts, approve plans before execution, exclude paths. Autonomy is a dial, not a switch.",
-      "icon": "Sliders"
-    },
-    {
-      "title": "Cost is a First-Class Concern",
-      "description": "Prompt caching, semantic dedup, smart batching, model routing per task. We obsess over keeping per-run costs low enough to test every single PR.",
-      "icon": "DollarSign"
-    }
+    { "title": "Show the work", "description": "Every verdict links to the recording, the step and the reason. A red check you cannot inspect is noise." },
+    { "title": "Test what changed", "description": "Most of a suite has nothing to do with a given PR. Scoping to the diff is what keeps a check fast and its failures meaningful." },
+    { "title": "Cost is visible", "description": "Model calls are counted per run, and passing steps replay without one. You should know what a check costs before you rely on it." }
   ]
 }
