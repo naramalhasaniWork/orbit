@@ -21,7 +21,7 @@ export default async function BillingSettingsPage() {
   if (!workspace) redirect("/login");
 
   return (
-    <div className="max-w-4xl mx-auto space-y-6">
+    <div className="max-w-4xl space-y-6">
       <div>
         <h2 className="text-balance text-[20px] font-medium leading-tight tracking-display">Billing & Usage</h2>
         <p className="text-sm text-muted-foreground mt-1">

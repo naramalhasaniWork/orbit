@@ -58,7 +58,7 @@ const MODEL_COLORS = [
 
 export function AgentTable({ agents }: { agents: AgentBreakdown[] }) {
   return (
-    <div className="rounded-xl border border-border bg-foreground/[0.02] overflow-hidden">
+    <div className="rounded-lg border border-border bg-card overflow-hidden">
       <div className="px-4 py-3 border-b border-border">
         <h4 className="text-xs font-medium text-muted-foreground flex items-center gap-2">
           <Bot className="h-3.5 w-3.5" />
@@ -106,7 +106,7 @@ export function AgentTable({ agents }: { agents: AgentBreakdown[] }) {
 
 export function ModelChart({ models }: { models: ModelBreakdown[] }) {
   return (
-    <div className="rounded-xl border border-border bg-foreground/[0.02] p-4">
+    <div className="rounded-lg border border-border bg-card p-4">
       <h4 className="text-xs font-medium text-muted-foreground mb-4 flex items-center gap-2">
         <Cpu className="h-3.5 w-3.5" />
         Spend by Model
@@ -138,7 +138,7 @@ export function ModelChart({ models }: { models: ModelBreakdown[] }) {
 
 export function ProjectList({ projects }: { projects: ProjectBreakdown[] }) {
   return (
-    <div className="rounded-xl border border-border bg-foreground/[0.02] p-4">
+    <div className="rounded-lg border border-border bg-card p-4">
       <h4 className="text-xs font-medium text-muted-foreground mb-3 flex items-center gap-2">
         <FolderOpen className="h-3.5 w-3.5" />
         Top Projects by Cost
@@ -165,7 +165,7 @@ export function DailySparkline({ daily }: { daily: DailySpend[] }) {
   const maxCost = Math.max(...daily.map((d) => d.cost), 0.001);
 
   return (
-    <div className="rounded-xl border border-border bg-foreground/[0.02] p-4">
+    <div className="rounded-lg border border-border bg-card p-4">
       <h4 className="text-xs font-medium text-muted-foreground mb-3">Daily Spend</h4>
       <div className="flex items-end gap-[2px] h-16">
         {daily.map((day) => {

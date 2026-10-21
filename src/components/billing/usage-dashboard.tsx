@@ -54,7 +54,7 @@ function UsageMeter({
   const isAtLimit = percentage >= 100;
 
   return (
-    <div className="p-4 rounded-xl border border-border bg-muted/30">
+    <div className="rounded-lg border border-border bg-card p-4">
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <Icon className="h-4 w-4 text-muted-foreground" />
@@ -110,7 +110,7 @@ export function UsageDashboard({ workspaceId }: UsageDashboardProps) {
     return (
       <div className="space-y-4">
         {[1, 2, 3, 4].map((i) => (
-          <div key={i} className="h-20 rounded-xl bg-muted/30" />
+          <div key={i} className="h-20 rounded-lg bg-muted" />
         ))}
       </div>
     );
@@ -127,7 +127,7 @@ export function UsageDashboard({ workspaceId }: UsageDashboardProps) {
       {/* Tier badge */}
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-foreground/[0.06] flex items-center justify-center">
+          <div className="flex size-10 items-center justify-center rounded-md border border-border">
             <Zap className="h-5 w-5 text-foreground" />
           </div>
           <div>
@@ -171,7 +171,7 @@ export function UsageDashboard({ workspaceId }: UsageDashboardProps) {
 
       {/* Daily usage chart (simple bar chart) */}
       {data.dailyUsage.length > 0 && (
-        <div className="rounded-xl border border-border bg-muted/30 p-4">
+        <div className="rounded-lg border border-border bg-card p-4">
           <h4 className="text-xs font-medium text-muted-foreground mb-3">
             Runs Per Day (This Month)
           </h4>
@@ -194,7 +194,7 @@ export function UsageDashboard({ workspaceId }: UsageDashboardProps) {
 
       {/* Recent transactions */}
       {data.recentTransactions.length > 0 && (
-        <div className="rounded-xl border border-border bg-muted/30 overflow-hidden">
+        <div className="rounded-lg border border-border bg-card overflow-hidden">
           <div className="px-4 py-3 border-b border-border">
             <h4 className="text-xs font-medium text-muted-foreground">
               Recent Transactions

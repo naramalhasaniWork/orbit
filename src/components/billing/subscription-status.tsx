@@ -89,7 +89,7 @@ export function SubscriptionStatus({ workspaceId }: SubscriptionStatusProps) {
   }
 
   if (loading) {
-    return <div className="h-20 rounded-xl bg-muted/30" />;
+    return <div className="h-20 rounded-lg bg-muted" />;
   }
 
   if (!data) {
@@ -100,10 +100,10 @@ export function SubscriptionStatus({ workspaceId }: SubscriptionStatusProps) {
   const statusConfig = sub ? (STATUS_CONFIG[sub.status] ?? STATUS_CONFIG.active) : null;
 
   return (
-    <div className="rounded-xl border border-border bg-muted/30 p-5">
+    <div className="rounded-lg border border-border bg-card p-5">
       <div className="flex items-start justify-between">
         <div className="flex items-center gap-3">
-          <div className="h-10 w-10 rounded-xl bg-foreground/[0.06] flex items-center justify-center">
+          <div className="flex size-10 items-center justify-center rounded-md border border-border">
             <Zap className="h-5 w-5 text-foreground" />
           </div>
           <div>
