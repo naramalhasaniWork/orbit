@@ -249,6 +249,7 @@ model Workspace {
   promptVersions       PromptVersion[]
   mcpConnections       McpConnection[]
   githubInstallations  GitHubInstallation[]
+  bugReports           BugReport[]
 
   @@map("workspaces")
 }
@@ -276,6 +277,7 @@ model User {
   invitedUsers   WorkspaceInvitation[]   @relation("InvitedBy")
   promptVersions PromptVersion[]         @relation("PromptCreatedBy")
   conversations  Conversation[]
+  bugReports     BugReport[]
 
   @@map("users")
 }
@@ -1685,4 +1687,33 @@ model JobFailure {
   @@unique([queue, jobId])
   @@index([status, createdAt])
   @@map("job_failures")
+}
+
+// ============================================================
+// BUG REPORTS (in-app "Report a bug", triaged at /admin/reports)
+// ============================================================
+
+enum BugReportStatus {
+  open
+  resolved
+}
+
+model BugReport {
+  id            String          @id @default(uuid()) @db.Uuid
+  // Null once the workspace is deleted; the report itself is kept.
+  workspaceId   String?         @map("workspace_id") @db.Uuid
+  userId        String          @map("user_id") @db.Uuid
+  message       String
+  context       Json            @default("{}")
+  screenshotKey String?         @map("screenshot_key")
+  status        BugReportStatus @default(open)
+  resolvedAt    DateTime?       @map("resolved_at")
+  resolvedBy    String?         @map("resolved_by") @db.Uuid
+  createdAt     DateTime        @default(now()) @map("created_at")
+
+  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: SetNull)
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([status, createdAt])
+  @@map("bug_reports")
 }
