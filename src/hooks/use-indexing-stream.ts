@@ -33,6 +33,8 @@ interface UseIndexingStreamOptions {
   onNodeDiscovered?: (node: IndexingNodeDiscoveredEvent) => void;
   onComplete?: (state: IndexingState) => void;
   onError?: (error: string) => void;
+  /** Every raw message, for consumers that fold the stream themselves (the live map). */
+  onEvent?: (event: { type: string; data: unknown }) => void;
 }
 
 const MAX_DISCOVERED_NODES = 200;
@@ -43,6 +45,7 @@ export function useIndexingStream({
   onNodeDiscovered,
   onComplete,
   onError,
+  onEvent,
 }: UseIndexingStreamOptions) {
   const [state, setState] = useState<IndexingState>({
     status: "idle",
@@ -62,9 +65,12 @@ export function useIndexingStream({
   onCompleteRef.current = onComplete;
   const onErrorRef = useRef(onError);
   onErrorRef.current = onError;
+  const onEventRef = useRef(onEvent);
+  onEventRef.current = onEvent;
 
   const handleEvent = useCallback((event: { type: string; data: unknown }) => {
     const payload = event.data as Record<string, unknown>;
+    onEventRef.current?.(event);
 
     switch (event.type) {
       case "connected": {

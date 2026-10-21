@@ -305,6 +305,20 @@
     transform: scaleY(1);
   }
 }
+/* MAP ASSEMBLES (onboarding): a discovered node slides in from the layer before it.
+   `translate` (not `transform`) so it composes with the node's own position. */
+@keyframes tm-node-in {
+  from {
+    opacity: 0;
+    translate: -8px 0;
+  }
+}
+/* MAP ASSEMBLES: an edge draws out of its source node. */
+@keyframes tm-edge-draw {
+  from {
+    transform: scaleX(0);
+  }
+}
 /* PASSES: the arc closes and the dot merges into the stroke. */
 @keyframes tm-close {
   to {

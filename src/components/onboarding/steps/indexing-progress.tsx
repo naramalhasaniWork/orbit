@@ -1,31 +1,40 @@
 "use client";
 
-import { Pending } from "@/components/telemetry/pending";
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
-import { Check, Circle, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Pending } from "@/components/telemetry/pending";
+import { RollingNumber } from "@/components/telemetry/rolling-number";
 import { cn } from "@/lib/utils";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { useIndexingStream } from "@/hooks/use-indexing-stream";
+import { useMapAssembly } from "@/hooks/use-map-assembly";
+import { LiveMap } from "../live-map";
 import type { RepoItem } from "../onboarding-types";
 import type { IndexingPhase } from "@/lib/websocket/channels";
+import type { AssemblyCounts } from "@/lib/onboarding/map-assembly";
 
 const PHASES: Array<{ id: IndexingPhase; label: string }> = [
-  { id: "clone", label: "Cloning repository" },
-  { id: "framework", label: "Detecting framework" },
-  { id: "ast", label: "Parsing AST" },
-  { id: "routes", label: "Extracting routes" },
-  { id: "components", label: "Mapping components" },
-  { id: "embeddings", label: "Generating embeddings" },
+  { id: "clone", label: "Clone" },
+  { id: "framework", label: "Framework" },
+  { id: "ast", label: "Parse" },
+  { id: "routes", label: "Routes" },
+  { id: "components", label: "Components" },
+  { id: "embeddings", label: "Embeddings" },
 ];
 
-function phaseToIndex(phase: IndexingPhase | null): number {
-  if (!phase) return -1;
+const COUNTERS: Array<{ key: keyof AssemblyCounts; label: string }> = [
+  { key: "routes", label: "Routes" },
+  { key: "components", label: "Components" },
+  { key: "apis", label: "APIs" },
+  { key: "models", label: "Models" },
+];
+
+/** Long enough to see the finished map settle, short enough not to feel like a wait. */
+const COMPLETE_HOLD_MS = 1200;
+
+function phaseIndex(phase: IndexingPhase | null): number {
   if (phase === "complete") return PHASES.length;
-  if (phase === "error") return -1;
-  return PHASES.findIndex((p) => p.id === phase);
+  return phase ? PHASES.findIndex((p) => p.id === phase) : -1;
 }
 
 interface IndexingProgressProps {
@@ -34,243 +43,134 @@ interface IndexingProgressProps {
   onComplete: () => void;
 }
 
-function PhaseIcon({ status }: { status: "pending" | "running" | "complete" }) {
-  if (status === "complete") return <Check className="h-4 w-4 text-orbit-pass" />;
-  if (status === "running") return <Pending />;
-  return <Circle className="h-4 w-4 text-muted-foreground/40" />;
-}
-
+/** Step 2: the System Map assembles live from the indexing stream, node by node, then edge by edge. */
 export function IndexingProgress({ repo, projectId, onComplete }: IndexingProgressProps) {
   const router = useRouter();
-  const [logs, setLogs] = useState<string[]>([]);
   const [syncTriggered, setSyncTriggered] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const startedRef = useRef(false);
+  const { assembly, push } = useMapAssembly();
 
-  const addLog = useCallback((message: string) => {
-    setLogs((prev) => [...prev, message]);
-  }, []);
-
-  const {
-    status: indexingStatus,
-    phase,
-    progress,
-    nodesFound,
-  } = useIndexingStream({
+  const { status, phase, progress } = useIndexingStream({
     projectId,
     enabled: syncTriggered,
-    onNodeDiscovered: (node) => {
-      addLog(`[done]  Discovered ${node.nodeType}: ${node.nodeName}`);
-    },
-    onComplete: () => {
-      addLog("");
-      addLog("Analysis complete. System Map ready.");
-      setTimeout(onComplete, 800);
-    },
-    onError: (err) => {
-      setError(err);
-    },
+    onEvent: push,
+    onComplete: () => setTimeout(onComplete, COMPLETE_HOLD_MS),
+    onError: setError,
   });
 
-  // Log phase transitions
-  useEffect(() => {
-    if (!phase) return;
-    const phaseConfig = PHASES.find((p) => p.id === phase);
-    if (phaseConfig) {
-      addLog(`[start] ${phaseConfig.label}...`);
-    }
-    if (phase === "complete") {
-      addLog(`[done]  Indexing complete. ${nodesFound} nodes discovered.`);
-    }
-  }, [phase, nodesFound, addLog]);
-
-  // Trigger sync on mount (or reconnect if already running)
+  // Trigger the sync on mount, or attach to one already running.
   useEffect(() => {
     if (startedRef.current) return;
     startedRef.current = true;
 
-    const triggerSync = async () => {
+    (async () => {
       try {
-        // Check if indexing is already in progress
         const statusRes = await fetch(`/api/projects/${projectId}/sync`);
         if (statusRes.ok) {
           const statusJson = await statusRes.json();
           if (statusJson.data?.isIndexing) {
-            addLog(`[start] Reconnecting to active indexing session...`);
             setSyncTriggered(true);
             return;
           }
           if (statusJson.data?.lastIndexedAt && statusJson.data?.nodeCount > 0) {
-            addLog(`[done]  Repository already indexed (${statusJson.data.nodeCount} nodes).`);
             setTimeout(onComplete, 500);
             return;
           }
         }
-
-        addLog(`[start] Triggering indexing for ${repo.fullName}...`);
         const res = await fetch(`/api/projects/${projectId}/sync`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ branch: repo.defaultBranch }),
         });
-
         const json = await res.json();
         if (!res.ok || !json.success) {
           setError(json.error?.message ?? "Failed to start indexing");
           return;
         }
-
-        addLog(`[done]  Indexing job queued (${json.data.jobId})`);
         setSyncTriggered(true);
       } catch {
         setError("Failed to connect to server");
       }
-    };
+    })();
+  }, [projectId, repo, onComplete]);
 
-    triggerSync();
-  }, [projectId, repo, addLog, onComplete]);
-
-  const activePhaseIdx = phaseToIndex(phase);
-
-  const phaseStatuses = PHASES.map((_, idx) => {
-    if (idx < activePhaseIdx) return "complete" as const;
-    if (idx === activePhaseIdx && indexingStatus === "indexing") return "running" as const;
-    return "pending" as const;
-  });
+  const done = status === "complete";
+  const active = phaseIndex(phase);
+  const pct = Math.max(0, Math.min(100, progress));
+  const phaseLabel = done ? "Map ready" : PHASES[active]?.label ?? "Queued";
 
   return (
-    <div className="flex flex-col items-center w-full max-w-2xl mx-auto">
-      <div className="text-center mb-8">
+    <div className="mx-auto flex w-full max-w-4xl flex-col">
+      <div className="mb-6 text-center">
         <h2 className="mb-2 text-balance text-[22px] font-medium tracking-display">
-          Analyzing your codebase
+          {done ? "System Map ready" : `Reading ${repo.fullName}`}
         </h2>
-        <p className="text-sm text-muted-foreground">
-          Orbit is building a System Map of {repo.fullName}
+        <p className="text-pretty text-sm text-muted-foreground">
+          Every route, component, API and data model Orbit finds lands on the map as it finds it.
         </p>
       </div>
 
       {error && (
-        <div className="w-full mb-6 flex items-center gap-2 text-sm text-orbit-fail bg-orbit-fail/10 rounded-md px-3 py-2">
-          <AlertCircle className="h-4 w-4 shrink-0" />
-          {error}
-          <Button
-            variant="ghost"
-            size="sm"
-            className="ml-auto text-xs"
-            onClick={() => router.refresh()}
-          >
-            Retry
-          </Button>
-        </div>
+        <p role="alert" className="mb-4 flex items-center gap-2 rounded-md border border-tm-fail/30 bg-tm-fail-bg px-3 py-2 text-[13px] text-tm-fail">
+          <span aria-hidden="true">✕</span>
+          <span className="flex-1">{error}</span>
+          <Button variant="ghost" size="sm" onClick={() => router.refresh()}>Retry</Button>
+        </p>
       )}
 
-      <div className="w-full flex flex-col md:flex-row gap-6">
-        <div className="flex-1 space-y-5">
-          <ProgressRing progress={progress} />
-          <div className="space-y-1">
-            {PHASES.map((p, idx) => (
-              <div
-                key={p.id}
-                className={cn(
-                  "flex items-center gap-3 px-3 py-2 rounded-md transition-colors",
-                  phaseStatuses[idx] === "running" && "bg-foreground/[0.06]"
-                )}
-              >
-                <PhaseIcon status={phaseStatuses[idx]} />
-                <span
-                  className={cn(
-                    "text-sm transition-colors",
-                    phaseStatuses[idx] === "complete" && "text-muted-foreground",
-                    phaseStatuses[idx] === "running" && "text-foreground font-medium",
-                    phaseStatuses[idx] === "pending" && "text-muted-foreground/50"
-                  )}
-                >
-                  {p.label}
-                  {phaseStatuses[idx] === "running" && nodesFound > 0 && (
-                    <span className="ml-2 text-xs text-foreground tabular-nums">
-                      {nodesFound} nodes
-                    </span>
-                  )}
-                </span>
-              </div>
-            ))}
+      <dl className="mb-4 grid grid-cols-4 gap-3">
+        {COUNTERS.map((c) => (
+          <div key={c.key} className="flex flex-col gap-1 border-t border-foreground pt-2">
+            <dt className="tm-label order-2 text-tm-t3">{c.label}</dt>
+            <dd className="tm-num order-1 text-[22px] leading-none text-foreground sm:text-[28px]">
+              <RollingNumber value={assembly.counts[c.key]} />
+            </dd>
           </div>
-        </div>
+        ))}
+      </dl>
 
-        <div className="flex-1 rounded-lg surface-1 border border-border overflow-hidden">
-          <div className="px-3 py-2 border-b border-border">
-            <span className=" text-muted-foreground tm-label">
-              Output
-            </span>
+      <div className="mb-3 flex items-center gap-3">
+        <span className="tm-label w-24 shrink-0 text-tm-t2" aria-live="polite">{phaseLabel}</span>
+        <div className="relative h-px flex-1 overflow-hidden bg-border" aria-hidden="true">
+          <div
+            className="absolute inset-0 origin-left bg-foreground transition-transform duration-change ease-out"
+            style={{ transform: `scaleX(${pct / 100})` }}
+          />
+        </div>
+        <span className="tm-num w-10 shrink-0 text-right text-[11px] text-tm-t2">{pct}%</span>
+      </div>
+
+      <div className="relative rounded-lg border border-border bg-card">
+        {assembly.nodes.length === 0 ? (
+          <div className="flex h-[280px] items-center justify-center md:h-[360px]">
+            <Pending label={status === "idle" || status === "connecting" ? "Starting the indexer" : "Looking for the first route"} showLabel />
           </div>
-          <ScrollArea className="h-[240px]">
-            <div className="p-3 font-mono text-xs space-y-0.5">
-              {logs.map((log, i) => (
-                <div
-                  key={i}
-                  className={cn(
-                    "text-muted-foreground",
-                    log.startsWith("[done]") && "text-orbit-pass",
-                    log.startsWith("[start]") && "text-foreground",
-                    log.includes("complete.") && "text-foreground font-medium mt-2"
-                  )}
-                >
-                  {log || "\u00A0"}
-                </div>
-              ))}
-            </div>
-          </ScrollArea>
-        </div>
+        ) : (
+          <LiveMap nodes={assembly.nodes} edges={assembly.edges} assemble className="h-[280px] p-2 md:h-[360px]" />
+        )}
       </div>
-    </div>
-  );
-}
 
-function ProgressRing({ progress }: { progress: number }) {
-  const radius = 40;
-  const circumference = 2 * Math.PI * radius;
-  const clampedProgress = Math.max(0, Math.min(100, progress));
-  const offset = circumference - (clampedProgress / 100) * circumference;
-
-  return (
-    <div className="flex items-center justify-center">
-      <div className="relative h-24 w-24">
-        <svg className="h-24 w-24 -rotate-90" viewBox="0 0 96 96">
-          <circle
-            cx="48" cy="48" r={radius}
-            fill="none"
-            stroke="hsl(var(--muted))"
-            strokeWidth="4"
-          />
-          {/* Glow filter */}
-          <defs>
-            <filter id="progress-glow" x="-50%" y="-50%" width="200%" height="200%">
-              <feGaussianBlur stdDeviation="3" result="blur" />
-              <feMerge>
-                <feMergeNode in="blur" />
-                <feMergeNode in="SourceGraphic" />
-              </feMerge>
-            </filter>
-          </defs>
-          <motion.circle
-            cx="48" cy="48" r={radius}
-            fill="none"
-            stroke="hsl(var(--tm-t1))"
-            strokeWidth="4"
-            strokeLinecap="round"
-            strokeDasharray={circumference}
-            initial={{ strokeDashoffset: circumference }}
-            animate={{ strokeDashoffset: offset }}
-            transition={{ duration: 0.5, ease: "easeOut" }}
-            filter="url(#progress-glow)"
-          />
-        </svg>
-        <div className="absolute inset-0 flex items-center justify-center">
-          <span className="tm-num text-[18px] text-foreground">
-            {clampedProgress}%
-          </span>
-        </div>
-      </div>
+      <ol className="mt-4 flex flex-wrap justify-center gap-x-4 gap-y-1" aria-label="Indexing phases">
+        {PHASES.map((p, i) => {
+          const state = i < active ? "done" : i === active && status === "indexing" ? "running" : "pending";
+          return (
+            <li
+              key={p.id}
+              className={cn(
+                "tm-label flex items-center gap-1.5",
+                state === "done" && "text-tm-t2",
+                state === "running" && "text-foreground",
+                state === "pending" && "text-tm-t3"
+              )}
+            >
+              <span aria-hidden="true">{state === "done" ? "✓" : state === "running" ? "●" : "○"}</span>
+              {p.label}
+              <span className="sr-only">{state === "done" ? ", done" : state === "running" ? ", running" : ", pending"}</span>
+            </li>
+          );
+        })}
+      </ol>
     </div>
   );
 }

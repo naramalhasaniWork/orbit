@@ -21,6 +21,7 @@ const FIXTURES: { [T in Exclude<WebSocketEvent["type"], "heartbeat">]: Extract<W
   "indexing:started": { projectId: ID, branch: long(200), isIncremental: true },
   "indexing:phase": { projectId: ID, phase: "embeddings", message: long(400), progress: 0.5 },
   "indexing:node_discovered": { projectId: ID, nodeId: ID, nodeType: "component", nodeName: long(200), filePath: long(300) },
+  "indexing:edge_discovered": { projectId: ID, edgeId: ID, sourceId: ID, targetId: ID, relationship: long(64) },
   "indexing:progress": { projectId: ID, phase: "ast", message: long(400), nodesFound: 99999, progress: 1 },
   "indexing:completed": { projectId: ID, nodesFound: 99999, edgesFound: 99999, durationMs: 99999999 },
   "indexing:failed": { projectId: ID, error: long(5000), phase: "ast" },
