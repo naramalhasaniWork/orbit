@@ -240,7 +240,7 @@ Agent prompt definitions live in `.claude/agents/`. Use these when spawning spec
 
 Copyright (c) 2026 Naram Alhasani (personally). Everything outside `src/ee/` is AGPL-3.0-only (`LICENSE`); `src/ee/` is under the commercial Orbit Enterprise License (`src/ee/LICENSE`). See `COPYRIGHT`.
 
-- Paid features live in `src/ee/` and are gated with `eeLicenseRequired()` / `hasEeLicense()` (offline Ed25519 key check, `ORBIT_EE_LICENSE_KEY` + `ORBIT_EE_PUBLIC_KEY`). Currently gated: audit log CSV export.
+- Paid features live in `src/ee/` and are gated with `eeLicenseRequired()` / `hasEeLicense()` (offline Ed25519 check of `ORBIT_EE_LICENSE_KEY` against the embedded `EE_PUBLIC_KEY`; keys issued with `scripts/ee/issue-license.ts`; the private key never enters the repo). Currently gated: audit log CSV export.
 - Gating another existing core feature is an owner decision; never cripple self-hosting of the core.
 - Contributions need the CLA (`.github/CLA.md`). No per-file license headers.
 

@@ -2,12 +2,16 @@
  * Orbit Enterprise license-key gate. Licensed under src/ee/LICENSE, not the AGPL.
  *
  * A license key is `base64url(JSON payload).base64url(Ed25519 signature over the payload segment)`.
- * Verification is offline: no network calls, only the public key in ORBIT_EE_PUBLIC_KEY.
+ * Verification is offline: no network calls, only the official public key below.
+ * Keys are issued with scripts/ee/issue-license.ts and the private key, which never enters this repo.
  */
 
 import { createPublicKey, verify, type KeyObject } from "node:crypto";
 
 export type Env = Record<string, string | undefined>;
+
+/** Official Orbit Enterprise public key (base64url, raw 32-byte Ed25519). */
+export const EE_PUBLIC_KEY = "7SzrrRfnri8aH0suLh7StjI9-FSBmBWLWFt_pFqh9SE";
 
 export interface EeLicense {
   licensee: string;
@@ -20,7 +24,7 @@ export type LicenseFailure = "missing" | "no_public_key" | "malformed" | "bad_si
 
 export type LicenseCheck = { valid: true; license: EeLicense } | { valid: false; reason: LicenseFailure };
 
-/** ORBIT_EE_PUBLIC_KEY is the base64 (or base64url) raw 32-byte Ed25519 public key. */
+/** A base64 (or base64url) raw 32-byte Ed25519 public key. */
 function parsePublicKey(raw: string): KeyObject | null {
   const bytes = Buffer.from(raw.trim(), "base64url");
   if (bytes.length !== 32) return null;
@@ -61,9 +65,14 @@ export function verifyLicenseKey(key: string | undefined, publicKey: string | un
   return { valid: true, license };
 }
 
-/** Checks ORBIT_EE_LICENSE_KEY against ORBIT_EE_PUBLIC_KEY. */
+/** The official key, or ORBIT_EE_PUBLIC_KEY under NODE_ENV=test only, so a deployment can't trust its own keypair. */
+function trustedPublicKey(env: Env): string {
+  return env.NODE_ENV === "test" && env.ORBIT_EE_PUBLIC_KEY ? env.ORBIT_EE_PUBLIC_KEY : EE_PUBLIC_KEY;
+}
+
+/** Checks ORBIT_EE_LICENSE_KEY against the trusted public key. */
 export function getEeLicense(env: Env = process.env, now = new Date()): LicenseCheck {
-  return verifyLicenseKey(env.ORBIT_EE_LICENSE_KEY, env.ORBIT_EE_PUBLIC_KEY, now);
+  return verifyLicenseKey(env.ORBIT_EE_LICENSE_KEY, trustedPublicKey(env), now);
 }
 
 /** Enterprise features are on with a valid key, and always on in local development (free under src/ee/LICENSE). */

@@ -19,10 +19,9 @@ Viewing the audit log in the app stays free; only the export is gated.
 
 A key is `base64url(payload).base64url(signature)`: the payload is JSON `{ "licensee", "seats", "expiresAt" }` and the signature is Ed25519 over the payload segment. `src/ee/license-key.ts` verifies it offline; nothing calls home.
 
-| Env var | Purpose |
-|---|---|
-| `ORBIT_EE_LICENSE_KEY` | The key issued with a subscription |
-| `ORBIT_EE_PUBLIC_KEY` | Base64 raw 32-byte Ed25519 public key that signed it |
+Set `ORBIT_EE_LICENSE_KEY` to the key issued with a subscription. It is checked against the official public key embedded in `license-key.ts` (`EE_PUBLIC_KEY`); deployments can't swap in their own. `ORBIT_EE_PUBLIC_KEY` overrides it only under `NODE_ENV=test`.
+
+The owner issues keys with `npx tsx scripts/ee/issue-license.ts <private-key.pem> <licensee> <seats> <expiresAt>`. The private key never enters the repo.
 
 With `NODE_ENV=development` every enterprise feature is on, so local work needs no key.
 
