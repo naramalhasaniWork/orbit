@@ -5,6 +5,7 @@ import {
   monthlyCreditAllowance,
   type WorkspaceTier,
 } from "@/lib/auth/tenant";
+import { memberLimit } from "@/lib/auth/tier-limits";
 import { apiSuccess, apiError } from "@/lib/utils/api";
 import { route } from "@/server/http/route";
 
@@ -20,7 +21,8 @@ export const GET = route(
       select: {
         tier: true,
         creditBalance: true,
-        monthlyCredits: true,
+        creditsGranted: true,
+        seatCount: true,
       },
     });
 
@@ -30,6 +32,7 @@ export const GET = route(
 
     const tier = workspace.tier as WorkspaceTier;
     const limits = TIER_LIMITS[tier];
+    const seatLimit = memberLimit(tier, workspace.seatCount);
 
     // Current counts
     const [memberCount, projectCount] = await Promise.all([
@@ -96,13 +99,13 @@ export const GET = route(
     });
 
     const creditsUsedThisMonth = Math.abs(monthlyCreditsUsed._sum.amount ?? 0);
-    const creditLimit = monthlyCreditAllowance(tier, workspace.monthlyCredits);
+    const creditLimit = monthlyCreditAllowance(tier, workspace.creditsGranted);
     const budgetPercentage = getBudgetPercentage(creditsUsedThisMonth, creditLimit);
 
     return apiSuccess({
       tier,
       limits: {
-        members: limits.members === Infinity ? null : limits.members,
+        members: seatLimit === Infinity ? null : seatLimit,
         projects: limits.projects === Infinity ? null : limits.projects,
         runsPerMonth: limits.runsPerMonth === Infinity ? null : limits.runsPerMonth,
         monthlyCredits: creditLimit === Infinity ? null : creditLimit,

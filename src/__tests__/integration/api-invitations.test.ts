@@ -41,7 +41,24 @@ vi.mock("@/server/http/session", async () => (await import("../helpers/route-aut
 vi.mock("@/server/http/auth", async (orig) =>
   (await import("../helpers/route-auth")).authMock(await orig<Record<string, unknown>>())
 );
-vi.mock("@/lib/auth/tenant", () => ({ canConsume: (...a: unknown[]) => canConsume(...a) }));
+vi.mock("@/lib/auth/tenant", () => ({
+  // Seat check then insert through the route's scope, like the real one minus the row lock (seat-reservation.test)
+  withSeatReserved: async (scope: { workspaceId: string }, take: (ws: unknown) => Promise<unknown>) => {
+    const decision = await canConsume(scope.workspaceId, "member");
+    return decision.allowed ? { ok: true, value: await take(scope) } : { ok: false, decision };
+  },
+  // Same contract as the real one minus the lock (seat-reservation.test covers the race)
+  reissueInvitation: async (scope: { workspaceId: string }, id: string, fresh: Row) => {
+    const inv = invites.find((i) => i.id === id && ["pending", "expired"].includes(i.status as string));
+    if (!inv) return { ok: false, decision: { allowed: false, code: "NOT_FOUND", reason: "Invitation not found" } };
+    if (inv.status === "expired" || (inv.expiresAt as Date) <= new Date()) {
+      const decision = await canConsume(scope.workspaceId, "member");
+      if (!decision.allowed) return { ok: false, decision };
+    }
+    Object.assign(inv, fresh, { status: "pending" });
+    return { ok: true, invitation: inv };
+  },
+}));
 vi.mock("@/lib/auth/audit", () => ({ writeAuditLog: vi.fn() }));
 vi.mock("@/lib/email/invite-email", () => ({
   deliverInviteEmail: (...a: unknown[]) => sendInvite(...a),

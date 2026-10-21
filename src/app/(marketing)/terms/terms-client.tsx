@@ -154,13 +154,17 @@ export function TermsClient() {
             </p>
             <ul className="list-disc pl-5 space-y-1">
               <li><span className="font-medium text-foreground">Free:</span> Limited credits per month, no credit card required</li>
-              <li><span className="font-medium text-foreground">Pro ($79/mo):</span> Higher credit allocation for individual developers</li>
-              <li><span className="font-medium text-foreground">Team ($149/mo):</span> Team features with shared credit pool</li>
+              <li><span className="font-medium text-foreground">Pro ($79 per seat/month):</span> Monthly credits per seat, pooled across the workspace</li>
+              <li><span className="font-medium text-foreground">Team ($149 per seat/month):</span> Team features with a larger per-seat credit allocation</li>
               <li><span className="font-medium text-foreground">Enterprise:</span> Custom pricing with dedicated support</li>
             </ul>
             <p>
-              Additional credit packs may be purchased separately. Unused credits
-              from monthly allocations do not roll over. Paid subscriptions renew
+              Paid plans are billed per seat, and each seat admits one workspace
+              member (pending invitations count toward seats). Unused credits from
+              a monthly allocation roll over for one month and expire when the
+              following month&apos;s allocation is granted; rolled-over credits are
+              used first. Additional credit packs may be purchased separately and
+              do not expire. Paid subscriptions renew
               automatically unless cancelled before the next billing cycle.
               Refunds are not provided for partial months or unused credits.
             </p>

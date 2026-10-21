@@ -17,6 +17,7 @@ vi.mock("@/lib/billing/usage-aggregator", () => ({
 import { prisma } from "@/lib/db";
 import { checkBudgetLimit } from "@/lib/billing/usage-aggregator";
 import { canConsume, TIER_LIMITS } from "@/lib/auth/tenant";
+import { memberLimit } from "@/lib/auth/tier-limits";
 import { getAllTierConfigs, getMonthlyCreditGrant } from "@/lib/stripe/prices";
 import pricingContent from "@/app/(marketing)/content/pricing.json";
 
@@ -80,6 +81,50 @@ describe("canConsume", () => {
   });
 });
 
+describe("seat-based member limits", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    budget.mockResolvedValue({ budgetLimit: null, usagePercent: 0 });
+  });
+
+  it("limits Pro and Team members to the purchased seats, counting pending invites", async () => {
+    db.workspace.findUnique.mockResolvedValue({ tier: "starter", creditBalance: 0, seatCount: 3 });
+    db.workspaceMember.count.mockResolvedValue(2);
+    db.workspaceInvitation.count.mockResolvedValue(0);
+    expect(await canConsume("ws-1", "member")).toEqual({ allowed: true });
+
+    db.workspaceInvitation.count.mockResolvedValue(1);
+    const decision = await canConsume("ws-1", "member");
+    expect(decision).toMatchObject({ allowed: false, code: "LIMIT_REACHED" });
+    expect(decision.allowed === false && decision.reason).toMatch(/All 3 seats .*1 pending.*Add seats in Billing/);
+  });
+
+  it("follows seats beyond the old fixed tier limit", async () => {
+    db.workspace.findUnique.mockResolvedValue({ tier: "professional", creditBalance: 0, seatCount: 25 });
+    db.workspaceMember.count.mockResolvedValue(20);
+    db.workspaceInvitation.count.mockResolvedValue(4);
+    expect(await canConsume("ws-1", "member")).toEqual({ allowed: true });
+  });
+
+  it("blocks new invites while over seats after a seat reduction or downgrade, without removing anyone", async () => {
+    db.workspace.findUnique.mockResolvedValue({ tier: "starter", creditBalance: 0, seatCount: 2 });
+    db.workspaceMember.count.mockResolvedValue(4);
+    db.workspaceInvitation.count.mockResolvedValue(0);
+    expect(await canConsume("ws-1", "member")).toMatchObject({ allowed: false, code: "LIMIT_REACHED" });
+
+    // Downgraded to Free with the same 4 members: the fixed Free limit applies
+    db.workspace.findUnique.mockResolvedValue({ tier: "free", creditBalance: 0, seatCount: 1 });
+    const decision = await canConsume("ws-1", "member");
+    expect(decision.allowed === false && decision.reason).toMatch(/Upgrade your plan/);
+  });
+
+  it("keeps Free at its fixed limit and Enterprise unlimited regardless of seats", () => {
+    expect(memberLimit("free", 10)).toBe(TIER_LIMITS.free.members);
+    expect(memberLimit("enterprise", 1)).toBe(Infinity);
+    expect(memberLimit("starter", 0)).toBe(1);
+  });
+});
+
 describe("advertised limits match TIER_LIMITS", () => {
   it("Stripe grants use TIER_LIMITS credits, multiplied by seats on seat-based tiers", () => {
     expect(getMonthlyCreditGrant("starter", 3)).toBe(TIER_LIMITS.starter.monthlyCredits * 3);
@@ -94,6 +139,7 @@ describe("advertised limits match TIER_LIMITS", () => {
     expect(configs.free.features).toContain(freeCredits);
     const proCredits = `${TIER_LIMITS.starter.monthlyCredits.toLocaleString("en-US")} credits/month per seat`;
     expect(configs.starter.features).toContain(proCredits);
+    expect(configs.starter.features).toContain("1 team member per seat");
 
     for (const config of Object.values(configs)) {
       const text = config.features.join(" ");

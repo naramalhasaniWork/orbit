@@ -46,9 +46,14 @@ describe("marketing copy matches the product", () => {
     }
   );
 
-  it("has no unverified trial, rollover, SSO or plugin-authoring claims", () => {
+  it("states the one-month credit rollover the billing code implements", () => {
+    expect(content.pricing).toContain("Unused monthly credits roll over for one month");
+    expect(content.pricing).not.toMatch(/do not roll over|don't roll over/i);
+  });
+
+  it("has no unverified trial, SSO or plugin-authoring claims", () => {
     const text = content.pricing;
-    for (const phrase of ["trial", "roll over", "okta", "sso", "plugin authoring", "75%", "95%"]) {
+    for (const phrase of ["trial", "okta", "sso", "plugin authoring", "75%", "95%"]) {
       expect(text.toLowerCase(), phrase).not.toContain(phrase);
     }
     expect(JSON.parse(text).creditPacks).toBeUndefined();

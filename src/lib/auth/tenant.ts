@@ -5,9 +5,10 @@
 
 import { prisma } from "@/lib/db";
 import type { Prisma } from "@/generated/prisma/client";
+import type { WorkspaceScope } from "@/server/data/scope";
 import { isSelfHosted } from "@/lib/self-host";
 import { checkBudgetLimit } from "@/lib/billing/usage-aggregator";
-import { TIER_LIMITS, type WorkspaceTier } from "./tier-limits";
+import { TIER_LIMITS, memberLimit, type WorkspaceTier } from "./tier-limits";
 
 export { TIER_LIMITS, type WorkspaceTier };
 
@@ -78,7 +79,7 @@ export async function canConsume(
   if (isSelfHosted()) return { allowed: true };
   const workspace = await db.workspace.findUnique({
     where: { id: workspaceId },
-    select: { tier: true, creditBalance: true },
+    select: { tier: true, creditBalance: true, seatCount: true },
   });
   if (!workspace) {
     return { allowed: false, code: "NOT_FOUND", reason: "Workspace not found" };
@@ -93,18 +94,8 @@ export async function canConsume(
         ? limitReached(`Project limit reached (${limits.projects}). Upgrade your plan to create more projects.`)
         : { allowed: true };
     }
-    case "member": {
-      const [members, pending] = await Promise.all([
-        db.workspaceMember.count({ where: { workspaceId } }),
-        // Expired invites no longer hold a seat
-        db.workspaceInvitation.count({
-          where: { workspaceId, status: "pending", expiresAt: { gt: new Date() } },
-        }),
-      ]);
-      return members + pending >= limits.members
-        ? limitReached(`Member limit reached (${limits.members}). Upgrade your plan to add more members.`)
-        : { allowed: true };
-    }
+    case "member":
+      return seatDecision(workspace.tier, workspace.seatCount, await countSeatsInUse(workspaceId, db));
     case "run": {
       const monthStart = new Date();
       monthStart.setDate(1);
@@ -122,6 +113,121 @@ export async function canConsume(
     case "credits":
       return checkCredits(workspaceId, workspace.creditBalance, limits.monthlyCredits);
   }
+}
+
+/**
+ * Seats held: members plus live pending invites (an expired invite frees its
+ * seat). After a seat reduction this can exceed the limit; nobody is removed,
+ * but new invites are blocked until it is back under.
+ */
+/** The tables a seat check reads: a transaction or a workspace scope (ctx.db). */
+type SeatDb = Pick<Prisma.TransactionClient, "$queryRaw" | "workspace" | "workspaceMember" | "workspaceInvitation">;
+
+export async function countSeatsInUse(
+  workspaceId: string,
+  db: SeatDb = prisma
+): Promise<{ members: number; pending: number }> {
+  const [members, pending] = await Promise.all([
+    db.workspaceMember.count({ where: { workspaceId } }),
+    db.workspaceInvitation.count({
+      where: { workspaceId, status: "pending", expiresAt: { gt: new Date() } },
+    }),
+  ]);
+  return { members, pending };
+}
+
+function seatDecision(
+  tier: WorkspaceTier,
+  seatCount: number,
+  seats: { members: number; pending: number }
+): ConsumeDecision {
+  const limit = memberLimit(tier, seatCount);
+  if (seats.members + seats.pending < limit) return { allowed: true };
+  return limitReached(
+    TIER_LIMITS[tier].seatBased
+      ? `All ${limit} seats are in use (${seats.members} members, ${seats.pending} pending invites). Add seats in Billing to invite more members.`
+      : `Member limit reached (${limit}). Upgrade your plan to add more members.`
+  );
+}
+
+/** Lock the workspace row for the rest of the transaction (SELECT ... FOR UPDATE). */
+export async function lockWorkspace(tx: Pick<SeatDb, "$queryRaw">, workspaceId: string): Promise<void> {
+  await tx.$queryRaw`SELECT id FROM workspaces WHERE id = ${workspaceId}::uuid FOR UPDATE`;
+}
+
+export type SeatReservation<T> =
+  | { ok: true; value: T }
+  | { ok: false; decision: Extract<ConsumeDecision, { allowed: false }> };
+
+/**
+ * Check for a free seat and take it in one transaction: the workspace row
+ * lock makes concurrent invites queue, so each re-counts after the previous
+ * one inserted and two cannot both take the last seat. `take` runs only when
+ * a seat is free and must write through the scope it is given.
+ */
+export async function withSeatReserved<T>(
+  scope: WorkspaceScope,
+  take: (ws: WorkspaceScope) => Promise<T>
+): Promise<SeatReservation<T>> {
+  return scope.tx(async (ws) => {
+    await lockWorkspace(ws, scope.workspaceId);
+    const decision = await seatAvailable(ws, scope.workspaceId);
+    if (!decision.allowed) return { ok: false as const, decision };
+    return { ok: true as const, value: await take(ws) };
+  });
+}
+
+/** Whether a seat is free right now; call under lockWorkspace for a decision that holds. */
+async function seatAvailable(ws: SeatDb, workspaceId: string): Promise<ConsumeDecision> {
+  if (isSelfHosted()) return { allowed: true };
+  const row = await ws.workspace.findUnique({ where: { id: workspaceId }, select: { tier: true, seatCount: true } });
+  if (!row) return { allowed: false, code: "NOT_FOUND", reason: "Workspace not found" };
+  return seatDecision(row.tier, row.seatCount, await countSeatsInUse(workspaceId, ws));
+}
+
+const REISSUABLE = ["pending", "expired"] as const;
+
+/**
+ * Re-issue an invitation (new token and expiry) in one transaction under the
+ * workspace lock. The invitation is re-read inside the lock; only a lapsed
+ * one needs a free seat. A lapsed invite is not among the live pending
+ * invites countSeatsInUse counts, so the check never counts its own seat.
+ * Concurrent re-issues of one lapsed invite therefore revive it once: the
+ * second sees it live again and only rotates the token.
+ */
+export async function reissueInvitation(
+  scope: WorkspaceScope,
+  invitationId: string,
+  fresh: { token: string; expiresAt: Date },
+  now: Date = new Date()
+) {
+  type Result =
+    | { ok: true; invitation: NonNullable<Awaited<ReturnType<WorkspaceScope["workspaceInvitation"]["findFirst"]>>> }
+    | { ok: false; decision: Extract<ConsumeDecision, { allowed: false }> };
+  const notFound: Result = {
+    ok: false,
+    decision: { allowed: false, code: "NOT_FOUND", reason: "Invitation not found or already processed" },
+  };
+  const { workspaceId } = scope;
+  return scope.tx(async (ws): Promise<Result> => {
+    await lockWorkspace(ws, workspaceId);
+    const where = { id: invitationId, workspaceId, status: { in: [...REISSUABLE] } };
+    const current = await ws.workspaceInvitation.findFirst({ where, select: { status: true, expiresAt: true } });
+    if (!current) return notFound;
+
+    if (current.status === "expired" || current.expiresAt <= now) {
+      const decision = await seatAvailable(ws, workspaceId);
+      if (!decision.allowed) return { ok: false, decision };
+    }
+
+    const { count } = await ws.workspaceInvitation.updateMany({
+      where,
+      data: { token: fresh.token, expiresAt: fresh.expiresAt, status: "pending" },
+    });
+    if (count === 0) return notFound;
+    const invitation = await ws.workspaceInvitation.findFirst({ where: { id: invitationId, workspaceId } });
+    return invitation ? { ok: true, invitation } : notFound;
+  });
 }
 
 function limitReached(reason: string): ConsumeDecision {

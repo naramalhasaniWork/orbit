@@ -62,7 +62,7 @@ export async function GET(request: NextRequest) {
         getDailySpend(ctx.workspaceId, days),
         prisma.workspace.findUniqueOrThrow({
           where: { id: ctx.workspaceId },
-          select: { creditBalance: true, monthlyCredits: true },
+          select: { creditBalance: true, creditsGranted: true, creditsCurrent: true },
         }),
       ]);
 
@@ -80,7 +80,8 @@ export async function GET(request: NextRequest) {
       totalSpend,
       totalCalls,
       creditBalance: workspace.creditBalance,
-      monthlyCredits: workspace.monthlyCredits,
+      monthlyCredits: workspace.creditsGranted, // this period's grant from the buckets, not the plan allowance
+      creditsCurrent: workspace.creditsCurrent,
       agents: agentData,
       models: modelData,
       projects: projectData.slice(0, 5),

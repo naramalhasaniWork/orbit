@@ -137,6 +137,7 @@ enum CreditTransactionType {
   refund
   monthly_grant
   adjustment
+  expiry
 }
 
 enum ArtifactType {
@@ -201,6 +202,18 @@ model Workspace {
   tier            WorkspaceTier @default(free)
   creditBalance   Int           @default(100) @map("credit_balance")
   monthlyCredits  Int           @default(100) @map("monthly_credits")
+  // creditBalance is always the sum of the three buckets (lib/billing/credit-buckets.ts)
+  creditsCurrent    Int       @default(100) @map("credits_current")
+  creditsRollover   Int       @default(0) @map("credits_rollover")
+  creditsPurchased  Int       @default(0) @map("credits_purchased")
+  creditsGranted    Int       @default(100) @map("credits_granted")
+  rolloverExpiresAt DateTime? @map("rollover_expires_at")
+  // Start of the current credit period; Free resets its allowance a month after this
+  creditsPeriodStart DateTime @default(now()) @map("credits_period_start")
+  // Highest seat count already credited this period; a seat increase is credited only above it
+  creditsPeriodPaidSeats Int @default(0) @map("credits_period_paid_seats")
+  // Seats on the Stripe subscription; the member limit on seat-based tiers
+  seatCount       Int           @default(1) @map("seat_count")
   tokenBudgetMonthly Int?       @map("token_budget_monthly")
   settings        Json          @default("{}")
 

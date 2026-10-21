@@ -9,9 +9,11 @@ import {
   cancelSubscription,
   reactivateSubscription,
   changeTier,
+  updateSeatCount,
 } from "@/lib/stripe/subscriptions";
 import { getTierConfig } from "@/lib/stripe/prices";
-import type { WorkspaceTier } from "@/lib/auth/tenant";
+import { countSeatsInUse, TIER_LIMITS, type WorkspaceTier } from "@/lib/auth/tenant";
+import { memberLimit } from "@/lib/auth/tier-limits";
 
 export async function GET(request: NextRequest) {
   try {
@@ -30,11 +32,21 @@ export async function GET(request: NextRequest) {
         billingPeriodStart: true,
         billingPeriodEnd: true,
         creditBalance: true,
-        monthlyCredits: true,
+        creditsGranted: true,
+        creditsCurrent: true,
+        creditsRollover: true,
+        creditsPurchased: true,
+        rolloverExpiresAt: true,
+        seatCount: true,
       },
     });
 
-    const subscription = await getSubscriptionForWorkspace(ctx.workspaceId);
+    const [subscription, seatsInUse] = await Promise.all([
+      getSubscriptionForWorkspace(ctx.workspaceId),
+      countSeatsInUse(ctx.workspaceId),
+    ]);
+    const tier = workspace.tier as WorkspaceTier;
+    const seatLimit = memberLimit(tier, workspace.seatCount);
 
     return apiSuccess({
       tier: workspace.tier,
@@ -50,7 +62,18 @@ export async function GET(request: NextRequest) {
         : null,
       hasStripeCustomer: !!workspace.stripeCustomerId,
       creditBalance: workspace.creditBalance,
-      monthlyCredits: workspace.monthlyCredits,
+      monthlyCredits: workspace.creditsGranted, // this period's grant from the buckets, not the plan allowance
+      credits: {
+        current: workspace.creditsCurrent,
+        rollover: workspace.creditsRollover,
+        purchased: workspace.creditsPurchased,
+        rolloverExpiresAt: workspace.rolloverExpiresAt?.toISOString() ?? null,
+      },
+      seats: {
+        seatBased: TIER_LIMITS[tier].seatBased,
+        limit: seatLimit === Infinity ? null : seatLimit,
+        ...seatsInUse,
+      },
     });
   } catch (error) {
     return handleApiError(error);
@@ -58,8 +81,9 @@ export async function GET(request: NextRequest) {
 }
 
 const patchSchema = z.object({
-  action: z.enum(["change_tier", "cancel", "reactivate"]),
+  action: z.enum(["change_tier", "cancel", "reactivate", "set_seats"]),
   tier: z.enum(["starter", "professional"]).optional(),
+  seats: z.number().int().min(1).max(1000).optional(),
   billing: z.enum(["monthly", "annual"]).optional(),
 });
 
@@ -71,11 +95,11 @@ export async function PATCH(request: NextRequest) {
     );
 
     const body = await request.json();
-    const { action, tier, billing } = patchSchema.parse(body);
+    const { action, tier, billing, seats } = patchSchema.parse(body);
 
     const workspace = await prisma.workspace.findUniqueOrThrow({
       where: { id: ctx.workspaceId },
-      select: { stripeSubscriptionId: true },
+      select: { stripeSubscriptionId: true, tier: true },
     });
 
     if (!workspace.stripeSubscriptionId) {
@@ -103,6 +127,31 @@ export async function PATCH(request: NextRequest) {
       case "cancel": {
         await cancelSubscription(workspace.stripeSubscriptionId);
         return apiSuccess({ message: "Subscription will cancel at period end" });
+      }
+
+      case "set_seats": {
+        if (!seats) {
+          return apiError("Seats are required for set_seats", "MISSING_SEATS", 400);
+        }
+        if (!TIER_LIMITS[workspace.tier as WorkspaceTier].seatBased) {
+          return apiError("This plan is not billed per seat", "NOT_SEAT_BASED", 400);
+        }
+        const subscription = await getSubscriptionForWorkspace(ctx.workspaceId);
+        if (subscription?.status !== "active" && subscription?.status !== "trialing") {
+          return apiError("Seats can only change on an active subscription", "SUBSCRIPTION_INACTIVE", 409);
+        }
+        // Paying for fewer seats than are in use is not allowed; nobody is removed automatically
+        const inUse = await countSeatsInUse(ctx.workspaceId);
+        if (seats < inUse.members + inUse.pending) {
+          return apiError(
+            `${inUse.members + inUse.pending} seats are in use (${inUse.members} members, ${inUse.pending} pending invites). Remove members or revoke invites before reducing seats.`,
+            "SEATS_IN_USE",
+            409
+          );
+        }
+        // seatCount changes only when Stripe confirms (webhook sync), never here
+        await updateSeatCount(workspace.stripeSubscriptionId, seats);
+        return apiSuccess({ message: "Seat change initiated" });
       }
 
       case "reactivate": {

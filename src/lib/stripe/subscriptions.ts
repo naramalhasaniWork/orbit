@@ -2,6 +2,7 @@ import { stripe } from "./client";
 import { prisma } from "@/lib/db";
 import { getTierFromPriceId, getMonthlyCreditGrant } from "./prices";
 import type { WorkspaceTier } from "@/lib/auth/tenant";
+import { startFreePeriod } from "@/lib/billing/credit-periods";
 
 export async function createSubscription(
   customerId: string,
@@ -55,6 +56,31 @@ export async function changeTier(
   });
 }
 
+/**
+ * Change the seat count (subscription quantity). An increase is invoiced at
+ * once and only takes effect when that invoice is paid
+ * (pending_if_incomplete), so seats are never granted unpaid; the webhook
+ * sync then raises seatCount and invoice.paid grants the prorated credits.
+ * A decrease is not prorated: removed seats stop billing at renewal, so there
+ * is no mid-period refund and no credit clawback.
+ */
+export async function updateSeatCount(subscriptionId: string, seats: number) {
+  const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+  const item = subscription.items.data[0];
+
+  if (!item) {
+    throw new Error("No subscription item found");
+  }
+
+  const increase = seats > (item.quantity ?? 1);
+  return stripe.subscriptions.update(subscriptionId, {
+    items: [{ id: item.id, quantity: seats }],
+    ...(increase
+      ? { proration_behavior: "always_invoice", payment_behavior: "pending_if_incomplete" }
+      : { proration_behavior: "none" }),
+  });
+}
+
 export async function syncSubscriptionToWorkspace(
   workspaceId: string,
   stripeSubscriptionId: string,
@@ -100,6 +126,7 @@ export async function syncSubscriptionToWorkspace(
       tier,
       billingPeriodStart: currentPeriodStart,
       billingPeriodEnd: currentPeriodEnd,
+      seatCount: Math.max(1, seats),
       ...(monthlyCredits !== null ? { monthlyCredits } : {}),
     },
   });
@@ -117,8 +144,12 @@ export async function downgradeToFree(workspaceId: string) {
       billingPeriodStart: null,
       billingPeriodEnd: null,
       monthlyCredits: freeCredits,
+      seatCount: 1,
     },
   });
+
+  // The paid grant and its rollover expire; purchased credits stay
+  await startFreePeriod(workspaceId);
 
   // Mark all subscriptions as canceled
   await prisma.subscription.updateMany({
@@ -127,18 +158,25 @@ export async function downgradeToFree(workspaceId: string) {
   });
 }
 
-function mapStripeStatus(
-  status: string
-): "active" | "past_due" | "canceled" | "trialing" | "incomplete" | "unpaid" {
-  const statusMap: Record<string, "active" | "past_due" | "canceled" | "trialing" | "incomplete" | "unpaid"> = {
-    active: "active",
-    past_due: "past_due",
-    canceled: "canceled",
-    trialing: "trialing",
-    incomplete: "incomplete",
-    unpaid: "unpaid",
-  };
-  return statusMap[status] ?? "active";
+type MirroredStatus = "active" | "past_due" | "canceled" | "trialing" | "incomplete" | "unpaid";
+
+/** Stripe statuses we mirror as-is or map; nothing outside this list may become granting. */
+const STATUS_ALLOWLIST: Record<string, MirroredStatus> = {
+  active: "active",
+  trialing: "trialing",
+  past_due: "past_due",
+  unpaid: "unpaid",
+  incomplete: "incomplete",
+  canceled: "canceled",
+  incomplete_expired: "canceled",
+};
+
+/**
+ * Fails closed: paused, or any status Stripe adds later, is stored as unpaid,
+ * which grants nothing and lets the subscription be reactivated by a later sync.
+ */
+export function mapStripeStatus(status: string): MirroredStatus {
+  return STATUS_ALLOWLIST[status] ?? "unpaid";
 }
 
 export async function getSubscriptionForWorkspace(workspaceId: string) {

@@ -20,7 +20,7 @@ export function PricingPageClient() {
       <section aria-labelledby="credits" className="grid grid-cols-1 gap-6 border-t border-border py-16 md:grid-cols-[200px_minmax(0,1fr)] md:gap-10">
         <div>
           <h2 id="credits" className="tm-label pt-1.5 text-tm-t3">Credit top-ups</h2>
-          <p className="mt-2 text-[13px] text-tm-t2">Buy more any time.</p>
+          <p className="mt-2 text-[13px] text-tm-t2">Buy more any time. Purchased credits never expire.</p>
         </div>
         <div className="grid grid-cols-2 lg:grid-cols-4">
           {CREDIT_PACKAGES.map((pack) => (

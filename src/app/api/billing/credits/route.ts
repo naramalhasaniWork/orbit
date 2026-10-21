@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
       where: { id: ctx.workspaceId },
       select: {
         creditBalance: true,
-        monthlyCredits: true,
+        creditsGranted: true,
         tier: true,
       },
     });
@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
 
     return apiSuccess({
       creditBalance: workspace.creditBalance,
-      monthlyCredits: workspace.monthlyCredits,
+      monthlyCredits: workspace.creditsGranted, // this period's grant from the buckets, not the plan allowance
       tier: workspace.tier,
       packages,
       recentTransactions,

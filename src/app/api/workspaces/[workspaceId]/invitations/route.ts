@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { assertCanManageRole } from "@/lib/auth/rbac";
-import { canConsume } from "@/lib/auth/tenant";
+import { withSeatReserved } from "@/lib/auth/tenant";
 import { apiSuccess, apiError } from "@/lib/utils/api";
 import { writeAuditLog } from "@/lib/auth/audit";
 import { newInviteExpiry, newInviteToken, normalizeInviteEmail } from "@/lib/invitations";
@@ -53,11 +53,6 @@ export const POST = route(
     // Cannot invite someone at or above your own level
     assertCanManageRole(session.role, role);
 
-    const allowance = await canConsume(workspaceId, "member");
-    if (!allowance.allowed) {
-      return apiError(allowance.reason, allowance.code, allowance.code === "NOT_FOUND" ? 404 : 403);
-    }
-
     // Check if already a member. Candidates are narrowed by the database and
     // compared exactly in code, since insensitive equality treats % and _ as wildcards.
     const candidates = await db.workspaceMember.findMany({
@@ -76,23 +71,31 @@ export const POST = route(
     if (pending.some((i) => i.expiresAt > now)) {
       return apiError("Pending invitation already exists for this email", "DUPLICATE_INVITE", 409);
     }
-    if (pending.length > 0) {
-      await db.workspaceInvitation.updateMany({
-        where: { id: { in: pending.map((i) => i.id) } },
-        data: { status: "expired" },
-      });
-    }
 
-    const invitation = await db.workspaceInvitation.create({
-      data: {
-        workspaceId,
-        email,
-        role,
-        token: newInviteToken(),
-        invitedById: session.user.id,
-        expiresAt: newInviteExpiry(now),
-      },
+    // Seat check and insert under the workspace lock, so concurrent invites can't share the last seat
+    const reserved = await withSeatReserved(db, async (ws) => {
+      if (pending.length > 0) {
+        await ws.workspaceInvitation.updateMany({
+          where: { id: { in: pending.map((i) => i.id) } },
+          data: { status: "expired" },
+        });
+      }
+      return ws.workspaceInvitation.create({
+        data: {
+          workspaceId,
+          email,
+          role,
+          token: newInviteToken(),
+          invitedById: session.user.id,
+          expiresAt: newInviteExpiry(now),
+        },
+      });
     });
+    if (!reserved.ok) {
+      const { reason, code } = reserved.decision;
+      return apiError(reason, code, code === "NOT_FOUND" ? 404 : 403);
+    }
+    const invitation = reserved.value;
 
     const emailResult = await deliverInviteEmail(workspaceId, invitation, session.user.name ?? null);
 

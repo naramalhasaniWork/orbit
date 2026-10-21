@@ -36,6 +36,7 @@ interface AnalyticsData {
   totalCalls: number;
   creditBalance: number;
   monthlyCredits: number;
+  creditsCurrent: number;
   agents: AgentBreakdown[];
   models: ModelBreakdown[];
   projects: ProjectBreakdown[];
@@ -86,7 +87,8 @@ export function CostDashboard({ workspaceId }: CostDashboardProps) {
     );
   }
 
-  const creditsUsed = data.monthlyCredits - data.creditBalance;
+  // Used from this period's grant; rollover and purchased credits sit outside it
+  const creditsUsed = Math.max(0, data.monthlyCredits - data.creditsCurrent);
   const creditsPercent =
     data.monthlyCredits > 0
       ? Math.min(100, (creditsUsed / data.monthlyCredits) * 100)

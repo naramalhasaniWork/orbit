@@ -1,8 +1,11 @@
 import { stripe } from "@/lib/stripe/client";
 import { prisma } from "@/lib/db";
 import { syncSubscriptionToWorkspace, downgradeToFree } from "@/lib/stripe/subscriptions";
-import { getMonthlyCreditGrant, getTierFromPriceId } from "@/lib/stripe/prices";
-import type { WorkspaceTier } from "@/lib/auth/tier-limits";
+import { getMonthlyCreditGrant } from "@/lib/stripe/prices";
+import { getInvoicedPlan, getSeatIncrease } from "@/lib/stripe/invoice-lines";
+import { tierDisplayName } from "@/lib/auth/tier-limits";
+import { lockCredits, grantMonthlyCredits } from "@/lib/billing/credit-buckets";
+import { grantAddedSeatCredits, creditPeriodEnd } from "@/lib/billing/credit-periods";
 import { fulfillCreditPurchase } from "@/lib/stripe/credits";
 import type Stripe from "stripe";
 
@@ -102,9 +105,17 @@ export async function handleInvoicePaid(invoice: Stripe.Invoice) {
 
   const workspace = await prisma.workspace.findFirst({
     where: { stripeCustomerId: customerId },
+    select: { id: true },
   });
 
   if (!workspace) return;
+
+  // A subscription invoice records the service period its plan line bills
+  // (Stripe's invoice-level period is the previous one), so a paid invoice
+  // row says which billing period was actually paid for
+  const plan = getInvoicedPlan(invoice);
+  const periodStart = plan?.period.start ?? new Date(invoice.period_start * 1000);
+  const periodEnd = plan?.period.end ?? new Date(invoice.period_end * 1000);
 
   await prisma.invoice.upsert({
     where: { stripeInvoiceId: invoice.id },
@@ -115,66 +126,58 @@ export async function handleInvoicePaid(invoice: Stripe.Invoice) {
       currency: invoice.currency,
       status: invoice.status ?? "paid",
       pdfUrl: invoice.invoice_pdf ?? null,
-      periodStart: new Date(invoice.period_start * 1000),
-      periodEnd: new Date(invoice.period_end * 1000),
+      periodStart,
+      periodEnd,
     },
     update: {
       amount: invoice.amount_paid,
       status: invoice.status ?? "paid",
       pdfUrl: invoice.invoice_pdf ?? null,
+      periodStart,
+      periodEnd,
     },
   });
 
+  // A paid seat increase grants the added seats' credits for the rest of the period
+  if (invoice.billing_reason === "subscription_update") {
+    const seats = getSeatIncrease(invoice);
+    if ("increase" in seats) {
+      await grantAddedSeatCredits({ workspaceId: workspace.id, stripeInvoiceId: invoice.id, ...seats.increase });
+    } else {
+      console.warn(`[Stripe Webhook] invoice ${invoice.id}: no seat credits granted (${seats.rejected})`);
+    }
+    return;
+  }
+
   // Grant from what this invoice billed, not the synced workspace fields:
   // the first invoice.paid can arrive before the subscription sync.
-  const plan = getInvoicedPlan(invoice);
   if (!plan) return; // not a subscription invoice (or unknown price)
   const grant = getMonthlyCreditGrant(plan.tier, plan.seats);
   if (!grant || grant <= 0) return; // unlimited tier
 
-  // Stripe retries webhooks: grant at most once per invoice
-  const alreadyGranted = await prisma.creditTransaction.findFirst({
-    where: {
-      workspaceId: workspace.id,
-      type: "monthly_grant",
-      metadata: { path: ["stripeInvoiceId"], equals: invoice.id },
-    },
-    select: { id: true },
-  });
-  if (alreadyGranted) return;
+  await prisma.$transaction(async (tx) => {
+    // Lock before the idempotency check so concurrent redeliveries serialize
+    const locked = await lockCredits(tx, workspace.id);
+    // Stripe retries webhooks: grant at most once per invoice
+    const alreadyGranted = await tx.creditTransaction.findFirst({
+      where: {
+        workspaceId: workspace.id,
+        type: "monthly_grant",
+        metadata: { path: ["stripeInvoiceId"], equals: invoice.id },
+      },
+      select: { id: true },
+    });
+    if (alreadyGranted) return;
 
-  const seatsLabel = plan.seats > 1 ? `, ${plan.seats} seats` : "";
-  await prisma.creditTransaction.create({
-    data: {
-      workspaceId: workspace.id,
-      type: "monthly_grant",
-      amount: grant,
-      balance: workspace.creditBalance + grant,
-      description: `Monthly credit grant (${plan.tier} plan${seatsLabel})`,
+    const seatsLabel = plan.seats > 1 ? `, ${plan.seats} seats` : "";
+    // Rolled-over credits expire when the next period's grant arrives
+    // A yearly invoice grants month 1; the scheduler grants the months after it
+    const period = { start: plan.period.start, end: creditPeriodEnd(plan.period.start, plan.period.end), paidSeats: plan.seats };
+    await grantMonthlyCredits(tx, workspace.id, locked, grant, period, {
+      description: `Monthly credit grant (${tierDisplayName(plan.tier)} plan${seatsLabel})`,
       metadata: { stripeInvoiceId: invoice.id, tier: plan.tier, seats: plan.seats },
-    },
+    });
   });
-
-  await prisma.workspace.update({
-    where: { id: workspace.id },
-    data: { creditBalance: { increment: grant } },
-  });
-}
-
-/**
- * Tier and seat count an invoice billed: the first non-proration
- * subscription line whose price maps to a tier.
- */
-function getInvoicedPlan(invoice: Stripe.Invoice): { tier: WorkspaceTier; seats: number } | null {
-  for (const line of invoice.lines?.data ?? []) {
-    const item = line.parent?.subscription_item_details;
-    if (!item || item.proration) continue;
-    const price = line.pricing?.price_details?.price;
-    const priceId = typeof price === "string" ? price : price?.id;
-    const tier = priceId ? getTierFromPriceId(priceId) : null;
-    if (tier) return { tier, seats: line.quantity ?? 1 };
-  }
-  return null;
 }
 
 export async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
@@ -212,8 +215,19 @@ export async function handleInvoicePaymentFailed(invoice: Stripe.Invoice) {
   });
 }
 
-export async function handleSubscriptionUpdated(subscription: Stripe.Subscription) {
-  const workspaceId = subscription.metadata?.workspaceId;
+/**
+ * Subscription events can arrive out of order, so both handlers sync from the
+ * subscription as Stripe has it now, not from the event payload: a stale
+ * event then re-applies the current state, a no-op.
+ */
+export async function handleSubscriptionUpdated(event: Stripe.Subscription) {
+  const subscription = await stripe.subscriptions.retrieve(event.id);
+  // A first payment that never completed ends the subscription; Stripe sends no deleted event for it
+  if (subscription.status === "incomplete_expired") return endSubscription(subscription);
+  // A cancellation is handled once, by customer.subscription.deleted
+  if (subscription.status === "canceled") return;
+
+  let workspaceId = subscription.metadata?.workspaceId;
   if (!workspaceId) {
     const customerId = typeof subscription.customer === "string"
       ? subscription.customer
@@ -223,25 +237,14 @@ export async function handleSubscriptionUpdated(subscription: Stripe.Subscriptio
 
     const workspace = await prisma.workspace.findFirst({
       where: { stripeCustomerId: customerId },
+      select: { id: true },
     });
 
     if (!workspace) return;
-
-    const priceId = subscription.items.data[0]?.price.id ?? "";
-    const p = getSubscriptionPeriod(subscription);
-    await syncSubscriptionToWorkspace(
-      workspace.id,
-      subscription.id,
-      priceId,
-      subscription.status,
-      new Date(p.start * 1000),
-      new Date(p.end * 1000),
-      p.cancelAtPeriodEnd,
-      getSeatCount(subscription)
-    );
-    return;
+    workspaceId = workspace.id;
   }
 
+  // Seat count follows items, which Stripe changes only once a seat increase is paid
   const priceId = subscription.items.data[0]?.price.id ?? "";
   const p = getSubscriptionPeriod(subscription);
   await syncSubscriptionToWorkspace(
@@ -256,7 +259,14 @@ export async function handleSubscriptionUpdated(subscription: Stripe.Subscriptio
   );
 }
 
-export async function handleSubscriptionDeleted(subscription: Stripe.Subscription) {
+export async function handleSubscriptionDeleted(event: Stripe.Subscription) {
+  const subscription = await stripe.subscriptions.retrieve(event.id);
+  if (subscription.status !== "canceled" && subscription.status !== "incomplete_expired") return;
+  await endSubscription(subscription);
+}
+
+/** Downgrade to Free when an ended subscription is still the workspace's current one. */
+async function endSubscription(subscription: Stripe.Subscription) {
   const customerId = typeof subscription.customer === "string"
     ? subscription.customer
     : subscription.customer?.id;
@@ -265,9 +275,11 @@ export async function handleSubscriptionDeleted(subscription: Stripe.Subscriptio
 
   const workspace = await prisma.workspace.findFirst({
     where: { stripeCustomerId: customerId },
+    select: { id: true, stripeSubscriptionId: true },
   });
 
-  if (!workspace) return;
+  // An old subscription ending after the customer moved to a new one changes nothing
+  if (!workspace || (workspace.stripeSubscriptionId && workspace.stripeSubscriptionId !== subscription.id)) return;
 
   await downgradeToFree(workspace.id);
 

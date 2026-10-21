@@ -1,7 +1,6 @@
 {
   "headline": "Pricing That Scales With You",
   "subheadline": "Start free. Pay for what you use.",
-  "creditExplainer": "1 credit = 1 test case execution. A typical PR check uses 20-40 credits.",
   "tiers": [
     {
       "name": "Free",
@@ -34,6 +33,7 @@
         "Smoke, regression, and full suite modes",
         "30-day run history",
         "Email support with SLA",
+        "Unused monthly credits roll over for one month",
         "Top-up credits at $0.02/credit"
       ],
       "tier": "starter"
@@ -89,6 +89,14 @@
     {
       "question": "What if I run out of credits?",
       "answer": "You can purchase credit top-ups at any time. The billing page warns you when your balance drops below 20% of your monthly allocation."
+    },
+    {
+      "question": "Do unused credits roll over?",
+      "answer": "Unused monthly credits roll over for one month, then expire. Runs spend rolled-over credits first, then the current month's, then purchased credits. Purchased credit packs never expire."
+    },
+    {
+      "question": "How does per-seat pricing work?",
+      "answer": "Pro and Team are billed per seat. Each seat adds one team member and that seat's monthly credits to a pool the whole workspace shares. Pending invites hold a seat. You can add seats at any time from Billing."
     },
     {
       "question": "Can I self-host Orbit?",
