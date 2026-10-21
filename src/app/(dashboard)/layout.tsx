@@ -7,6 +7,7 @@ import { prisma } from "@/lib/db";
 import { Sidebar } from "@/components/layout/sidebar";
 import { DashboardHeader } from "@/components/layout/dashboard-header";
 import { RouteTransition } from "@/components/layout/route-transition";
+import { SETTINGS_LINK } from "@/components/layout/nav-model";
 import { ChatPanelWrapper } from "@/components/chat/chat-panel-wrapper";
 import { GlobalActivityBar } from "@/components/dashboard/global-activity-bar";
 import { getActiveOperations } from "@/lib/dashboard/active-operations";
@@ -117,10 +118,10 @@ export default async function DashboardLayout({
               <DashboardHeader projects={projects} />
             </Suspense>
             <GlobalActivityBar initialOperations={initialOperations} />
-            <main className="flex-1 overflow-auto px-4 py-4 md:px-6 md:py-5 lg:px-8">
+            <main className="flex-1 overflow-auto px-4 py-4 [view-transition-name:main] md:px-6 md:py-5 lg:px-8">
               <div className="mx-auto max-w-[1440px]">
                 <Suspense>
-                  <RouteTransition>
+                  <RouteTransition holdWithin={[SETTINGS_LINK.href]}>
                     {children}
                   </RouteTransition>
                 </Suspense>

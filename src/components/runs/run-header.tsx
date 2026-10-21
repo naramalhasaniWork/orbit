@@ -18,6 +18,7 @@ import { Status } from "@/components/telemetry/status";
 import { RollingNumber } from "@/components/telemetry/rolling-number";
 import { type RunDetailData, MODE_LABELS, TRIGGER_LABELS, RUN_STATUS_CONFIG } from "@/components/runs/run-types";
 import { clock } from "@/lib/telemetry-format";
+import { sharedName, sharedProps } from "@/lib/view-transition";
 import type { StatusTone } from "@/lib/status-tone";
 
 interface RunHeaderProps {
@@ -53,7 +54,9 @@ export function RunHeader({
   return (
     <header data-tour="run" className="flex flex-wrap items-start gap-x-6 gap-y-3">
       <div className="min-w-0 flex-1 space-y-1.5">
-        <h1 className="text-balance text-[26px] font-medium leading-tight tracking-display">{title}</h1>
+        <h1 {...sharedProps(sharedName("run", run.id))} className="w-fit text-balance text-[26px] font-medium leading-tight tracking-display">
+          {title}
+        </h1>
         <p className="tm-label flex flex-wrap items-center gap-x-2 text-tm-t2">
           <Status tone={tone} label={word} mono />
           {total > 0 && (
