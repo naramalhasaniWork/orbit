@@ -1,15 +1,14 @@
 import { prisma } from "@/lib/db";
-import { isSelfHosted } from "@/lib/self-host";
 import { TIER_LIMITS, type WorkspaceTier } from "@/lib/auth/tier-limits";
 import { lockCredits, grantMonthlyCredits, addGrantCredits } from "./credit-buckets";
 
 /**
- * Credit period transitions that Stripe invoices don't drive: the Free
- * monthly reset, the switch to Free on downgrade, and prorated credits for
- * seats added mid-period. Paid renewals go through handleInvoicePaid.
+ * Monthly credit periods. Credits are promised per month on every plan, so a
+ * credit period is one month even on annual billing: it starts at
+ * creditsPeriodStart and ends a month later, or at the billing period end if
+ * that comes first. Paid monthly renewals go through handleInvoicePaid; the
+ * scheduler drives Free resets and annual months (scheduled-grants.ts).
  */
-
-const FREE_RESET_BATCH = 500;
 
 /** Same day next month in UTC, clamped to the month's last day (Jan 31 -> Feb 28). */
 export function addMonthsUTC(date: Date, months: number): Date {
@@ -22,51 +21,17 @@ export function addMonthsUTC(date: Date, months: number): Date {
   return d;
 }
 
-/** The latest monthly anniversary of `start` that is not after `now`. */
-export function currentPeriodStart(start: Date, now: Date): Date {
+/** The latest monthly anniversary of `anchor` that is not after `now`. */
+export function currentPeriodStart(anchor: Date, now: Date): Date {
   let months = 0;
-  while (addMonthsUTC(start, months + 1) <= now) months++;
-  return addMonthsUTC(start, months);
+  while (addMonthsUTC(anchor, months + 1) <= now) months++;
+  return addMonthsUTC(anchor, months);
 }
 
-function freeGrant(): number {
-  return TIER_LIMITS.free.monthlyCredits;
-}
-
-/**
- * Reset every Free workspace whose credit period ended: unused allowance
- * expires (Free has no rollover), current is set to the Free cap, purchased
- * is untouched. Re-checked under the row lock, so overlapping ticks reset a
- * workspace once. Returns how many workspaces were reset.
- */
-export async function resetDueFreeCredits(now: Date = new Date()): Promise<number> {
-  if (isSelfHosted()) return 0;
-  const due = await prisma.workspace.findMany({
-    where: { tier: "free", deletedAt: null, creditsPeriodStart: { lte: addMonthsUTC(now, -1) } },
-    select: { id: true },
-    take: FREE_RESET_BATCH,
-  });
-
-  let reset = 0;
-  for (const { id } of due) {
-    const done = await prisma.$transaction(async (tx) => {
-      const locked = await lockCredits(tx, id);
-      const ws = await tx.workspace.findUniqueOrThrow({
-        where: { id },
-        select: { tier: true, creditsPeriodStart: true },
-      });
-      if (ws.tier !== "free" || addMonthsUTC(ws.creditsPeriodStart, 1) > now) return false;
-
-      const start = currentPeriodStart(ws.creditsPeriodStart, now);
-      await grantMonthlyCredits(tx, id, { ...locked, granted: 0 }, freeGrant(), {
-        start,
-        end: addMonthsUTC(start, 1),
-      }, { description: "Monthly credit grant (Free plan)", metadata: { tier: "free" } });
-      return true;
-    });
-    if (done) reset++;
-  }
-  return reset;
+/** End of the monthly credit period starting at `start`, capped at the billing period end. */
+export function creditPeriodEnd(start: Date, billingPeriodEnd: Date | null): Date {
+  const monthEnd = addMonthsUTC(start, 1);
+  return billingPeriodEnd && billingPeriodEnd < monthEnd ? billingPeriodEnd : monthEnd;
 }
 
 /**
@@ -77,7 +42,7 @@ export async function resetDueFreeCredits(now: Date = new Date()): Promise<numbe
 export async function startFreePeriod(workspaceId: string, now: Date = new Date()): Promise<void> {
   await prisma.$transaction(async (tx) => {
     const locked = await lockCredits(tx, workspaceId);
-    await grantMonthlyCredits(tx, workspaceId, { ...locked, granted: 0 }, freeGrant(), {
+    await grantMonthlyCredits(tx, workspaceId, { ...locked, granted: 0 }, TIER_LIMITS.free.monthlyCredits, {
       start: now,
       end: addMonthsUTC(now, 1),
     }, { description: "Downgraded to Free: monthly credit grant (Free plan)", metadata: { tier: "free" } });
@@ -93,20 +58,22 @@ export function proratedSeatCredits(addedSeats: number, perSeat: number, remaini
 interface SeatIncrease {
   workspaceId: string;
   tier: WorkspaceTier;
-  addedSeats: number;
-  /** The proration window: from the change to the end of the period */
-  period: { start: Date; end: Date };
+  oldSeats: number;
+  newSeats: number;
+  /** When the paid change took effect (the proration line's start) */
+  changedAt: Date;
   stripeInvoiceId: string;
 }
 
 /**
- * When a seat increase's proration invoice is paid, grant the added seats'
- * credits for the rest of the period: added seats x per-seat credits x the
- * share of the billing period left. Once per invoice. Seat cuts claw nothing
- * back; the seat count itself is synced from the subscription.
+ * Only called for a PAID seat-change invoice. Grants the added seats' credits
+ * for the rest of the monthly credit period: seats above the period's
+ * high-water mark x per-seat credits x the share of the month left, then
+ * raises the mark, so cycling seats up, down and up again in one period
+ * grants once. Once per invoice. Seat cuts claw nothing back.
  */
 export async function grantAddedSeatCredits(increase: SeatIncrease): Promise<number> {
-  const { workspaceId, tier, addedSeats, period, stripeInvoiceId } = increase;
+  const { workspaceId, tier, oldSeats, newSeats, changedAt, stripeInvoiceId } = increase;
   const perSeat = TIER_LIMITS[tier].monthlyCredits;
   if (!TIER_LIMITS[tier].seatBased || perSeat === Infinity) return 0;
 
@@ -120,18 +87,22 @@ export async function grantAddedSeatCredits(increase: SeatIncrease): Promise<num
 
     const ws = await tx.workspace.findUniqueOrThrow({
       where: { id: workspaceId },
-      select: { billingPeriodStart: true, billingPeriodEnd: true },
+      select: { creditsPeriodStart: true, creditsPeriodPaidSeats: true, billingPeriodEnd: true },
     });
-    if (!ws.billingPeriodStart || !ws.billingPeriodEnd) return 0;
-    const length = ws.billingPeriodEnd.getTime() - ws.billingPeriodStart.getTime();
-    const fraction = length > 0 ? (period.end.getTime() - period.start.getTime()) / length : 0;
-    const credits = proratedSeatCredits(addedSeats, perSeat, fraction);
+    const mark = Math.max(ws.creditsPeriodPaidSeats, oldSeats);
+    const added = newSeats - mark;
+    if (added <= 0) return 0;
+
+    const end = creditPeriodEnd(ws.creditsPeriodStart, ws.billingPeriodEnd);
+    const length = end.getTime() - ws.creditsPeriodStart.getTime();
+    const fraction = length > 0 ? (end.getTime() - changedAt.getTime()) / length : 0;
+    const credits = proratedSeatCredits(added, perSeat, fraction);
     if (credits <= 0) return 0;
 
     await addGrantCredits(tx, workspaceId, locked, credits, {
-      description: `Prorated credits for ${addedSeats} added seat${addedSeats === 1 ? "" : "s"}`,
-      metadata: { stripeInvoiceId, seatsAdded: addedSeats, prorated: true },
-    });
+      description: `Prorated credits for ${added} added seat${added === 1 ? "" : "s"}`,
+      metadata: { stripeInvoiceId, seatsAdded: added, prorated: true },
+    }, { creditsPeriodPaidSeats: newSeats });
     return credits;
   });
 }

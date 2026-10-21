@@ -40,18 +40,17 @@ export function getInvoicedPlan(
 }
 
 /**
- * Seats a paid seat-change invoice added: Stripe bills an increase as an
+ * Seat counts a seat-change invoice billed: Stripe bills an increase as an
  * "unused time" credit for the old quantity and a "remaining time" charge for
- * the new one over the rest of the period. null for decreases, plan changes
- * or anything else.
+ * the new one, starting when the change took effect. null for decreases,
+ * plan changes or anything else.
  */
 export function getSeatIncrease(
   invoice: Stripe.Invoice
-): { tier: WorkspaceTier; addedSeats: number; period: { start: Date; end: Date } } | null {
+): { tier: WorkspaceTier; oldSeats: number; newSeats: number; changedAt: Date } | null {
   const { proration } = planLines(invoice);
   const charge = proration.find((l) => l.amount > 0);
   const credit = proration.find((l) => l.amount < 0);
-  if (!charge || !credit || charge.tier !== credit.tier) return null;
-  const addedSeats = charge.quantity - credit.quantity;
-  return addedSeats > 0 ? { tier: charge.tier, addedSeats, period: charge.period } : null;
+  if (!charge || !credit || charge.tier !== credit.tier || charge.quantity <= credit.quantity) return null;
+  return { tier: charge.tier, oldSeats: credit.quantity, newSeats: charge.quantity, changedAt: charge.period.start };
 }

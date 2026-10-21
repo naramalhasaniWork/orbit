@@ -1,33 +1,26 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { createFakeCreditDb } from "../helpers/fake-credit-db";
 
-vi.mock("@/lib/self-host", () => ({ isSelfHosted: () => false }));
-vi.mock("@/lib/db", () => ({
-  prisma: { workspace: { findMany: vi.fn() }, $transaction: vi.fn() },
-}));
+vi.mock("@/lib/db", () => ({ prisma: { $transaction: vi.fn() } }));
 
 import { prisma } from "@/lib/db";
 import { TIER_LIMITS } from "@/lib/auth/tier-limits";
 import {
   addMonthsUTC,
   currentPeriodStart,
-  resetDueFreeCredits,
+  creditPeriodEnd,
   startFreePeriod,
   grantAddedSeatCredits,
   proratedSeatCredits,
 } from "@/lib/billing/credit-periods";
 
-const db = prisma as unknown as {
-  workspace: { findMany: ReturnType<typeof vi.fn> };
-  $transaction: ReturnType<typeof vi.fn>;
-};
+const db = prisma as unknown as { $transaction: ReturnType<typeof vi.fn> };
 const FREE = TIER_LIMITS.free.monthlyCredits;
 const PER_SEAT = TIER_LIMITS.starter.monthlyCredits;
 
 function useFake(...args: Parameters<typeof createFakeCreditDb>) {
   const fake = createFakeCreditDb(...args);
   db.$transaction.mockImplementation(fake.$transaction);
-  db.workspace.findMany.mockResolvedValue([{ id: "ws-1" }]);
   return fake;
 }
 
@@ -43,46 +36,12 @@ describe("period dates", () => {
     const start = new Date("2026-07-10T00:00:00Z");
     expect(currentPeriodStart(start, new Date("2026-10-20T00:00:00Z"))).toEqual(new Date("2026-10-10T00:00:00Z"));
   });
-});
 
-describe("Free monthly reset", () => {
-  const now = new Date("2026-10-20T00:00:00Z");
-
-  it("resets a due Free workspace to the cap: unused allowance expires, purchased stays", async () => {
-    const fake = useFake({
-      current: 30, purchased: 50, granted: FREE,
-      extra: { tier: "free", creditsPeriodStart: new Date("2026-09-12T00:00:00Z") },
-    });
-
-    expect(await resetDueFreeCredits(now)).toBe(1);
-
-    expect(fake.workspace).toMatchObject({
-      creditsCurrent: FREE, creditsRollover: 0, creditsPurchased: 50, creditBalance: FREE + 50,
-      creditsPeriodStart: new Date("2026-10-12T00:00:00Z"),
-    });
-    expect(fake.rows.map((r) => [r.type, r.amount])).toEqual([["expiry", -30], ["monthly_grant", FREE]]);
-  });
-
-  it("resets once when ticks overlap, and not again within the period", async () => {
-    const fake = useFake({
-      current: 0, granted: FREE,
-      extra: { tier: "free", creditsPeriodStart: new Date("2026-09-12T00:00:00Z") },
-    });
-
-    await Promise.all([resetDueFreeCredits(now), resetDueFreeCredits(now)]);
-    await resetDueFreeCredits(now);
-
-    expect(fake.rows.filter((r) => r.type === "monthly_grant")).toHaveLength(1);
-  });
-
-  it("skips a workspace that upgraded before its lock was taken", async () => {
-    const fake = useFake({
-      current: 500, granted: 1000,
-      extra: { tier: "starter", creditsPeriodStart: new Date("2026-09-12T00:00:00Z") },
-    });
-
-    expect(await resetDueFreeCredits(now)).toBe(0);
-    expect(fake.rows).toHaveLength(0);
+  it("ends a credit period after one month, or at the billing period end if sooner", () => {
+    const start = new Date("2026-10-10T00:00:00Z");
+    expect(creditPeriodEnd(start, new Date("2027-07-10T00:00:00Z"))).toEqual(new Date("2026-11-10T00:00:00Z"));
+    expect(creditPeriodEnd(start, new Date("2026-11-01T00:00:00Z"))).toEqual(new Date("2026-11-01T00:00:00Z"));
+    expect(creditPeriodEnd(start, null)).toEqual(new Date("2026-11-10T00:00:00Z"));
   });
 });
 
@@ -103,12 +62,17 @@ describe("downgrade to Free", () => {
 });
 
 describe("prorated credits for added seats", () => {
-  const billing = { billingPeriodStart: new Date("2026-10-01T00:00:00Z"), billingPeriodEnd: new Date("2026-10-31T00:00:00Z") };
-  // Paid halfway through the period
-  const increase = {
-    workspaceId: "ws-1", tier: "starter" as const, addedSeats: 3, stripeInvoiceId: "in_seats",
-    period: { start: new Date("2026-10-16T00:00:00Z"), end: billing.billingPeriodEnd },
+  // Monthly credit period Oct 1 - Nov 1 (31 days); changes paid on Oct 16 (half way, roughly)
+  const period = {
+    creditsPeriodStart: new Date("2026-10-01T00:00:00Z"),
+    billingPeriodEnd: new Date("2026-11-01T00:00:00Z"),
+    creditsPeriodPaidSeats: 2,
   };
+  const changedAt = new Date("2026-10-16T12:00:00Z");
+  const increase = (newSeats: number, oldSeats: number, stripeInvoiceId: string) => ({
+    workspaceId: "ws-1", tier: "starter" as const, oldSeats, newSeats, changedAt, stripeInvoiceId,
+  });
+  const HALF = PER_SEAT / 2;
 
   it("computes added seats x per-seat credits x remaining fraction, rounded down", () => {
     expect(proratedSeatCredits(3, 1000, 0.5)).toBe(1500);
@@ -116,26 +80,43 @@ describe("prorated credits for added seats", () => {
     expect(proratedSeatCredits(-2, 1000, 0.5)).toBe(0);
   });
 
-  it("grants the added seats' share of the period once per paid invoice", async () => {
-    const fake = useFake({ current: 1200, granted: 2 * PER_SEAT, extra: billing });
+  it("grants the added seats' share of the monthly period once per paid invoice", async () => {
+    const fake = useFake({ current: 1200, granted: 2 * PER_SEAT, extra: period });
 
-    await Promise.all([grantAddedSeatCredits(increase), grantAddedSeatCredits(increase)]);
-    await grantAddedSeatCredits(increase);
+    await Promise.all([grantAddedSeatCredits(increase(5, 2, "in_a")), grantAddedSeatCredits(increase(5, 2, "in_a"))]);
 
-    const credits = (3 * PER_SEAT) / 2;
-    expect(fake.workspace).toMatchObject({ creditsCurrent: 1200 + credits, creditsGranted: 2 * PER_SEAT + credits });
     expect(fake.rows).toEqual([
-      expect.objectContaining({
-        type: "monthly_grant", amount: credits,
-        metadata: { stripeInvoiceId: "in_seats", seatsAdded: 3, prorated: true },
-      }),
+      expect.objectContaining({ type: "monthly_grant", amount: 3 * HALF, metadata: { stripeInvoiceId: "in_a", seatsAdded: 3, prorated: true } }),
     ]);
+    expect(fake.workspace).toMatchObject({ creditsCurrent: 1200 + 3 * HALF, creditsPeriodPaidSeats: 5 });
   });
 
-  it("grants nothing without a synced billing period or on non-seat tiers", async () => {
-    const fake = useFake({ current: 1200, extra: { billingPeriodStart: null, billingPeriodEnd: null } });
-    expect(await grantAddedSeatCredits(increase)).toBe(0);
-    expect(await grantAddedSeatCredits({ ...increase, tier: "free", stripeInvoiceId: "in_2" })).toBe(0);
+  it("cycling seats up, down and up again in one period grants once", async () => {
+    const fake = useFake({ current: 1200, granted: 2 * PER_SEAT, extra: period });
+
+    await grantAddedSeatCredits(increase(5, 2, "in_up1"));
+    // The cut to 2 grants nothing (no paid increase invoice); then back up to 5, and to 6
+    expect(await grantAddedSeatCredits(increase(5, 2, "in_up2"))).toBe(0);
+    expect(await grantAddedSeatCredits(increase(6, 5, "in_up3"))).toBe(HALF);
+
+    expect(fake.rows.map((r) => r.amount)).toEqual([3 * HALF, HALF]);
+    expect(fake.workspace.creditsPeriodPaidSeats).toBe(6);
+  });
+
+  it("prorates over the monthly credit period on annual plans, not the year", async () => {
+    const fake = useFake({
+      current: 0, granted: PER_SEAT,
+      extra: { ...period, billingPeriodEnd: new Date("2027-10-01T00:00:00Z"), creditsPeriodPaidSeats: 1 },
+    });
+
+    await grantAddedSeatCredits(increase(2, 1, "in_annual"));
+
+    expect(fake.rows[0].amount).toBe(HALF);
+  });
+
+  it("grants nothing on non-seat tiers", async () => {
+    const fake = useFake({ current: 0, extra: period });
+    expect(await grantAddedSeatCredits({ ...increase(9, 1, "in_f"), tier: "free" })).toBe(0);
     expect(fake.rows).toHaveLength(0);
   });
 });

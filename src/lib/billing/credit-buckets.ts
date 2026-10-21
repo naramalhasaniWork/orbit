@@ -158,7 +158,8 @@ export async function grantMonthlyCredits(
   workspaceId: string,
   locked: LockedCredits,
   grant: number,
-  period: { start: Date; end: Date },
+  /** paidSeats: the seats this grant covers (the mark seat increases are credited above) */
+  period: { start: Date; end: Date; paidSeats?: number },
   entry: LedgerEntry
 ): Promise<GrantOutcome> {
   const outcome = applyGrantToBuckets(locked.buckets, locked.granted, grant);
@@ -202,6 +203,7 @@ export async function grantMonthlyCredits(
       ...bucketData(outcome.buckets),
       creditsGranted: grant,
       creditsPeriodStart: period.start,
+      creditsPeriodPaidSeats: period.paidSeats ?? 0,
       rolloverExpiresAt: outcome.rolledOver > 0 ? period.end : null,
     },
   });
@@ -218,12 +220,13 @@ export async function addGrantCredits(
   workspaceId: string,
   locked: LockedCredits,
   credits: number,
-  entry: LedgerEntry
+  entry: LedgerEntry,
+  extra: Prisma.WorkspaceUpdateInput = {}
 ): Promise<void> {
   const after = { ...locked.buckets, current: locked.buckets.current + credits };
   await tx.workspace.update({
     where: { id: workspaceId },
-    data: { ...bucketData(after), creditsGranted: locked.granted + credits },
+    data: { ...extra, ...bucketData(after), creditsGranted: locked.granted + credits },
   });
   await tx.creditTransaction.create({
     data: {

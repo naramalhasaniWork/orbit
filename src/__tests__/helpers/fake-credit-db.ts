@@ -96,6 +96,10 @@ export function createFakeCreditDb(
         },
       },
       testRun: { update: async () => ({}) },
+      // The workspace's subscription row, when a test sets extra.subscriptionStatus
+      subscription: {
+        findFirst: async () => (workspace.subscriptionStatus ? { status: workspace.subscriptionStatus } : null),
+      },
     };
     try {
       return await fn(tx);
