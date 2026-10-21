@@ -4,6 +4,7 @@ import type { MemberRole } from "@/lib/auth/permissions";
 import { apiSuccess, apiError } from "@/lib/utils/api";
 import { writeAuditLog } from "@/lib/auth/audit";
 import { route } from "@/server/http/route";
+import { resolveAvatarUrl } from "@/lib/avatar/resolve";
 
 // ============================================================
 // GET /api/workspaces/[workspaceId]/members — List workspace members
@@ -21,6 +22,7 @@ export const GET = route(
             name: true,
             email: true,
             image: true,
+            avatarKey: true,
             createdAt: true,
           },
         },
@@ -74,7 +76,7 @@ export const GET = route(
         userId: m.userId,
         role: m.role,
         createdAt: m.createdAt,
-        user: m.user,
+        user: { id: m.user.id, name: m.user.name, email: m.user.email, image: resolveAvatarUrl(m.user), createdAt: m.user.createdAt },
         usage: usageMap.get(m.userId) ?? { credits: 0, runs: 0 },
         lastActiveAt: lastActiveMap.get(m.userId) ?? null,
       }))

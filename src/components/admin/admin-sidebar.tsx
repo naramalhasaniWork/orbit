@@ -13,6 +13,7 @@ import {
   Cpu,
   FileText,
   Inbox,
+  Bug,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ClosingO } from "@/components/telemetry/closing-o";
@@ -25,11 +26,13 @@ const navigation = [
   { name: "Prompts", href: "/admin/prompts", icon: FileText },
   { name: "System", href: "/admin/system", icon: Settings2 },
   { name: "Jobs", href: "/admin/jobs", icon: Inbox },
+  { name: "Reports", href: "/admin/reports", icon: Bug },
   { name: "Analytics", href: "/admin/analytics", icon: BarChart3 },
   { name: "Audit Log", href: "/admin/audit", icon: ScrollText },
 ];
 
-export function AdminSidebar() {
+/** Counts shown beside a nav item, keyed by href (e.g. open bug reports). */
+export function AdminSidebar({ counts = {} }: { counts?: Partial<Record<string, number>> }) {
   const pathname = usePathname();
 
   return (
@@ -43,6 +46,7 @@ export function AdminSidebar() {
       {/* Navigation */}
       <nav className="flex-1 py-3 px-2 space-y-0.5">
         {navigation.map((item) => {
+          const count = counts[item.href] ?? 0;
           const isActive =
             pathname === item.href ||
             (item.href !== "/admin/dashboard" && pathname?.startsWith(item.href));
@@ -63,6 +67,13 @@ export function AdminSidebar() {
               <span className="sr-only whitespace-nowrap md:not-sr-only">
                 {item.name}
               </span>
+              {count > 0 && (
+                <span className="tm-num absolute right-1 top-1 rounded-sm bg-tm-live/10 px-1 text-[10px] leading-4 text-tm-live-text md:static md:ml-auto md:text-[11px]">
+                  <span className="sr-only">, </span>
+                  {count > 99 ? "99+" : count}
+                  <span className="sr-only"> open</span>
+                </span>
+              )}
             </Link>
           );
         })}

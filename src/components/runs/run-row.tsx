@@ -3,6 +3,7 @@
 import { formatDistanceToNow } from "date-fns";
 import { SelectCheckbox } from "@/components/shared/select-checkbox";
 import { Status } from "@/components/telemetry/status";
+import { Avatar } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { TransitionLink } from "@/components/layout/transition-link";
 import { sharedName } from "@/lib/view-transition";
@@ -43,6 +44,15 @@ export function RunRow({ run, selected, onToggleSelect }: RunRowProps) {
           <span data-vt-source className="block truncate text-[13px] font-medium text-foreground">{title}</span>
           {/* Inline text so it ends in an ellipsis; below sm only trigger and age. */}
           <span className="tm-label mt-0.5 block truncate text-tm-t3">
+            {run.triggeredBy && (
+              <Avatar
+                name={run.triggeredBy.name}
+                email={run.triggeredBy.email}
+                image={run.triggeredBy.image}
+                size="xs"
+                className="mr-1.5 align-[-4px]"
+              />
+            )}
             {TRIGGER_LABELS[run.trigger] ?? run.trigger}
             <span className="hidden sm:inline"> · {MODE_LABELS[run.mode] ?? run.mode}</span>
             {run.branch && <span className="hidden normal-case sm:inline"> · {run.branch}</span>}

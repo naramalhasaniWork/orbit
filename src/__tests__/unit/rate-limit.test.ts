@@ -130,3 +130,15 @@ describe("getClientIp", () => {
     expect(getClientIp(h("6.6.6.6, 203.0.113.9"))).toBe("203.0.113.9");
   });
 });
+
+describe("retryPhrase", () => {
+  it("names the real wait instead of 'shortly'", async () => {
+    const { retryPhrase } = await import("@/lib/auth/rate-limit");
+    expect(retryPhrase(1)).toBe("Try again in a minute.");
+    expect(retryPhrase(60)).toBe("Try again in a minute.");
+    expect(retryPhrase(61)).toBe("Try again in 2 minutes.");
+    expect(retryPhrase(3540)).toBe("Try again in 59 minutes.");
+    expect(retryPhrase(3600)).toBe("Try again in an hour.");
+    expect(retryPhrase(7300)).toBe("Try again in 3 hours.");
+  });
+});

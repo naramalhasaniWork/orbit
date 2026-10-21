@@ -15,6 +15,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Status } from "@/components/telemetry/status";
+import { Avatar } from "@/components/ui/avatar";
 import { RollingNumber } from "@/components/telemetry/rolling-number";
 import { type RunDetailData, MODE_LABELS, TRIGGER_LABELS, RUN_STATUS_CONFIG } from "@/components/runs/run-types";
 import { clock } from "@/lib/telemetry-format";
@@ -69,6 +70,12 @@ export function RunHeader({
         <p className="tm-label flex flex-wrap gap-x-2 text-tm-t3">
           <span>{MODE_LABELS[run.mode] ?? run.mode}</span>
           <span>· {TRIGGER_LABELS[run.trigger] ?? run.trigger}</span>
+          {run.triggeredBy && (
+            <span className="inline-flex items-center gap-1.5 normal-case">
+              · <Avatar name={run.triggeredBy.name} email={run.triggeredBy.email} image={run.triggeredBy.image} size="xs" decorative />
+              {run.triggeredBy.name ?? run.triggeredBy.email}
+            </span>
+          )}
           {run.prNumber && <span>· PR #{run.prNumber}</span>}
           {run.branch && <span className="normal-case">· {run.branch}</span>}
           {run.commitSha && <span className="normal-case">· {run.commitSha.slice(0, 7)}</span>}

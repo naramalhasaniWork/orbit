@@ -8,6 +8,8 @@ import { encryptToken } from "@/lib/vault/token";
 import { evaluateSignIn } from "./signup-policy";
 import { consumeRateLimit } from "./rate-limit";
 import { isSelfHosted } from "@/lib/self-host";
+import { AVATAR_SOURCE_SELECT, resolveAvatarUrl } from "@/lib/avatar/resolve";
+import { getAvatarSource } from "@/server/data/user-avatar-repo";
 
 const SIGNIN_ATTEMPTS_PER_ACCOUNT = 10;
 const SIGNIN_WINDOW_SEC = 600;
@@ -18,6 +20,9 @@ export const authOptions: AuthOptions = {
     GitHubProvider({
       clientId: process.env.GITHUB_CLIENT_ID!,
       clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+      // GitHub sends an RFC 9207 `iss` on the callback (since April 2026); openid-client
+      // rejects any callback carrying `iss` unless the issuer is configured to match it.
+      issuer: "https://github.com/login/oauth",
       // GitHub Apps ignore OAuth scopes (permissions come from the App's configuration),
       // so none are requested here. GITHUB_CLIENT_ID/SECRET must be the GitHub App's.
     }),
@@ -70,6 +75,13 @@ export const authOptions: AuthOptions = {
           token.role = membership.role;
           token.workspaceSlug = membership.workspace.slug;
         }
+        return token;
+      }
+
+      // The profile page calls update({ avatar: true }) after an upload or removal
+      if (trigger === "update" && updateData?.avatar && token.userId) {
+        const source = await getAvatarSource(token.userId as string);
+        if (source) token.picture = resolveAvatarUrl(source);
         return token;
       }
 
@@ -129,9 +141,11 @@ export const authOptions: AuthOptions = {
           // Fetch user platform role
           const dbUser = await prisma.user.findUnique({
             where: { id: user.id },
-            select: { role: true },
+            select: { role: true, ...AVATAR_SOURCE_SELECT },
           });
           token.userRole = dbUser?.role ?? "user";
+          // An uploaded photo wins over the OAuth one NextAuth put in token.picture
+          if (dbUser) token.picture = resolveAvatarUrl(dbUser);
 
           const membership = await prisma.workspaceMember.findFirst({
             where: { userId: user.id, workspace: { deletedAt: null } },

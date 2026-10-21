@@ -23,13 +23,15 @@ vi.mock("@/lib/redis", () => ({
     del: vi.fn(async (k: string) => (store.delete(k) ? 1 : 0)),
     multi: () => {
       const counts = store;
+      let lastKey = "";
       const chain = {
         incr: (k: string) => {
+          lastKey = k;
           counts.set(k, String(Number(counts.get(k) ?? 0) + 1));
           return chain;
         },
         ttl: () => chain,
-        exec: async () => [[null, Number(Array.from(counts.values()).pop())], [null, 60]],
+        exec: async () => [[null, Number(counts.get(lastKey))], [null, 60]],
       };
       return chain;
     },
@@ -342,6 +344,15 @@ describe("rate limit", () => {
     const limited = await wrapped(req(), NO_SEGMENT);
     expect(limited.status).toBe(429);
     expect(limited.headers.get("Retry-After")).toBeTruthy();
+  });
+
+  it("per: 'user' gives each signed-in user their own bucket within one workspace", async () => {
+    const wrapped = route({ rateLimit: { scope: "per-user", limit: 1, per: "user" } }, () => "ok");
+    session.current = { user: { id: "u-a" }, workspaceId: "ws-1" };
+    expect((await wrapped(req(), NO_SEGMENT)).status).toBe(200);
+    expect((await wrapped(req(), NO_SEGMENT)).status).toBe(429);
+    session.current = { user: { id: "u-b" }, workspaceId: "ws-1" };
+    expect((await wrapped(req(), NO_SEGMENT)).status).toBe(200);
   });
 });
 

@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
 import { RunsClient } from "@/components/runs/runs-client";
+import { PERSON_SELECT, toPersonView } from "@/lib/avatar/resolve";
 
 export const dynamic = "force-dynamic";
 
@@ -63,6 +64,7 @@ export default async function RunsPage({
         branch: true,
         commitSha: true,
         createdAt: true,
+        triggeredBy: { select: PERSON_SELECT },
       },
     }),
     // Check for at least one non-production environment
@@ -92,6 +94,7 @@ export default async function RunsPage({
     branch: run.branch,
     commitSha: run.commitSha,
     createdAt: run.createdAt,
+    triggeredBy: run.triggeredBy ? toPersonView(run.triggeredBy) : null,
   }));
 
   return (

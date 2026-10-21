@@ -1,9 +1,11 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
+import { useRef } from "react";
 import { useSession, signOut } from "next-auth/react";
-import { User, Settings, Shield, LogOut } from "lucide-react";
+import { User, Settings, Shield, LogOut, Bug } from "lucide-react";
+import { useBugReport } from "@/components/bug-report/bug-report-provider";
+import { ShortcutKeys } from "@/components/shortcuts/shortcut-keys";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,43 +14,36 @@ import {
   DropdownMenuSeparator,
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
+import { Avatar } from "@/components/ui/avatar";
 
 export function UserMenu() {
   const { data: session } = useSession();
+  const { openBugReport } = useBugReport();
+  const trigger = useRef<HTMLButtonElement>(null);
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button
+          ref={trigger}
           aria-label="Account menu"
-          className="rounded-full ring-1 ring-border hover:ring-border transition-all focus:outline-none focus:ring-2 focus-visible:ring-ring"
+          className="flex rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
         >
-          {session?.user?.image ? (
-            <Image
-              src={session.user.image}
-              alt=""
-              width={26}
-              height={26}
-              className="rounded-full"
-            />
-          ) : (
-            <div className="h-[26px] w-[26px] rounded-full bg-foreground/[0.08] flex items-center justify-center">
-              <span className="text-[10px] font-medium text-muted-foreground">
-                {session?.user?.name?.charAt(0)?.toUpperCase() ?? "U"}
-              </span>
-            </div>
-          )}
+          <Avatar name={session?.user?.name} email={session?.user?.email} image={session?.user?.image} size="md" decorative />
         </button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuLabel className="font-normal">
-          <div className="flex flex-col gap-1">
-            <p className="text-sm font-medium text-foreground leading-none">
-              {session?.user?.name ?? "User"}
-            </p>
-            <p className="text-xs text-muted-foreground leading-none">
-              {session?.user?.email ?? ""}
-            </p>
+          <div className="flex items-center gap-2.5">
+            <Avatar name={session?.user?.name} email={session?.user?.email} image={session?.user?.image} size="md" decorative />
+            <div className="flex min-w-0 flex-col gap-1">
+              <p className="truncate text-sm font-medium text-foreground leading-none">
+                {session?.user?.name ?? "User"}
+              </p>
+              <p className="truncate text-xs text-muted-foreground leading-none">
+                {session?.user?.email ?? ""}
+              </p>
+            </div>
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
@@ -63,6 +58,11 @@ export function UserMenu() {
             <Settings className="h-4 w-4" />
             Workspace Settings
           </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem className="cursor-pointer gap-2" onSelect={() => openBugReport(trigger.current)}>
+          <Bug className="h-4 w-4" />
+          Report a bug
+          <ShortcutKeys id="bug" className="ml-auto" />
         </DropdownMenuItem>
         {session?.userRole === "super_admin" && (
           <>

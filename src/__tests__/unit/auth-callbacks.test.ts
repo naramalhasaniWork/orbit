@@ -5,7 +5,7 @@ import type { Account, User } from "next-auth";
 process.env.ENCRYPTION_KEY = "d".repeat(64);
 
 vi.mock("@next-auth/prisma-adapter", () => ({ PrismaAdapter: () => ({}) }));
-vi.mock("next-auth/providers/github", () => ({ default: () => ({ id: "github" }) }));
+vi.mock("next-auth/providers/github", () => ({ default: (options: object) => ({ id: "github", options }) }));
 vi.mock("next-auth/providers/gitlab", () => ({ default: () => ({ id: "gitlab" }) }));
 vi.mock("@/lib/auth/signup-policy", () => ({ evaluateSignIn: vi.fn() }));
 vi.mock("@/lib/auth/rate-limit", () => ({ consumeRateLimit: vi.fn() }));
@@ -184,5 +184,38 @@ describe("jwt callback: deleted workspaces", () => {
       workspace: { deletedAt: null },
     });
     expect(token.workspaceId).toBe("ws-old");
+  });
+});
+
+describe("GitHub provider", () => {
+  it("declares GitHub's issuer, so callbacks carrying an RFC 9207 iss are accepted", () => {
+    const github = authOptions.providers.find((p) => p.id === "github") as { options?: { issuer?: string } };
+    expect(github.options?.issuer).toBe("https://github.com/login/oauth");
+  });
+});
+
+describe("jwt callback: avatar", () => {
+  const jwt = authOptions.callbacks!.jwt!;
+  type JwtArgs = Parameters<typeof jwt>[0];
+
+  it("puts an uploaded photo in token.picture at sign-in, over the OAuth one", async () => {
+    db.user.findUnique.mockResolvedValue({ role: "user", id: "u1", image: "https://gh/u1", avatarKey: "avatars/u1/abc.webp" });
+    const token = await runJwt();
+    expect(token.picture).toBe("/api/users/u1/avatar?v=abc");
+  });
+
+  it("keeps the GitHub photo when nothing was uploaded", async () => {
+    db.user.findUnique.mockResolvedValue({ role: "user", id: "u1", image: "https://gh/u1", avatarKey: null });
+    expect((await runJwt()).picture).toBe("https://gh/u1");
+  });
+
+  it("re-reads the photo on update({ avatar: true })", async () => {
+    db.user.findUnique.mockResolvedValue({ id: "u1", image: "https://gh/u1", avatarKey: null });
+    const token = await jwt({
+      token: { userId: "u1", picture: "/api/users/u1/avatar?v=old" } as JWT,
+      trigger: "update",
+      session: { avatar: true },
+    } as JwtArgs);
+    expect(token.picture).toBe("https://gh/u1");
   });
 });

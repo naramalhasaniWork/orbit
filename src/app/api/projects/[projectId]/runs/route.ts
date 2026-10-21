@@ -6,6 +6,7 @@ import { emitRunStarted } from "@/lib/websocket";
 import { createRunWithinAllowance, enqueueOrDiscard } from "@/services/orchestrator/run-launcher";
 import { requireQueueAvailable, WORKERS_UNAVAILABLE_MESSAGE } from "@/lib/queue/availability";
 import { route } from "@/server/http/route";
+import { PERSON_SELECT, toPersonView } from "@/lib/avatar/resolve";
 
 // ============================================================
 // GET /api/projects/[projectId]/runs — List runs for a project
@@ -37,10 +38,11 @@ export const GET = route({}, async ({ params: { projectId }, workspaceId, db }) 
       completedAt: true,
       durationMs: true,
       createdAt: true,
+      triggeredBy: { select: PERSON_SELECT },
     },
   });
 
-  return apiSuccess(runs);
+  return apiSuccess(runs.map((run) => ({ ...run, triggeredBy: run.triggeredBy ? toPersonView(run.triggeredBy) : null })));
 });
 
 // ============================================================

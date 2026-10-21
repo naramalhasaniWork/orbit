@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { checkHealth } from "@/lib/health/checks";
+import { appVersion } from "@/lib/app-version";
 
 export const dynamic = "force-dynamic";
 
@@ -12,7 +13,7 @@ export async function GET() {
       checks,
       workers,
       timestamp: new Date().toISOString(),
-      version: process.env.npm_package_version ?? "0.1.0",
+      version: appVersion(),
     },
     { status: healthy ? 200 : 503 }
   );

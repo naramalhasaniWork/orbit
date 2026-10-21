@@ -81,6 +81,15 @@ export async function consumeRateLimit(
   }
 }
 
+/** "Try again in 3 minutes." from a Retry-After, so a one-hour window never says "shortly". */
+export function retryPhrase(retryAfterSec: number): string {
+  if (retryAfterSec <= 60) return "Try again in a minute.";
+  const minutes = Math.ceil(retryAfterSec / 60);
+  if (minutes < 60) return `Try again in ${minutes} minutes.`;
+  const hours = Math.ceil(minutes / 60);
+  return hours === 1 ? "Try again in an hour." : `Try again in ${hours} hours.`;
+}
+
 export function tooManyRequests(result: RateLimitResult, message: string): NextResponse {
   const res = apiError(message, "RATE_LIMITED", 429);
   res.headers.set("Retry-After", String(Math.max(1, result.retryAfterSec)));
@@ -112,7 +121,7 @@ export async function checkIpRateLimit(
 ): Promise<NextResponse | null> {
   const result = await consumeRateLimit(`${scope}:${ip}`, limit);
   if (result.allowed) return null;
-  return tooManyRequests(result, "Too many requests. Try again shortly.");
+  return tooManyRequests(result, `Too many requests. ${retryPhrase(result.retryAfterSec)}`);
 }
 
 const DEFAULT_TRUSTED_PROXY_HOPS = 1;

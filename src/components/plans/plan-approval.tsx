@@ -4,6 +4,7 @@ import { useState } from "react";
 import { CheckCircle2, XCircle, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { Avatar } from "@/components/ui/avatar";
 
 interface PlanApprovalProps {
   projectId: string;
@@ -32,9 +33,8 @@ export function PlanApproval({
     return (
       <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-orbit-pass/10 border border-orbit-pass/20">
         <CheckCircle2 className="h-3.5 w-3.5 text-orbit-pass shrink-0" />
-        <span className="text-xs text-orbit-pass">
-          Approved by {approval.approvedBy}
-        </span>
+        <span className="text-xs text-orbit-pass">Approved by</span>
+        <Approver email={approval.approvedBy} />
         {approval.notes && (
           <span className="text-xs text-muted-foreground ml-2">
             {approval.notes}
@@ -48,9 +48,8 @@ export function PlanApproval({
     return (
       <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-orbit-fail/10 border border-orbit-fail/20">
         <XCircle className="h-3.5 w-3.5 text-orbit-fail shrink-0" />
-        <span className="text-xs text-orbit-fail">
-          Rejected by {approval.approvedBy}
-        </span>
+        <span className="text-xs text-orbit-fail">Rejected by</span>
+        <Approver email={approval.approvedBy} />
         {approval.notes && (
           <span className="text-xs text-muted-foreground ml-2">
             {approval.notes}
@@ -144,5 +143,15 @@ export function PlanApproval({
         </button>
       </div>
     </div>
+  );
+}
+
+/** Approvals record only the approver's email, so the mark is initials on their colour. */
+function Approver({ email }: { email: string }) {
+  return (
+    <span className="inline-flex min-w-0 items-center gap-1.5 text-xs text-foreground">
+      <Avatar email={email} size="xs" decorative />
+      <span className="truncate">{email}</span>
+    </span>
   );
 }

@@ -30,7 +30,8 @@ export type AuditAction =
   | "mcp_connection.created"
   | "mcp_connection.updated"
   | "mcp_connection.deleted"
-  | "mcp_connection.tool_call";
+  | "mcp_connection.tool_call"
+  | "bug_report.created";
 
 interface AuditLogInput {
   workspaceId: string;

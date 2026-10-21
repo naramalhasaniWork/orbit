@@ -15,6 +15,8 @@ export interface RateLimitSpec {
   scope: string;
   limit: number;
   windowSec?: number;
+  /** Who shares a bucket: the workspace (default, falling back to the client IP) or the signed-in user. */
+  per?: "workspace" | "user";
 }
 
 export interface RouteSpec {

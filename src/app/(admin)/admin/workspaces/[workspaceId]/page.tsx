@@ -2,6 +2,7 @@ import { getServerSession } from "next-auth";
 import { redirect, notFound } from "next/navigation";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/db";
+import { resolveAvatarUrl } from "@/lib/avatar/resolve";
 import { WorkspaceDetailClient } from "@/components/admin/workspace-detail-client";
 
 interface PageProps {
@@ -20,7 +21,7 @@ export default async function AdminWorkspaceDetailPage({ params }: PageProps) {
       members: {
         include: {
           user: {
-            select: { id: true, name: true, email: true, image: true, role: true },
+            select: { id: true, name: true, email: true, image: true, avatarKey: true, role: true },
           },
         },
         orderBy: { createdAt: "asc" },
@@ -75,7 +76,7 @@ export default async function AdminWorkspaceDetailPage({ params }: PageProps) {
           id: m.user.id,
           name: m.user.name,
           email: m.user.email,
-          image: m.user.image,
+          image: resolveAvatarUrl(m.user),
           platformRole: m.user.role,
         },
       }))}
