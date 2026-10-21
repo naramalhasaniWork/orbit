@@ -27,8 +27,8 @@ export async function PUT(
 ) {
   try {
     const { workspaceId, provider } = await params;
-    const db = forWorkspace(workspaceId);
     const ctx = await requirePermission(workspaceId, "settings.manage");
+    const db = forWorkspace({ workspaceId, memberUserId: ctx.session.user.id });
 
     const existing = await db.providerConfig.findUnique({
       where: { provider_config_unique: { workspaceId, provider } },
@@ -132,8 +132,8 @@ export async function DELETE(
 ) {
   try {
     const { workspaceId, provider } = await params;
-    const db = forWorkspace(workspaceId);
     const ctx = await requirePermission(workspaceId, "settings.manage");
+    const db = forWorkspace({ workspaceId, memberUserId: ctx.session.user.id });
 
     const existing = await db.providerConfig.findUnique({
       where: { provider_config_unique: { workspaceId, provider } },

@@ -133,7 +133,7 @@ async function execute<S extends RouteSpec>(
       // Built on first use, so handlers that never touch the database never build a scope.
       get db() {
         if (!workspaceId) return null;
-        scope ??= forWorkspace(workspaceId);
+        scope ??= forWorkspace({ workspaceId, memberUserId: identity.memberId ? identity.userId ?? undefined : undefined });
         return scope;
       },
       workspaceId,

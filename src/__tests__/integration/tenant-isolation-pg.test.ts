@@ -60,6 +60,7 @@ const CASES: Case[] = [
   { name: "GET runs/[runId]/traces", load: () => import(`${R}/runs/[runId]/traces/route`), method: "GET", params: (a, p) => ({ projectId: p, runId: a.runId }) },
   { name: "GET runs/[runId]/artifacts", load: () => import(`${R}/runs/[runId]/artifacts/route`), method: "GET", childProbe: false, params: (a, p) => ({ projectId: p, runId: a.runId }) },
   { name: "GET runs/[runId]/artifacts/[artifactId]/file", load: () => import(`${R}/runs/[runId]/artifacts/[artifactId]/file/route`), method: "GET", params: (a, p) => ({ projectId: p, runId: a.runId, artifactId: a.artifactId }) },
+  { name: "GET runs/[runId]/frames/[frameKey]", load: () => import(`${R}/runs/[runId]/frames/[frameKey]/route`), method: "GET", params: (a, p) => ({ projectId: p, runId: a.runId, frameKey: "33333333-3333-4333-8333-333333333333" }) },
   { name: "GET runs/[runId]/screenshots", load: () => import(`${R}/runs/[runId]/screenshots/route`), method: "GET", params: (a, p) => ({ projectId: p, runId: a.runId }) },
   { name: "GET runs/[runId]/progress", load: () => import(`${R}/runs/[runId]/progress/route`), method: "GET", params: (a, p) => ({ projectId: p, runId: a.runId }) },
   { name: "GET test-cases/[testCaseId]", load: () => import(`${R}/test-cases/[testCaseId]/route`), method: "GET", params: (a, p) => ({ projectId: p, testCaseId: a.testCaseId }) },
@@ -261,6 +262,34 @@ describe.skipIf(!realDbUrl)("tenant isolation of id-param routes (real Postgres)
       expect(await db.testResult.count({ where: { testRunId: a.runId } })).toBe(0);
       const own = await projectB.testResult.create({ data: { testRunId: b.runId, testCaseId: b.testCaseId, verdict: "pass" } });
       expect(own.testRunId).toBe(b.runId);
+    });
+
+    it("a nested create cannot hang a row on A's run", async () => {
+      const projectB = await (await scopeOf(b)).project(b.projectId);
+      await expect(projectB.testCase.update({
+        where: { id: b.testCaseId }, data: { testResults: { create: [{ testRunId: a.runId, verdict: "pass" }] } },
+      })).rejects.toMatchObject({ name: "ScopeError" });
+      expect(await db.testResult.count({ where: { testRunId: a.runId } })).toBe(0);
+    });
+
+    it("scalar foreign keys cannot point at A's rows", async () => {
+      const projectB = await (await scopeOf(b)).project(b.projectId);
+      await expect(projectB.testRun.create({ data: { projectId: b.projectId, environmentId: a.environmentId } }))
+        .rejects.toMatchObject({ name: "ScopeError" });
+      await expect(projectB.testCase.update({ where: { id: b.testCaseId }, data: { testPlanId: a.planId } }))
+        .rejects.toMatchObject({ name: "ScopeError" });
+      expect(await db.testCase.findUnique({ where: { id: b.testCaseId }, select: { testPlanId: true } })).toEqual({ testPlanId: b.planId });
+      const own = await projectB.testRun.create({ data: { projectId: b.projectId, environmentId: b.environmentId } });
+      await db.testRun.delete({ where: { id: own.id } });
+    });
+
+    it("a row can only be linked to a user who is a member of the workspace", async () => {
+      const projectB = await (await scopeOf(b)).project(b.projectId);
+      await expect(projectB.testRun.update({ where: { id: b.runId }, data: { triggeredById: a.userId } }))
+        .rejects.toMatchObject({ name: "ScopeError" });
+      await expect(projectB.testPlan.update({ where: { id: b.planId }, data: { approvedBy: { connect: { id: a.userId } } } }))
+        .rejects.toMatchObject({ name: "ScopeError" });
+      expect((await projectB.testRun.update({ where: { id: b.runId }, data: { triggeredById: b.userId } })).triggeredById).toBe(b.userId);
     });
 
     it("the workspace row is bound to the scope, and other global tables are out of reach", async () => {

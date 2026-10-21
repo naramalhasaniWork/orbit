@@ -1,9 +1,11 @@
 /**
- * Every relation field and the model it points to, so scopes can check nested writes
- * (connect, create, ...) that would otherwise reach rows of another tenant. Kept in step with
- * prisma/schema.prisma by tenant-guard.test.ts.
+ * The schema's relations, so scopes can check writes that would otherwise reach rows of another
+ * tenant: nested writes (RELATIONS: field -> model) and scalar foreign keys (FOREIGN_KEYS:
+ * column -> model). Kept in step with prisma/schema.prisma by tenant-guard.test.ts.
  */
-export const RELATIONS: Readonly<Record<string, Readonly<Record<string, string>>>> = {
+type ModelMap = Readonly<Record<string, Readonly<Record<string, string>>>>;
+
+export const RELATIONS: ModelMap = {
   Workspace: {
     members: "WorkspaceMember", projects: "Project", auditLogs: "AuditLog", apiKeys: "ApiKey",
     creditTransactions: "CreditTransaction", integrationConfigs: "IntegrationConfig",
@@ -87,4 +89,58 @@ export const RELATIONS: Readonly<Record<string, Readonly<Record<string, string>>
   McpConnection: { workspace: "Workspace" },
   Conversation: { project: "Project", user: "User", messages: "Message" },
   Message: { conversation: "Conversation" },
+};
+
+export const FOREIGN_KEYS: ModelMap = {
+  WorkspaceMember: { workspaceId: "Workspace", userId: "User" },
+  WorkspaceInvitation: { workspaceId: "Workspace", invitedById: "User" },
+  WorkspaceUsage: { workspaceId: "Workspace" },
+  Account: { userId: "User" },
+  Session: { userId: "User" },
+  GitHubInstallation: { workspaceId: "Workspace" },
+  Project: { workspaceId: "Workspace" },
+  ScheduledRun: { projectId: "Project" },
+  Environment: { projectId: "Project" },
+  Secret: { projectId: "Project", environmentId: "Environment" },
+  SystemMapNode: { projectId: "Project" },
+  SystemMapEdge: { projectId: "Project", sourceNodeId: "SystemMapNode", targetNodeId: "SystemMapNode" },
+  TestPlan: { projectId: "Project", approvedById: "User" },
+  TestCase: { testPlanId: "TestPlan", projectId: "Project" },
+  TestRun: {
+    projectId: "Project", environmentId: "Environment", testPlanId: "TestPlan", triggeredById: "User",
+  },
+  TestResult: { testRunId: "TestRun", testCaseId: "TestCase" },
+  TestScript: { projectId: "Project", testCaseId: "TestCase" },
+  FlakyTest: { projectId: "Project", testCaseId: "TestCase" },
+  SelectorMapping: { projectId: "Project" },
+  AuditLog: { workspaceId: "Workspace", userId: "User" },
+  ApiKey: { workspaceId: "Workspace", createdBy: "User" },
+  WebhookDelivery: { projectId: "Project", endpointId: "WebhookEndpoint" },
+  CreditTransaction: { workspaceId: "Workspace" },
+  WebhookEvent: { projectId: "Project" },
+  Subscription: { workspaceId: "Workspace" },
+  TokenUsage: { workspaceId: "Workspace" },
+  AgentConfig: { workspaceId: "Workspace" },
+  AgentExecutionTrace: { runId: "TestRun", parentTraceId: "AgentExecutionTrace" },
+  Invoice: { workspaceId: "Workspace" },
+  IntegrationConfig: { workspaceId: "Workspace" },
+  PreviewConnection: { workspaceId: "Workspace" },
+  PreviewBinding: { projectId: "Project", connectionId: "PreviewConnection" },
+  PreviewDeployment: { projectId: "Project", bindingId: "PreviewBinding", environmentId: "Environment" },
+  RunArtifact: { projectId: "Project", testRunId: "TestRun", testResultId: "TestResult" },
+  SelectorHistory: { projectId: "Project", selectorMappingId: "SelectorMapping" },
+  TestCaseVersion: { testCaseId: "TestCase" },
+  FailurePattern: { projectId: "Project" },
+  BaselineSnapshot: { projectId: "Project" },
+  PluginInstallation: { workspaceId: "Workspace" },
+  DomainKnowledgeFile: { workspaceId: "Workspace" },
+  KnowledgeChunk: { knowledgeFileId: "DomainKnowledgeFile" },
+  WebhookEndpoint: { workspaceId: "Workspace", projectId: "Project" },
+  ProjectNote: { projectId: "Project" },
+  AuditResult: { projectId: "Project" },
+  ProviderConfig: { workspaceId: "Workspace" },
+  PromptVersion: { workspaceId: "Workspace", createdById: "User" },
+  McpConnection: { workspaceId: "Workspace" },
+  Conversation: { projectId: "Project", userId: "User" },
+  Message: { conversationId: "Conversation" },
 };

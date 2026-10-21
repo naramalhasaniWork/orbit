@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, it, expect, vi } from "vitest";
 import { GLOBAL_MODELS, TENANCY, findTenantViolation } from "@/server/data/tenancy";
-import { RELATIONS } from "@/server/data/relations";
+import { FOREIGN_KEYS, RELATIONS } from "@/server/data/relations";
 import { TenantGuardError, enforceTenantFilter, guardMode, withTenantGuard } from "@/server/data/tenant-guard";
 import type { Db } from "@/server/data/db";
 
@@ -82,6 +82,17 @@ describe("tenancy table", () => {
       }
     }
     expect(RELATIONS).toEqual(fromSchema);
+  });
+
+  it("keeps FOREIGN_KEYS in step with the schema, so every scalar reference is checked", () => {
+    const names = new Set(models.map((m) => m.name));
+    const fromSchema: Record<string, Record<string, string>> = {};
+    for (const { name, body } of models) {
+      for (const [, type, column] of Array.from(body.matchAll(/^\s+\w+\s+(\w+)\??\s.*@relation\([^)]*fields: \[(\w+)\]/gm))) {
+        if (names.has(type)) (fromSchema[name] ??= {})[column] = type;
+      }
+    }
+    expect(FOREIGN_KEYS).toEqual(fromSchema);
   });
 
   it("names a tenant parent for every child model", () => {

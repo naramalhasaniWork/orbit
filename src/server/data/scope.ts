@@ -1,7 +1,7 @@
 import { NotFoundError } from "@/server/domain/errors";
 import { defaultDb, withTransaction, type Db } from "./db";
 import { withTenantGuard } from "./tenant-guard";
-import { ScopeError, scopeArgs, type Binding } from "./scope-writes";
+import { ScopeError, scopeArgs, type Binding, type Reference } from "./scope-writes";
 import { GLOBAL_MODELS, TENANCY, modelOf, type Ownership } from "./tenancy";
 
 const KNOWN_MODELS = new Set([...Object.keys(TENANCY), ...Array.from(GLOBAL_MODELS)]);
@@ -77,18 +77,28 @@ function scopedDelegate(model: string, owner: Ownership, binding: Binding, deleg
           return Promise.reject(error);
         }
         const run = () => (fn as Call).call(target, scoped.args);
-        const parent = scoped.parent;
-        if (!parent) return run();
-        // The parent row (a result's run, a message's conversation) must be visible to this scope
-        return (client as unknown as Counter)[delegateOf(parent.model)]
-          .count({ where: { id: { in: parent.ids } } })
-          .then((found) => {
-            if (found !== parent.ids.length) throw new ScopeError(`${model}: its ${parent.model} is not in this scope`);
-            return run();
-          });
+        if (!scoped.references.length) return run();
+        return verifyReferences(client, model, scoped.references).then(run);
       };
     },
   });
+}
+
+/**
+ * Every row a write names (a parent, a foreign key, a connected user) must be visible to this
+ * scope, so a write can never link into another tenant. Users count when they are members.
+ */
+async function verifyReferences(client: Db, model: string, references: Reference[]): Promise<void> {
+  const counters = client as unknown as Counter;
+  await Promise.all(
+    references.map(async ({ model: target, ids }) => {
+      const found =
+        target === "User"
+          ? await counters.workspaceMember.count({ where: { userId: { in: ids } } })
+          : await counters[delegateOf(target)].count({ where: { id: { in: ids } } });
+      if (found !== ids.length) throw new ScopeError(`${model}: a referenced ${target} is not in this scope`);
+    })
+  );
 }
 
 function readOnlyDelegate(model: string, delegate: object): object {
@@ -149,34 +159,42 @@ function guardedDb(): Db {
   return guarded;
 }
 
-function projectScope(projectId: string, workspaceId: string, base: Db): ProjectScope {
+function projectScope(projectId: string, workspaceId: string, base: Db, memberUserId?: string): ProjectScope {
   const client = scopedClient(base, {
     level: "project",
     filter: (owner) => owner.inProject(projectId, workspaceId),
     ownerValue: { workspaceId, projectId },
+    memberUserId,
   });
   return withMembers<ProjectScope>(client, {
     id: projectId,
     workspaceId,
     tx: <T>(fn: (project: ProjectScope) => Promise<T>) =>
-      withTransaction(base, (tx) => fn(projectScope(projectId, workspaceId, tx))),
+      withTransaction(base, (tx) => fn(projectScope(projectId, workspaceId, tx, memberUserId))),
   });
 }
 
+export interface WorkspaceRef {
+  workspaceId: string;
+  /** The caller, when route() has just read their membership; writes naming them skip the member check. */
+  memberUserId?: string;
+}
+
 /** A workspace's view of the database. `db` defaults to the shared guarded client; pass a transaction to join it. */
-export function forWorkspace(scope: string | { workspaceId: string }, db: Db = guardedDb()): WorkspaceScope {
-  const workspaceId = typeof scope === "string" ? scope : scope.workspaceId;
+export function forWorkspace(scope: string | WorkspaceRef, db: Db = guardedDb()): WorkspaceScope {
+  const { workspaceId, memberUserId } = typeof scope === "string" ? { workspaceId: scope, memberUserId: undefined } : scope;
   if (!workspaceId) throw new ScopeError("forWorkspace needs a workspace id");
 
   const client = scopedClient(db, {
     level: "workspace",
     filter: (owner) => owner.inWorkspace(workspaceId),
     ownerValue: { workspaceId },
+    memberUserId,
   });
 
   const findProject = async (id: string): Promise<ProjectScope | null> => {
     const row = id ? await client.project.findFirst({ where: { id }, select: { id: true } }) : null;
-    return row ? projectScope(id, workspaceId, db) : null;
+    return row ? projectScope(id, workspaceId, db, memberUserId) : null;
   };
   const openProject = async (id: string): Promise<ProjectScope> => {
     const project = await findProject(id);
@@ -190,7 +208,7 @@ export function forWorkspace(scope: string | { workspaceId: string }, db: Db = g
     workspaceId,
     project,
     findProject,
-    tx: <T>(fn: (ws: WorkspaceScope) => Promise<T>) => withTransaction(db, (tx) => fn(forWorkspace(workspaceId, tx))),
+    tx: <T>(fn: (ws: WorkspaceScope) => Promise<T>) => withTransaction(db, (tx) => fn(forWorkspace({ workspaceId, memberUserId }, tx))),
   });
 }
 

@@ -65,8 +65,8 @@ export async function POST(
 ) {
   try {
     const { workspaceId } = await params;
-    const db = forWorkspace(workspaceId);
     const ctx = await requirePermission(workspaceId, "settings.manage");
+    const db = forWorkspace({ workspaceId, memberUserId: ctx.session.user.id });
 
     const body = (await request.json()) as PostBody;
     const { provider, displayName, apiKey, baseUrl, settings } = body;
