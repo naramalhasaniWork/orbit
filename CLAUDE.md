@@ -236,17 +236,13 @@ Agent prompt definitions live in `.claude/agents/`. Use these when spawning spec
 - `indexing-service.md` — Indexing pipeline implementation
 - `integrations.md` — GitHub/Linear/Slack connectors
 
-## Spec Reference
+## License and Ownership
 
-Full product spec at `Orbit System Brief/orbit-spec.md` (868 lines). Sections:
-1. Vision & Architecture
-2. Repo Indexing (Analyst Agent)
-3. Test Planning (Planner Agent)
-4. Test Execution (Executor Agent)
-5. Reporting & Integrations
-6. Credits & Billing
-7. Deployment & Infrastructure
-8. Dashboard & Onboarding
+Copyright (c) 2026 Naram Alhasani (personally). Everything outside `src/ee/` is AGPL-3.0-only (`LICENSE`); `src/ee/` is under the commercial Orbit Enterprise License (`src/ee/LICENSE`). See `COPYRIGHT`.
+
+- Paid features live in `src/ee/` and are gated with `eeLicenseRequired()` / `hasEeLicense()` (offline Ed25519 key check, `ORBIT_EE_LICENSE_KEY` + `ORBIT_EE_PUBLIC_KEY`). Currently gated: audit log CSV export.
+- Gating another existing core feature is an owner decision; never cripple self-hosting of the core.
+- Contributions need the CLA (`.github/CLA.md`). No per-file license headers.
 
 ## Deployment
 

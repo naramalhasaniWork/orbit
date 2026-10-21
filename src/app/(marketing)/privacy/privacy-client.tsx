@@ -37,7 +37,7 @@ export function PrivacyClient() {
         <div className="mt-12 space-y-10">
           <Section title="1. Who We Are">
             <p>
-              Orbit is an AI-native testing platform operated by Sunrise Systems
+              Orbit is an AI-native testing platform operated by Naram Alhasani
               (&quot;we,&quot; &quot;us,&quot; or &quot;our&quot;). We help development teams automatically
               test their applications by indexing source code, generating test
               plans with AI, and executing browser-based tests against staging
@@ -45,8 +45,8 @@ export function PrivacyClient() {
             </p>
             <p>
               For privacy-related questions, contact us at{" "}
-              <a href="mailto:hello@sunrisesystems.co" className="text-orbit-accent hover:underline">
-                hello@sunrisesystems.co
+              <a href="mailto:[CONTACT EMAIL]" className="text-orbit-accent hover:underline">
+                [CONTACT EMAIL]
               </a>.
             </p>
           </Section>
@@ -198,8 +198,8 @@ export function PrivacyClient() {
             </ul>
             <p>
               To exercise any of these rights, email{" "}
-              <a href="mailto:hello@sunrisesystems.co" className="text-orbit-accent hover:underline">
-                hello@sunrisesystems.co
+              <a href="mailto:[CONTACT EMAIL]" className="text-orbit-accent hover:underline">
+                [CONTACT EMAIL]
               </a>.
               We will respond within 30 days.
             </p>
@@ -247,8 +247,8 @@ export function PrivacyClient() {
             <p>
               For questions, concerns, or requests related to this privacy
               policy, contact us at{" "}
-              <a href="mailto:hello@sunrisesystems.co" className="text-orbit-accent hover:underline">
-                hello@sunrisesystems.co
+              <a href="mailto:[CONTACT EMAIL]" className="text-orbit-accent hover:underline">
+                [CONTACT EMAIL]
               </a>.
             </p>
           </Section>

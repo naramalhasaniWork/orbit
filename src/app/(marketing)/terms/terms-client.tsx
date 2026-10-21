@@ -61,8 +61,8 @@ export function TermsClient() {
               credentials and GitHub OAuth connection. You are responsible for
               all activity that occurs under your account. Notify us immediately
               at{" "}
-              <a href="mailto:hello@sunrisesystems.co" className="text-orbit-accent hover:underline">
-                hello@sunrisesystems.co
+              <a href="mailto:[CONTACT EMAIL]" className="text-orbit-accent hover:underline">
+                [CONTACT EMAIL]
               </a>{" "}
               if you suspect unauthorized access.
             </p>
@@ -275,8 +275,8 @@ export function TermsClient() {
           <Section title="16. Contact">
             <p>
               For questions about these terms, contact us at{" "}
-              <a href="mailto:hello@sunrisesystems.co" className="text-orbit-accent hover:underline">
-                hello@sunrisesystems.co
+              <a href="mailto:[CONTACT EMAIL]" className="text-orbit-accent hover:underline">
+                [CONTACT EMAIL]
               </a>.
             </p>
           </Section>
