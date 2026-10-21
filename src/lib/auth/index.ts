@@ -8,6 +8,8 @@ import { encryptToken } from "@/lib/vault/token";
 import { evaluateSignIn } from "./signup-policy";
 import { consumeRateLimit } from "./rate-limit";
 import { isSelfHosted } from "@/lib/self-host";
+import { AVATAR_SOURCE_SELECT, resolveAvatarUrl } from "@/lib/avatar/resolve";
+import { getAvatarSource } from "@/server/data/user-avatar-repo";
 
 const SIGNIN_ATTEMPTS_PER_ACCOUNT = 10;
 const SIGNIN_WINDOW_SEC = 600;
@@ -73,6 +75,13 @@ export const authOptions: AuthOptions = {
         return token;
       }
 
+      // The profile page calls update({ avatar: true }) after an upload or removal
+      if (trigger === "update" && updateData?.avatar && token.userId) {
+        const source = await getAvatarSource(token.userId as string);
+        if (source) token.picture = resolveAvatarUrl(source);
+        return token;
+      }
+
       if (trigger === "signIn" || trigger === "signUp") {
         // Store provider-specific access tokens
         if (account?.access_token) {
@@ -129,9 +138,11 @@ export const authOptions: AuthOptions = {
           // Fetch user platform role
           const dbUser = await prisma.user.findUnique({
             where: { id: user.id },
-            select: { role: true },
+            select: { role: true, ...AVATAR_SOURCE_SELECT },
           });
           token.userRole = dbUser?.role ?? "user";
+          // An uploaded photo wins over the OAuth one NextAuth put in token.picture
+          if (dbUser) token.picture = resolveAvatarUrl(dbUser);
 
           const membership = await prisma.workspaceMember.findFirst({
             where: { userId: user.id, workspace: { deletedAt: null } },
