@@ -1,8 +1,8 @@
 # Orbit Enterprise (`src/ee/`)
 
-Code in this directory is under the [Orbit Enterprise License](./LICENSE), not the AGPL-3.0 that covers the rest of Orbit. Development and testing are free; production use needs a subscription and a license key.
+Code in this directory is under the [Orbit Enterprise License](./LICENSE), not the O'Saasy License that covers the rest of Orbit. Development and testing are free; production use needs a subscription and a license key.
 
-Self-hosting the AGPL core is free and needs no key. On a self-hosted install, enterprise features stay off until a valid key is set; on hosted Orbit they come with the Team and Enterprise plans.
+Self-hosting the core is free and needs no key. On a self-hosted install, enterprise features stay off until a valid key is set; on hosted Orbit they come with the Team and Enterprise plans.
 
 ## Features
 

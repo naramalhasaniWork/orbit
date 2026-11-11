@@ -134,7 +134,7 @@ pnpm test:watch    # Run tests in watch mode
 
 ## License and CLA
 
-Orbit is dual-licensed by Naram Alhasani: everything outside `src/ee/` is AGPL-3.0-only ([LICENSE](./LICENSE)), and `src/ee/` is under the commercial [Orbit Enterprise License](./src/ee/LICENSE). See [COPYRIGHT](./COPYRIGHT).
+Orbit is dual-licensed by Naram Alhasani: everything outside `src/ee/` is under the O'Saasy License ([LICENSE](./LICENSE)), and `src/ee/` is under the commercial [Orbit Enterprise License](./src/ee/LICENSE). See [COPYRIGHT](./COPYRIGHT).
 
 Before your first pull request can be merged, you need to sign the [Contributor License Agreement](./.github/CLA.md). In short, you keep the copyright in your contributions and grant Naram Alhasani a perpetual, irrevocable license to use, modify, and relicense them under any terms, including the AGPL and commercial licenses. Dual licensing depends on that grant. The CLA Assistant GitHub app asks you to sign with a comment on your first pull request; it records the signature once for all later ones.
 

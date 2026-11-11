@@ -13,7 +13,7 @@
 <text class="s" x="50" y="296" font-size="17" fill="#a4aab4">Orbit reads the diff, works out which user journeys it</text>
 <text class="s" x="50" y="320" font-size="17" fill="#a4aab4">touches, and walks them in a real browser on your</text>
 <text class="s" x="50" y="344" font-size="17" fill="#a4aab4">preview deployment.</text>
-<text class="m" x="50" y="410" font-size="11" letter-spacing=".6" fill="#7d848f">OPEN SOURCE · AGPL-3.0 · SELF-HOSTED</text>
+<text class="m" x="50" y="410" font-size="11" letter-spacing=".6" fill="#7d848f">SELF-HOSTED · O&#39;SAASY LICENSE</text>
 <rect x="560" y="40" width="600" height="420" rx="10" fill="#111316" stroke="#23272d"/>
 <line x1="560" x2="1160" y1="80" y2="80" stroke="#23272d"/>
 <text class="m" x="588" y="66" font-size="10" letter-spacing="1.2" fill="#7d848f">1 MAP<animate attributeName="fill" dur="10s" repeatCount="indefinite" keyTimes="0;0.000;0.020;0.960;1" values="#7d848f;#7d848f;#ff7a3d;#ff7a3d;#7d848f"/></text><text class="m" x="670" y="66" font-size="10" letter-spacing="1.2" fill="#7d848f">2 SCOPE<animate attributeName="fill" dur="10s" repeatCount="indefinite" keyTimes="0;0.100;0.120;0.960;1" values="#7d848f;#7d848f;#ff7a3d;#ff7a3d;#7d848f"/></text><text class="m" x="766" y="66" font-size="10" letter-spacing="1.2" fill="#7d848f">3 RUN<animate attributeName="fill" dur="10s" repeatCount="indefinite" keyTimes="0;0.420;0.440;0.960;1" values="#7d848f;#7d848f;#ff7a3d;#ff7a3d;#7d848f"/></text><text class="m" x="848" y="66" font-size="10" letter-spacing="1.2" fill="#7d848f">4 EXPLAIN<animate attributeName="fill" dur="10s" repeatCount="indefinite" keyTimes="0;0.680;0.700;0.960;1" values="#7d848f;#7d848f;#ff7a3d;#ff7a3d;#7d848f"/></text>

@@ -238,7 +238,7 @@ Agent prompt definitions live in `.claude/agents/`. Use these when spawning spec
 
 ## License and Ownership
 
-Copyright (c) 2026 Naram Alhasani (personally). Everything outside `src/ee/` is AGPL-3.0-only (`LICENSE`); `src/ee/` is under the commercial Orbit Enterprise License (`src/ee/LICENSE`). See `COPYRIGHT`.
+Copyright (c) 2026 Naram Alhasani (personally). Everything outside `src/ee/` is under the O'Saasy License (`LICENSE`, MIT plus a no-competing-SaaS clause); `src/ee/` is under the commercial Orbit Enterprise License (`src/ee/LICENSE`). See `COPYRIGHT`.
 
 - Paid features live in `src/ee/` and are gated with `eeFeatureRequired()` / `hasEeFeature()` (`src/ee/entitlement.ts`). Hosted: by workspace plan (Team/`professional` and Enterprise). Self-hosted: by license key only, an offline Ed25519 check of `ORBIT_EE_LICENSE_KEY` against the embedded `EE_PUBLIC_KEY`; keys issued with `scripts/ee/issue-license.ts`; the private key never enters the repo. Currently gated: audit log CSV export.
 - Gating another existing core feature is an owner decision; never cripple self-hosting of the core.

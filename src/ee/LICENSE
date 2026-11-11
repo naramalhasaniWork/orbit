@@ -7,8 +7,8 @@ Copyright (c) 2026 Naram Alhasani. All rights reserved.
 This license applies to every file in the `src/ee/` directory of the Orbit
 repository and to any file elsewhere whose header states that it is covered by
 this license (together, the "Enterprise Software"). Everything else in the
-repository is licensed under the GNU Affero General Public License version 3
-only (see the LICENSE file at the repository root).
+repository is licensed under the O'Saasy License (see the LICENSE file at the
+repository root).
 
 1. Definitions
 
@@ -66,7 +66,7 @@ only (see the LICENSE file at the repository root).
 6. Third-party components
 
    Third-party components used by the Enterprise Software remain under their
-   own licenses. Nothing in this license limits the rights the AGPL-3.0 grants
+   own licenses. Nothing in this license limits the rights the O'Saasy License grants
    You for the parts of Orbit outside the Enterprise Software.
 
 7. Termination

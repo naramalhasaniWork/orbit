@@ -13,7 +13,7 @@
 Orbit reads a pull request's diff, works out which user journeys it touches, and walks those journeys in a
 real browser on the PR's preview deployment. What broke lands on the PR as a GitHub check, in plain English,
 with the recording and the step that failed. It runs on your infrastructure with your own model key.
-Open source under AGPL-3.0.
+Source-available under the O'Saasy License: free to use, self-host and modify.
 
 ![A failed run in Orbit: the failure explained first, then the suggested fix, with one tick per test](docs/images/run-failure.png)
 
@@ -202,7 +202,8 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, standards and the contributor 
 
 Copyright (c) 2026 Naram Alhasani.
 
-- The core (everything outside `src/ee/`) is [AGPL-3.0-only](LICENSE). Self-hosting it is free.
+- The core (everything outside `src/ee/`) is under the [O'Saasy License](LICENSE): the MIT license plus one condition, that you
+  don't offer Orbit to others as a competing hosted service. Using, self-hosting and modifying it are free.
 - `src/ee/` is under the commercial [Orbit Enterprise License](src/ee/LICENSE): free for development and
   testing, a subscription for production use.
 

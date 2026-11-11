@@ -1,5 +1,5 @@
 /**
- * Orbit Enterprise license-key gate. Licensed under src/ee/LICENSE, not the AGPL.
+ * Orbit Enterprise license-key gate. Licensed under src/ee/LICENSE, not the root LICENSE.
  *
  * A license key is `base64url(JSON payload).base64url(Ed25519 signature over the payload segment)`.
  * Verification is offline: no network calls, only the official public key below.

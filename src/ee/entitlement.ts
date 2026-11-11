@@ -1,5 +1,5 @@
 /**
- * Who gets Orbit Enterprise features. Licensed under src/ee/LICENSE, not the AGPL.
+ * Who gets Orbit Enterprise features. Licensed under src/ee/LICENSE, not the root LICENSE.
  *
  * Hosted Orbit: by workspace plan. Self-hosted: by license key (ORBIT_EE_LICENSE_KEY), never by plan.
  * Local development (NODE_ENV=development) always has them.
