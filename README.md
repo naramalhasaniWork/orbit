@@ -1,233 +1,209 @@
-# Orbit
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset=".github/readme/hero-dark.svg">
+  <img src=".github/readme/hero-light.svg" width="100%" alt="Orbit. Know what this PR broke before you merge it. A pull request changes CheckoutButton; Orbit scopes the change to the /checkout route and POST /orders, walks the journey in a real browser, and posts a failing GitHub check that explains why.">
+</picture>
 
-**Know what this PR broke before you merge it.**
+<p align="center">
+  <a href="#self-host-it">Self-host it</a> ·
+  <a href="#how-it-works">How it works</a> ·
+  <a href="#develop-locally">Develop locally</a> ·
+  <a href="docs/setup-guide.md">Setup guide</a>
+</p>
 
-Orbit reads the diff, works out which user journeys it touches, and walks them in a real browser on your
-preview deployment. What broke lands on the PR in plain English, with the recording and the line that
-caused it. It runs on your infrastructure with your model key. Open source (AGPL-3.0).
+Orbit reads a pull request's diff, works out which user journeys it touches, and walks those journeys in a
+real browser on the PR's preview deployment. What broke lands on the PR as a GitHub check, in plain English,
+with the recording and the step that failed. It runs on your infrastructure with your own model key.
+Open source under AGPL-3.0.
 
 ![A failed run in Orbit: the failure explained first, then the suggested fix, with one tick per test](docs/images/run-failure.png)
 
-## Quickstart
+## Self-host it
 
-**Railway.** Deploy the services described in [docs/self-hosting/railway.md](./docs/self-hosting/railway.md)
-(web, Postgres with pgvector, Redis, browserless), then follow
-[docs/self-hosting/first-run.md](./docs/self-hosting/first-run.md): the `/setup` checklist, one GitHub App,
-and the first sign-in becomes the admin.
+Orbit is one web service plus Postgres (with pgvector), Redis and a headless browser.
 
-**Docker Compose.**
-
-```bash
-cp .env.selfhost.example .env     # secrets, GitHub App, model key
-docker compose up -d
-```
-
-Open the app, finish `/setup`, sign in. The same [first-run guide](./docs/self-hosting/first-run.md) applies
-from step 2.
-
-## How it works
-
-1. **Map.** Routes, components, API calls and data models become a dependency graph (tree-sitter), rebuilt on every push.
-2. **Scope.** On a pull request, changed files are walked up the graph to the journeys a user would notice.
-3. **Run.** A real Chromium walks each journey on the PR's preview (Railway PR environments, Cloudflare Pages, including behind Cloudflare Access).
-4. **Explain.** One GitHub check with the cause, the step it failed at, screenshots and a suggested fix. Linear and Slack if you want them.
-5. **Replay.** A case's first passing run is compiled into a replay script; later runs replay it with zero model calls.
-
-## How it compares
-
-An honest sketch of the trade-offs, not a feature war.
-
-| | Orbit | Playwright with an AI agent | Hosted AI QA services |
-|---|---|---|---|
-| Who writes the tests | Planned from the code map; you review and edit | You (the agent helps write specs) | The vendor's agent, from your app's UI |
-| What runs on a PR | Journeys the diff can reach | Your whole suite, or what you select | Usually the whole suite, or a schedule |
-| Where it runs | Your infrastructure | Your CI | Their cloud |
-| Your code leaves your infra | No | No | Typically yes, or the app is crawled |
-| Model cost | Your key, visible per run; replays cost no model calls | Your key, while authoring | Bundled into their price |
-| Maintenance when the UI changes | Agent heals a diverged step and saves the new version | You update selectors and specs | The vendor's agent |
-
-## Architecture
-
-One Next.js service (web and BullMQ workers in-process, or split with `ORBIT_ROLE`), Postgres with pgvector,
-Redis and a headless browser.
-
-- **Indexing** (`src/services/indexing/`): clone, framework detection, tree-sitter parsing, System Map.
-- **Planning** (`src/services/planning/`): journeys, prioritised test cases, diff scoping.
-- **Execution** (`src/server/engine/`, `src/services/execution/`): one case runner, Playwright over CDP, compile-and-replay.
-- **Reporting** (`src/services/reporting/`): failure analysis, GitHub checks and comments, Linear, Slack.
-- **Previews** (`src/services/preview/`): Railway and Cloudflare Pages preview discovery and binding.
-- **MCP** (`src/services/mcp/`): an MCP server for coding agents, and MCP tools callable during a test.
-
-### Compile-and-replay
-
-The Executor's first passing run of a browser case is compiled into a replay script (`test_scripts`): one resolved action per step, with css / role+name / test-id / text locators and a deterministic assertion for every step. If a step has no assertion of its own, one cheap model call derives one, and it must already hold on the page captured after that step. If any step still lacks an assertion, the case stays agent-only.
-
-Later runs replay the script with zero model calls. When a step diverges, the agent takes over the live page from that step, and a passing heal is saved as the next script version. Scripts are keyed by environment, role and viewport. They are ignored when the case's steps change. Scripts covering changed code are marked `suspect`. The agent re-verifies 1 in 20 replays, and any script it hasn't verified for 14 days. Replay is benched for a case when more than 30% of its last 10 replays diverged.
-
-`GET /api/admin/execution-cost?since=<ISO>` reports model calls and estimated $ per 100 executions by mode (agent / replay / replay_healed). `GET /api/projects/:id/test-cases/:caseId/script.spec.ts` exports a script as a Playwright test.
-
-### Tech Stack
-
-- **Framework:** Next.js 14+ App Router (TypeScript strict)
-- **Database:** PostgreSQL + pgvector for semantic retrieval
-- **Queue:** BullMQ on Redis
-- **Browser automation:** Playwright over CDP (browserless or local Chromium)
-- **AST parsing:** tree-sitter, with a regex fallback
-- **AI providers:** Anthropic, OpenAI or OpenRouter, routed per task; bring your own key
-- **Auth:** NextAuth with GitHub OAuth
-- **Real-time:** Server-Sent Events for live run progress
-
-## Project Structure
-
-```
-src/
-  app/
-    (admin)/          # Super admin dashboard
-    (auth)/           # Authentication pages
-    (dashboard)/      # Main application dashboard
-    (marketing)/      # Landing pages and marketing site
-    api/              # API routes (REST + webhooks)
-  agents/             # Agent prompt templates (operator + user layers)
-  components/         # React components (shadcn/ui based)
-  hooks/              # Custom React hooks
-  lib/                # Shared utilities, DB client, auth config
-  server/
-    engine/           # Unified case runner, case executors, compile-and-replay
-  services/
-    indexing/         # Repo indexing, tree-sitter parsing, System Map
-    planning/         # Test plan generation, coverage analysis
-    execution/        # Browser orchestration, Playwright runners
-    reporting/        # Results synthesis, report generation
-    orchestrator/     # Multi-agent coordination, token budgets
-    integrations/     # Linear, GitHub, Slack connectors
-    mcp/              # MCP server for coding agents, MCP tools during tests
-    preview/          # Railway and Cloudflare Pages preview discovery
-    ai-suggestions/   # AI-powered test suggestions
-  workers/            # BullMQ job processors
-  types/              # Shared TypeScript interfaces
-```
-
-## Quick Start (development)
-
-### Prerequisites
-
-- Node.js 20
-- pnpm (version pinned by `packageManager` in `package.json`)
-- PostgreSQL 16+ with the pgvector extension
-- Redis
-
-### Setup
+### Docker Compose
 
 ```bash
 git clone https://github.com/naramalhasaniWork/orbit.git
 cd orbit
-pnpm install
-
-cp .env.example .env.local     # then fill in values
-pnpm db:migrate:deploy         # apply migrations
-pnpm dev
+cp .env.selfhost.example .env     # fill in secrets, GitHub App and a model key
+docker compose up -d
 ```
 
-The app runs at `http://localhost:3000`. Background workers (BullMQ) start in-process
-with the web server via `src/instrumentation.ts` (`ORBIT_ROLE=all`, the default). To run them in
-their own container set `ORBIT_ROLE=web` on the server and `ORBIT_ROLE=worker` on a second container
-(see `docs/self-hosting/railway.md`). `pnpm workers` starts workers alone for development; don't run it
-next to a server that also runs them, or the two just share the queues.
+This starts `web`, `postgres` (pgvector), `redis` and `browser` (browserless). Then:
 
-Generate the two required secrets:
+1. Open the app. A new instance sends you to **`/setup`**, a checklist that tests the database, Redis, the
+   browser, your secrets, the GitHub App and the model key. Each red item names the variable to set.
+2. Create the GitHub App (below) and fill in its variables.
+3. Sign in with GitHub. **The first person to sign in becomes the admin**, and `/setup` closes.
+4. Connect a repository and open a pull request.
+
+### Railway
+
+Create the services in [docs/self-hosting/railway.md](docs/self-hosting/railway.md), then follow
+[docs/self-hosting/first-run.md](docs/self-hosting/first-run.md). It takes about 20 minutes, most of it
+creating the GitHub App.
+
+### The GitHub App
+
+One GitHub App handles both sign-in and repository access. A plain OAuth App won't work.
+
+| Setting | Value |
+|---|---|
+| Callback URL | `<NEXTAUTH_URL>/api/auth/callback/github` |
+| Setup URL | `<NEXTAUTH_URL>/api/github/installations/callback` |
+| Request user authorization (OAuth) during installation | On |
+
+Copy its client ID and secret, app ID, slug and private key into `GITHUB_CLIENT_ID`,
+`GITHUB_CLIENT_SECRET`, `GITHUB_APP_ID`, `GITHUB_APP_SLUG` and `GITHUB_APP_PRIVATE_KEY`.
+
+### Required variables
+
+| Variable | What it is |
+|---|---|
+| `DATABASE_URL` | Postgres with the pgvector extension. |
+| `REDIS_URL` | Redis, for BullMQ queues and pub/sub. |
+| `NEXTAUTH_URL` | The app's public URL. |
+| `NEXTAUTH_SECRET` | Session signing secret. |
+| `ENCRYPTION_KEY` | Encrypts stored secrets. Losing it makes them unreadable. |
+| `GITHUB_*` | The GitHub App, above. |
+| `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` or `OPENROUTER_API_KEY` | At least one model provider. `ORBIT_AI_KEYS=byok` lets each workspace bring its own instead. |
+| `PLAYWRIGHT_WS_ENDPOINT` | A remote browser (browserless). Falls back to local Chromium when unset. |
+
+Generate the two secrets:
 
 ```bash
 echo "NEXTAUTH_SECRET=$(openssl rand -base64 32)"; echo "ENCRYPTION_KEY=$(openssl rand -hex 32)"
 ```
 
-Optional demo data: `pnpm db:seed`. When changing `prisma/schema.prisma`, create a migration
-with `pnpm db:migrate` (never `db push` against a shared database). Read the generated SQL before
-committing it: it must never contain `DROP INDEX` for the search indexes that `src/lib/db/vector.ts`
-builds at startup. `system_map_nodes_name_trgm_idx` is declared in the schema for that reason; the
-HNSW and full-text expression indexes are invisible to Prisma, so it leaves them alone.
+Everything else is optional and documented in [`.env.example`](.env.example): storage (`STORAGE_PROVIDER`
+`local`, `s3` or `r2`), embeddings (`ORBIT_EMBEDDINGS`), Linear, Slack, GitLab, email, and `ORBIT_*`
+deployment flags. The container applies migrations on start. Health check: `GET /api/health`, which returns
+503 naming the dependency that failed.
+
+## How it works
+
+1. **Map.** Routes, components, API calls and data models become a dependency graph (tree-sitter), rebuilt on every push.
+2. **Scope.** On a pull request, the changed files are walked up the graph to the journeys a user would notice.
+3. **Run.** A real Chromium walks each journey on the PR's preview: Railway PR environments or Cloudflare Pages, including behind Cloudflare Access.
+4. **Explain.** One GitHub check with the cause, the step it failed at, screenshots and a suggested fix. Linear and Slack too, if you connect them.
+5. **Replay.** A case's first passing run is compiled into a script. Later runs replay it with zero model calls.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset=".github/readme/architecture-dark.svg">
+  <img src=".github/readme/architecture-light.svg" width="100%" alt="Orbit architecture: GitHub sends pull request webhooks to one Next.js service running web and BullMQ workers. It stores the map in Postgres with pgvector, queues work in Redis, drives a headless Chromium over CDP against the PR preview deployment, calls your model provider with your key, and posts results back as a GitHub check.">
+</picture>
+
+Web and workers run in one process by default. Set `ORBIT_ROLE=web` on one container and
+`ORBIT_ROLE=worker` on another to split them.
+
+| Area | Code |
+|---|---|
+| Indexing: clone, framework detection, tree-sitter, System Map | `src/services/indexing/` |
+| Planning: journeys, prioritised cases, diff scoping | `src/services/planning/` |
+| Execution: one case runner, Playwright over CDP, compile-and-replay | `src/server/engine/`, `src/services/execution/` |
+| Reporting: failure analysis, GitHub checks, Linear, Slack | `src/services/reporting/` |
+| Previews: Railway and Cloudflare Pages discovery | `src/services/preview/` |
+| MCP: a server for coding agents, and MCP tools callable during a test | `src/services/mcp/` |
+
+### Compile-and-replay
+
+The first passing run of a browser case is compiled into a replay script: one resolved action per step,
+with css, role and name, test-id or text locators, and an assertion for every step. If a step has no
+assertion of its own, one cheap model call derives one, and it must already hold on the page captured after
+that step. A case with any step still lacking an assertion stays agent-only.
+
+Later runs replay the script with no model calls. When a step diverges, the agent takes over the live page
+from that step, and a passing heal is saved as the next script version. Scripts are keyed by environment,
+role and viewport, and ignored once the case's steps change. Scripts covering changed code are marked
+`suspect`. The agent re-verifies 1 in 20 replays and any script it hasn't verified in 14 days. Replay is
+benched for a case when more than 3 of its last 10 replays diverged.
+
+- `GET /api/admin/execution-cost?since=<ISO>`: model calls and estimated cost per 100 executions, by mode.
+- `GET /api/projects/:id/test-cases/:caseId/script.spec.ts`: export a script as a Playwright test.
+
+### How it compares
+
+| | Orbit | Playwright with an AI agent | Hosted AI QA services |
+|---|---|---|---|
+| Who writes the tests | Planned from the code map; you review and edit | You, with the agent helping | The vendor's agent, from your UI |
+| What runs on a PR | Journeys the diff can reach | Your whole suite, or what you select | Usually the whole suite, or a schedule |
+| Where it runs | Your infrastructure | Your CI | Their cloud |
+| Your code leaves your infra | No | No | Typically yes, or the app is crawled |
+| Model cost | Your key, shown per run; replays cost nothing | Your key, while authoring | Bundled into their price |
+| When the UI changes | The agent heals the step and saves a new version | You update selectors and specs | The vendor's agent |
+
+## Develop locally
+
+You need Node 20, pnpm, PostgreSQL 16+ with pgvector, and Redis.
+
+```bash
+git clone https://github.com/naramalhasaniWork/orbit.git
+cd orbit
+pnpm install
+cp .env.example .env.local     # fill in the required variables
+pnpm db:migrate:deploy
+pnpm dev                       # http://localhost:3000, workers start in-process
+pnpm db:seed                   # optional demo data
+```
+
+`pnpm workers` runs the workers on their own. Don't run it alongside a dev server that also runs them.
+
+| Command | What it does |
+|---|---|
+| `pnpm dev` | Dev server, with workers |
+| `pnpm build` / `pnpm start` | Production build and server |
+| `pnpm test` | Vitest |
+| `pnpm lint` | ESLint |
+| `pnpm db:migrate` | Create and apply a migration (dev) |
+| `pnpm db:migrate:deploy` | Apply pending migrations (production) |
+| `pnpm db:migrate:status` | Show which migrations have run |
+| `pnpm db:studio` | Prisma Studio |
+
+> [!IMPORTANT]
+> Change the schema only through `pnpm db:migrate`, never `db push` against a shared database. Read the
+> generated SQL before committing: it must never `DROP INDEX` the search indexes that
+> `src/lib/db/vector.ts` builds at startup. The HNSW and full-text indexes are invisible to Prisma, and
+> `system_map_nodes_name_trgm_idx` is declared in the schema for that reason.
 
 ### Data access
 
-API routes read and write through `ctx.db`, the caller's workspace scope from
-`src/server/data/scope.ts`: every query gets its tenant filter added, and `await ctx.db.project(id)`
-is the only way to a project's rows (404 for another workspace's project). Writes cannot move a row
-to another tenant or connect another tenant's rows (nested `connect`/`set`/`upsert` are refused),
-child rows (results, messages) are created only under a parent the scope can see, and global
-tables other than the caller's own workspace row and read-only platform tables are not on `ctx.db`.
-Workers and the engine
-use `forSystem()`. `.eslintrc.json` bans `@/lib/db` and `@/generated/prisma` in `src/app/api` and
-`src/components`; files not yet migrated sit in an allowlist override there, which only shrinks.
-The `tenantGuard` extension throws on an unscoped tenant query in dev and tests and logs in
-production (`ORBIT_TENANT_GUARD=throw|log|off` overrides). Real-Postgres suites run when
-`ORBIT_TEST_DATABASE_URL` points at a migrated database.
+API routes read and write through `ctx.db`, the caller's workspace scope from `src/server/data/scope.ts`.
+Every query gets its tenant filter added, and `await ctx.db.project(id)` is the only way to a project's rows
+(another workspace's project is a 404). Writes cannot move a row to another tenant or connect another
+tenant's rows. Child rows are created only under a parent the scope can see. Workers and the engine use
+`forSystem()`.
 
-## Environment Variables
+`.eslintrc.json` bans importing `@/lib/db` and `@/generated/prisma` in `src/app/api` and
+`src/components`. Files not yet migrated sit in an allowlist that only shrinks. The `tenantGuard` extension
+throws on an unscoped tenant query in dev and tests and logs in production
+(`ORBIT_TENANT_GUARD=throw|log|off`). Real-Postgres suites run when `ORBIT_TEST_DATABASE_URL` points at a
+migrated database.
 
-Required for every deployment:
+### Project layout
 
-| Variable | Description |
-|----------|-------------|
-| `DATABASE_URL` | PostgreSQL connection string (pgvector required) |
-| `REDIS_URL` | Redis connection string (BullMQ queues, pub/sub) |
-| `NEXTAUTH_URL` | Public URL of the app |
-| `NEXTAUTH_SECRET` | JWT signing secret |
-| `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | Credentials of your **GitHub App** (login and repo access; plain OAuth Apps are not supported) |
-| `ENCRYPTION_KEY` | Key for the secrets vault; losing it makes stored secrets unreadable |
-| `ANTHROPIC_API_KEY` / `OPENAI_API_KEY` / `OPENROUTER_API_KEY` / `ORBIT_OPENAI_COMPATIBLE_BASE_URL` | AI chat providers; at least one is required (or `ORBIT_AI_KEYS=byok`). `ORBIT_EMBEDDINGS=openai\|voyage\|ollama\|none` picks the embedding provider; `none` uses keyword search |
-| `PLAYWRIGHT_WS_ENDPOINT` | Remote browser (browserless). Falls back to local Chromium if unset |
-
-**GitHub setup:** create one GitHub App for both login and repo access. Set its callback URL to `<NEXTAUTH_URL>/api/auth/callback/github`, its setup URL to `<NEXTAUTH_URL>/api/github/installations/callback`, and enable "Request user authorization (OAuth) during installation". Also set `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY` and `GITHUB_APP_SLUG` (required at boot unless `ORBIT_SELF_HOSTED=true`, where only a warning is logged). Permissions come from the App's configuration; OAuth scopes are not requested. On self-hosted instances `GITHUB_TOKEN` is used only for public repos unless `ORBIT_GITHUB_TOKEN_FALLBACK=true`; it is never used on hosted Orbit.
-
-`STORAGE_PROVIDER` is `local`, `s3` or `r2`; `s3` and `r2` need `S3_BUCKET`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, and `r2` also needs `S3_ENDPOINT`. Anything else fails at boot.
-
-Everything else (storage, GitHub App, GitLab, Linear, Slack, Stripe, `ORBIT_*` deployment
-flags, `SUPER_ADMIN_EMAILS`) is optional and documented in [`.env.example`](./.env.example).
-
-## Available Scripts
-
-| Command | Description |
-|---------|-------------|
-| `pnpm dev` | Start Next.js dev server |
-| `pnpm build` | Production build |
-| `pnpm start` | Start production server (standalone) |
-| `pnpm lint` | Run ESLint |
-| `pnpm test` | Run tests with Vitest |
-| `pnpm db:generate` | Generate the Prisma client |
-| `pnpm db:migrate` | Create and apply a migration (dev) |
-| `pnpm db:migrate:deploy` | Apply pending migrations (production) |
-| `pnpm db:migrate:status` | Show migration status |
-| `pnpm db:seed` | Load demo data |
-| `pnpm db:studio` | Open Prisma Studio |
-
-## Deployment
-
-Orbit is a single web service plus Postgres, Redis and a headless-browser sidecar.
-The container applies pending migrations (`prisma migrate deploy`) on start, then runs the server.
-Health check: `GET /api/health` (returns 503 naming the failed dependency).
-
-### Self-host with Docker Compose
-
-```bash
-cp .env.selfhost.example .env     # fill in secrets, OAuth app, AI keys
-docker compose up -d
 ```
-
-Starts `web`, `postgres` (pgvector), `redis` and `browser` (browserless). Artifacts are stored
-in the `storage-data` volume.
-
-### Railway
-
-See [docs/self-hosting/railway.md](./docs/self-hosting/railway.md) for the services, then [docs/self-hosting/first-run.md](./docs/self-hosting/first-run.md) for the first-run walkthrough (`/setup` checklist, GitHub App, first admin login).
+src/
+  app/            (admin) (auth) (dashboard) (marketing) and api/ routes
+  agents/         agent prompt templates
+  components/     React components on shadcn/ui and the Telemetry tokens
+  server/engine/  case runner, executors, compile-and-replay
+  services/       indexing · planning · execution · reporting · orchestrator · integrations · mcp · preview
+  workers/        BullMQ job processors
+  lib/            db client, auth, queue, vault, utilities
+prisma/           schema, migrations, seed
+```
 
 ## Contributing
 
-See [CONTRIBUTING.md](./CONTRIBUTING.md) for development setup, coding standards, and PR guidelines.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, standards and the contributor license agreement.
 
 ## License
 
 Copyright (c) 2026 Naram Alhasani.
 
-- The core (everything outside `src/ee/`) is [AGPL-3.0-only](./LICENSE).
-- `src/ee/` is under the commercial [Orbit Enterprise License](./src/ee/LICENSE): free for development and testing, a subscription for production use.
+- The core (everything outside `src/ee/`) is [AGPL-3.0-only](LICENSE). Self-hosting it is free.
+- `src/ee/` is under the commercial [Orbit Enterprise License](src/ee/LICENSE): free for development and
+  testing, a subscription for production use.
 
-Self-hosting the core is free. See [COPYRIGHT](./COPYRIGHT) for the split and [CONTRIBUTING.md](./CONTRIBUTING.md#license-and-cla) for the contributor license agreement.
+See [COPYRIGHT](COPYRIGHT) for the split.
