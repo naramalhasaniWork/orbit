@@ -34,7 +34,7 @@ export default function OpengraphImage() {
         </div>
         <div style={{ display: "flex", justifyContent: "space-between", borderTop: "2px solid #111316", paddingTop: 20, fontSize: 22, color: "#4A5059" }}>
           <span>AI QA for pull requests</span>
-          <span>Self-hosted · O'Saasy license</span>
+          <span>Self-hosted · O&apos;Saasy license</span>
         </div>
       </div>
     ),

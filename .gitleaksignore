@@ -1,5 +1,14 @@
-c3e0d9e3164687eae468ff84fb456211aef67bca:src/__tests__/unit/openrouter.test.ts:generic-api-key:18
+# Findings in history that are known and accepted. Entries are commit:file:rule:line, so they
+# break whenever history is rewritten; regenerate them with
+#   gitleaks git --redact --report-format json --report-path /tmp/gl.json .
+# and copy each Fingerprint.
 
-# Real Railway Postgres URL with password, committed in d652427. The credential MUST be rotated and
-# history squashed/rewritten before this repo goes public; remove this entry afterwards.
-d6524274a4405383a2d817d8fa4dd877e5af205f:scripts/sync-schema.mjs:url-inline-credentials:12
+# Mock key in a unit test, not a real credential.
+51330e24d5739d9b38c59c0253a128c9e879c60a:src/__tests__/unit/openrouter.test.ts:generic-api-key:18
+670fa8484f198967b2835c5d5a849cc0a74a0020:src/__tests__/unit/credential-placeholders.test.ts:generic-api-key:15
+
+# Railway Postgres and Redis URLs with passwords, committed before the repo went public.
+# Checked dead on 2026-11-11 before the repo was made public. Current files no longer contain them.
+160d67d2b7f2026306ba42977f1d1e7518eab70e:scripts/sync-schema.mjs:url-inline-credentials:12
+04a837fc1af411c47092f578e9ea0ace88b6e3a8:.env.local.example:url-inline-credentials:8
+04a837fc1af411c47092f578e9ea0ace88b6e3a8:.env.local.example:url-inline-credentials:11
